@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <!-- 红色背景 -->
+  <rect x="0" y="0" width="96" height="96" fill="#FF0000"/>
+  <!-- 四个同向「┌」形角标，2×2 排列 -->
+  <g fill="#000000">
+    <path d="M10 10 h28 v8 h-20 v20 h-8 Z"/>
+    <path d="M58 10 h28 v8 h-20 v20 h-8 Z"/>
+    <path d="M10 58 h28 v8 h-20 v20 h-8 Z"/>
+    <path d="M58 58 h28 v8 h-20 v20 h-8 Z"/>
+  </g>
+</svg>

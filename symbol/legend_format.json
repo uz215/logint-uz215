@@ -1,0 +1,128 @@
+{
+  "format_name": "well-logging fluid legend icons",
+  "version": "1.2",
+  "description": "油气水图例矩形图标格式定义（固化版）。要改样式只需改本文件后重跑 gen_legend_icons.py 重新生成 symbol/fluid_conclusions 下 PNG。probable/possible 类为纯色块样式（参照 symbol 原有 probable-oil.bmp/possible-oil.bmp/poss gas.jpg），无外框；其余均为矩形框：边框黑色加粗、内部按 split 规则填充。oil=深绿#006400 与 probable_oil=亮绿#22b14c、gas=正红#ff0000 与 probable_gas=橙红#ff5500 拉开对比。",
+  "output_dir": "symbol/fluid_conclusions",
+  "size": [160, 120],
+  "border": {"width": 3, "color": "#000000"},
+  "background": "#ffffff",
+  "icons": {
+    "gas": {
+      "label_cn": "气层",
+      "label_en": "Gas",
+      "fill": "#ff0000",
+      "split": "none",
+      "note": "整框红色"
+    },
+    "oil": {
+      "label_cn": "油层",
+      "label_en": "Oil",
+      "fill": "#006400",
+      "split": "none",
+      "note": "整框深绿色（与 probable_oil 亮绿拉开对比）"
+    },
+    "water": {
+      "label_cn": "水层",
+      "label_en": "Water",
+      "fill": "#0066ff",
+      "split": "none",
+      "note": "整框蓝色"
+    },
+    "gas_water": {
+      "label_cn": "气水同层",
+      "label_en": "Gas & Water",
+      "split": "diag",
+      "direction": "left_down",
+      "color1": "#ff0000",
+      "color2": "#0066ff",
+      "note": "对角线（左上→右下）分两半：上半=color1 红（气），下半=color2 蓝（水）。要反向改 direction=right_up。"
+    },
+    "oil_water": {
+      "label_cn": "油水同层",
+      "label_en": "Oil & Water",
+      "split": "diag",
+      "direction": "left_down",
+      "color1": "#006400",
+      "color2": "#0066ff",
+      "note": "对角线分两半：上半=color1 深绿（油），下半=color2 蓝（水）。"
+    },
+    "gas_oil": {
+      "label_cn": "气油同层",
+      "label_en": "Gas & Oil",
+      "split": "diag",
+      "direction": "left_down",
+      "color1": "#ff0000",
+      "color2": "#006400",
+      "note": "对角线分两半：上半=color1 红（气），下半=color2 绿（油）。"
+    },
+    "poor_gas": {
+      "label_cn": "差气层",
+      "label_en": "Poor Gas",
+      "split": "vert_left",
+      "color1": "#ff0000",
+      "ratio": 0.333,
+      "note": "左侧 1/3 红色（少量气），右侧 2/3 空白（白色背景）。比例改 ratio。"
+    },
+    "poor_oil": {
+      "label_cn": "差油层",
+      "label_en": "Poor Oil",
+      "split": "vert_left",
+      "color1": "#006400",
+      "ratio": 0.333,
+      "note": "左侧 1/3 深绿色（少量油），右侧 2/3 空白。"
+    },
+    "oil_bearing_water": {
+      "label_cn": "含油水层",
+      "label_en": "Oil-bearing Water",
+      "split": "vert",
+      "color1": "#006400",
+      "color2": "#0066ff",
+      "ratio": 0.2,
+      "note": "左侧约 20% 深绿色（油），右侧约 80% 蓝色（水）。比例改 ratio。"
+    },
+    "gas_bearing_water": {
+      "label_cn": "含气水层",
+      "label_en": "Gas-bearing Water",
+      "split": "vert",
+      "color1": "#ff0000",
+      "color2": "#0066ff",
+      "ratio": 0.2,
+      "note": "左侧约 20% 红色（气），右侧约 80% 蓝色（水）。"
+    },
+    "probable_oil": {
+      "label_cn": "可能油层(较可靠)",
+      "label_en": "Probable Oil",
+      "style": "solid",
+      "fill": "#22b14c",
+      "note": "纯色块无外框，参照 symbol/probable-oil.bmp 亮绿样式。"
+    },
+    "possible_oil": {
+      "label_cn": "可能油层(较不确定)",
+      "label_en": "Possible Oil",
+      "style": "solid",
+      "fill": "#00c7c7",
+      "note": "纯色块无外框，参照 symbol/possible-oil.bmp 青色样式。"
+    },
+    "probable_gas": {
+      "label_cn": "可能气层(较可靠)",
+      "label_en": "Probable Gas",
+      "style": "solid",
+      "fill": "#ff5500",
+      "note": "纯色块无外框，橙红色（与 gas 正红 #ff0000 拉开对比）。"
+    },
+    "possible_gas": {
+      "label_cn": "可能气层(较不确定)",
+      "label_en": "Possible Gas",
+      "style": "solid",
+      "fill": "#ff00ff",
+      "note": "纯色块无外框，参照 symbol/poss gas.jpg 洋红色样式。"
+    },
+    "tight": {
+      "label_cn": "致密层",
+      "label_en": "Tight",
+      "fill": "#8a8a8a",
+      "split": "none",
+      "note": "整框灰色（致密层，非储层）。"
+    }
+  }
+}

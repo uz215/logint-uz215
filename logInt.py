@@ -10512,10 +10512,17 @@ class FaciesAnalyzer:
         # 只能数出 1 条曲线，导致"有效曲线数量不足"而跳过岩性/沉积相/绘图。
         valid_curves = ['GR', 'GRX', 'GR_LAS', 'RT', 'RT_LAS', 'LLD', 'ILD', 'R90',
                         'RD', 'RS', 'RMSL', 'MSFL', 'LLS',
+                        # 【2026-10-21 R18】HAL7506 等老井的阵列电阻率 RAL1-5
+                        'RAL1', 'RAL2', 'RAL3', 'RAL4', 'RAL5',
                         'DEN', 'DEN_LAS', 'RHOB', 'ZDEN',
                         'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
-                        'DT', 'DTCO', 'DTC', 'AC',
-                        'PE', 'PEF', 'CAL', 'CALS', 'CALX', 'CALY', 'SP', 'BIT']
+                        'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
+                        'PE', 'PEF',
+                        # 【2026-10-21 R18】井径：RP-13 的井径列名是 CAL_AVERAGE，
+                        # 原名单只有 CAL/CALS/CALX/CALY → 井径这条有效曲线数不出来
+                        'CAL', 'CALS', 'CALX', 'CALY', 'CALI',
+                        'CAL_AVERAGE', 'CAL-AVG', 'CALAVG', 'CAL_MEAN',
+                        'SP', 'BIT']
 
         # 创建有效曲线计数列
         valid_counts = []
@@ -14320,10 +14327,17 @@ class WellLogProcessor:
         # 同上：必须覆盖 LAS 原始列名（ZDEN/CNCF/DTC/RD/RMSL/CALX…）
         valid_curves = ['GR', 'GRX', 'GR_LAS', 'RT', 'RT_LAS', 'LLD', 'ILD', 'R90',
                         'RD', 'RS', 'RMSL', 'MSFL', 'LLS',
+                        # 【2026-10-21 R18】HAL7506 等老井的阵列电阻率 RAL1-5
+                        'RAL1', 'RAL2', 'RAL3', 'RAL4', 'RAL5',
                         'DEN', 'DEN_LAS', 'RHOB', 'ZDEN',
                         'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
-                        'DT', 'DTCO', 'DTC', 'AC',
-                        'PE', 'PEF', 'CAL', 'CALS', 'CALX', 'CALY', 'SP', 'BIT']
+                        'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
+                        'PE', 'PEF',
+                        # 【2026-10-21 R18】井径：RP-13 的井径列名是 CAL_AVERAGE，
+                        # 原名单只有 CAL/CALS/CALX/CALY → 井径这条有效曲线数不出来
+                        'CAL', 'CALS', 'CALX', 'CALY', 'CALI',
+                        'CAL_AVERAGE', 'CAL-AVG', 'CALAVG', 'CAL_MEAN',
+                        'SP', 'BIT']
         valid_counts = []
         
         for i in range(len(data)):
@@ -14995,10 +15009,244 @@ def extract_mudlog_header(pdf_path):
 
 
 # ---------------------------------------------------------------------------
-# 地质设计（钻探程序 / DWOP）信息提取
+# 【2026-10-21 R18】录井图「平面文本键值对」兜底 + 井眼/套管/泥浆程序
+# ---------------------------------------------------------------------------
+# 背景：RASHIDPUR_13 的 masterlog 第 1 页表头是**单行 key:value 串**
+#（"WELL NAME:Rashidpur-13 | Latitude:24° 19' 48.14573" N | ..."），
+# 坐标聚行版式解析（BET-1 竖排版）取不到任何字段 → 表1/表2 大量空白。
+# 这里补一条「全文正则 key:value」通道，与版式解析互补（两路都跑，键不覆盖）。
+_ML_KV_MAP = {
+    'well name': 'well_name', 'well': 'well_name',
+    'company name': 'company', 'company': 'company',
+    'latitude': 'latitude', 'lat': 'latitude',
+    'longitude': 'longitude', 'long': 'longitude',
+    'well type': 'classification', 'classification': 'classification',
+    'country': 'country',
+    'drilling contractor': 'rig_name', 'rig name': 'rig_name',
+    'rkb-gl': 'elevation_gl', 'rkb-msl': 'elevation_kb', 'rkb': 'elevation_kb',
+    'rte': 'elevation_df',
+    'spud-in date': 'spud_date', 'spud in date': 'spud_date',
+    'drilling end date': 'td_date', 'td date': 'td_date',
+    'date': 'log_date',
+    'depth': 'total_depth_driller',
+    'wellsite geologist': 'wellsite_geologist',
+    'data engineer': 'data_engineer',
+    'mud logging geologist': 'mud_logging_geologist',
+    'field recorded by': 'field_recorded_by',
+    'processed by': 'processed_by',
+    'scale': 'scale',
+}
+
+
+def extract_mudlog_flat_kv(pdf_path, max_pages=2):
+    """录井图「平面 key:value」兜底提取（第 1~2 页全文正则）。
+
+    返回 {内部键: 值}；只收映射表里认识的键，值去尾部误入标签词。
+    与 extract_mudlog_header（版式解析）互补，不覆盖已有键。
+    """
+    out = {}
+    try:
+        import fitz
+        doc = fitz.open(str(pdf_path))
+        txt = '\n'.join(doc[i].get_text() for i in range(min(max_pages, len(doc))))
+        doc.close()
+    except Exception as e:
+        logger.warning("录井图平面键值提取失败: %s", e)
+        return out
+    for m in re.finditer(r'([A-Za-z][A-Za-z0-9 /\-\_\.&]{1,40}?)\s*[:：]\s*([^\n|]{1,60})',
+                         txt):
+        label = ' '.join(m.group(1).split()).lower().strip(' :')
+        key = _ML_KV_MAP.get(label)
+        if not key or key in out:
+            continue
+        parts = m.group(2).split()
+        while len(parts) > 1 and parts[-1].strip(':，。|').lower() in _MUDLOG_LABEL_KEYWORDS:
+            parts.pop()
+        val = ' '.join(parts).strip(' :：|')
+        if val and not val.startswith('-999'):
+            out[key] = val
+    return out
+
+
+def _parse_hole_size(txt):
+    """井眼/套管尺寸文本 → float(inch)。支持 '17 1/2' / '13.375' / '9 5/8'。
+
+    ⚠️ 坑（2026-10-21 R18 实测）：masterlog 里 "17 1/2\"" 是**空格分隔的
+    整数+分数**，直接 float() 会崩并被 except 吞掉 → 该段井眼整条丢失
+    （RP-13 井眼只剩 36"/26"/7"，最后钻头 8.5in 反而没进列表，bit 取错）。
+    """
+    t = ' '.join(str(txt).split())
+    m = re.match(r'^(\d{1,2})\s+(\d)\s*/\s*(\d)$', t)
+    if m:
+        try:
+            return int(m.group(1)) + int(m.group(2)) / int(m.group(3))
+        except Exception:
+            return None
+    m = re.match(r'^(\d{1,2})\s*/\s*(\d)$', t)
+    if m:
+        try:
+            return int(m.group(1)) / int(m.group(2))
+        except Exception:
+            return None
+    m = re.match(r'^(\d{1,2}(?:\.\d+)?)$', t)
+    if m:
+        try:
+            return float(m.group(1))
+        except Exception:
+            return None
+    return None
+
+
+def extract_mudlog_hole_casing(pdf_path, max_pages=2):
+    """录井图井眼/套管程序 → (borehole_rows, casing_rows, bit_size, hole_sizes)。
+
+    版式（masterlog）：两组并列 —— 左组井眼尺寸 `17 1/2" to 1523.00 m`，
+    右组套管尺寸 `13 3/8" to 1521.66 m`。同一目的深度两条配对：
+    **大尺寸 = 井眼（钻头）**，**小尺寸 = 套管**。
+
+    返回:
+      borehole_rows: [{'size': '17.5', 'from': '0', 'to': '1523'}, ...]
+      casing_rows:   [{'size': '13.375', 'from': '0.0', 'to': '1521.66'}, ...]
+      bit_size:      最后一个井眼尺寸文本（in）
+      hole_sizes:    [(size_float, to_md), ...] 按 to 升序
+    """
+    _hole, _casing = [], []
+    _bit, _holelist = '', []
+    try:
+        import fitz
+        doc = fitz.open(str(pdf_path))
+        txt = '\n'.join(doc[i].get_text() for i in range(min(max_pages, len(doc))))
+        doc.close()
+    except Exception as e:
+        logger.warning("录井图井眼/套管解析失败: %s", e)
+        return _hole, _casing, _bit, _holelist
+    for a, b in (('½', ' 1/2'), ('¼', ' 1/4'), ('⅜', ' 3/8'),
+                 ('⅝', ' 5/8'), ('⅞', ' 7/8'), ('″', '"'), ('”', '"'),
+                 ('’', "'")):
+        txt = txt.replace(a, b)
+    pairs = []
+    for m in re.finditer(
+            r'(\d{1,2}(?:\s+\d/\d|\s*\.\d+|\.\d+)?)\s*"\s*(?:to|T0)\s*'
+            r'(\d{1,5}(?:\.\d+)?)\s*m', txt, re.I):
+        size = _parse_hole_size(m.group(1))
+        if size is None or size <= 1 or size > 40:
+            continue
+        pairs.append((size, float(m.group(2))))
+    if not pairs:
+        return _hole, _casing, _bit, _holelist
+    pairs.sort(key=lambda z: z[1])
+    clusters = []
+    for size, to_md in pairs:
+        if clusters and abs(to_md - clusters[-1][-1][1]) <= 30.0:
+            clusters[-1].append((size, to_md))
+        else:
+            clusters.append([(size, to_md)])
+    _prev = 0.0
+    for cl in clusters:
+        to_md = cl[0][1]
+        sizes = sorted({s for s, _t in cl})
+        if len(sizes) > 1:
+            # 同一目的层两条尺寸 → 大者井眼（钻头）、小者套管
+            _hs = sizes[-1]
+            csg_sizes = [s for s in sizes if s < _hs]
+        else:
+            _hs = sizes[0]
+            csg_sizes = []
+        _hole.append({'size': '%g' % _hs,
+                      'from': '%g' % _prev, 'to': '%g' % to_md})
+        _holelist.append((_hs, to_md))
+        _prev = to_md
+        for cs in csg_sizes:
+            _casing.append({'size': '%g' % cs, 'from': '0.0', 'to': '%g' % to_md})
+    if _holelist:
+        _bit = '%g' % _holelist[-1][0]
+    return _hole, _casing, _bit, _holelist
+
+
+def extract_mudlog_mud_program(pdf_path, max_pages=2):
+    """录井图泥浆程序 → '类型(起止)' 串（表2 Type of Fluid in Hole）。
+
+    版式：`10.5- 235.00m:Bentonite` / `235.00- 1523.00m:Polymer` / ...
+    """
+    try:
+        import fitz
+        doc = fitz.open(str(pdf_path))
+        txt = '\n'.join(doc[i].get_text() for i in range(min(max_pages, len(doc))))
+        doc.close()
+    except Exception:
+        return ''
+    parts = []
+    for m in re.finditer(
+            r'([\d.]+)\s*-\s*([\d.]+)\s*m\s*[:：]\s*([A-Za-z][\w\- ]{2,20})', txt):
+        lo, hi, kind = m.group(1), m.group(2), m.group(3).strip()
+        parts.append('%s(%s-%sm)' % (kind, lo, hi))
+    return ' / '.join(parts)
+
+
+# ---------------------------------------------------------------------------
+# 【2026-10-21 R18】MIFT/试油报告（第四信息源：测井单位/日期/井段/人员）
+# ---------------------------------------------------------------------------
+_MIFT_PDF_KEYS = ('mift', 'pressure data', 'formation test', '试油', 'mdt',
+                  'drill stem test', 'dst report')
+
+
+def find_test_report_pdf(well_dir):
+    """查找 MIFT/试油/地层压力报告 PDF（井文件夹内）。"""
+    try:
+        wd = Path(well_dir)
+        if not wd.is_dir():
+            return None
+        for p in sorted(wd.rglob('*.pdf')):
+            low = p.name.lower()
+            if any(k in low for k in _MIFT_PDF_KEYS):
+                return p
+    except Exception as e:
+        logger.warning("查找试油/MIFT报告失败: %s", e)
+    return None
+
+
+def extract_test_report_info(pdf_path, max_pages=3):
+    """MIFT/试油报告 → {field_name, logging_unit, log_date, ...}。
+
+    版式（MIFT 报告 §1 Well Basic Information）：
+        Well Name: / Gas Field: / Area: / Company: /
+        Logged By: CNLC / Logging Date: 27-Aug-2026 /
+        Prepared By: ... / Approved By: ...
+    """
+    out = {}
+    try:
+        import fitz
+        doc = fitz.open(str(pdf_path))
+        txt = '\n'.join(doc[i].get_text() for i in range(min(max_pages, len(doc))))
+        doc.close()
+    except Exception as e:
+        logger.warning("试油/MIFT报告解析失败: %s", e)
+        return out
+    pats = {
+        'field_name': r'(?:Gas\s+Field|Field)\s*[:：]\s*([^\n]{2,40})',
+        'area': r'\bArea\s*[:：]\s*([^\n]{2,40})',
+        'company': r'\bCompany\s*[:：]\s*([^\n]{2,40})',
+        'logging_unit': r'Logged\s+By\s*[:：]\s*([^\n]{2,40})',
+        'log_date': r'Logging\s+Date\s*[:：]\s*([^\n]{2,40})',
+        'field_recorded_by': r'Prepared\s+By\s*[:：]\s*([^\n]{2,40})',
+        'field_witnessed_by': r'Approved\s+By\s*[:：]\s*([^\n]{2,40})',
+    }
+    for k, p in pats.items():
+        m = re.search(p, txt, re.I)
+        if m:
+            out[k] = ' '.join(m.group(1).split())[:40]
+    return out
+
+
+# ---------------------------------------------------------------------------
+# 地质设计（钻探程序 / DWOP / GTO）信息提取
 # ---------------------------------------------------------------------------
 _GEO_MD_KEYS = ('钻探程序', '地质设计', 'drillingprogram', 'dwop')
-_GEO_PDF_KEYS = ('drilling program', 'dwop', '地质设计')
+_GEO_PDF_KEYS = ('drilling program', 'dwop', '地质设计',
+                 # 【2026-10-21 R18】孟加拉项目地质设计文件名 = GTO_<井号>_Final
+                 # （Geological Technical Order），此前不在关键词内 → 地质设计
+                 # 一个字段都提取不到（表1 目的层/井型/坐标全空）
+                 'gto', 'geological technical order', 'well prognosis')
 
 
 def find_geodesign_files(well_dir):
@@ -15085,14 +15333,32 @@ def extract_geodesign_info(well_dir):
             txt = '\n'.join(doc[i].get_text() for i in range(min(6, len(doc))))
             doc.close()
             if 'designed_td' not in out:
-                _m = re.search(r'(?:Total\s*Depth|Proposed\s*TD|Design\s*TD|Planned\s*TD)'
-                               r'[^0-9\n]{0,40}(\d{3,5})\s*(m|ft)', txt, re.I)
+                # 【2026-10-21 R18】GTO 口径：Target Depth (TD) : 42200 m TVDSS
+                # (4258m MDSS) —— MD 口径才是井深设计值，优先取括号内 MD
+                _m = re.search(r'Target\s*Depth\s*\(?TD\)?\s*[:：]?\s*'
+                               r'[\d\s]{0,12}m?\s*TVDSS[^()]{0,20}\(\s*(\d{3,5})\s*m?\s*MD',
+                               txt, re.I)
                 if _m:
-                    out['designed_td'] = f"{_m.group(1)} {_m.group(2)}"
+                    out['designed_td'] = f"{_m.group(1)} m MD"
+                else:
+                    _m = re.search(r'(?:Total\s*Depth|Proposed\s*TD|Design\s*TD|Planned\s*TD)'
+                                   r'[^0-9\n]{0,40}(\d{3,5})\s*(m|ft)', txt, re.I)
+                    if _m:
+                        out['designed_td'] = f"{_m.group(1)} {_m.group(2)}"
             if 'well_type' not in out:
-                _m = re.search(r'\b(Exploration|Appraisal|Development)\s+Well\b', txt, re.I)
+                _m = re.search(r'Type\s*of\s*well\s*[:：]\s*'
+                               r'\b(Vertical|Directional|Deviated|Horizontal)\b', txt, re.I)
                 if _m:
-                    out['well_type'] = _m.group(0).title()
+                    out['well_type'] = _m.group(1).title() + ' well'
+                else:
+                    _m = re.search(r'\b(Exploration|Appraisal|Development)\s+Well\b', txt, re.I)
+                    if _m:
+                        out['well_type'] = _m.group(0).title()
+            if 'classification' not in out and 'well_type' not in out:
+                _m = re.search(r'Classification\s*[:：]\s*'
+                               r'\b(Exploratory|Exploration|Appraisal|Development)\b', txt, re.I)
+                if _m:
+                    out['classification'] = _m.group(1).title() + ' well'
             if 'target_formation' not in out:
                 _m = re.search(r'(?:Target|Objective)\s*Formation[s]?\s*[:：]?\s*'
                                r'([A-Z][A-Za-z0-9 \-]{2,40})', txt)
@@ -15100,6 +15366,126 @@ def extract_geodesign_info(well_dir):
                     out['target_formation'] = _m.group(1).strip()
         except Exception as e:
             logger.warning("地质设计 PDF 解析失败: %s", e)
+
+    # ---- 【2026-10-21 R18】GTO Well Summary **坐标法**兜底（正则无效，见下）----
+    if pdfs:
+        _kv = _extract_gto_summary_kv(pdfs[0])
+        for _k, _v in _kv.items():
+            if _v and not out.get(_k):
+                out[_k] = _v
+    return out
+
+
+def _extract_gto_summary_kv(pdf_path, max_pages=12):
+    """GTO(Geological Technical Order) Well Summary 键值 → 内部键。
+
+    ⚠️ 坑（2026-10-21 R18 实测）：GTO PDF 的 Well Summary 是**两列表格**，
+    文本层被拆成"标签列 + 值列"且**值列在 x≈205 起、标签列在 x≈77~190**，
+    同一行被拆成 5~6 个碎片（如 "42" | "200" | "m" | "TVDSS" | "(±100m)"），
+    **正则 `Target Depth (TD) : 42200 m TVDSS` 完全匹配不上**（值被换行拆散）；
+    且经纬度/Easting/Northing 各列**列头 x 与数据 x 不对齐**，按 x 区间切列
+    会串格 ⇒ 只能"y 聚行 + 冒号分列 + 整行文本正则"。
+    """
+    out = {}
+    try:
+        import fitz
+        doc = fitz.open(str(pdf_path))
+    except Exception as e:
+        logger.warning("GTO 打开失败: %s", e)
+        return out
+    try:
+        for _pi in range(min(max_pages, len(doc))):
+            _words = doc[_pi].get_text('words')
+            if not _words:
+                continue
+            _rows = []
+            for _w in sorted(_words, key=lambda z: ((z[1] + z[3]) / 2.0, z[0])):
+                _yc = (_w[1] + _w[3]) / 2.0
+                if _rows and abs(_yc - _rows[-1][0]) <= 4.0:
+                    _rows[-1][1].append(_w)
+                else:
+                    _rows.append([_yc, [_w]])
+            _rows = [[yc, sorted(ws, key=lambda z: z[0])] for yc, ws in _rows]
+            # 标签行 = 含 ':' 词元；值 = 冒号右侧全部词元拼接
+            for _yc, _ws in _rows:
+                _texts = [w[4] for w in _ws]
+                if ':' not in _texts:
+                    continue
+                _ci = _texts.index(':')
+                _label = ' '.join(' '.join(_texts[:_ci]).split())
+                if not _label or len(_label) > 40:
+                    continue
+                _val = ' '.join(' '.join(w[4] for w in _ws[_ci + 1:]).split())
+                if not _val:
+                    continue
+                _lab_l = _label.lower()
+                if 'target depth' in _lab_l or _lab_l in ('td', 'total depth'):
+                    # "42 200 m TVDSS (±100m) (4258m MDSS)" → 取 MD 口径
+                    _m = re.search(r'\(\s*([\d]{3,5})\s*m\s*MD', _val, re.I)
+                    if _m:
+                        out['designed_td'] = f"{_m.group(1)} m MD"
+                    else:
+                        _m = re.search(r'([\d]{3,5})\s*m\s*TVDSS', _val, re.I)
+                        if _m:
+                            out['designed_td'] = f"{_m.group(1)} m TVDSS"
+                elif _lab_l in ('type of well', 'well type'):
+                    _c = _val.replace(' ', '')
+                    for _kw in ('Vertical', 'Directional', 'Deviated', 'Horizontal'):
+                        if _kw.lower() in _c.lower():
+                            out['well_type'] = _kw + ' well'
+                            break
+                elif _lab_l == 'classification':
+                    _c = _val.replace(' ', '')
+                    for _kw in ('Exploratory', 'Exploration', 'Appraisal', 'Development'):
+                        if _kw.lower() in _c.lower():
+                            out['classification'] = _kw + ' well'
+                            break
+                elif _lab_l == 'trap type':
+                    out['structure'] = _val[:60]
+            # ---- 坐标表：Easting/Northing/Latitude/Longitude 列头 + 数据行 ----
+            _hdr_idx = -1
+            for _ri, (_yc, _ws) in enumerate(_rows):
+                _t = ' '.join(w[4] for w in _ws)
+                if 'Easting' in _t and 'Northing' in _t and 'ongitude' in _t:
+                    _hdr_idx = _ri
+                    break
+            if _hdr_idx >= 0:
+                for _ri in range(_hdr_idx + 1, len(_rows)):
+                    _yc, _ws = _rows[_ri]
+                    _t = ' '.join(w[4] for w in _ws)
+                    if 'Sub-' in _t or 'Depth' in _t or 'Location' in _t:
+                        break
+                    if not re.search(r'\d', _t) or '°' not in _t:
+                        continue
+                    # 整行文本正则：先取经纬度，剩下数字串依次 Easting/Northing
+                    #（⚠️ PDF 把 "6661419.052m" 拆成 "66" + "61419.052m" 两块，
+                    #  必须拼接而非各自成值）
+                    _la = re.search(r"(\d+\s*°\s*\d+'\s*[\d.\s]*\"\s*[NS])", _t)
+                    _lo = re.search(r"(\d+\s*°\s*\d+'\s*[\d.\s]*\"\s*[EW])", _t)
+                    if _la and not out.get('latitude'):
+                        out['latitude'] = ' '.join(_la.group(1).split())
+                        if _lo:
+                            out['longitude'] = ' '.join(_lo.group(1).split())
+                    _rest = _t
+                    for _mm in (_la, _lo):
+                        if _mm:
+                            _rest = _rest.replace(_mm.group(0), ' ')
+                    _nums = re.findall(r'\d+\.?\d*\s*m?', _rest)
+                    _nums = [re.sub(r'\s*m?$', '', z).strip() for z in _nums]
+                    _nums = [z for z in _nums if z]
+                    if len(_nums) >= 3 and 'x_coordinate' not in out:
+                        out['x_coordinate'] = f'{_nums[0]}{_nums[1]}m'
+                        out['y_coordinate'] = f'{_nums[2]}m'
+                    elif len(_nums) == 2 and 'x_coordinate' not in out:
+                        out['x_coordinate'] = f'{_nums[0]}m'
+                        out['y_coordinate'] = f'{_nums[1]}m'
+                    if out.get('x_coordinate') and out.get('latitude'):
+                        break
+            if out.get('x_coordinate') or out.get('designed_td'):
+                break
+        doc.close()
+    except Exception as e:
+        logger.warning("GTO Well Summary 解析失败: %s", e)
     return out
 
 
@@ -15263,8 +15649,22 @@ def collect_well_info(results, well_dir):
                     _lp.read_text(encoding='utf-8')))
         except Exception:
             legacy = {}
-    _ml = extract_mudlog_header(find_mudlog_pdf(well_dir)) or {}
+    _ml_path = find_mudlog_pdf(well_dir)
+    _ml = extract_mudlog_header(_ml_path) or {}
+    # 【2026-10-21 R18】平面 key:value 兜底 + 井眼/套管/泥浆程序
+    # （RP-13 masterlog 是单行键值串，版式解析取不到任何字段 → 表1/表2 全空）
+    _ml_flat = extract_mudlog_flat_kv(_ml_path) if _ml_path else {}
+    for _k, _v in _ml_flat.items():
+        _ml.setdefault(_k, _v)
+    _bh_rows, _cs_rows, _bit_size, _hole_list = (
+        extract_mudlog_hole_casing(_ml_path) if _ml_path else ([], [], '', []))
+    _mud_program = extract_mudlog_mud_program(_ml_path) if _ml_path else ''
     _geo = extract_geodesign_info(well_dir) or {}
+    # 【2026-10-21 R18】第四信息源：MIFT/试油报告（测井单位/日期/井名/人员）
+    _tr_path = find_test_report_pdf(well_dir)
+    _tr = extract_test_report_info(_tr_path) if _tr_path else {}
+    if _tr:
+        print(f"  井信息: 试油/MIFT报告提取 {len(_tr)} 项（{_tr_path.name}）")
     _curves_txt = _collect_las_curves(well_dir, results)
     _ml_n = sum(1 for k in ('spud_date', 'td_date', 'latitude', 'longitude',
                             'x_coordinate', 'y_coordinate', 'elevation_gl',
@@ -15274,6 +15674,14 @@ def collect_well_info(results, well_dir):
         print(f"  井信息: 录井图提取 {_ml_n} 项（{Path(find_mudlog_pdf(well_dir)).name}）")
     if _geo:
         print(f"  井信息: 地质设计提取 {len(_geo)} 项")
+
+    # 井眼/套管记录 → json 字符串（人工可改；出图与表2/BIT 曲线共用）
+    def _rows_to_str(rows):
+        return '; '.join(f"{r['size']}in {r['from']}-{r['to']}" for r in rows
+                         if r.get('size') and r.get('from') is not None)
+
+    _bh_str = _rows_to_str(_bh_rows)
+    _cs_str = _rows_to_str(_cs_rows)
 
     # LAS LOC 行提取 UTM X/Y 备用（支持全角冒号, X 先 Y 后各取一次）
     def _las_xy_pair():
@@ -15287,15 +15695,19 @@ def collect_well_info(results, well_dir):
     final = {
         'company':        _first(legacy.get('company'), _ml.get('company'), well.get('company')),
         'well_name':      _first(legacy.get('well_name'), _ml.get('well_name'), well.get('well_name')),
-        'field_name':     _first(legacy.get('field_name'), _ml.get('field_name'), well.get('field_name')),
-        'area':           _first(legacy.get('area'), _ml.get('area'), well.get('area')),
-        'country':        _first(legacy.get('country'), well.get('country')),
-        'classification': _first(legacy.get('classification'), _ml.get('classification')),
+        'field_name':     _first(legacy.get('field_name'), _ml.get('field_name'),
+                               _tr.get('field_name'), well.get('field_name')),
+        'area':           _first(legacy.get('area'), _ml.get('area'),
+                                _tr.get('area'), well.get('area')),
+        'country':        _first(legacy.get('country'), _ml.get('country'), well.get('country')),
+        'classification': _first(legacy.get('classification'), _ml.get('classification'),
+                                 _geo.get('classification')),
         'spud_date':      _first(legacy.get('spud_date'), _ml.get('spud_date'), well.get('spud_date')),
         'td_date':        _first(legacy.get('td_date'), _ml.get('td_date'), well.get('td_date')),
         # 【2026-10-14 二十轮】date 改名 log_date（测井日期）；旧 legacy/json 'date' 键兼容回退
         'log_date':       _first(legacy.get('log_date'), legacy.get('date'),
-                                 well.get('log_date'), well.get('date')),
+                                 well.get('log_date'), well.get('date'),
+                                 _tr.get('log_date')),
         'process_date':   _first(legacy.get('process_date'), well.get('process_date')),
         'latitude':       _first(legacy.get('latitude'), _ml.get('latitude'), well.get('latitude')),
         'longitude':      _first(legacy.get('longitude'), _ml.get('longitude'), well.get('longitude')),
@@ -15303,21 +15715,33 @@ def collect_well_info(results, well_dir):
         'y_coordinate':   _first(legacy.get('y_coordinate'), _ml.get('y_coordinate'), _geo.get('y_coordinate'), _ly),
         'elevation_gl':   _first(legacy.get('elevation_gl'), _ml.get('elevation_gl'), param.get('elevation_ground_level')),
         'elevation_kb':   _first(legacy.get('elevation_kb'), _ml.get('elevation_kb'), param.get('elevation_kelly_bushing')),
-        'elevation_df':   _first(legacy.get('elevation_df'), param.get('elevation_drill_floor')),
+        'elevation_df':   _first(legacy.get('elevation_df'), _ml.get('elevation_df'), param.get('elevation_drill_floor')),
         'rig_name':       _first(legacy.get('rig_name'), _ml.get('rig_name'), well.get('rig_name')),
-        'logging_unit':   _first(legacy.get('logging_unit'), _ml.get('logging_unit'), well.get('logging_unit_name')),
+        'logging_unit':   _first(legacy.get('logging_unit'), _ml.get('logging_unit'),
+                                _ml.get('mud_logging_geologist'),
+                                _tr.get('logging_unit'), well.get('logging_unit_name')),
         'equipment_no':   _first(legacy.get('equipment_no'), well.get('equipment_no')),
         'processed_by':      _first(legacy.get('processed_by'), well.get('processed_by')),
         'corrected_by':      _first(legacy.get('corrected_by'), well.get('corrected_by')),
-        'field_recorded_by': _first(legacy.get('field_recorded_by'), well.get('engineers_name'), well.get('engi')),
-        'field_witnessed_by': _first(legacy.get('field_witnessed_by'), well.get('field_witnessed_by')),
+        'field_recorded_by': _first(legacy.get('field_recorded_by'), _ml.get('field_recorded_by'),
+                                 _tr.get('field_recorded_by'),
+                                 well.get('engineers_name'), well.get('engi')),
+        'field_witnessed_by': _first(legacy.get('field_witnessed_by'),
+                                     _ml.get('field_witnessed_by'),
+                                     _tr.get('field_witnessed_by')),
+        # ---- 【2026-10-21 R18】录井图人员（表1 空白的主要来源）----
+        'wellsite_geologist':   _first(legacy.get('wellsite_geologist'), _ml.get('wellsite_geologist')),
+        'data_engineer':        _first(legacy.get('data_engineer'), _ml.get('data_engineer')),
         'target_formation':  _first(legacy.get('target_formation'), _geo.get('target_formation')),
         'well_type':         _first(legacy.get('well_type'), _geo.get('well_type'), _ml.get('classification')),
         'designed_td':       _first(legacy.get('designed_td'), _geo.get('designed_td')),
         'structure':         _first(legacy.get('structure'), _geo.get('structure')),
         # ---- 表2 测量记录（LAS ~P 参数 + 知识文件提取, 空留白） ----
-        'bit_size':                 _first(legacy.get('bit_size'), param.get('bit_size')),
-        'drilling_fluid_type':      _first(legacy.get('drilling_fluid_type'), param.get('drilling_fluid_type')),
+        # 【2026-10-21 R18】bit_size/泥浆程序：录井图井身结构优先
+        # （用户："基础资料中很容易找到最后一个钻头是 8.5in 的，要以他为 bit"）
+        'bit_size':                 _first(legacy.get('bit_size'), param.get('bit_size'), _bit_size),
+        'drilling_fluid_type':      _first(legacy.get('drilling_fluid_type'),
+                                           param.get('drilling_fluid_type'), _mud_program),
         'drilling_fluid_density':   _first(legacy.get('drilling_fluid_density'), param.get('drilling_fluid_density')),
         'drilling_fluid_viscosity': _first(legacy.get('drilling_fluid_viscosity'), param.get('drilling_fluid_viscosity')),
         'drilling_fluid_ph':        _first(legacy.get('drilling_fluid_ph'), param.get('drilling_fluid_ph')),
@@ -15328,8 +15752,8 @@ def collect_well_info(results, well_dir):
         'rm_bht':                   _first(legacy.get('rm_bht'), param.get('rm_bht')),
         'time_since_circulation':   _first(legacy.get('time_since_circulation'), param.get('time_since_circulation')),
         'max_record_temp':          _first(legacy.get('max_record_temp'), param.get('max_record_temp')),
-        'casing_record':            _first(legacy.get('casing_record'), param.get('casing_record')),
-        'borehole_record':          _first(legacy.get('borehole_record'), param.get('borehole_record')),
+        'casing_record':            _first(legacy.get('casing_record'), param.get('casing_record'), _cs_str),
+        'borehole_record':          _first(legacy.get('borehole_record'), param.get('borehole_record'), _bh_str),
         # ---- 图表标题（空=程序默认） ----
         'ql_title':    _first(legacy.get('ql_title')),
         'cmpt_title':  _first(legacy.get('cmpt_title')),
@@ -15627,6 +16051,17 @@ def collect_well_info(results, well_dir):
     results['well_info_json'] = str(json_path)
     if well_dir:
         results.setdefault('well_dir', well_dir)
+    # 【2026-10-21 R18】井眼程序（井深→钻头尺寸）进 results：
+    # 绘图侧据此生成 BIT 曲线（用户："最后一个钻头 8.5in 作 bit，
+    # 之间的部分按统一的井径绘制规则由颜色冲填"）。
+    if _hole_list:
+        results['hole_program'] = [
+            {'bit': float(_s), 'from_md': (float(_hole_list[i - 1][1])
+                                            if i > 0 else 0.0),
+             'to_md': float(_t)}
+            for i, (_s, _t) in enumerate(_hole_list)
+        ]
+        results['bit_size'] = _bit_size
     print(f"  井信息: 应用 {_n} 个字段（{json_path.name}）")
     return cfg
 
@@ -16455,17 +16890,64 @@ def calculate_reg_indicators(data, gas_data=None):
     if data is None or len(data) == 0:
         return data
     out = data.copy()
-    def _pick(cands):
-        for c in cands:
-            for col in out.columns:
-                if col.upper().strip() == c.upper():
-                    return col
+
+    # 【2026-10-21】复用 logInt DataLoader.curve_aliases 的别名体系 + 模糊匹配
+    # 不再硬编码具体列名，避免不同井/服务商命名差异漏识别
+    _ALIASES = {
+        'rt': ['RT','LLD','RLLD','RILD','ILD','ILD_DEEP','RILD_DEEP',
+               'RDEEP','RLA5','AT90','AF90','RLA1','RLA2','RLA3','RLA4',
+               'HT01','HT02','HT03','HT04','HT05','HT06',
+               'AT10','AT20','AT30','AT60','AT90_RAW','RD',
+               'R90','RLD','DEEP_RES','DEEP_RESISTIVITY','RES_DEEP',
+               'RT_HRLT','RT_DEEP','ILD_RAW','LLD_RAW'],
+        'ac': ['AC','DT','DTCO','Sonic','SONIC','DT_COMP','AC_COMP',
+               'ACOUSTIC','DTC','DT24','DTSM','DTL','DT_SHEAR',
+               'DT4P','DT4S','DTCO_SLOW','AC_SLOW','DTP','DTS',
+               'delta_t','DELTAT','DTT','DT_COMPRESSIONAL'],
+        'nphi': ['NPHI','CNL','NEUTRON','PHIN','NPHI_CORR','CNL_CORR',
+                 'PORN','TNPH','NPOR','NPH','NEU','NEUT','PHI_N',
+                 'NPHI_LS','NPHI_SS','NPHIL','HEN','NEUTRON_POROSITY',
+                 'CNCF','CNC'],
+        'den': ['DEN','RHOB','DENSITY','RHOB_CORR','RHOB_COMP','RHO',
+                'RHOZ','RHOM','DRHO','RHOB_RT','ZDEN','DEN_COMP',
+                'DEN_CORR','BULK_DENSITY','ROB','DEN1','LDEN'],
+        'gr': ['GR','GR_RAW','GR_COMP','GR_CORR','GAMMA','GRAP',
+               'GR_EDTC','SGR','CGR','ECGR','HCGR','GRKT',
+               'GRAT','GRBH','NGAM','GAMMA_RAY','GAMMARAY'],
+    }
+    # 模糊关键词（小写包含即命中）：处理拼写差异（RAL5 vs RLA5, DTTC vs DTT）
+    _FUZZY = {
+        'rt':   ['rla','ral','at90','deep','ild','lld','r90','resd'],
+        'ac':   ['dt','ac','sonic','deltat','dtt'],
+        'nphi': ['nphi','cnl','cnc','neu','npor','phin'],
+        'den':  ['den','rho','density','zden','lden'],
+        'gr':   ['gr','gamma'],
+    }
+
+    def _pick_curve(kind):
+        cols_upper = {c.upper().strip(): c for c in out.columns}
+        # 1. 精确别名匹配
+        for alias in _ALIASES.get(kind, []):
+            if alias.upper() in cols_upper:
+                return cols_upper[alias.upper()]
+        # 2. 模糊包含匹配（统一小写比较）
+        for col_up, col_orig in cols_upper.items():
+            col_low = col_up.lower()
+            for kw in _FUZZY.get(kind, []):
+                if kw.lower() in col_low:
+                    # 排除明显误命中：gr 不能匹配到 GRDEN（密度伽马，不是自然伽马）
+                    if kind == 'gr' and col_up == 'GRDEN':
+                        continue
+                    return col_orig
         return None
-    r_col   = _pick(['RT','LLD','ILD','R90','DEEP_RES','RESD','RDEP','AE90','RD','RS','RSS','LLS'])
-    dt_col  = _pick(['DT','DTCO','DTC'])
-    nphi_col= _pick(['NPHI','CNL','CNCF','NPOR'])
-    rhob_col= _pick(['RHOB','DENS','RHOZ','DEN'])
-    gr_col  = _pick(['GR','CGR','SGR'])
+
+    r_col   = _pick_curve('rt')
+    dt_col  = _pick_curve('ac')
+    nphi_col= _pick_curve('nphi')
+    rhob_col= _pick_curve('den')
+    gr_col  = _pick_curve('gr')
+    logger.info("REG 列识别: R=%s DT=%s NPHI=%s RHOB=%s GR=%s",
+                r_col, dt_col, nphi_col, rhob_col, gr_col)
 
     # 基线：GR>=Q75 泥岩段中位数
     gr = pd.to_numeric(out[gr_col], errors='coerce') if gr_col else None
@@ -16495,11 +16977,27 @@ def calculate_reg_indicators(data, gas_data=None):
     # NDI
     if rhob_col and nphi_col:
         rho = pd.to_numeric(out[rhob_col], errors='coerce')
-        nph = pd.to_numeric(out[nphi_col], errors='coerce')
+        nph_raw = pd.to_numeric(out[nphi_col], errors='coerce')
+        # CNL/CNCF/NPOR 行业惯例是百分数（0~40），统一转成小数
+        # 若中位数 > 1，则认为是百分数，除以 100
+        _med = nph_raw.median()
+        if pd.notna(_med) and _med > 1.0:
+            nph = nph_raw / 100.0
+            logger.info("REG NDI: %s 按百分数(中位=%.1f%%)已转小数", nphi_col, _med)
+        else:
+            nph = nph_raw
         phiD = (2.65 - rho) / (2.65 - 1.0)
-        ndi = phiD - nph
+        ndi_raw = phiD - nph
+        # NDI 异常值：相对泥岩基线（GR Q75 段）的抬升量
+        # 泥岩段 nph 偏高（含氢指数高）、phiD 偏低，ndi_raw 普遍为负
+        # 气层时中子降低、密度降低，ndi_raw 向 0 或正方向抬升
+        if gr is not None and base_mask.sum() > 20:
+            ndi_base = ndi_raw[base_mask].median()
+        else:
+            ndi_base = ndi_raw.median()
+        ndi = ndi_raw - ndi_base
         out['NDI'] = ndi
-        logger.info("REG NDI: RHOB=%s NPHI=%s", rhob_col, nphi_col)
+        logger.info("REG NDI: RHOB=%s NPHI=%s NDI_base=%.3f", rhob_col, nphi_col, ndi_base)
     else:
         out['NDI'] = np.nan
         logger.info("REG NDI: 缺 NPHI 或 RHOB, 跳过")

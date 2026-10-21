@@ -216,6 +216,10 @@ SYMBOL_TILE_PX = 256      # 单个符号单元在下采样后的像素高度（�
 SYMBOL_X_EXTENT = 0.8     # 符号在岩性道内的水平填充比例（0-1之间，0.8=占道宽80%）
 MIN_LAYER_THICKNESS_M = 0.25  # 最小层厚，小于此厚度的薄层不绘制岩性/沉积相/解释结论
 
+# 【2026-10-21 R18 用户定案：统一的井径绘制规则】CAL 与 BS(BIT) 之间双向充填色
+CAL_OVERFILL_COLOR = '#F4A6A6'    # 超径 CAL > BS（扩径/井壁坍塌/溶蚀）淡红
+CAL_UNDERFILL_COLOR = '#9CC3E5'   # 缩径 CAL < BS（泥饼厚/侵入）淡蓝
+
 # 岩性值 → 符号图片文件名 映射
 LITHOLOGY_TO_SYMBOL = {
     'sandstone': 'Sandstone.png',
@@ -3293,7 +3297,14 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         
         # 获取数据中实际可用的曲线
         available_curves = [curve for curve in raw_curves if curve in data.columns]
-        
+
+        # 【2026-10-21 R18】绘图前置：套管/水泥块段与「有效曲线 <3 条」段整段置空
+        # （只作用于绘图副本，不回写 processed.csv）
+        _pr_cfg = _load_plot_range_cfg()
+        _minc_draw = int(_pr_cfg.get('start_min_valid_curves', 3) or 3)
+        data, _n_blank = _blank_borehole_and_lowcurve(
+            data, _minc_draw, '快速解释图' if quicklook else '综合图')
+
         # 使用数据的实际深度范围，不进行有效曲线过滤
         # 确保完整绘制所有数据，不因为有效曲线判断而裁剪
         # 【2026-10-08 用户要求】可视化出图从套管外（裸眼段）开始：
@@ -3305,8 +3316,31 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             _oh = data.loc[~_cs, 'MD']
             if len(_oh) > 0:
                 actual_first_depth = float(_oh.iloc[0])
-                logger.info('综合图从裸眼段起点 %.1f 开始（套管段已跳过，%d 点）',
+                logger.info('从裸眼段起点 %.1f 开始（套管段已跳过，%d 点）',
                             actual_first_depth, int(_cs.sum()))
+        # 【2026-10-21 R18 用户口径】"出图也要参照综合图的要求，少于3条有效曲线
+        # 或者在套管内就不绘制，只绘制在裸眼的井段图" —— 综合图起点判据是
+        # VALID_CURVES_COUNT >= 3（config plot_range.start_min_valid_curves），
+        # 快速解释此前**完全没接**这条规则 ⇒ 导管/表层/未测段（RP-13 占 84%）
+        # 整段画成空白道。这里把同一判据接到两种图上。
+        _plot_start_cfg = _load_plot_range_cfg()
+        if _plot_start_cfg.get('enabled', True):
+            _minc = int(_plot_start_cfg.get('start_min_valid_curves', 3) or 3)
+            if 'VALID_CURVES_COUNT' in data.columns:
+                _vc = pd.to_numeric(data['VALID_CURVES_COUNT'], errors='coerce').fillna(0)
+                _ok = data.loc[_vc >= _minc, 'MD']
+                if 'IS_CASING' in data.columns:
+                    _cs2 = data['IS_CASING'].fillna(False).astype(str).str.lower().isin(
+                        ('true', '1', '1.0'))
+                    _ok = _ok[~_cs2.reindex(_ok.index, fill_value=False)]
+                if len(_ok) > 0:
+                    _new_first = float(_ok.iloc[0])
+                    if _new_first > actual_first_depth:
+                        logger.info(
+                            '出图起点裁剪: %.1f → %.1f m'
+                            '（首个有效曲线 ≥%d 的深度，其上井段不绘制）',
+                            actual_first_depth, _new_first, _minc)
+                        actual_first_depth = _new_first
         actual_last_depth = data['MD'].iloc[-1]
         
         # 深度刻度显示范围：向下取整到10个深度单位（顶部），向上取整到10个深度单位（底部）。
@@ -3378,6 +3412,9 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             ('AT', ['AT10', 'AT20', 'AT30', 'AT60', 'AT90']),
             ('AF', ['AF10', 'AF20', 'AF30', 'AF60', 'AF90', 'AF120']),
             ('M2R', ['M2R1', 'M2R2', 'M2R3', 'M2R6', 'M2RX']),
+            # 【2026-10-21 R18】补 RAL 系列（HAL7506 等老井的阵列电阻率，1~5 编号；
+            #   RAL1 探测最深 → 按浅→深排 RAL5…RAL1，与 AT/AF 的槽位顺序一致）
+            ('RAL', ['RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1']),
         ]
         array_res_cols = []
         for _pfx, _members in _ARRAY_SERIES:
@@ -3386,27 +3423,37 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 array_res_cols = _hits
                 break
 
-        # 【2026-10-16 用户要求】RT 来自阵列回填时不绘旧电阻率道：
-        # 解释流程会把 AT90 等阵列曲线回填为 RT（与阵列道完全重复）。
-        # 当 MSFL/LLS/LLD 原生侧向曲线全部缺失、仅 RT/ILD/R90 可用、
-        # 且其数值与某条阵列曲线一致(>95%)时，视为回填 → 传统道为空，
-        # 只保留阵列道。
-        if trad_res_cols and array_res_cols and not any(
-                c in ('MSFL', 'RMSL', 'LLS', 'RS', 'LLD', 'RD')
-                for c in trad_res_cols):
+        # 【2026-10-16 / 2026-10-21 用户定案】RT 来自阵列回填时不绘旧电阻率道。
+        # 【R18 强化】用户口径："没有 RD/RS/MSFL 等曲线只有 RT 的老电阻率道，
+        #   在有阵列及其它电阻率道的情况下不用绘制了，但阵列的电阻率道必须绘制"。
+        #   ⇒ 判据从"数值一致"放宽为"**无任何原生侧向曲线**"（MSFL/RMSL/LLS/RS/
+        #   LLD/RD 全无），此时传统道只剩 RT/ILD/R90 这类回填/单曲线 → 整道不绘。
+        #   数值一致检查保留为附加证据（ILT 等多源混合情形下仍能识别）。
+        _NATIVE_LATERAL = ('MSFL', 'RMSL', 'LLS', 'RS', 'LLD', 'RD')
+
+        def _drop_trad_backfill_rt(trad_list, arr_cols):
+            """传统道仅由回填 RT 构成且存在阵列道 → 传统道置空。"""
+            if not trad_list or not arr_cols:
+                return trad_list
+            if any(c in _NATIVE_LATERAL for c in trad_list):
+                return trad_list
+            _extra = ''
             _rt_ser = pd.to_numeric(data['RT'], errors='coerce') \
                 if 'RT' in data.columns else None
-            for _ac in array_res_cols:
-                if _rt_ser is None:
-                    break
-                _ar = pd.to_numeric(data[_ac], errors='coerce')
-                _both = _rt_ser.notna() & _ar.notna()
-                if _both.sum() >= 100 and float(
-                        (_rt_ser[_both] == _ar[_both]).mean()) > 0.95:
-                    logger.info('RT 与阵列曲线 %s 数值一致(回填)且无原生侧向'
-                                '→ 不绘传统电阻率道', _ac)
-                    trad_res_cols = []
-                    break
+            if _rt_ser is not None:
+                for _ac in arr_cols:
+                    _ar = pd.to_numeric(data[_ac], errors='coerce')
+                    _both = _rt_ser.notna() & _ar.notna()
+                    if _both.sum() >= 100 and float(
+                            (_rt_ser[_both] == _ar[_both]).mean()) > 0.95:
+                        _extra = f'（RT 与 {_ac} 数值一致=回填）'
+                        break
+            logger.info('传统电阻率道仅含回填 RT/ILD/R90（无 RD/RS/MSFL 等原生'
+                        '侧向）且存在阵列道 %s → 不绘传统电阻率道%s',
+                        arr_cols, _extra)
+            return []
+
+        trad_res_cols = _drop_trad_backfill_rt(trad_res_cols, array_res_cols)
 
         # 向后兼容：下游（绘图块）沿用分道视图
         resistivity_cols_pre = trad_res_cols + array_res_cols
@@ -3421,20 +3468,8 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                     _trad_pool.append(col)
         trad_res_all = [c for c in ['MSFL', 'RMSL', 'LLS', 'RS',
                                     'LLD', 'RD', 'RT', 'ILD', 'R90'] if c in _trad_pool]
-        # 【2026-10-16】快速图传统池同样剔除回填 RT（与综合图口径一致）
-        if trad_res_all and array_res_cols and not any(
-                c in ('MSFL', 'RMSL', 'LLS', 'RS', 'LLD', 'RD') for c in trad_res_all):
-            _rt_ser2 = pd.to_numeric(data['RT'], errors='coerce') \
-                if 'RT' in data.columns else None
-            for _ac2 in array_res_cols:
-                if _rt_ser2 is None:
-                    break
-                _ar2 = pd.to_numeric(data[_ac2], errors='coerce')
-                _both2 = _rt_ser2.notna() & _ar2.notna()
-                if _both2.sum() >= 100 and float(
-                        (_rt_ser2[_both2] == _ar2[_both2]).mean()) > 0.95:
-                    trad_res_all = []
-                    break
+        # 【2026-10-16 / R18】快速图传统池同样剔除回填 RT（与综合图口径一致）
+        trad_res_all = _drop_trad_backfill_rt(trad_res_all, array_res_cols)
         # TG（全烃）在快速图并入传统电阻率道末槽 → 槽位规划需预留 1 个
         has_gas_pre = gas_data is not None and len(gas_data) > 0
         if quicklook:
@@ -3445,6 +3480,9 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         
         # 检查是否有BS曲线
         has_bs = _find_column(data, ['BS', 'BIT', 'BITSIZE', 'BIT_SIZE', 'BSIZE', 'DRILL_BIT']) is not None
+        # 【2026-10-21 R18】无 BS 列但有井眼程序时也会占一个槽位（合成 BIT 曲线）
+        if not has_bs and (results or {}).get('hole_program'):
+            has_bs = True
         
         # ========== 计算最大曲线数量和对齐刻度位置 ==========
         # 第1道（岩性道）：BS(有则算)+CAL+SP+GR = 4(有BS)或3(无BS)，
@@ -3903,41 +3941,77 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         
         # BS单独画刻度线（slot0）
         bs_col = _find_column(data, ['BS', 'BIT', 'BITSIZE', 'BIT_SIZE', 'BSIZE', 'DRILL_BIT'])
+        # 【2026-10-21 R18】LAS 无 BS 时用井眼程序合成阶梯 BIT 曲线
+        # （用户："最后一个钻头是 8.5in 的，要以他为 bit 绘制 bit 曲线"）
+        _bs_series = None
         if bs_col:
-            _plot_curve(ax1, data[bs_col], depth, 'black', (5.5, 16.5), depth_max, depth_min, curve_height_ratio, header_bottom_y,
+            _bs_series = pd.to_numeric(data[bs_col], errors='coerce')
+        else:
+            _bs_gen = _build_bs_from_hole_program(depth, results)
+            if _bs_gen is not None:
+                _bs_series = pd.Series(_bs_gen, index=data.index)
+        # 井径刻度自适应：取 BS/CAL 实际量程（老井 8.5in 井 + 6in 井径时
+        # 固定 (5.5,16.5) 会把两条曲线全压到左端看不出差别）
+        _cal_col_probe = _find_column(data, _CAL_CANDIDATES)
+        _rng_vals = []
+        for _s in (_bs_series, (pd.to_numeric(data[_cal_col_probe], errors='coerce')
+                                if _cal_col_probe else None)):
+            if _s is not None:
+                _v = pd.to_numeric(_s, errors='coerce').dropna()
+                if len(_v):
+                    _rng_vals += [_v.min(), _v.max()]
+        if _rng_vals:
+            _d_lo = max(0.0, min(_rng_vals) - 1.0)
+            _d_hi = max(_rng_vals) + 1.5
+            _d_t0 = round(_d_lo)
+            _d_t1 = round(_d_hi)
+        else:
+            _d_lo, _d_hi, _d_t0, _d_t1 = 5.5, 16.5, 6, 16
+        if _bs_series is not None and _bs_series.notna().any():
+            _plot_curve(ax1, _bs_series, depth, 'black', (_d_lo, _d_hi), depth_max, depth_min, curve_height_ratio, header_bottom_y,
                        linestyle='--')
             draw_tick_line(ax1, ALIGNED_POSITIONS_CM[track1_slot], 'black')
-            draw_tick_labels(ax1, ALIGNED_POSITIONS_CM[track1_slot], 'BS (in)', 6, 16, 'black', fontsize_value=7)
+            draw_tick_labels(ax1, ALIGNED_POSITIONS_CM[track1_slot], 'BS (in)', _d_t0, _d_t1, 'black', fontsize_value=7)
             track1_slot += 1
-        
+        else:
+            _bs_series = None
+
         # CAL（下一个槽位）
-        cal_col = _find_column(data, ['CALS', 'CALI', 'CAL'])
+        cal_col = _cal_col_probe
         if cal_col:
-            _plot_curve(ax1, data[cal_col], depth, 'red', (5.5, 16.5), depth_max, depth_min, curve_height_ratio, header_bottom_y)
+            _cal_series = pd.to_numeric(data[cal_col], errors='coerce')
+            _plot_curve(ax1, _cal_series, depth, 'red', (_d_lo, _d_hi), depth_max, depth_min, curve_height_ratio, header_bottom_y)
             draw_tick_line(ax1, ALIGNED_POSITIONS_CM[track1_slot], 'red')
-            draw_tick_labels(ax1, ALIGNED_POSITIONS_CM[track1_slot], 'CAL (in)', 6, 16, 'red')
+            draw_tick_labels(ax1, ALIGNED_POSITIONS_CM[track1_slot], 'CAL (in)', _d_t0, _d_t1, 'red')
             track1_slot += 1
-            
-            # 淡粉色填充CAL和BS之间的区域
-            if bs_col:
+
+            # 【2026-10-21 R18 用户定案：统一的井径绘制规则】CAL 与 BS 之间
+            # 按方向双色充填——超径(CAL>BS，扩径/井壁坍塌) 淡红、
+            # 缩径(CAL<BS，泥饼/侵入) 淡蓝；无 BS 段不填。
+            if _bs_series is not None:
                 fill_ax = ax1.twiny()
                 fill_ax.set_position(ax1.get_position())
                 fill_ax.set_ylim(depth_max, depth_min)
-                fill_ax.set_xlim(0, 1)
+                fill_ax.set_xlim(_d_lo, _d_hi)
                 for spine in fill_ax.spines.values():
                     spine.set_visible(False)
-                fill_ax.tick_params(axis='x', which='both', bottom=False, top=False, 
+                fill_ax.tick_params(axis='x', which='both', bottom=False, top=False,
                                     labelbottom=False, labeltop=False, length=0)
                 fill_ax.set_xticks([])
-                cal_norm = (data[cal_col] - 5.5) / (16.5 - 5.5)
-                bs_norm = (data[bs_col] - 5.5) / (16.5 - 5.5)
-                valid_mask = cal_norm.notna() & bs_norm.notna()
-                valid_depth = depth[valid_mask]
-                valid_cal = cal_norm[valid_mask]
-                valid_bs = bs_norm[valid_mask]
-                if len(valid_depth) > 10:
-                    fill_ax.fill_betweenx(valid_depth, valid_cal, valid_bs,
-                                          color='lightpink', alpha=0.5, zorder=1)
+                _c, _b = _cal_series, _bs_series
+                _ok = _c.notna() & _b.notna()
+                if int(_ok.sum()) > 10:
+                    _vd, _vc, _vb = depth[_ok], _c[_ok], _b[_ok]
+                    _over = _vc >= _vb
+                    if _over.any():
+                        fill_ax.fill_betweenx(_vd[_over], _vb[_over], _vc[_over],
+                                              color=CAL_OVERFILL_COLOR, alpha=0.55,
+                                              zorder=1, lw=0)
+                    _under = ~_over
+                    if _under.any():
+                        fill_ax.fill_betweenx(_vd[_under], _vc[_under], _vb[_under],
+                                              color=CAL_UNDERFILL_COLOR, alpha=0.55,
+                                              zorder=1, lw=0)
         
         # SP（下一个槽位）
         # 【2026-10-15 用户要求】第一道没有曲线的（如SP）就不保留刻度条和曲线名——
@@ -6486,6 +6560,13 @@ def _setup_interpretation_track(ax, data, depth, depth_min, depth_max, curve_hei
         # 砂肩NonReservoir/DRY/薄泥岩条带(<3ft)不打断（与logInt分异整饰同口径）。
         merged_segments = _merge_same_body_fluid(merged_segments, data)
 
+        # 第二步半之二：【2026-10-21 R18】解释结论框覆盖"整个岩层的孔隙度符合
+        # 部分或解释部分"——用户："解释结论的框需要覆盖整个岩层的孔隙度符合部分
+        # 或者解释部分，而不是像 1-3 层那样只覆盖很少部分"。
+        # 根因：逐点 INTERPRETATION 分组被 NonReservoir/DRY 逐点噪声切碎，
+        # 一个 7m 的含气砂层只画出 1m 宽的框（RP-13 层1 = 3726-3727 GAS）。
+        merged_segments = _fuse_fluid_segments_by_reservoir_unit(merged_segments, data)
+
         # 第三步：绘制合并后的段，油气水层从顶到底统一编号
         # NonReservoir段留白不绘制（作为分隔屏障阻止合并，但不绘制任何色块/线）
         layer_num = 0
@@ -6527,6 +6608,232 @@ def _find_column(data, possible_names):
         if name in data.columns:
             return name
     return None
+
+
+# 【2026-10-21 R18】井径候选列（RP-13 的 LAS 里井径叫 CAL_AVERAGE）
+_CAL_CANDIDATES = ['CALS', 'CALI', 'CAL', 'CAL_AVERAGE', 'CAL-AVG', 'CALAVG',
+                   'CAL_MEAN', 'CALMEAN', 'CALIPER', 'HCAL', 'CALX', 'CALY']
+
+_PLOT_RANGE_CACHE = {}
+
+
+def _load_plot_range_cfg():
+    """读 logint.json → plot_range（模块级惰性读 + 缓存）。
+
+    【2026-10-21 R18】综合图起点裁剪规则此前只在 log_visualizer 侧实现，
+    logvis 的两种图都没接 ⇒ 快速解释图把导管/表层/未测段整段画成空白道。
+    此处把同一配置项接进来。
+    """
+    import json as _json
+    path = Path(__file__).parent / 'logint.json'
+    key = str(path)
+    if key not in _PLOT_RANGE_CACHE:
+        cfg = {}
+        try:
+            if path.exists():
+                cfg = (_json.loads(path.read_text(encoding='utf-8'))
+                       .get('plot_range') or {})
+        except Exception as e:
+            logger.warning('plot_range 配置读取失败(用内置默认): %s', e)
+        _PLOT_RANGE_CACHE[key] = cfg if isinstance(cfg, dict) else {}
+    return dict(_PLOT_RANGE_CACHE[key])
+
+
+def _blank_borehole_and_lowcurve(data, min_valid_curves=3, log_tag='图'):
+    """绘图前置：把「套管/水泥块」与「有效曲线不足 N 条」的井段整段置空。
+
+    【2026-10-21 R18 用户定案】"少于3条有效曲线或者在套管内就不绘制，
+    只绘制在裸眼的井段图"。
+
+    置空口径：MD 之外所有列 —— 数值→NaN、文本→''、布尔→False，并把
+    VALID_CURVES_COUNT 显式置 0（留 NaN 时 `NaN<3` 为 False，会被误判成
+    "有效曲线"而继续绘制）。
+    ⚠️ 只在**绘图副本**上做，不得回写 processed.csv（否则伽玛族 VSH 刻度
+    P10/P90 会变 → 段外结论被改判）。
+    """
+    d = data
+    mask = pd.Series(False, index=d.index)
+    if 'IS_CASING' in d.columns:
+        mask |= d['IS_CASING'].fillna(False).astype(str).str.lower().isin(
+            ('true', '1', '1.0'))
+    for _bc in ('_BOREHOLE', 'BOREHOLE'):
+        if _bc in d.columns:
+            mask |= d[_bc].fillna('').astype(str).str.strip().isin(
+                ('套管', '水泥块', 'casing', 'cement'))
+    if 'VALID_CURVES_COUNT' in d.columns:
+        _vc = pd.to_numeric(d['VALID_CURVES_COUNT'], errors='coerce')
+        mask |= _vc.isna() | (_vc < int(min_valid_curves))
+    if not bool(mask.any()):
+        return d, 0
+    d = d.copy()
+    for c in d.columns:
+        if c == 'MD':
+            continue
+        col = d[c]
+        try:
+            if pd.api.types.is_bool_dtype(col):
+                d.loc[mask, c] = False
+            elif pd.api.types.is_numeric_dtype(col):
+                d.loc[mask, c] = np.nan
+            else:
+                d.loc[mask, c] = ''
+        except Exception:
+            continue
+    if 'VALID_CURVES_COUNT' in d.columns:
+        d.loc[mask, 'VALID_CURVES_COUNT'] = 0
+    _md = d.loc[mask, 'MD']
+    logger.info('%s 井筒/低有效曲线段置空: %d 点（%.1f-%.1f m）—— 该段不绘制',
+                log_tag, int(mask.sum()),
+                float(_md.min()) if len(_md) else float('nan'),
+                float(_md.max()) if len(_md) else float('nan'))
+    return d, int(mask.sum())
+
+
+def _build_bs_from_hole_program(md, results):
+    """由井眼程序（results['hole_program']）生成 BIT/BS 阶梯曲线。
+
+    【2026-10-21 R18 用户口径】"在基础资料中很容易找到最后一个钻头是 8.5in 的，
+    要以他为 bit 绘制 bit 曲线，之间的部分按统一的井径绘制规则由颜色冲填"
+    —— 即：没有 BS 曲线时，用井眼程序（各段钻头尺寸 + 起止井深）合成一条
+    阶梯状 BS 曲线；最后一段延伸到井底（最后钻头打到底）。
+
+    返回 np.ndarray（与 md 等长，英寸）或 None。
+    """
+    hp = (results or {}).get('hole_program')
+    if not hp or md is None or len(md) == 0:
+        return None
+    try:
+        _md = np.asarray(md, dtype=float)
+        _lo, _hi = float(_md.min()), float(_md.max())
+        _seg = sorted((float(x['from_md']), float(x['to_md']), float(x['bit']))
+                      for x in hp if x.get('bit') is not None)
+        if not _seg:
+            return None
+        _bs = np.full(len(_md), np.nan, dtype=float)
+        _last_bit = _seg[-1][2]
+        _i = 0
+        for _k, (_f, _t, _b) in enumerate(_seg):
+            _end = max(_t, _hi) if _k == len(_seg) - 1 else _t
+            while _i < len(_md) and _md[_i] < _f:
+                _bs[_i] = _last_bit      # 井口以上（表层管外）用最后钻头
+                _i += 1
+            while _i < len(_md) and _md[_i] <= _end:
+                _bs[_i] = _b
+                _i += 1
+        while _i < len(_md):
+            _bs[_i] = _last_bit
+            _i += 1
+        if not np.isfinite(_bs).any():
+            return None
+        logger.info('由井眼程序合成 BS(BIT) 曲线: %d 段, 尺寸 %s, 井底延伸至 %.1fm',
+                    len(_seg), [('%g' % x[2]) for x in _seg], _hi)
+        return _bs
+    except Exception as e:
+        logger.warning('井眼程序合成 BS 曲线失败: %s', e)
+        return None
+
+
+# 流体结论归并用的"储层岩性"判定（非储层白名单同源：泥岩/煤/膏盐/火成岩…）
+_NONRES_LITH_KEYS = frozenset({
+    'shale', 'mudstone', 'claystone', 'silty_shale', 'carbonaceous_shale',
+    'coal', 'pyrite', 'anhydrite', 'gypsum', 'salt', 'halite', 'evaporite',
+    'volcanic', 'basalt', 'tuff', 'andesite', 'basement', 'granite',
+    'casing', '未知', 'unknown', '泥岩', '页岩', '煤层', '煤', '硬石膏',
+    '石膏', '盐岩', '膏盐', '火山岩', '玄武岩', '花岗岩', '黄铁矿', '水泥块',
+    '套管', '凝灰岩', 'carbonate_shale',
+})
+# 视为"流体结论"的标签（NonReservoir / DRY / 空 不算）
+_FLUID_TAGS = ('OIL', 'GAS', 'WATER', 'CONDENSATE',
+               'OIL_POSSIBLE', 'GAS_POSSIBLE', 'OIL_PROBABLE', 'GAS_PROBABLE',
+               'POOR_OIL', 'POOR_GAS', 'GAS_WATER', 'OIL_WATER', 'GAS_OIL',
+               'OIL_GAS', 'GAS_BEARING_WATER', 'OIL_BEARING_WATER',
+               'WATER_BEARING_OIL', 'WATER_BEARING_GAS')
+
+
+def _fuse_fluid_segments_by_reservoir_unit(segments, data):
+    """【2026-10-21 R18】解释结论按**储层段**归并（用户：框要覆盖整个岩层）。
+
+    逐点 INTERPRETATION 分组会把一个完整砂层切碎成 1m 的碎框（相邻点被判
+    NonReservoir/DRY 就断开）。这里改为：
+      ① 找"储层段" = 连续且非非储层岩性的区间（泥岩/煤/膏盐/火成岩等断开）；
+      ② 段内任一点是流体结论 → 整段出一个框，标签 = 段内流体结论**厚度占优者**
+         （同厚度时油气优先于水）；
+      ③ 框的顶底 = 段内**孔隙度达标点**（PHI_DISP>0）的首末深度；若段内无孔隙度
+         达标点，退回段的首末深度（保底覆盖整层）；
+      ④ 段内无任何流体结论 → 不产出（保持留白）；
+      ⑤ 相邻段若流体标签相同则再合并一次（消除段边界处 1 个采样点的碎框）。
+
+    返回: 归并后的段列表（NonReservoir 段被丢弃 —— 它们只是分隔屏障，不绘框）。
+    """
+    if not segments or data is None or 'MD' not in data.columns:
+        return segments
+    _md = pd.to_numeric(data['MD'], errors='coerce').to_numpy(dtype=float)
+    n = len(_md)
+    if n == 0:
+        return segments
+
+    if 'LITHOLOGY' in data.columns:
+        _lith = (data['LITHOLOGY'].fillna('').astype(str).str.lower()
+                 .str.strip().str.replace(r'\s+', '_', regex=True))
+    else:
+        _lith = pd.Series([''] * n, index=data.index)
+    _phi = np.zeros(n)
+    for c in ('PHI_DISP', 'PHI_LOG', 'PHI', 'PHIE'):
+        if c in data.columns:
+            _phi = pd.to_numeric(data[c], errors='coerce').fillna(0.0).to_numpy()
+            break
+    if 'VALID_CURVES_COUNT' in data.columns:
+        _vc = (pd.to_numeric(data['VALID_CURVES_COUNT'], errors='coerce')
+               .fillna(0).to_numpy())
+    else:
+        _vc = np.ones(n)
+    # 储层点：有效曲线达标 且 岩性非非储层
+    _res_pt = (_vc >= 3) & ~_lith.isin(_NONRES_LITH_KEYS).to_numpy()
+
+    _units = []
+    _i = 0
+    while _i < n:
+        if not _res_pt[_i]:
+            _i += 1
+            continue
+        _j = _i
+        while _j + 1 < n and _res_pt[_j + 1]:
+            _j += 1
+        _units.append((_i, _j))
+        _i = _j + 1
+    if not _units:
+        return segments
+
+    _itp = (data['INTERPRETATION'].fillna('').astype(str).str.upper().str.strip()
+            if 'INTERPRETATION' in data.columns
+            else pd.Series([''] * n, index=data.index))
+    _HC_RANK = {'OIL': 3, 'GAS': 3, 'OIL_POSSIBLE': 2, 'GAS_POSSIBLE': 2,
+                'OIL_PROBABLE': 2, 'GAS_PROBABLE': 2, 'CONDENSATE': 2,
+                'WATER': 1}
+
+    out = []
+    for (_a, _b) in _units:
+        _cnt = {}
+        for _t in _itp.iloc[_a:_b + 1]:
+            if _t in _FLUID_TAGS:
+                _cnt[_t] = _cnt.get(_t, 0) + 1
+        if not _cnt:
+            continue    # 段内无流体结论 → 不绘框
+        _lab = max(_cnt.items(), key=lambda kv: (kv[1], _HC_RANK.get(kv[0], 0)))[0]
+        _sub_phi = _phi[_a:_b + 1]
+        _ok = np.where(_sub_phi > 0)[0]
+        if _ok.size:
+            _top = _md[_a + _ok[0]]
+            _bot = _md[_a + _ok[-1]]
+        else:
+            _top, _bot = _md[_a], _md[_b]
+        if _bot <= _top:
+            continue
+        if out and out[-1][2] == _lab and _top - out[-1][1] <= 2.0:
+            out[-1] = (out[-1][0], float(_bot), _lab)
+        else:
+            out.append((float(_top), float(_bot), _lab))
+    return out if out else segments
 
 
 def _find_gas_columns(gas_data):
