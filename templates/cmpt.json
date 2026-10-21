@@ -1,0 +1,140 @@
+{
+  "meta": {
+    "format": "cmpt",
+    "name": "综合测井图 Composite Log Plot（标准版式）",
+    "version": "1.0",
+    "updated": "2026-10-10",
+    "note": "本文件为综合测井图（非 quick look）的图版定义。作图时 logvis 直接读取本图版；未配置的键用代码内置默认值。修改本文件可改变综合图整体版式，无需改代码。"
+  },
+  "figure": {
+    "figwidth_inch": 24,
+    "dpi": 150,
+    "curve_scale": "1:200",
+    "curve_scale_den": 240,
+    "las_height_cm": null,
+    "title_height_cm": 2,
+    "header_per_curve_cm": 2.0,
+    "min_total_height_inch": 14,
+    "gas_track_width_min": 0.4,
+    "gas_track_width_max": 2.0,
+    "gas_track_width_per_curve": 0.15,
+    "note": "curve_scale 为曲线区深度比例尺（米制 depth_range×100/分母，英制 depth_range×30.48/分母）；las_height_cm=null 时按自动（5 行数据+6 行图例≈14.3cm）；header_per_curve_cm 为每条曲线占用的图头刻度区高度；min_total_height_inch 为整图最低高度。"
+  },
+  "title": {
+    "template": "{well} Composite Log Plot",
+    "fontsize": 16,
+    "fontweight": "bold",
+    "color": "#000000",
+    "family": "Microsoft YaHei",
+    "note": "title.template 支持 {well} 占位符；fontsize/fontweight/color/family 控制图名样式。"
+  },
+  "depth_scale": {
+    "unit": "auto",
+    "major_step": {"m": 100, "ft": 100},
+    "minor_step": {"m": 10, "ft": 20},
+    "depth_round": 10,
+    "note": "深度道刻度：米制主刻度 100m/次刻度 10m，英制主刻度 100ft/次刻度 20ft（用户2026-10-09固化）。unit=auto 时按 LAS 单位自动判定；也可强制 m 或 ft。depth_round 为深度起止取整步长。"
+  },
+  "header": {
+    "num_cols": 4,
+    "table_fontsize": 8,
+    "fields": [
+      ["Company", "company"],
+      ["Country", "country"],
+      ["Contractor", "service_company_name"],
+      ["Field", "field_name"],
+      ["Well Name", "well_name"],
+      ["State/Prov", "state_or_province"],
+      ["Log Date", "date"],
+      ["Datum", "permanent_datum"],
+      ["TD Driller", "total_depth_driller"],
+      ["TD Logger", "total_depth_logger"],
+      ["Start Depth", "start_depth"],
+      ["Stop Depth", "stop_depth"],
+      ["Bit Size", "bit_size"],
+      ["Casing Size", "current_casing_size"],
+      ["Mud Type", "drilling_fluid_type"],
+      ["Mud Density", "drilling_fluid_density"],
+      ["Mud Viscosity", "drilling_fluid_viscosity"],
+      ["Mud Loss", "drilling_fluid_loss"]
+    ],
+    "note": "图头 LAS 信息表字段（4 列 18 行）：fields 每项为 [显示名, 取值键]，取值键对应 LAS ~W 段或知识文件提取的 well_info/param_info。"
+  },
+  "legend": {
+    "sections": [
+      {"name": "Litho:", "type": "texture", "source": "lith_types"},
+      {"name": "Facies:", "type": "color", "source": "facies"},
+      {"name": "Interp:", "type": "color", "source": "interp"}
+    ],
+    "items_per_row": 6,
+    "item_fontsize": 5,
+    "section_fontsize": 6,
+    "eng_line": "Eng: {engineer}",
+    "note": "综合图图例分 3 部分：岩性（纹理方块）、沉积相（色块）、解释结论（色块），每部分 2 行、每行最多 6 项；eng_line 为 Interp 部分第 2 行的工程师署名行。"
+  },
+  "lithology": {
+    "min_layer_thickness_m": 0.25,
+    "colors": {
+      "sandstone": "#FFFF00", "shale": "#228B22", "mudstone": "#228B22",
+      "页岩": "#228B22", "泥岩": "#228B22", "泥页岩": "#228B22",
+      "limestone": "#87CEEB", "dolomite": "#B0E0E6", "carbonate": "#87CEEB",
+      "灰岩": "#87CEEB", "白云岩": "#B0E0E6", "碳酸盐岩": "#87CEEB",
+      "anhydrite": "#FFC0CB", "gypsum": "#FFC0CB",
+      "硬石膏": "#FFC0CB", "石膏": "#FFC0CB",
+      "halite": "#FF69B4", "salt": "#FF69B4", "盐岩": "#FF69B4", "盐": "#FF69B4",
+      "volcanic": "#FF0000", "火山岩": "#FF0000",
+      "coal": "#333333", "煤": "#333333", "煤层": "#333333",
+      "carbonaceous_shale": "#6B6B6B", "carbonaceous shale": "#6B6B6B", "碳质泥岩": "#6B6B6B",
+      "pyrite": "#FFD700", "黄铁矿": "#FFD700",
+      "conglomerate": "#D2B48C", "砾岩": "#D2B48C",
+      "mixed": "#D3D3D3", "unknown": "#D3D3D3"
+    },
+    "pattern": {
+      "pitch_px": 5.0,
+      "pitch_px_dash": 9.0,
+      "dot_ms": 1.0,
+      "line_lw": 0.55,
+      "brick_lw": 0.45,
+      "max_cols": 400,
+      "max_rows": 800,
+      "tile_depth_m": 1.0,
+      "symbol_x_extent": 0.8
+    },
+    "note": "colors 为岩性背景色统一表（改一处全图生效）；pattern 为岩性纹理图案参数（点距/行距/线宽/砖线宽/平铺深度/符号水平填充比）。"
+  },
+  "track": {
+    "widths_no_gas": [1, 1, 1, 0.5, 1, 1, 1, 1, 1, 1],
+    "widths_with_gas": [1, 1, 1, 0.5, 1, 1, "gas", 1, 1, 1, 1],
+    "raw_curves": [
+      "CAL", "SP", "GR", "RT", "LLD", "ILD", "R90", "MSFL", "LLS",
+      "AT10", "AT20", "AT30", "AT60", "AT90",
+      "M2R1", "M2R2", "M2R3", "M2R6", "M2RX",
+      "DEN", "RHOB", "NPHI", "CNL", "DT", "DTCO", "AC", "PE"
+    ],
+    "valid_curves": [
+      "GR", "RT", "LLD", "ILD", "R90", "MSFL", "LLS",
+      "AT10", "AT20", "AT30", "AT60", "AT90",
+      "M2R1", "M2R2", "M2R3", "M2R6", "M2RX",
+      "DEN", "RHOB", "NPHI", "CNL", "DT", "DTCO", "AC", "PE", "PEF", "CAL", "CALS", "CALI"
+    ],
+    "resistivity": {
+      "traditional": {"MSFL": ["MSFL", "RMSL"], "LLS": ["LLS", "RS"], "LLD": ["LLD", "RD", "RT", "ILD", "R90"]},
+      "array_at": {"MSFL": ["AT10"], "LLS": ["AT30"], "LLD": ["AT90", "AT60"]},
+      "array_m2r": {"MSFL": ["M2R1"], "LLS": ["M2R3"], "LLD": ["M2RX", "M2R6"]}
+    },
+    "note": "道宽度比例：widths_no_gas 为无气测 10 道（岩性/电阻率/孔隙度/深度/Sw/孔隙度2/岩性填充/沉积相/剖面/解释），widths_with_gas 为有气测 11 道，\"gas\" 由 gas_track_width 参数替换；raw_curves/valid_curves 为有效曲线候选表（按此顺序识别绘制）；resistivity 为电阻率曲线识别别名表（传统/阵列感应 AT/多阵列 M2R）。"
+  },
+  "font": {
+    "family": "Microsoft YaHei",
+    "table_fontsize": 8,
+    "legend_item_fontsize": 5,
+    "legend_section_fontsize": 6,
+    "header_tick_fontsize": 8,
+    "note": "全图中文字体与表格/图例字号。"
+  },
+  "io": {
+    "filename_template": "{well}_composite_log_{timestamp}.png",
+    "metadata": {"Software": null},
+    "note": "输出文件名模板与 PNG 元数据（null 表示不写 Software 水印）。"
+  }
+}

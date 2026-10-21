@@ -1,0 +1,488 @@
+{
+  "meta": {
+    "format": "qlpt",
+    "name": "蹇€熻В閲婂浘 Quick Look Plot锛堝崟椤佃浆缃増寮忥紝榛樿锛?,
+    "version": "1.2",
+    "updated": "2026-10-10",
+    "base": "鍙傜収 BET-1_8.5IN_SLAM_Res_MD200_20261003.pdf 鍗曢〉鐗堝紡锛堥〉棣栬浆缃俊鎭〃+姝ｅ浘锛岄潪涓ら〉锛?,
+    "note": "鏈枃浠朵负 quick look 蹇€熻В閲婂浘鐨勫浘鐗堝畾涔夛紝鍗曢〉杈撳嚭锛氶〉棣栦负鏍锋湰寮忕珫鎺掕浆缃俊鎭〃锛堣〃1 浜曚綅 15 瀛楁 + 琛? 娴嬮噺 12 瀛楁锛宭abel 绔栨帓+value 绔栨帓锛夛紝鍙充晶绔栨帓鏍囬鍧楋紙姣斾緥灏?涓绘爣棰?浜曞悕/鍏徃锛屼粠鍙冲埌宸︼級锛岄殢鍚庡厤璐ｅ０鏄庡師鏂囥€丅OREHOLE/CASING 骞舵帓 3 鍒楄〃銆丩EGEND 涓ゅ垪鍥句緥锛岄殢鍚庝负绠€鍖栨鍥俱€備綔鍥炬椂 logvis 鐩存帴璇诲彇鏈浘鐗堝苟鎶婅В鏋愯繃绋嬪弬鏁板寲锛歨eader.fields_v 瀹氫箟涓ょ粍绔栨帓琛ㄥ瓧娈碉紙label/src/key/fmt/suffix锛夛紝header.title_block 瀹氫箟鍙充晶绔栨帓鏍囬鍧楋紝header.layout 瀹氫箟甯冨眬姣斾緥涓庡瓧鍙凤紝legend 瀹氫箟鍥句緥椤?鍒楁暟/鍏嶈矗澹版槑锛涙湭閰嶇疆鐨勯敭鐢ㄤ唬鐮佸唴缃粯璁ゅ€硷紱鐢叉柟鏍煎紡鍙樺寲鏃舵敼鏈枃浠跺嵆鍙紝鏃犻渶鏀逛唬鐮併€傚浘澶村乏涓?鍙充笂鍥炬爣闅忎簳鐨勪笟涓诲姩鎬佹洿鎹紙src 鏍圭洰褰?company.png / contractor.png 鏂囦欢鍚嶄紭鍏堬紝鍏舵 symbol 鐩綍锛夈€?
+  },
+  "figure": {
+    "figwidth_inch": 24,
+    "dpi": 150,
+    "curve_scale": {
+      "m": "1:200",
+      "ft": "1:240"
+    },
+    "curve_scale_den": {
+      "m": 200,
+      "ft": 240
+    },
+    "curve_scale_alt": {
+      "m": "1:500",
+      "ft": "1:480"
+    },
+    "curve_scale_alt_den": {
+      "m": 500,
+      "ft": 480
+    },
+    "las_height_cm": 40,
+    "title_height_cm": 2,
+    "logo_width_frac": 0.045,
+    "icon_row_frac": 0.055,
+    "logo_inner_frac": 0.008,
+    "logo_content_frac": 0.03,
+    "logo_width_max_frac": 0.085,
+    "header_per_curve_cm": 2.0,
+    "min_total_height_inch": 14,
+    "gas_track_width_min": 0.4,
+    "gas_track_width_max": 2.0,
+    "gas_track_width_per_curve": 0.15,
+    "note": "curve_scale 涓烘洸绾垮尯娣卞害姣斾緥灏猴紙绫冲埗榛樿 1:200銆佸彲閫?1:500锛涜嫳鍒堕粯璁?1:240銆佸彲閫?1:480锛岀敤鎴?2026-10-10 鍥哄寲锛夈€俢urve_scale_den/curve_scale_alt_den 涓哄搴旀瘮渚嬪昂鍒嗘瘝銆俵as_height_cm 涓哄崟椤靛紡 quick look 鍥惧ご鍖洪珮搴︼紙绔栨帓琛?+琛?+鍏嶈矗澹版槑+BOREHOLE/CASING+LEGEND锛?026-10-10 鏍锋湰鐗堝紡榛樿 32cm锛涘浘鐗堝彲璋冿級锛沨eader_per_curve_cm 涓烘瘡鏉℃洸绾垮崰鐢ㄧ殑鍥惧ご鍒诲害鍖洪珮搴︼紱min_total_height_inch 涓烘暣鍥炬渶浣庨珮搴︺€?
+  },
+  "title": {
+    "template": "Well Logging Interpretation Result Plot",
+    "fontsize": 16,
+    "fontweight": "bold",
+    "color": "#000000",
+    "family": "Microsoft YaHei",
+    "note": "title.template 涓烘牱鏈富鏍囬锛堝崟琛岋紝鏃犱簳鍚嶅墠缂€/鏃犳崲琛岀锛泀uick look 鏃朵簳鍚嶄笌浜曟鍒嗗埆鏄剧ず鍦ㄥ彸渚х珫鎺掓爣棰樺潡涓庤〃1 Logged Interval 瀛楁锛?026-10-10 鐢ㄦ埛鍥哄寲锛夈€傛敮鎸?{well}/{start}/{stop}/{unit} 鍗犱綅绗︼紙浼?template 鏃朵粛鍙牸寮忓寲锛夈€?
+  },
+  "depth_scale": {
+    "unit": "auto",
+    "major_step": {
+      "m": 100,
+      "ft": 100
+    },
+    "minor_step": {
+      "m": 10,
+      "ft": 20
+    },
+    "depth_round": 10,
+    "note": "娣卞害閬撳埢搴︼細绫冲埗涓诲埢搴?100m/娆″埢搴?10m锛岃嫳鍒朵富鍒诲害 100ft/娆″埢搴?20ft锛堢敤鎴?026-10-09鍥哄寲锛夈€倁nit=auto 鏃舵寜 LAS 鍗曚綅鑷姩鍒ゅ畾锛涗篃鍙己鍒?m 鎴?ft銆俤epth_round 涓烘繁搴﹁捣姝㈠彇鏁存闀裤€?
+  },
+  "legend": {
+    "title": "LEGEND OF WELL-LOGGING RESULT",
+    "title_own_row": true,
+    "cols": 2,
+    "item_fontsize": 6,
+    "section_fontsize": 7,
+    "disclaimer": "IN MAKING INTERPREATIONS OF LOGS OUR EMPLOYEES WILL GIVE CUSTOMER THE BENEFIT OF THEIR BEST JUDGEMENT. BUT SINCE ALL INTERPRETATIONS ARE OPINIONS BASED ON INFERENCES FROM ELECTRICAL OR OTHER MEASUREMENTS. WE CANNOT, AND WE DO NOT GUARANTEE THE ACCURANCY OR CORRECTNESS OF ANY EXPENSES WHATSOEVER INCURRED OR SUSTAINED BY THE CUSTOMER RESULTING FROM ANY INTERPRETATION MADE BY ANY OUR EMPLOYEES.",
+    "items": [
+      {
+        "label": "Gas",
+        "color": "#d73027"
+      },
+      {
+        "label": "Poor Gas",
+        "color": "#f39b7f"
+      },
+      {
+        "label": "Gas & Water",
+        "color": "#e67e22"
+      },
+      {
+        "label": "Gas-bearing Water",
+        "color": "#fdbf6f"
+      },
+      {
+        "label": "Oil",
+        "color": "#1a9850"
+      },
+      {
+        "label": "Poor Oil",
+        "color": "#a6d96a"
+      },
+      {
+        "label": "Oil & Water",
+        "color": "#8c6bb1"
+      },
+      {
+        "label": "Oil-bearing Water",
+        "color": "#c994c7"
+      },
+      {
+        "label": "Gas & Oil",
+        "color": "#f4a582"
+      },
+      {
+        "label": "Water",
+        "color": "#00a8f8"
+      },
+      {
+        "label": "Tight",
+        "color": "#bdbdbd"
+      },
+      {
+        "label": "Possible Hydrocarbon",
+        "color": "#ffd700"
+      }
+    ],
+    "note": "鍥句緥椤哄簭/棰滆壊/绫诲埆闅忕敳鏂瑰彲鍙橈細澧炲垹 items銆佹敼棰滆壊鍗冲彲锛沜ols 涓哄浘渚嬪垪鏁帮紙鏍锋湰涓ゅ垪 12 椤?6 琛岋紝2026-10-10 鍥哄寲锛夛紱title_own_row=true 鏃?LEGEND 鏍囬灞呬腑鐙崰鍥句緥鍖虹 0 琛岋紙鏃犲啋鍙凤級锛沝isclaimer 涓洪〉棣栧厤璐ｅ０鏄庯紙鏍锋湰鍘熸枃锛?026-10-10 鍥哄寲锛夈€?
+  },
+  "header": {
+    "fixed": {
+      "company": "Cipta Niaga Gemilang (CNG)",
+      "country": "Indonesia",
+      "field_name": "Jabung Tengah Block",
+      "area": "Tanjung Jabung Timur / Jambi"
+    },
+    "layout": {
+      "right_width_frac": 0.22,
+      "table1_frac": 0.27,
+      "table2_frac": 0.24,
+      "disclaimer_frac": 0.11,
+      "bh_frac": 0.15,
+      "legend_frac": 0.12,
+      "vtable_fontsize": 7.2,
+      "vtable_value_color": "#0033CC",
+      "title_block_fontsize": 7.0,
+      "disclaimer_fontsize": 5.4,
+      "note": "椤甸鍚勫尯楂樺害姣斾緥锛堟寜鍥惧ご鍖烘€婚珮褰掍竴锛夛細鍙充晶绔栨帓鏍囬鍧楀鍗犺〃鍖?2%锛涢〉棣栭『搴?琛? 27%鈫掕〃2 24%鈫掑厤璐ｅ０鏄?1%鈫払OREHOLE/CASING 15%鈫扡EGEND 12%锛岄《閮ㄥ彟鐣?5.5% 鍥炬爣琛岋紙figure.icon_row_frac锛?026-10-10 淇锛氬浘鏍囧～杩涜〃鍐呯涓€琛岋紝company 宸?contractor 鍙筹級锛沴as_height_cm=40 浣块〉棣栧尯鍦ㄦ暣鍥惧崰姣旀帴杩戞牱鏈鎰燂紱vtable_fontsize 绔栨帓琛ㄥ瓧鍙枫€乼itle_block_fontsize 鍙充晶绔栨帓鏍囬瀛楀彿銆乨isclaimer_fontsize 鍏嶈矗澹版槑瀛楀彿銆?
+    },
+    "title_block": [
+      {
+        "text": "{well}",
+        "weight": "bold",
+        "fontsize": 11
+      },
+      {
+        "text": "{title}",
+        "weight": "bold"
+      },
+      {
+        "text": "{scale}",
+        "weight": "bold"
+      }
+    ],
+    "fields_v": {
+      "table1": [
+        {
+          "label": "Company",
+          "src": "well",
+          "key": "company"
+        },
+        {
+          "label": "Field",
+          "src": "well",
+          "key": "field_name"
+        },
+        {
+          "label": "Well Coordinate",
+          "src": "special",
+          "key": "well_coordinate"
+        },
+        {
+          "label": "Date Spudded",
+          "src": "well",
+          "key": "spud_date"
+        },
+        {
+          "label": "Date TD Reached",
+          "src": "well",
+          "key": "td_date"
+        },
+        {
+          "label": "Date Logged",
+          "src": "well",
+          "key": "log_date"
+        },
+        {
+          "label": "Date Processed",
+          "src": "well",
+          "key": "process_date"
+        },
+        {
+          "label": "Logged Interval",
+          "src": "special",
+          "key": "logged_interval"
+        },
+        {
+          "label": "Elevations KB",
+          "src": "well",
+          "key": "elevation_kb"
+        },
+        {
+          "label": "Elevations DF",
+          "src": "well",
+          "key": "elevation_df"
+        },
+        {
+          "label": "Elevations GL",
+          "src": "well",
+          "key": "elevation_gl"
+        },
+        {
+          "label": "Equip. NO.",
+          "src": "well",
+          "key": "equipment_no"
+        },
+        {
+          "label": "RIG Name",
+          "src": "well",
+          "key": "rig_name"
+        },
+        {
+          "label": "processed By",
+          "src": "special",
+          "key": "processed_by"
+        },
+        {
+          "label": "Corrected BY",
+          "src": "special",
+          "key": "corrected_by"
+        }
+      ],
+      "table2": [
+        {
+          "label": "Bit Size",
+          "src": "param",
+          "key": "bit_size",
+          "fmt": "float2",
+          "suffix": " IN"
+        },
+        {
+          "label": "Type of Fluid in Hole",
+          "src": "param",
+          "key": "drilling_fluid_type"
+        },
+        {
+          "label": "Fluid Density / Visvosity",
+          "src": "join",
+          "keys": [
+            {
+              "src": "param",
+              "key": "drilling_fluid_density",
+              "fmt": "mud_density"
+            },
+            {
+              "src": "param",
+              "key": "drilling_fluid_viscosity",
+              "fmt": "float2"
+            }
+          ],
+          "sep": " / "
+        },
+        {
+          "label": "Fluid PH / Fluid Loss",
+          "src": "join",
+          "keys": [
+            {
+              "src": "param",
+              "key": "drilling_fluid_ph",
+              "fmt": "float2"
+            },
+            {
+              "src": "param",
+              "key": "drilling_fluid_loss",
+              "fmt": "fluid_loss"
+            }
+          ],
+          "sep": " / "
+        },
+        {
+          "label": "RM at Meas. Temp.",
+          "src": "param",
+          "key": "rm_meas_temp"
+        },
+        {
+          "label": "RMF at Meas. Temp.",
+          "src": "param",
+          "key": "rmf_meas_temp"
+        },
+        {
+          "label": "RMC at Meas. Temp.",
+          "src": "param",
+          "key": "rmc_meas_temp"
+        },
+        {
+          "label": "RM at BHT",
+          "src": "param",
+          "key": "rm_bht"
+        },
+        {
+          "label": "Time Since Circulation",
+          "src": "param",
+          "key": "time_since_circulation"
+        },
+        {
+          "label": "Max. Record Temp.",
+          "src": "param",
+          "key": "max_record_temp"
+        },
+        {
+          "label": "Field Recorded By",
+          "src": "well",
+          "key": "field_recorded_by"
+        },
+        {
+          "label": "Field Witnessed By",
+          "src": "well",
+          "key": "field_witnessed_by"
+        }
+      ]
+    },
+    "borehole_record": [
+      {
+        "size": "26",
+        "from": "0",
+        "to": "118"
+      },
+      {
+        "size": "17.5",
+        "from": "118",
+        "to": "2640"
+      },
+      {
+        "size": "12.25",
+        "from": "2640",
+        "to": "6450"
+      },
+      {
+        "size": "8.5",
+        "from": "6450",
+        "to": "9032"
+      }
+    ],
+    "casing_record": [
+      {
+        "size": "20",
+        "from": "0",
+        "to": "118"
+      },
+      {
+        "size": "13.375",
+        "from": "0",
+        "to": "2630.97"
+      },
+      {
+        "size": "9.625",
+        "from": "0",
+        "to": "6441"
+      }
+    ],
+    "note": "fixed 涓虹敳鏂瑰浐瀹氫簳浣嶄俊鎭紙涓氫富/鍥藉/鍖哄潡/鍖哄煙锛夛紝浼樺厛浜?LAS/鐭ヨ瘑鏂囦欢鎻愬彇鍊硷紱layout 涓洪〉棣栧竷灞€姣斾緥涓庡瓧鍙凤紱title_block 涓哄彸渚х珫鎺掓爣棰樺潡锛堟敮鎸?{scale}/{title}/{well}/{company} 鍗犱綅绗︼紝椤哄簭浠庡彸鍒板乏锛夛紱fields_v.table1/table2 涓轰袱缁勭珫鎺掕〃瀛楁瀹氫箟锛坰rc: well/param/special/join锛泂pecial 鏀寔 logged_interval/well_coordinate/processed_by/corrected_by锛沯oin 鏀寔 keys+sep 缁勫悎澶氬€硷級锛沚orehole_record/casing_record 涓轰簳韬?濂楃璁板綍娈碉紱鐢叉柟鏇存崲鏃舵敼 fixed銆乫ields_v銆乼itle_block銆乴ayout 涓庝袱涓?record 鍗冲彲锛宭ogvis 鐨?_ql_cfg_value/_ql_header_rows_from_cfg 鑷姩瑙ｆ瀽銆?,
+    "bhcs": {
+      "borehole_rows": 4,
+      "casing_rows": 3
+    }
+  },
+  "lithology": {
+    "min_layer_thickness_m": 0.25,
+    "colors": {
+      "sandstone": "#FFFF00",
+      "shale": "#228B22",
+      "mudstone": "#228B22",
+      "椤靛博": "#228B22",
+      "娉ュ博": "#228B22",
+      "娉ラ〉宀?: "#228B22",
+      "limestone": "#87CEEB",
+      "dolomite": "#B0E0E6",
+      "carbonate": "#87CEEB",
+      "鐏板博": "#87CEEB",
+      "鐧戒簯宀?: "#B0E0E6",
+      "纰抽吀鐩愬博": "#87CEEB",
+      "anhydrite": "#FFC0CB",
+      "gypsum": "#FFC0CB",
+      "纭煶鑶?: "#FFC0CB",
+      "鐭宠啅": "#FFC0CB",
+      "halite": "#FF69B4",
+      "salt": "#FF69B4",
+      "鐩愬博": "#FF69B4",
+      "鐩?: "#FF69B4",
+      "volcanic": "#FF0000",
+      "鐏北宀?: "#FF0000",
+      "coal": "#333333",
+      "鐓?: "#333333",
+      "鐓ゅ眰": "#333333",
+      "carbonaceous_shale": "#6B6B6B",
+      "carbonaceous shale": "#6B6B6B",
+      "纰宠川娉ュ博": "#6B6B6B",
+      "pyrite": "#FFD700",
+      "榛勯搧鐭?: "#FFD700",
+      "conglomerate": "#D2B48C",
+      "鐮惧博": "#D2B48C",
+      "mixed": "#D3D3D3",
+      "unknown": "#D3D3D3"
+    },
+    "note": "colors 涓哄博鎬ч亾/PROFILE閬?鍥句緥缁熶竴鑳屾櫙鑹茶〃锛堟敼涓€澶勫叏鍥剧敓鏁堬級锛沵in_layer_thickness_m 涓哄皬浜庤鍘氬害鐨勮杽灞備笉缁樺埗宀╂€?娌夌Н鐩?瑙ｉ噴缁撹銆?
+  },
+  "track": {
+    "widths_no_gas": [
+      1,
+      1,
+      1,
+      0.5,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1
+    ],
+    "widths_with_gas": [
+      1,
+      1,
+      1,
+      0.5,
+      1,
+      1,
+      "gas",
+      1,
+      1,
+      1,
+      1
+    ],
+    "quicklook_tracks": [
+      "宀╂€ч亾",
+      "鐢甸樆鐜囬亾",
+      "娣卞害閬?,
+      "瀛旈殭搴︽洸绾块亾",
+      "楗卞拰搴?,
+      "娓楅€忕巼",
+      "PROFILE",
+      "瑙ｉ噴"
+    ],
+    "reg_tracks": {
+      "enabled": "auto",
+      "tracks": ["RTI", "NDI", "GSI", "CGI"],
+      "widths": [0.7, 0.7, 0.7, 0.7],
+      "colors": {
+        "RTI": "#c0392b",
+        "NDI": "#2471a3",
+        "GSI": "#b9770e",
+        "CGI": "#27ae60"
+      },
+      "scales": {
+        "RTI": [-0.5, 1.0],
+        "NDI": [-0.05, 0.15],
+        "GSI": [-0.5, 2.0],
+        "CGI": [0, 1.5]
+      },
+      "threshold_marks": {
+        "RTI": 0.20,
+        "NDI": 0.05,
+        "GSI": 0.5,
+        "CGI": 0.6
+      },
+      "position": "before_interp",
+      "note": "REG 娉曠患鍚堟皵灞傛寚绀洪亾缁勶紙2026-10-21 鐢ㄦ埛鍥哄寲锛夛細enabled=auto 鏃舵娴?data 閲屾槸鍚﹀瓨鍦?RTI/NDI/GSI/CGI 鍥涙潯鍒楋紝瀛樺湪鍒欏湪瑙ｉ噴閬撳墠鎻掑叆涓€涓?REG 閬撶粍锛?鏉℃洸绾垮苟鎺掞級锛涙皵灞傚鐨勫湴鍖鸿嚜鍔ㄥ嚭鐜般€俁TI=鐢甸樆鐜?澹版尝閲嶅彔锛孨DI=涓瓙-瀵嗗害鎸栨帢锛孏SI=姘旀祴鍏ㄧ儍锛孋GI=鍔犳潈缁煎悎銆倀hreshold_marks 涓哄悇閬撻槇鍊肩嚎浣嶇疆銆?
+    },
+    "note": "閬撳搴︽瘮渚嬶細widths_no_gas 涓烘棤姘旀祴 10 閬擄紙宀╂€?鐢甸樆鐜?瀛旈殭搴?娣卞害/Sw/瀛旈殭搴?/宀╂€у～鍏?娌夌Н鐩?鍓栭潰/瑙ｉ噴锛夛紱widths_with_gas 涓烘湁姘旀祴 11 閬擄紝\"gas\" 鍗犱綅绗︾敱 gas_track_width 鍙傛暟锛堟寜姘旀祴鏇茬嚎鏁板姩鎬侊級鏇挎崲銆俼uicklook_tracks 涓哄揩閫熻В閲婂浘绠€鍖栭亾搴忥紙quick look 鐗堝紡閬撴瘮杈冪畝鍗曪紝2026-10-10 鐢ㄦ埛鍥哄寲锛夈€俫eg_tracks 涓?REG 娉曟皵灞傛寚绀洪亾缁勶紙2026-10-21锛夈€?
+  },
+  "font": {
+    "family": "Microsoft YaHei",
+    "table_fontsize": 8,
+    "legend_item_fontsize": 6,
+    "legend_section_fontsize": 7,
+    "header_tick_fontsize": 8,
+    "note": "鍏ㄥ浘涓枃瀛椾綋涓庤〃鏍?鍥句緥瀛楀彿銆?
+  },
+  "io": {
+    "filename_template": "{well}_quicklook_{timestamp}.png",
+    "metadata": {
+      "Software": null
+    },
+    "note": "杈撳嚭鏂囦欢鍚嶆ā鏉夸笌 PNG 鍏冩暟鎹紙null 琛ㄧず涓嶅啓 Software 姘村嵃锛夈€?
+  }
+}

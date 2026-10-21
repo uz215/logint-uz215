@@ -1,0 +1,52 @@
+# ===== 数据/产物目录（不入库） =====
+data/
+output/
+cache/
+index/
+vector_index/
+logs/
+graph/
+backup/
+Claw/
+config/
+docs/
+interpretation/
+test_crawl_result/
+tmp_chad/
+_baseline/
+_import_logs/
+_ocr_tmp/
+_qa4/
+eval_history/
+办公自动化/
+测井解释/
+测井解释知识库/
+
+# ===== IDE/工具目录 =====
+.idea/
+.vscode/
+.trae/
+.codebuddy/
+.workbuddy/
+.preview/
+.trae-html-share-packages/
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# ===== 备份/临时/副本文件（不入库） =====
+*.bak_*
+*.corrupted_*
+* - 副本*.py
+* - 副本*.json
+正确.py
+logInt - 正确.py
+
+# ===== 临时脚本（_ 开头的一次性脚本） =====
+_*.py
+
+# ===== 日志 =====
+*.log
