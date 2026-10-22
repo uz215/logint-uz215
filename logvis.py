@@ -4407,13 +4407,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             draw_tick_labels(ax3, ALIGNED_POSITIONS_CM[track3_slot], label, tick_vals[0], tick_vals[1], 'red')
             track3_slot += 1
 
-        # 【2026-10-10 严格对齐样本】Porosity 道图头固定标注 ZDEN>CNCF
-        if quicklook:
-            _pos3 = ax3.get_position()
-            fig.text(_pos3.x0 + _pos3.width / 2,
-                     header_bottom_y + (header_top_y - header_bottom_y) * 0.04,
-                     'ZDEN>CNCF', fontsize=5.5, ha='center', va='center',
-                     fontfamily='Microsoft YaHei', color='red')
+        # 【用户定案 2026-10-22】quicklook 孔隙度道图头不再标注 ZDEN>CNCF
 
         # 【2026-10-13 用户定案】Porosity 道密度-中子填充（挖掘效应）：
         # 调用独立方法模块 fill_gas_effect（quicklook 与综合图共用），
