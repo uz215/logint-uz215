@@ -429,6 +429,25 @@ _SYMBOL_STRUCT = {
     'Coal.png': 'solid',
 }
 
+# 【2026-10-22 修正·单个纹理干净重绘】参考图仅决定"是什么符号"（结构）与底色；
+# 纹理在统一 36px 网格上用数学方式干净重绘（行距 LITH_ROW_PX/线宽1px/点径
+# LITH_INK_DOT_PX，背景透明）。这样实体与图例共用同一瓦片→逐形一致、可辨认，
+# 且彻底消除前版"泥岩过密/砂岩变怪符/贴边细行/带底色横带"。墨迹统一黑色，
+# 与各参考图一致（绿底黑横/黄底黑点/蓝底黑砖/红底黑Γ或V…）。
+_SYMBOL_CLEAN = {
+    'Shale.png':        ('hlines', {}),
+    'Limestone.png':    ('brick',  {}),
+    'Dolomite.png':     ('brick',  {'offset': True}),
+    'Anhydrite.png':    ('hlines', {}),
+    'Halite.png':       ('hlines', {}),
+    'Sandstone.png':    ('dots',   {}),
+    'basalt.png':       ('invL',   {}),
+    'DBOS_Volcanic.png':('V',      {}),
+    'Conglomerate.png': ('pebble', {}),
+    'Unknown.png':      ('cross',  {}),
+    'Coal.png':         ('solid',  {}),
+}
+
 # ---------------------------------------------------------------------------
 # 【2026-10-20 用户定案·岩性绘制规则】"同一张图上，符号单行高度一致、一行
 # 符号数协调"——按符号类别统一尺度：
@@ -475,12 +494,12 @@ LITH_INK_DOT_PX = 3.0     # 砂岩点阵统一点径（瓦片像素）：dot=Tru
 # 【2026-10-22 用户定案·统一网格】岩性符号本质是“某一纹理的重复”，要在同一分辨率
 # 下统一 行距 / 符号高度，使全程序所有符号高度一致、行距一致、大小合适、图面协调。
 # 机制：所有符号在 **同一瓦片分辨率 LITH_TILE_PX** 下渲染；重复行状/点状符号的内部
-# 行距统一为 **LITH_ROW_PX**（=9px），瓦片高 = LITH_TILE_PX 必为 LITH_ROW_PX 整数倍
-# （4 行），故瓦片内/瓦片间纹理无缝衔接、行距处处一致；块状符号等比缩放到一致高度
+# 行距统一为 **LITH_ROW_PX**（=12px），瓦片高 = LITH_TILE_PX 必为 LITH_ROW_PX 整数倍
+# （3 行），故瓦片内/瓦片间纹理无缝衔接、行距处处一致；块状符号等比缩放到一致高度
 # 居中；实心符号铺满。线宽已统一为 1px（见 _uniform_thin_tile）。
 # ---------------------------------------------------------------------------
 LITH_TILE_PX = 36.0      # 所有符号统一瓦片分辨率（px）；行状符号 = 4 × LITH_ROW_PX
-LITH_ROW_PX = 9.0        # 所有重复纹理符号统一内部行距（px）：横线/砖/点阵/竖线均按此周期
+LITH_ROW_PX = 12.0       # 所有重复纹理符号统一内部行距（px）：横线/砖/点阵均按此周期（瓦片高36恰为3倍→无缝）
 
 _REF_ROW_PHASE_CACHE = {}
 
@@ -561,110 +580,120 @@ _lith_ink_tile_cache = {}
 
 
 def _lith_ink_tile(ref_file, tpx=None):
-    """symbol/ 参考图 → RGBA 整图瓦片（**底色+纹理均以参考图为准**，不透明）。
+    """symbol/ 参考图 → RGBA 墨迹瓦片（**背景透明，仅墨迹上墙**）。
 
-    【2026-10-20 用户定案】不用统一底色：参考图整图作为瓦片直接上墙
-    （LITH_BG_COLORS 仅作瓦片加载失败时的兜底），只做三件事：
-    ① 外圈贯穿示意框线（墨迹率>50%）用参考图底色覆盖；
-    ② 纵向 roll 行相位对齐（首行 motif 顶到瓦片顶，配合格距=N行×9px
-       全局锚定绝对深度 0 → 跨段跨岩性行线接续）；
-    ③ LANCZOS 缩放到 tpx×tpx——实体与图例必须传同一 tpx（=格子屏幕像素），
-       保证两端逐像素同源。
+    【2026-10-22 修正·单个纹理干净重绘】参考图仅决定"是什么符号"（结构）与
+    底色；纹理在统一 LITH_TILE_PX=36px 网格上用数学方式干净重绘，杜绝前版
+    距离变换骨架化带来的：① 泥岩横线过密/粗细不一；② 砂岩点阵变来历不明
+    符号；③ 贴边笔触/裁剪造成的细行与带底色横带。
+
+    规则（全程序统一，保证间距/高度一致、且与图例符号逐形一致、可辨认）：
+      · 行距 = LITH_ROW_PX（=12px，瓦片高 36px 恰为其 3 倍 → 瓦片内/间无缝重复）；
+      · 线宽 = 1px（LITH_INK_LINE_PX），点径 = LITH_INK_DOT_PX（砂岩等径黑点）；
+      · 墨迹统一黑色（与各参考图一致：绿底黑横/黄底黑点/蓝底黑砖…）；
+      · 背景透明，底色由 draw_lithology_pattern 的 fill_bg（LITH_BG_COLORS）绘制
+        → 彻底消除"带底色横带"；单岩性/填充效果均与图例符号一致、认得出。
     """
-    tpx = int(tpx) if tpx else 0
+    tpx = int(round(LITH_TILE_PX))
     key = (str(ref_file), tpx)
     if key in _lith_ink_tile_cache:
         return _lith_ink_tile_cache[key]
     tile = None
     try:
-        from PIL import Image
-        im = Image.open(os.path.join(SYMBOL_DIR, ref_file)).convert('RGB')
-        a = np.asarray(im).astype(np.float64)
-        h, w = a.shape[:2]
-        cols, counts = np.unique(
-            a.reshape(-1, 3).astype(np.int16), axis=0, return_counts=True)
-        bg = cols[int(counts.argmax())].astype(np.float64)
-        # ① 外圈若为贯穿示意框线则用底色覆盖（整图不透明，不再抠墨迹）
-        dist = np.abs(a - bg).sum(axis=2)
-        ring = np.concatenate([dist[:2].ravel(), dist[-2:].ravel(),
-                               dist[:, :2].ravel(), dist[:, -2:].ravel()])
-        if ring.size and float(np.mean(ring > 60.0)) > 0.5:
-            a[:2] = bg
-            a[-2:] = bg
-            a[:, :2] = bg
-            a[:, -2:] = bg
-        # ② 行相位对齐：首行 motif 顶到瓦片顶（不移位则跨岩性行线错半行）
-        _P, _O = _ref_row_phase(ref_file)[:2]
-        if _P and _O:
-            _sh = int(round(_O)) % h
-            if _sh:
-                a = np.roll(a, -_sh, axis=0)
-        # ③【2026-10-22 统一网格】所有符号在 **同一分辨率 LITH_TILE_PX** 渲染，
-        #    重复行状/点状符号内部行距统一为 LITH_ROW_PX（=9px）；瓦片高 = LITH_TILE_PX
-        #    恰为 LITH_ROW_PX 整数倍（4 行）→ 瓦片内/间纹理无缝、行距处处一致。
-        #    按符号结构分类（_SYMBOL_STRUCT）：row=重复行状(横线/砖/竖线/点阵)、
-        #    block=块状单体、solid=实心；统一线宽由 _uniform_thin_tile 完成。
-        tpx = int(round(LITH_TILE_PX))
-        _struct = _SYMBOL_STRUCT.get(str(ref_file), 'row')
-
-        def _tile_to(aim):
-            """把 a 在轴向重复/裁切到 aim 像素（aim 必为 LITH_ROW_PX 整数倍）。"""
-            nonlocal a
-            while a.shape[0] < aim:
-                a = np.concatenate([a, a[:aim - a.shape[0]]], axis=0)
-            if a.shape[0] > aim:
-                a = a[:aim]
-            while a.shape[1] < aim:
-                a = np.concatenate([a, a[:, :aim - a.shape[1]]], axis=1)
-            if a.shape[1] > aim:
-                a = a[:, :aim]
-
-        if _struct == 'solid':
-            # 实心填充（煤）：直接铺满瓦片
-            if a.shape[0] != tpx or a.shape[1] != tpx:
-                a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
-                               ).resize((tpx, tpx), Image.LANCZOS)).astype(np.float64)
-        elif _struct == 'block':
-            # 块状单体（玄武岩倒L/火山岩V/砾岩/未知）：等比缩放到一致高度居中
-            _s = 0.9 * tpx / float(max(h, w))
-            _nw = max(1, int(round(w * _s)))
-            _nh = max(1, int(round(h * _s)))
-            a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
-                           ).resize((_nw, _nh), Image.LANCZOS)).astype(np.float64)
-            _canvas = np.tile(bg, (tpx, tpx, 1)).astype(np.float64)
-            _yy0 = (tpx - _nh) // 2
-            _xx0 = (tpx - _nw) // 2
-            _canvas[_yy0:_yy0 + _nh, _xx0:_xx0 + _nw] = a
-            a = _canvas
-        else:  # 'row'（含砂岩点阵：原生点行周期→9px，点阵落在统一行距网格上）
-            if _P and _P > 1:
-                # 把原生周期 P 映射为统一行距 LITH_ROW_PX（横竖等比→点阵也为方形 9px 网格）
-                _scale = float(LITH_ROW_PX) / float(_P)
-                _nw = max(1, int(round(w * _scale)))
-                _nh = max(1, int(round(h * _scale)))
-                if _nw != w or _nh != h:
-                    a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
-                                   ).resize((_nw, _nh), Image.LANCZOS)).astype(np.float64)
-                # 周期已是 LITH_ROW_PX，瓦片高/宽取到 tpx（4×行距）→ 无缝重复
-                _tile_to(tpx)
-            else:
-                # 无量测周期（如竖线盐岩）：整体等比铺满瓦片
-                if a.shape[0] != tpx or a.shape[1] != tpx:
-                    a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
-                                   ).resize((tpx, tpx), Image.LANCZOS)).astype(np.float64)
-        # 【2026-10-22 全程序统一线宽】墨迹归一：所有线状符强制 LITH_INK_LINE_PX
-        # 细线宽，砂岩点阵统一 LITH_INK_DOT_PX 点径；实体道/图例/剖面共用此瓦片
-        # → 全程序粗细、间距一致。dot 仅砂岩（点阵）触发。
-        a = _uniform_thin_tile(a, dot=bool(ref_file == 'Sandstone.png'),
-                               name=ref_file)
-        rgba = np.zeros((a.shape[0], a.shape[1], 4), dtype=np.float32)
-        rgba[..., :3] = a / 255.0
-        rgba[..., 3] = 1.0
-        tile = rgba
+        spec = _SYMBOL_CLEAN.get(str(ref_file))
+        if spec is None:
+            spec = ('hlines', {})
+        tile = _render_clean_tile(spec[0], spec[1], tpx)
     except Exception as exc:
-        logger.warning('参考图整图瓦片加载失败 %s: %s', ref_file, exc)
+        logger.warning('清洁墨迹瓦片生成失败 %s: %s', ref_file, exc)
     _lith_ink_tile_cache[key] = tile
     return tile
+
+
+def _render_clean_tile(kind, opts, tpx):
+    """在 tpx×tpx 网格上干净重绘单纹理（背景全透明、墨迹黑色），返回 RGBA。
+
+    单一几何定义源：结构/间距/线宽全部由 _SYMBOL_CLEAN 与 LITH_ROW_PX /
+    LITH_INK_* 决定；瓦片严格周期化 → 所有符号高度/间距一致、瓦片间无缝、
+    无细行/横带；实体道与图例共用同一瓦片故逐形一致、效果可辨认。
+    """
+    t = int(round(tpx))
+    rgba = np.zeros((t, t, 4), dtype=np.float32)   # 全透明
+    ink = (0.0, 0.0, 0.0)                          # 统一黑墨
+    if kind == 'solid':                            # 煤：纯黑由 fill_bg 负责
+        return rgba
+    yy, xx = np.mgrid[0:t, 0:t]
+    step = float(LITH_ROW_PX)
+    off = step * 0.5
+    n = max(1, int(round(t / step)))
+    if kind == 'hlines':                           # 泥岩/硬石膏/盐岩：横线
+        for i in range(n):
+            r = int(round(off + i * step))
+            if 0 <= r < t:
+                rgba[r, :, 0:3] = ink
+                rgba[r, :, 3] = 1.0
+    elif kind == 'brick':                          # 灰岩/白云岩：砖砌（白云岩错缝）
+        for i in range(n):
+            r = int(round(off + i * step))
+            if 0 <= r < t:
+                rgba[r, :, 0:3] = ink
+                rgba[r, :, 3] = 1.0
+        bw = int(round(step))
+        for i, r in enumerate([int(round(off + k * step)) for k in range(n)]):
+            y0, y1 = r, min(t, r + int(round(step)))
+            xoff = int(round(step / 2.0)) if opts.get('offset') else 0
+            for c in range(xoff, t, bw):
+                if 0 <= c < t:
+                    rgba[y0:y1, c, 0:3] = ink
+                    rgba[y0:y1, c, 3] = 1.0
+    elif kind == 'dots':                           # 砂岩：等径黑点（蜂窝交错）
+        rad = LITH_INK_DOT_PX / 2.0
+        r2 = rad * rad
+        for i in range(n):
+            y = off + i * step
+            xoff = (step / 2.0) if (i % 2) else 0.0
+            for j in range(n):
+                x = off + j * step + xoff
+                if 0.0 <= x < t and 0.0 <= y < t:
+                    mask = (xx - x) ** 2 + (yy - y) ** 2 <= r2
+                    rgba[mask, 0:3] = ink
+                    rgba[mask, 3] = 1.0
+    elif kind == 'invL':                           # 玄武岩：顶横 + 左竖（Γ）
+        _b = max(1, int(round(0.18 * t)))
+        _xr = int(round(0.85 * t))
+        _yt = int(round(0.12 * t))
+        rgba[_yt:_yt + _b, :_xr, 0:3] = ink
+        rgba[_yt:_yt + _b, :_xr, 3] = 1.0
+        rgba[:, :_b, 0:3] = ink
+        rgba[:, :_b, 3] = 1.0
+    elif kind == 'V':                              # 火山岩：V 字
+        s = int(round(0.7 * t))
+        x0 = int(round(0.15 * t)); y0 = int(round(0.15 * t)); x2 = int(round(0.85 * t))
+        for k in range(s):
+            y = y0 + k; x1 = x0 + k; xr = x2 - k
+            if 0 <= y < t and 0 <= x1 < t:
+                rgba[y, x1, 0:3] = ink; rgba[y, x1, 3] = 1.0
+            if 0 <= y < t and 0 <= xr < t:
+                rgba[y, xr, 0:3] = ink; rgba[y, xr, 3] = 1.0
+    elif kind == 'pebble':                         # 砾岩：几枚小圆（卵石）
+        cents = [(0.30, 0.30), (0.66, 0.34), (0.40, 0.64), (0.72, 0.72)]
+        rad = LITH_INK_DOT_PX * 0.9; r2 = rad * rad
+        for cyf, cxf in cents:
+            cy, cx = cyf * t, cxf * t
+            mask = (xx - cx) ** 2 + (yy - cy) ** 2 <= r2
+            rgba[mask, 0:3] = ink; rgba[mask, 3] = 1.0
+    elif kind == 'cross':                          # 未知：X
+        for k in range(0, t, 2):
+            if 0 <= k < t:
+                rgba[k, k, 0:3] = ink; rgba[k, k, 3] = 1.0
+                rgba[k, t - 1 - k, 0:3] = ink; rgba[k, t - 1 - k, 3] = 1.0
+    else:
+        for i in range(n):
+            r = int(round(off + i * step))
+            if 0 <= r < t:
+                rgba[r, :, 0:3] = ink
+                rgba[r, :, 3] = 1.0
+    return rgba
 
 
 def _uniform_thin_tile(rgb, dot=False, name=''):
@@ -1207,6 +1236,8 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
     name = str(lith_name).lower()
     kind = _lith_pattern_kind(name)
     from matplotlib.lines import Line2D
+    if kind != 'none' and bg_color is None:
+        bg_color = _lith_bg_color(name)   # 透明瓦片需底色框托底，与实体一致
     if bg_color is not None:
         fig.add_artist(plt.Rectangle((x0, y0), w, h, transform=fig.transFigure,
                                      facecolor=bg_color, edgecolor='black',
