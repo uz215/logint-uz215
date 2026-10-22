@@ -417,6 +417,18 @@ _SYMBOL_REF_IMAGE = {
     'unknown': 'Unknown.png',
 }
 
+# 符号结构分类（决定在统一网格下如何渲染）：
+#   row   = 重复行状纹理（横线/砖砌/竖线/点阵），内部行距统一为 LITH_ROW_PX
+#   block = 块状单体（玄武岩倒L/火山岩V/砾岩/未知），等比缩放到一致高度居中
+#   solid = 实心填充（煤），无纹理，直接铺满瓦片
+_SYMBOL_STRUCT = {
+    'Shale.png': 'row', 'Limestone.png': 'row', 'Dolomite.png': 'row',
+    'Anhydrite.png': 'row', 'Halite.png': 'row', 'Sandstone.png': 'row',
+    'basalt.png': 'block', 'DBOS_Volcanic.png': 'block',
+    'Conglomerate.png': 'block', 'Unknown.png': 'block',
+    'Coal.png': 'solid',
+}
+
 # ---------------------------------------------------------------------------
 # 【2026-10-20 用户定案·岩性绘制规则】"同一张图上，符号单行高度一致、一行
 # 符号数协调"——按符号类别统一尺度：
@@ -447,6 +459,28 @@ _SYMBOL_REF_PITCH = {
     'Conglomerate.png': 32.0,
     'Unknown.png': 28.0,
 }
+
+# ---------------------------------------------------------------------------
+# 【2026-10-22 用户定案·全程序统一线宽】所有岩性符号（线状/点状/块状）的墨迹
+# 在瓦片阶段强制归一为**同一细线宽**，消除参考图原生粗细不一（如玄武岩 9px、
+# 泥岩 3px、灰岩 1-2px 同图混用），保证砂泥岩及全部符号"粗细一致、行列距一致、
+# 全程序一致"。机制：骨架化（距离变换中轴）+ 等宽回描。线状符统一 LITH_INK_LINE_PX
+# 宽，砂岩点阵统一 LITH_INK_DOT_PX 直径；行/列间距因"一周期一瓦片"天然均匀，
+# 故只需统一线宽即达成视觉一致性。实体道与图例 swatch 共用同一瓦片→两端零偏差。
+# ---------------------------------------------------------------------------
+LITH_INK_LINE_PX = 1.0    # 全程序统一线宽（瓦片像素）：所有线状符号强制 1px 细线
+LITH_INK_DOT_PX = 3.0     # 砂岩点阵统一点径（瓦片像素）：dot=True 时按此直径回描（等径圆点）
+
+# ---------------------------------------------------------------------------
+# 【2026-10-22 用户定案·统一网格】岩性符号本质是“某一纹理的重复”，要在同一分辨率
+# 下统一 行距 / 符号高度，使全程序所有符号高度一致、行距一致、大小合适、图面协调。
+# 机制：所有符号在 **同一瓦片分辨率 LITH_TILE_PX** 下渲染；重复行状/点状符号的内部
+# 行距统一为 **LITH_ROW_PX**（=9px），瓦片高 = LITH_TILE_PX 必为 LITH_ROW_PX 整数倍
+# （4 行），故瓦片内/瓦片间纹理无缝衔接、行距处处一致；块状符号等比缩放到一致高度
+# 居中；实心符号铺满。线宽已统一为 1px（见 _uniform_thin_tile）。
+# ---------------------------------------------------------------------------
+LITH_TILE_PX = 36.0      # 所有符号统一瓦片分辨率（px）；行状符号 = 4 × LITH_ROW_PX
+LITH_ROW_PX = 9.0        # 所有重复纹理符号统一内部行距（px）：横线/砖/点阵/竖线均按此周期
 
 _REF_ROW_PHASE_CACHE = {}
 
@@ -514,19 +548,14 @@ def _ref_row_phase(ref_file):
 
 
 def _lith_ref_pitch(ref_file):
-    """参考图铺排格距——实体道/剖面道/图例共用（禁止各处自行计算）。
+    """铺排格距（实体道/剖面道/图例共用）——【2026-10-22 统一网格】。
 
-    规则：特例表优先（点状/块状已确认格距）；行状符号 = motif 行数 ×
-    LITH_REF_ROW_PX；量测失败回退 _SYMBOL_PITCH['ref']。
+    全程序所有符号共用同一瓦片分辨率 LITH_TILE_PX，故格距一律返回 LITH_TILE_PX。
+    内部行距由 LITH_ROW_PX 保证一致；瓦片高 = LITH_TILE_PX 恰为 LITH_ROW_PX 整数倍
+    （4 行），瓦片内/间纹理无缝、行距处处相同。不同符号的“大小差异”仅由其结构
+    决定（行状重复 4 行 / 块状一致高度），不再是随意的特例格距。
     """
-    p = _SYMBOL_REF_PITCH.get(str(ref_file))
-    if p:
-        return float(p)
-    P, _O, h = _ref_row_phase(ref_file)
-    if P and h and P > 1:
-        n_rows = max(1, int(round(h / P)))
-        return float(n_rows * LITH_REF_ROW_PX)
-    return _SYMBOL_PITCH['ref']
+    return float(LITH_TILE_PX)
 
 _lith_ink_tile_cache = {}
 
@@ -570,11 +599,64 @@ def _lith_ink_tile(ref_file, tpx=None):
             _sh = int(round(_O)) % h
             if _sh:
                 a = np.roll(a, -_sh, axis=0)
-        # ③ LANCZOS 缩放到 tpx（实体/图例同一 tpx，两端逐像素同源）
-        if tpx and tpx > 0 and tpx != h:
-            _tim = Image.fromarray(a.astype(np.uint8), 'RGB').resize(
-                (tpx, tpx), Image.LANCZOS)
-            a = np.asarray(_tim).astype(np.float64)
+        # ③【2026-10-22 统一网格】所有符号在 **同一分辨率 LITH_TILE_PX** 渲染，
+        #    重复行状/点状符号内部行距统一为 LITH_ROW_PX（=9px）；瓦片高 = LITH_TILE_PX
+        #    恰为 LITH_ROW_PX 整数倍（4 行）→ 瓦片内/间纹理无缝、行距处处一致。
+        #    按符号结构分类（_SYMBOL_STRUCT）：row=重复行状(横线/砖/竖线/点阵)、
+        #    block=块状单体、solid=实心；统一线宽由 _uniform_thin_tile 完成。
+        tpx = int(round(LITH_TILE_PX))
+        _struct = _SYMBOL_STRUCT.get(str(ref_file), 'row')
+
+        def _tile_to(aim):
+            """把 a 在轴向重复/裁切到 aim 像素（aim 必为 LITH_ROW_PX 整数倍）。"""
+            nonlocal a
+            while a.shape[0] < aim:
+                a = np.concatenate([a, a[:aim - a.shape[0]]], axis=0)
+            if a.shape[0] > aim:
+                a = a[:aim]
+            while a.shape[1] < aim:
+                a = np.concatenate([a, a[:, :aim - a.shape[1]]], axis=1)
+            if a.shape[1] > aim:
+                a = a[:, :aim]
+
+        if _struct == 'solid':
+            # 实心填充（煤）：直接铺满瓦片
+            if a.shape[0] != tpx or a.shape[1] != tpx:
+                a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
+                               ).resize((tpx, tpx), Image.LANCZOS)).astype(np.float64)
+        elif _struct == 'block':
+            # 块状单体（玄武岩倒L/火山岩V/砾岩/未知）：等比缩放到一致高度居中
+            _s = 0.9 * tpx / float(max(h, w))
+            _nw = max(1, int(round(w * _s)))
+            _nh = max(1, int(round(h * _s)))
+            a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
+                           ).resize((_nw, _nh), Image.LANCZOS)).astype(np.float64)
+            _canvas = np.tile(bg, (tpx, tpx, 1)).astype(np.float64)
+            _yy0 = (tpx - _nh) // 2
+            _xx0 = (tpx - _nw) // 2
+            _canvas[_yy0:_yy0 + _nh, _xx0:_xx0 + _nw] = a
+            a = _canvas
+        else:  # 'row'（含砂岩点阵：原生点行周期→9px，点阵落在统一行距网格上）
+            if _P and _P > 1:
+                # 把原生周期 P 映射为统一行距 LITH_ROW_PX（横竖等比→点阵也为方形 9px 网格）
+                _scale = float(LITH_ROW_PX) / float(_P)
+                _nw = max(1, int(round(w * _scale)))
+                _nh = max(1, int(round(h * _scale)))
+                if _nw != w or _nh != h:
+                    a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
+                                   ).resize((_nw, _nh), Image.LANCZOS)).astype(np.float64)
+                # 周期已是 LITH_ROW_PX，瓦片高/宽取到 tpx（4×行距）→ 无缝重复
+                _tile_to(tpx)
+            else:
+                # 无量测周期（如竖线盐岩）：整体等比铺满瓦片
+                if a.shape[0] != tpx or a.shape[1] != tpx:
+                    a = np.asarray(Image.fromarray(a.astype(np.uint8), 'RGB'
+                                   ).resize((tpx, tpx), Image.LANCZOS)).astype(np.float64)
+        # 【2026-10-22 全程序统一线宽】墨迹归一：所有线状符强制 LITH_INK_LINE_PX
+        # 细线宽，砂岩点阵统一 LITH_INK_DOT_PX 点径；实体道/图例/剖面共用此瓦片
+        # → 全程序粗细、间距一致。dot 仅砂岩（点阵）触发。
+        a = _uniform_thin_tile(a, dot=bool(ref_file == 'Sandstone.png'),
+                               name=ref_file)
         rgba = np.zeros((a.shape[0], a.shape[1], 4), dtype=np.float32)
         rgba[..., :3] = a / 255.0
         rgba[..., 3] = 1.0
@@ -584,6 +666,82 @@ def _lith_ink_tile(ref_file, tpx=None):
     _lith_ink_tile_cache[key] = tile
     return tile
 
+
+def _uniform_thin_tile(rgb, dot=False, name=''):
+    """把任意参考图瓦片（H×W×3 uint8/float）的墨迹归一为**全程序统一细线宽/等径圆点**。
+
+    算法（仅依赖 scipy.ndimage，无需 skimage）：
+      ① 亮度域对比度自适应二值化得到墨迹掩膜 M（墨迹可深于或浅于背景，
+         如泥岩暗底+浅绿线、灰岩亮底+黑线）。
+      ② 注：distance_transform_edt(X) 计算到 X 中“零值”的距离。故
+         dt_in = distance_transform_edt(Mp)（Mp 为 pad 1px 背景的 M）→ 墨迹内部各
+         像素到最近背景的距离；pad 避免贴瓦片边缘笔触被误判。
+      ③ 中轴 = dt_in 的 3×3 局部极大值（距背景最远的像素链）→ ≈1px 中轴；
+         对任意粗细稳健：1px 线自身即局部极大→整条保留，3px 横线/9px 砖/2px 斜向
+         只取中心 1px。
+      ④ 统一半径回描：dist_to_seed = distance_transform_edt(seed)（到最近 seed 的
+         欧氏距离）；new = dist_to_seed <= 0.5 → 恒为 1px 细线。
+      ⑤ 点阵(dot=砂岩)：每连通域质心盖 LITH_INK_DOT_PX/2 半径等径圆点（绝对一致）。
+      ⑥ 保留底色与墨迹色，仅改线宽/点径 → 全程序粗细一致。返回 H×W×3 uint8。
+    """
+    try:
+        from scipy.ndimage import distance_transform_edt, label, maximum_filter
+        a = np.asarray(rgb, dtype=np.float64)
+        if a.ndim != 3 or a.shape[2] < 3:
+            return a.astype(np.uint8)
+        L = a.mean(2)
+        Lbg = float(np.median(L))
+        rng = float(L.max() - L.min())
+        thr = max(6.0, 0.18 * (rng if rng > 1 else 255.0))
+        M = np.abs(L - Lbg) > thr          # 墨迹可深可浅于背景
+        if M.sum() < 3:                    # 兜底：常规线多为深于背景
+            M = L < Lbg - thr
+        if M.sum() < 3:
+            return a.astype(np.uint8)
+        bg = np.median(a.reshape(-1, 3), axis=0)
+        ink = np.median(a[M], axis=0)
+        h, w = M.shape
+        # ② pad 1px 背景，保证贴边笔触（泥岩横线落 tile 顶/底）的距离变换正确；
+        #    distance_transform_edt(X) 量到 X 中零值的距离，故用 M（零值=背景）
+        Mp = np.pad(M, 1, mode='constant', constant_values=False)
+        dt_in = distance_transform_edt(Mp)[1:h + 1, 1:w + 1]
+        new = None
+        if dot:
+            # ⑤ 点阵：每连通域质心盖等径圆点（绝对一致直径，不受原生 blob 大小/形状影响）
+            lab, nlab = label(M)
+            half = LITH_INK_DOT_PX / 2.0
+            r2 = half * half
+            yy, xx = np.ogrid[:h, :w]
+            new = np.zeros((h, w), dtype=bool)
+            if nlab == 0:
+                new = M
+            for i in range(1, nlab + 1):
+                ys, xs = np.where(lab == i)
+                cy, cx = float(ys.mean()), float(xs.mean())
+                new |= (yy - cy) ** 2 + (xx - cx) ** 2 <= r2
+        else:
+            # ③ 中轴：dt_in 的局部极大值（3×3 内）即“距背景最远”的像素链 → ≈1px 中轴。
+            #    对任意粗细稳健：1px 细线自身即局部极大→整条保留；3px 横线/9px 砖块/2px
+            #    斜向只取中心 1px。彻底消除“厚笔触被整块保留”的回描膨胀（旧 mx-0.5 阈值
+            #    对 ≤3px 笔触会把整条当作中轴，导致回描后墨迹占比飙到 70%+）。
+            _lm = maximum_filter(dt_in, size=3)
+            seed = M & (dt_in >= _lm - 1e-6)
+            if seed.sum() < 3:
+                seed = M
+            # ④ 统一半径回描（线状恒为 1px 细线）；distance_transform_edt(seed)
+            #    = 到最近 seed 的距离
+            half = LITH_INK_LINE_PX / 2.0
+            dist_to_seed = distance_transform_edt(seed)
+            new = dist_to_seed <= max(0.5, half)
+        if new is None or new.sum() < 3:
+            return a.astype(np.uint8)
+        out = a.copy()
+        out[~new] = bg
+        out[new] = ink
+        return np.clip(out, 0, 255).astype(np.uint8)
+    except Exception as exc:
+        logger.debug('墨迹归一失败 %s: %s', type(exc).__name__, exc)
+        return np.asarray(rgb, dtype=np.uint8)
 
 def _axes_px_width(ax):
     """返回 axes 宽度（屏幕像素）；布局未完成时返回 None。"""
@@ -2029,7 +2187,7 @@ def _ql_rotated_header(rows1, rows2, well_name, title_text, scale_text,
 
 
 def _save_ql_bhcs_page(well_name, bh_rows, cs_rows, out_dir, timestamp,
-                       fig_cfg=None, disclaimer='', tbl_w_in=None):
+                       fig_cfg=None, disclaimer='', tbl_w_in=None, du=None):
     """【2026-10-12 重构】quick look 第二页：BH/CS 正放表（样本 BET-1 结构）。
 
     用户定案（2026-10-12）：第二个表格为正放表——
@@ -2051,6 +2209,14 @@ def _save_ql_bhcs_page(well_name, bh_rows, cs_rows, out_dir, timestamp,
     _cs = cs_rows or []
     if not _bh and not _cs:
         return None
+    # 【2026-10-21 用户修正】BH/CS 深度单位跟随检测单位（RP-13 masterlog 明标
+    #   "MD(meter)"、GTO 套管设计 Depth(m)，故应为米；此前硬编码 FT 与源/深度轴不符。
+    #   du=None 时按全局 DEPTH_UNIT 解析（'auto'→_detect_depth_unit 恒返回 'm'）。
+    if du is None:
+        du = DEPTH_UNIT
+    if str(du).lower() == 'auto':
+        du = _detect_depth_unit(0, 1)
+    _dep_unit = ' FT' if str(du).lower().startswith('ft') else ' M'
     _dpi = int((fig_cfg or {}).get('dpi') or 150)
     _disc = str(disclaimer or '').strip()
     # 【2026-10-12 修复】免责声明分 3 行（用户定案：可以分成 3 行）；
@@ -2157,8 +2323,8 @@ def _save_ql_bhcs_page(well_name, bh_rows, cs_rows, out_dir, timestamp,
                  color='black', fontfamily='Microsoft YaHei')
 
     # 第 4-7 行：实际数据（BH 左 3 列 / CS 右 3 列，无数据留白）
-    # 【2026-10-12】样本数据带单位：SIZE 单位 IN、FROM/TO 单位 FT（"26 IN"、"0 FT"）；
-    # 无数据留白（表结构不变，不编造）。
+    # 【2026-10-21 用户修正】SIZE 单位 IN、FROM/TO 单位跟随检测深度单位
+    #   （_dep_unit：米制 ' M' / 英制 ' FT'）；无数据留白（表结构不变，不编造）。
     def _qcell(_v, _unit):
         _vs = str(_v or '').strip()
         return f'{_vs} {_unit}' if _vs else ''
@@ -2167,11 +2333,11 @@ def _save_ql_bhcs_page(well_name, bh_rows, cs_rows, out_dir, timestamp,
         _b = _bh[_i] if _i < len(_bh) else {}
         _c = _cs[_i] if _i < len(_cs) else {}
         _vals = ([_qcell(_b.get('size', ''), 'IN'),
-                  _qcell(_b.get('from', ''), 'FT'),
-                  _qcell(_b.get('to', ''), 'FT')] +
+                  _qcell(_b.get('from', ''), _dep_unit),
+                  _qcell(_b.get('to', ''), _dep_unit)] +
                  [_qcell(_c.get('size', ''), 'IN'),
-                  _qcell(_c.get('from', ''), 'FT'),
-                  _qcell(_c.get('to', ''), 'FT')])
+                  _qcell(_c.get('from', ''), _dep_unit),
+                  _qcell(_c.get('to', ''), _dep_unit)])
         _row_top_i = _col_top - (_i + 1) * _row_h
         for _j, _v in enumerate(_vals):
             _ax.text(_x0 + _cw * (_j + 0.5), _row_top_i - _row_h / 2, _v,
@@ -2776,6 +2942,24 @@ def _fmt_fluid_loss(v):
             and (_s[-2].isdigit() or _s[-2] in '. ')):
         return _s[:-1] + 'L'
     return _s
+
+
+def _last_mud_type(v):
+    """Type of Fluid in Hole 取值精简【2026-10-21 用户定案】。
+
+    取泥浆程序串最后一段的泥浆类型：泥浆程序形如
+    'Bentonite(10.5-235.00m) / Polymer(235-1523m) / KCl-HIP(1523-3062m) / KCl-HIP(3062-3735m)'，
+    取末段 'Kind(..)' 的 Kind；非泥浆程序串（已是单一类型如 'Polymer'/'WATER BASED MUD'）
+    原值返回。RP-13 实际末段为 KCl-HIP。"""
+    s = str(v or '').strip()
+    if not s:
+        return s
+    segs = [x.strip() for x in s.split('/') if x.strip()]
+    if not segs:
+        return s
+    last = segs[-1]
+    kind = last.split('(')[0].strip()
+    return kind or last
 
 
 def _ql_cfg_value(spec, well_info, param_info, du):
@@ -4755,14 +4939,14 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                         ('Company', well_info.get('company', '')),
                         ('Field', well_info.get('field_name', '')),
                         ('Well Coordinate', _well_coord),
-                        ('Date Spudded', well_info.get('spud_date', '')),
-                        ('Date TD Reached', well_info.get('td_date', '')),
-                        ('Date Logged', well_info.get('log_date', '')),
-                        ('Date Processed', well_info.get('process_date', '')),
+                        ('Spud Date', well_info.get('spud_date', '')),
+                        ('TD Date', well_info.get('td_date', '')),
+                        ('Log Date', well_info.get('log_date', '')),
+                        ('Process Date', well_info.get('process_date', '')),
                         ('Logged Interval', f"{_fmt_val(well_info.get('start_depth', ''))}-{_fmt_val(well_info.get('stop_depth', ''))} {_du_u}"),
-                        ('Elevations KB', well_info.get('elevation_kb', '')),
-                        ('Elevations DF', well_info.get('elevation_df', '')),
-                        ('Elevations GL', well_info.get('elevation_gl', '')),
+                        ('Ele. KB', well_info.get('elevation_kb', '')),
+                        ('Ele. GL', well_info.get('elevation_gl', '')),
+                        ('Well Type', well_info.get('well_type', '')),
                         ('Equip. NO.', well_info.get('equipment_no', '')),
                         ('RIG Name', well_info.get('rig_name', '')),
                         ('processed By', well_info.get('processed_by', '')),
@@ -4771,7 +4955,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                     # ---- 表2：钻井液/测量参数 12 字段（样本字段顺序） ----
                     _ql_rows2 = [
                         ('Bit Size', f"{_fmt_val(param_info.get('bit_size', ''))} IN"),
-                        ('Type of Fluid in Hole', param_info.get('drilling_fluid_type', '')),
+                        ('Type of Fluid in Hole', _last_mud_type(param_info.get('drilling_fluid_type', ''))),
                         # 【2026-10-14 二三轮】去掉图版自带单位拼接（LB/G、C3）：
                         # 密度智能补单位（≤3→g/cc、>7→ppg、带单位原值为主）
                         # 【2026-10-14 二四轮】失水统一单位 L
@@ -5231,7 +5415,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 _bhcs_img = _save_ql_bhcs_page(
                     well_name, _ql_bh_rows, _ql_cs_rows, _tmp_dir,
                     timestamp, fig_cfg=_fig_cfg, disclaimer=_ql_disclaimer,
-                    tbl_w_in=_hdr_w_in)
+                    tbl_w_in=_hdr_w_in, du=_du)
                 if _bhcs_img is not None:
                     results['bhcs_page'] = _bhcs_img
             except Exception as _be:

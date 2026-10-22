@@ -15023,8 +15023,11 @@ _ML_KV_MAP = {
     'well type': 'classification', 'classification': 'classification',
     'country': 'country',
     'drilling contractor': 'rig_name', 'rig name': 'rig_name',
-    'rkb-gl': 'elevation_gl', 'rkb-msl': 'elevation_kb', 'rkb': 'elevation_kb',
-    'rte': 'elevation_df',
+    # 【2026-10-21 用户修正】RTE=Rotary Table Elevation=Kelly Bushing elevation=KB；
+    #   RKB-GL 是 KB→GL 的**高差**（非 GL 本身），故 elevation_gl = KB - RKB-GL。
+    'rkb-msl': 'elevation_kb', 'rkb': 'elevation_kb',
+    'rte': 'elevation_kb',
+    'rkb-gl': 'elevation_gl_diff',
     'spud-in date': 'spud_date', 'spud in date': 'spud_date',
     'drilling end date': 'td_date', 'td date': 'td_date',
     'date': 'log_date',
@@ -15143,21 +15146,20 @@ def extract_mudlog_hole_casing(pdf_path, max_pages=2):
             clusters.append([(size, to_md)])
     _prev = 0.0
     for cl in clusters:
-        to_md = cl[0][1]
-        sizes = sorted({s for s, _t in cl})
-        if len(sizes) > 1:
-            # 同一目的层两条尺寸 → 大者井眼（钻头）、小者套管
-            _hs = sizes[-1]
-            csg_sizes = [s for s in sizes if s < _hs]
-        else:
-            _hs = sizes[0]
-            csg_sizes = []
+        # 【2026-10-21 用户修正】同层井眼(钻头)与套管**各有自己的真实深度**：
+        # 大尺寸=钻头(裸眼)，小尺寸=套管；两者 to 不能共用簇首深度，否则
+        # 套管 to 会被写成钻头 to（如 1521.66 写成 1523），图上"套管=钻头"。
+        # 故每个尺寸保留各自 to_md；钻头 from 接上一钻头 to，套管 from=0。
+        cl_sorted = sorted(cl, key=lambda z: z[0])   # 按尺寸升序，最大=钻头
+        if not cl_sorted:
+            continue
+        _hs, _hto = cl_sorted[-1]
         _hole.append({'size': '%g' % _hs,
-                      'from': '%g' % _prev, 'to': '%g' % to_md})
-        _holelist.append((_hs, to_md))
-        _prev = to_md
-        for cs in csg_sizes:
-            _casing.append({'size': '%g' % cs, 'from': '0.0', 'to': '%g' % to_md})
+                      'from': '%g' % _prev, 'to': '%g' % _hto})
+        _holelist.append((_hs, _hto))
+        _prev = _hto
+        for _cs, _cto in cl_sorted[:-1]:
+            _casing.append({'size': '%g' % _cs, 'from': '0.0', 'to': '%g' % _cto})
     if _holelist:
         _bit = '%g' % _holelist[-1][0]
     return _hole, _casing, _bit, _holelist
@@ -15364,6 +15366,17 @@ def extract_geodesign_info(well_dir):
                                r'([A-Z][A-Za-z0-9 \-]{2,40})', txt)
                 if _m:
                     out['target_formation'] = _m.group(1).strip()
+            # 【2026-10-21 用户修正】field 取地质设计/客户端成果（Rashidpur Gas
+            #   Field），不取 MIFT 报告的邻井/区块名（如 KAMTA Gas Field）。
+            if 'field_name' not in out:
+                # 【2026-10-21 修复】排除作业公司 "Gas Fields Limited"（复数 Fields +
+                #   常作页眉碎片 "CTION COMPANY LIMITE\net Gas Field"）：用负向后顾
+                #   (?!s) 要求 "Gas Field" 后不是 's'（公司 "Gas Fields" 必被排除）；
+                #   前缀限定为 1~3 个「首字母大写+其余小写」专名词（如 Rashidpur），
+                #   避免把 "Location map of Rashidpur Gas Field" 这类图名前缀吞进来。
+                _m = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s+Gas\s+Field(?!s))', txt)
+                if _m:
+                    out['field_name'] = _m.group(1).strip()
         except Exception as e:
             logger.warning("地质设计 PDF 解析失败: %s", e)
 
@@ -15695,8 +15708,12 @@ def collect_well_info(results, well_dir):
     final = {
         'company':        _first(legacy.get('company'), _ml.get('company'), well.get('company')),
         'well_name':      _first(legacy.get('well_name'), _ml.get('well_name'), well.get('well_name')),
+        # 【2026-10-21 用户修正】field 优先级：legacy > 录井图 > 地质设计(GTO) >
+        #   MIFT/试油报告 > LAS。MIFT 报告常误给邻井/区块名（如 KAMTA），地质设计/
+        #   客户端成果（Rashidpur Gas Field）才是本井真值，故 _geo 置于 _tr 之前。
         'field_name':     _first(legacy.get('field_name'), _ml.get('field_name'),
-                               _tr.get('field_name'), well.get('field_name')),
+                               _geo.get('field_name'), _tr.get('field_name'),
+                               well.get('field_name')),
         'area':           _first(legacy.get('area'), _ml.get('area'),
                                 _tr.get('area'), well.get('area')),
         'country':        _first(legacy.get('country'), _ml.get('country'), well.get('country')),
@@ -15716,6 +15733,8 @@ def collect_well_info(results, well_dir):
         'elevation_gl':   _first(legacy.get('elevation_gl'), _ml.get('elevation_gl'), param.get('elevation_ground_level')),
         'elevation_kb':   _first(legacy.get('elevation_kb'), _ml.get('elevation_kb'), param.get('elevation_kelly_bushing')),
         'elevation_df':   _first(legacy.get('elevation_df'), _ml.get('elevation_df'), param.get('elevation_drill_floor')),
+        # 【2026-10-21 用户修正】RKB-GL 是 KB→GL 高差，落单独键供下方换算 GL
+        'elevation_gl_diff': _ml.get('elevation_gl_diff'),
         'rig_name':       _first(legacy.get('rig_name'), _ml.get('rig_name'), well.get('rig_name')),
         'logging_unit':   _first(legacy.get('logging_unit'), _ml.get('logging_unit'),
                                 _ml.get('mud_logging_geologist'),
@@ -15786,6 +15805,22 @@ def collect_well_info(results, well_dir):
         'total_depth_driller': _first(legacy.get('total_depth_driller'), well.get('total_depth_driller')),
         'total_depth_logger':  _first(legacy.get('total_depth_logger'), well.get('total_depth_logger')),
     }
+    # 【2026-10-21 用户修正】RKB-GL 是 KB→GL 的高差，不是 GL 本身：
+    #   elevation_gl = elevation_kb - elevation_gl_diff（56.5m - 10.5m = 46.0m）。
+    #   GL 未直接取到时由 KB 与高差反算（主取 KB，DF 近似亦可）。
+    if not str(final.get('elevation_gl') or '').strip():
+        _kb = str(final.get('elevation_kb') or final.get('elevation_df') or '').strip()
+        _dgl = str(final.get('elevation_gl_diff') or '').strip()
+        # 【2026-10-21 修复】提取值常带单位后缀（"56.5m"），float() 直接崩 →
+        #   先抽数字再算（GL = KB - RKB-GL = 56.5 - 10.5 = 46.0）。
+        import re as _re_num
+        def _num(s):
+            _m = _re_num.search(r'-?\d+(?:\.\d+)?', str(s))
+            return float(_m.group(0)) if _m else None
+        _kb_n, _dgl_n = _num(_kb), _num(_dgl)
+        if _kb_n is not None and _dgl_n is not None:
+            final['elevation_gl'] = '%.2f' % (_kb_n - _dgl_n)
+
     # 【2026-10-14 二十轮】旧版 json 'date' 键 → log_date 兼容（date 已改名 log_date）
     if not str(cfg.get('log_date') or '').strip() and str(cfg.get('date') or '').strip():
         cfg['log_date'] = cfg['date']
