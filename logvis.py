@@ -277,8 +277,13 @@ LITH_MAX_ROWS = 800                # 单层最大点行数（防御上限）
 LITH_BG_COLORS = {
     'sandstone': '#FFFF00', 'shale': '#228B22', 'mudstone': '#228B22',
     '页岩': '#228B22', '泥岩': '#228B22', '泥页岩': '#228B22',
-    'limestone': '#87CEEB', 'dolomite': '#B0E0E6', 'carbonate': '#87CEEB',
-    '灰岩': '#87CEEB', '白云岩': '#B0E0E6', '碳酸盐岩': '#87CEEB',
+    # 【2026-10-23 R21】碳酸盐岩底色改为**参考图自身底色**（symbol/ 实测
+    # 众数）：Limestone.png=#97CFF4、Dolomite.png=#00BFCF。原值 #87CEEB /
+    # #B0E0E6 与参考图底色色距分别 26 / 232 ⇒ profile 道"只画底色不画符号"
+    # 的窄带与"整段取最窄范围"露出的平涂区呈淡色，与符号区不一致 → 用户
+    # 反馈"灰岩和白云岩都有淡色的不连续色带"。改后露底与符号区同源同色。
+    'limestone': '#97CFF4', 'dolomite': '#00BFCF', 'carbonate': '#97CFF4',
+    '灰岩': '#97CFF4', '白云岩': '#00BFCF', '碳酸盐岩': '#97CFF4',
     'anhydrite': '#FFC0CB', 'gypsum': '#FFC0CB',
     '硬石膏': '#FFC0CB', '石膏': '#FFC0CB',
     'halite': '#FF69B4', 'salt': '#FF69B4', '盐岩': '#FF69B4', '盐': '#FF69B4',
@@ -450,6 +455,61 @@ _SYMBOL_REF_PITCH = {
 
 _REF_ROW_PHASE_CACHE = {}
 
+# ---------------------------------------------------------------------------
+# 【2026-10-23 用户反馈修复·R21】参考图**降采样核**注册表（机制化，禁止
+# 散落硬编码）：整图缩到瓦片尺寸时用哪种重采样核。
+# 根因（实测）：LANCZOS 核有负瓣振铃，参考图缩到 1/3 量级时
+#   ① 细墨迹（砖缝竖线/45°斜线）被振铃打断成"点"——用户反馈"碳酸盐岩竖线
+#      和白云岩斜线变成点了"；
+#   ② 振铃把底色污染：Dolomite.png 128→54 后众数底色由 (0,191,207) 变成
+#      (0,0,0)，81% 像素被误判为墨迹（实测），斜线呈断续阶梯。
+# BOX（面积平均）无过冲：同图 128→54 后底色保持 (0,191,207)、墨迹连通域
+# 完整（缝列纵向连续率 0.178→1.000），斜线恢复为连续斜杠。
+# 仅对"细线型"碳酸盐岩启用 BOX；点块型（Unknown 的 X / 玄武岩倒L / 火山岩 V
+# / 砾岩）实测 BOX 会把 1px 斜线稀释成断续细线，维持 LANCZOS 不变。
+# 泥岩/砂岩走原生 motif 单元模式（本表不适用），其降采样行为 R19 已验证。
+# ---------------------------------------------------------------------------
+_SYMBOL_REF_RESAMPLE = {
+    'Limestone.png': 'BOX',     # 砖砌：错缝竖线最细，振铃即断
+    'Dolomite.png': 'BOX',      # 斜砌：45°斜线 + 振铃底色污染
+}
+
+# ---------------------------------------------------------------------------
+# 【2026-10-23 R21】参考图瓦片**栅格超采样倍数**（屏幕像素 × SS）：
+#   参考图 128px 整图缩到"格距像素"（灰岩 36px / 白云岩 54px）= 3.56×/2.37×
+#   非整数降采样，8px 宽的砖缝竖线被稀释成 2.25px 灰线、45° 阶梯斜线断裂
+#   成"点"（用户反馈"碳酸盐岩竖线和白云岩的斜线变成点了"）；PDF 后端又把
+#   栅格原样内嵌（/Interpolate 0 次）⇒ 放大即糊成块状。
+#   SS=2 ⇒ 灰岩 72px / 白云岩 108px 栅格，铺排时由 matplotlib 面积缩小，
+#   PDF 内嵌 2px/pt ⇒ 放大仍连续。栅格边长不超过参考图原生边长（不插值放大）。
+#   注意：dx/dy 仍按"格距像素"算 ⇒ 符号在屏幕上的**物理尺寸不变**，
+#         只把栅格变细，不改变用户已确认的间距/大小。
+# ---------------------------------------------------------------------------
+_SYMBOL_REF_SS = 2.0
+
+# 单次 imshow 的瓦片像素上限（RGBA 字节 ≈ 4×）—— 超限时放大格距而非撑爆内存
+_LITH_REF_MAX_PIX = 4_000_000
+
+# ---------------------------------------------------------------------------
+# 【2026-10-22 用户反馈修复】砂岩/泥岩符号"黑点大小不一、间距不一；泥岩
+# 短横线太密"——根因=**整张参考图等比压进一个 pitch 瓦片**：Shale.png
+# 512→36px(14.2×)、Sandstone.png 128→40px(3.2×)，非整数降采样使每个 motif
+# 落在不同亚像素相位 ⇒ 每个点/线的实际大小与间距都不同（LANCZOS 振铃加重）。
+# 修复＝"参考图原生 motif 单元"采样：裁出参考图中**周期整除、边距对称**的
+# 干净单元（泥岩=1 行×1 列；砂岩=6 行×3 列），整幅降采样后按单元平铺 →
+#   ① 每个 motif 逐像素同源 ⇒ 大小一致、间距一致；
+#   ② 形状/底色仍直接取自参考图本身（不重绘、不改形、不动其他岩性）。
+# 裁剪区按 motif 网格对齐且整除周期 ⇒ 降采样后所有 motif 同相位 ⇒ 无差异。
+# 值 = (crop_x0, crop_y0, crop_w, crop_h, tile_w_px, tile_h_px)
+#   Shale.png      原生行周期 128px、列距≈73px（首列 x=13）→ 裁 1 行 × 1 列
+#   Sandstone.png  原生行周期 16px、列距 32px（奇偶行错半格）→ 裁 6 行 × 3 列
+# 单位：原生像素 / 屏幕像素。
+# ---------------------------------------------------------------------------
+_SYMBOL_REF_UNIT = {
+    'Shale.png': (13, 53, 73, 128, 10, 18),
+    'Sandstone.png': (10, 15, 96, 96, 36, 36),
+}
+
 
 def _ref_row_phase(ref_file):
     """量测参考图 motif 行周期 P 与首行相位 O（原生像素）及图高 h。
@@ -528,6 +588,57 @@ def _lith_ref_pitch(ref_file):
         return float(n_rows * LITH_REF_ROW_PX)
     return _SYMBOL_PITCH['ref']
 
+
+def _lith_ref_tile_size(ref_file):
+    """参考图瓦片屏幕像素尺寸 (tw, th)——实体道/剖面道/图例共用。
+
+    【2026-10-22】原生 motif 单元模式：tw/th = 单元降采样后的像素尺寸
+    （横纵可不同 ⇒ 泥岩横线与砂岩点阵各自保持参考图比例）；
+    其余参考图沿用"整图正方瓦片"（tw=th=格距）。
+    """
+    u = _SYMBOL_REF_UNIT.get(str(ref_file))
+    if u:
+        return float(u[4]), float(u[5])
+    t = max(8, int(round(_lith_ref_pitch(str(ref_file)))))
+    return float(t), float(t)
+
+
+def _ring_ink(ink_mask, n):
+    """取墨迹掩膜最外 n 圈像素（上下左右四条边，原始顺序不去重）。"""
+    h, w = ink_mask.shape[:2]
+    parts = [ink_mask[:n, :].ravel(), ink_mask[h - n:, :].ravel(),
+             ink_mask[:, :n].ravel(), ink_mask[:, w - n:].ravel()]
+    return np.concatenate(parts) if parts else np.zeros(0, bool)
+
+
+_LITH_REF_RASTER_CACHE = {}
+
+
+def _lith_ref_raster(ref_file, ss=None):
+    """参考图瓦片**栅格边长**（像素）——实体道/profile 道/图例共用。
+
+    【2026-10-23 R21】= min(参考图原生边长, 格距像素 × SS)。见
+    _SYMBOL_REF_SS 处说明：提高栅格分辨率解决"非整数降采样把 8px 竖缝/45°
+    斜线稀释成灰点"，且不超过原生边长（绝不插值放大）。
+    """
+    key = (str(ref_file), ss)
+    if key in _LITH_REF_RASTER_CACHE:
+        return _LITH_REF_RASTER_CACHE[key]
+    out = 0
+    try:
+        from PIL import Image
+        with Image.open(os.path.join(SYMBOL_DIR, str(ref_file))) as im:
+            native = int(min(im.size))
+        _ss = float(_SYMBOL_REF_SS if ss is None else ss)
+        pitch = _lith_ref_pitch(str(ref_file))
+        out = int(max(8, min(native, round(pitch * _ss))))
+    except Exception as exc:
+        logger.warning('参考图栅格尺寸计算失败 %s: %s', ref_file, exc)
+        out = int(max(8, round(_lith_ref_pitch(str(ref_file)))))
+    _LITH_REF_RASTER_CACHE[key] = out
+    return out
+
+
 _lith_ink_tile_cache = {}
 
 
@@ -542,6 +653,30 @@ def _lith_ink_tile(ref_file, tpx=None):
     ③ LANCZOS 缩放到 tpx×tpx——实体与图例必须传同一 tpx（=格子屏幕像素），
        保证两端逐像素同源。
     """
+    # 【2026-10-22】原生 motif 单元模式：砂/泥符号按"参考图干净单元"降采样
+    # 后平铺（每个 motif 逐像素同源 ⇒ 大小/间距一致），tpx 参数不适用。
+    _unit = _SYMBOL_REF_UNIT.get(str(ref_file))
+    if _unit:
+        key = ('unit', str(ref_file))
+        if key in _lith_ink_tile_cache:
+            return _lith_ink_tile_cache[key]
+        tile = None
+        try:
+            from PIL import Image
+            im = Image.open(os.path.join(SYMBOL_DIR, ref_file)).convert('RGB')
+            _ux, _uy, _uw, _uh = _unit[0], _unit[1], _unit[2], _unit[3]
+            _tw, _th = int(_unit[4]), int(_unit[5])
+            _cell = im.crop((_ux, _uy, _ux + _uw, _uy + _uh)).resize(
+                (_tw, _th), Image.LANCZOS)
+            a = np.asarray(_cell).astype(np.float64)
+            rgba = np.zeros((_th, _tw, 4), dtype=np.float32)
+            rgba[..., :3] = a / 255.0
+            rgba[..., 3] = 1.0
+            tile = rgba
+        except Exception as exc:
+            logger.warning('参考图 motif 单元瓦片加载失败 %s: %s', ref_file, exc)
+        _lith_ink_tile_cache[key] = tile
+        return tile
     tpx = int(tpx) if tpx else 0
     key = (str(ref_file), tpx)
     if key in _lith_ink_tile_cache:
@@ -555,25 +690,51 @@ def _lith_ink_tile(ref_file, tpx=None):
         cols, counts = np.unique(
             a.reshape(-1, 3).astype(np.int16), axis=0, return_counts=True)
         bg = cols[int(counts.argmax())].astype(np.float64)
-        # ① 外圈若为贯穿示意框线则用底色覆盖（整图不透明，不再抠墨迹）
-        dist = np.abs(a - bg).sum(axis=2)
-        ring = np.concatenate([dist[:2].ravel(), dist[-2:].ravel(),
-                               dist[:, :2].ravel(), dist[:, -2:].ravel()])
-        if ring.size and float(np.mean(ring > 60.0)) > 0.5:
-            a[:2] = bg
-            a[-2:] = bg
-            a[:, :2] = bg
-            a[:, -2:] = bg
-        # ② 行相位对齐：首行 motif 顶到瓦片顶（不移位则跨岩性行线错半行）
+        # ①【2026-10-23 R21 顺序修正】行相位 roll **先于** 外圈清理。
+        #   原实现"先清框 → 后 roll"：被清成底色的边框行随后被 np.roll 搬进
+        #   瓦片**内部** ⇒ 每个格子中间出现一条纯底色横带（用户反馈"灰岩和
+        #   白云岩都有淡色不连续色带"）。改为先 roll 后清框，框永远留在外圈。
         _P, _O = _ref_row_phase(ref_file)[:2]
-        if _P and _O:
-            _sh = int(round(_O)) % h
-            if _sh:
-                a = np.roll(a, -_sh, axis=0)
-        # ③ LANCZOS 缩放到 tpx（实体/图例同一 tpx，两端逐像素同源）
+        _sh = (int(round(_O)) % h) if (_P and _O) else 0
+        # ② 装饰外框判定（**真框线**判据）：外 2px 环墨迹率高 **且** 框内侧
+        #   紧邻一圈几乎无墨迹（框与内容之间留空）。
+        #   旧判据只看外 2px 环均值 > 0.5，实测会误判真实纹理：
+        #     Limestone.png ring=0.5078 —— 底部 8 行是**真实砖缝带**、
+        #                      右侧 2 列是**真实竖缝**；
+        #     Dolomite.png  ring=1.0000 —— 顶部/底部是**真实贯穿粗黑带**；
+        #   误清 ⇒ 真实纹理被切断 + 留下纯底色白带。
+        #   实测 symbol/ 全部 11 张参考图均**不**满足新判据 ⇒ 全部原样保留。
+        _ink = (np.abs(a - bg).sum(axis=2) > 60)
+        _frame = None
+        _r2 = _ring_ink(_ink, 2)
+        if _r2.size and float(np.mean(_r2)) > 0.5:
+            _r3 = _ring_ink(_ink, 3)
+            _inn_n = int(_r3.size) - int(_r2.size)
+            _inn_m = ((float(_r3.sum()) - float(_r2.sum())) / _inn_n
+                      if _inn_n > 0 else 1.0)
+            if _inn_m < 0.15:
+                _frame = np.zeros((h, w), dtype=bool)
+                _frame[:2] = True
+                _frame[-2:] = True
+                _frame[:, :2] = True
+                _frame[:, -2:] = True
+        # ③ 行相位 roll：首行 motif 顶到瓦片顶（不移位则跨岩性行线错半行）
+        if _sh:
+            a = np.roll(a, -_sh, axis=0)
+            if _frame is not None:
+                _frame = np.roll(_frame, -_sh, axis=0)
+        # ④ 清框（仅真框线才清；mask 随 roll 搬移 ⇒ 框不会被搬进瓦片内部）
+        if _frame is not None:
+            a[_frame] = bg
+        # ⑤ 缩放到 tpx（实体/图例同一 tpx，两端逐像素同源）
+        # 【2026-10-23 R21】降采样核按 _SYMBOL_REF_RESAMPLE 注册表取：
+        # 碳酸盐岩用 BOX 面积平均（无 LANCZOS 振铃 ⇒ 细线不断、底色不被
+        # 污染）；其余维持 LANCZOS（锐利，点块型符号不稀释）。
+        _kern = _SYMBOL_REF_RESAMPLE.get(str(ref_file), 'LANCZOS')
+        _res = (Image.BOX if _kern == 'BOX' else Image.LANCZOS)
         if tpx and tpx > 0 and tpx != h:
             _tim = Image.fromarray(a.astype(np.uint8), 'RGB').resize(
-                (tpx, tpx), Image.LANCZOS)
+                (tpx, tpx), _res)
             a = np.asarray(_tim).astype(np.float64)
         rgba = np.zeros((a.shape[0], a.shape[1], 4), dtype=np.float32)
         rgba[..., :3] = a / 255.0
@@ -944,12 +1105,19 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         if tile is None:
             return
         scale = _axes_data_per_px(ax)
-        _pitch = _lith_ref_pitch(ref)
+        # 【2026-10-22】瓦片横纵尺寸可不同（原生 motif 单元模式）：dx 用瓦片
+        # 宽、dy 用瓦片高 ⇒ 泥岩横线/砂岩点阵各自保持参考图比例且疏密可调。
+        _tw, _th = _lith_ref_tile_size(ref)
         x0d = max(x1 - x0, 1e-9)
         z0d = max(z1 - z0, 1e-9)
+        # 【2026-10-23 R21】瓦片**栅格**边长：原生 motif 单元模式按单元像素；
+        # 其余按 min(原生, 格距×SS)（见 _lith_ref_raster）。栅格只影响"细节
+        # 密度"，dx/dy 仍按格距像素算 ⇒ 符号物理尺寸与用户已确认口径不变。
+        _tpx = (int(round(_tw)) if str(ref) in _SYMBOL_REF_UNIT
+                else _lith_ref_raster(ref))
         if scale is not None:
-            dx = max(_pitch * abs(scale[0]), x0d / LITH_MAX_COLS)
-            dy = max(_pitch * abs(scale[1]), z0d / LITH_MAX_ROWS)
+            dx = max(_tw * abs(scale[0]), x0d / LITH_MAX_COLS)
+            dy = max(_th * abs(scale[1]), z0d / LITH_MAX_ROWS)
         else:
             dx = x0d / 12.0
             dy = z0d / 12.0
@@ -960,28 +1128,35 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         g0 = _org + math.floor((z0 - _org) / dy + 1e-9) * dy
         n_rows = max(1, int(math.ceil((z1 - g0) / dy - 1e-9)))
         n_cols = max(1, int(math.ceil((x1 - x0) / dx - 1e-9)))
-        if n_rows * n_cols > 4000:      # 防御：巨型数组时放大格距
-            _f = math.sqrt(float(n_rows * n_cols) / 4000.0)
+        # 防御：巨型数组时放大格距（网格数 **或** 瓦片像素量超限都放大）
+        _f = math.sqrt(float(n_rows * n_cols) / 4000.0)
+        if n_rows * n_cols * _tpx * _tpx > _LITH_REF_MAX_PIX:
+            _f = max(_f, math.sqrt(float(n_rows * n_cols * _tpx * _tpx)
+                                   / float(_LITH_REF_MAX_PIX)))
+        if _f > 1.0:
             dx *= _f
             dy *= _f
             g0 = _org + math.floor((z0 - _org) / dy + 1e-9) * dy
             n_rows = max(1, int(math.ceil((z1 - g0) / dy - 1e-9)))
             n_cols = max(1, int(math.ceil((x1 - x0) / dx - 1e-9)))
-        _tpx = max(8, int(round(_lith_ref_pitch(ref))))
         _tile = _lith_ink_tile(ref, tpx=_tpx)
         if _tile is None:
             return
+        # 【2026-10-23 R21】栅格换算一律用**实际瓦片像素数**（_hpx/_vpx），
+        # 不再假设"栅格边长 = 格距像素"（高分辨率栅格后二者已不同）。
+        _hpx = int(_tile.shape[1])
+        _vpx = int(_tile.shape[0])
         big = np.tile(_tile, (n_rows, n_cols, 1))
         # 精确裁剪到段区（含半格按比例裁像素，不越界到邻段）
-        _rpx = min(big.shape[0], max(1, int(round((z1 - g0) / dy * _tpx))))
-        _cpx = min(big.shape[1], max(1, int(round((x1 - x0) / dx * _tpx))))
+        _rpx = min(big.shape[0], max(1, int(round((z1 - g0) / dy * _vpx))))
+        _cpx = min(big.shape[1], max(1, int(round((x1 - x0) / dx * _hpx))))
         big = big[:_rpx, :_cpx]
         try:
             from matplotlib.patches import Rectangle as _Rect
             im = ax.imshow(big,
-                           extent=[x0, x0 + _cpx / float(_tpx) * dx,
-                                   g0 + _rpx / float(_tpx) * dy, g0],
-                           aspect='auto', interpolation='nearest',
+                           extent=[x0, x0 + _cpx / float(_hpx) * dx,
+                                   g0 + _rpx / float(_vpx) * dy, g0],
+                           aspect='auto', interpolation='antialiased',
                            zorder=zorder, snap=False)
             im.set_clip_path(_Rect((x0, z0), x1 - x0, z1 - z0,
                                    transform=ax.transData))
@@ -1028,6 +1203,21 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
     _plot_lith_points(ax, kind, xs, ys, zorder=zorder)
 
 
+def _place_legend_tile(fig, big, x0, y0, w, h, zorder):
+    """把已铺好的图例瓦片数组贴入 fig 坐标系的方框（BboxImage 路径）。"""
+    from matplotlib.image import BboxImage
+    from matplotlib.transforms import Bbox
+
+    def _bbox_px(renderer, _fx=x0, _fy=y0, _fw=w, _fh=h):
+        _cw, _ch = renderer.get_canvas_width_height()
+        return Bbox([[_fx * _cw, _fy * _ch],
+                     [(_fx + _fw) * _cw, (_fy + _fh) * _ch]])
+    bbox_img = BboxImage(_bbox_px, zorder=zorder,
+                         interpolation='nearest', origin='upper')
+    bbox_img.set_data(big)
+    fig.add_artist(bbox_img)
+
+
 def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
                                bg_color=None, zorder=6002, pitch_px=None,
                                motif=False):
@@ -1067,20 +1257,44 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
             _dpi = float(fig.dpi or 150)
             _w_px = max(1.0, w * fig.get_figwidth() * _dpi)
             _h_px = max(1.0, h * fig.get_figheight() * _dpi)
+            # 【2026-10-22】原生 motif 单元模式（砂/泥）：图例与实体用**同一**
+            # 单元瓦片、同一 tw/th ⇒ 图例即实体的重复，两端零偏差。
+            _unit = _SYMBOL_REF_UNIT.get(str(ref))
+            if _unit:
+                _tw, _th = _lith_ref_tile_size(ref)
+                _rows = max(1, int(math.ceil(_h_px / _th - 1e-9)))
+                _cols = max(1, int(math.ceil(_w_px / _tw - 1e-9)))
+                _tile = _lith_ink_tile(ref)
+                if _tile is not None:
+                    big = np.tile(_tile, (_rows, _cols, 1))
+                    _rpx = max(1, min(big.shape[0], int(round(_h_px))))
+                    _cpx = max(1, min(big.shape[1], int(round(_w_px))))
+                    big = big[:_rpx, :_cpx]
+                    _place_legend_tile(fig, big, x0, y0, w, h, zorder)
+                    return
             if motif:
                 _cell = float(np.clip(_h_px, 8.0, 48.0))
             else:
                 _cell = _lith_ref_pitch(ref)       # 与实体同一格距（机制化）
             _rows = max(1, int(math.ceil(_h_px / _cell - 1e-9)))
             _cols = max(1, int(math.ceil(_w_px / _cell - 1e-9)))
-            _tpx = max(8, int(round(_cell)))
+            # 【2026-10-23 R21】图例与实体道用**同一栅格规格**
+            # （_lith_ref_raster：min(原生, 格距×SS)）⇒ 两端同一张瓦片、
+            # 同一图案；BboxImage 按框尺寸重采样，PNG/PDF 均可辨。
+            # 【R21-4】motif 微框例外：motif 语义是"框里显示**一个** motif"，
+            # _cell=框高像素，_tpx 必须等于 _cell 才与框 1:1（否则整张参考图被
+            # 缩进框里，与实体道单 motif 不一致）。
+            _tpx = (max(8, int(round(_cell))) if motif
+                    else _lith_ref_raster(ref))
             _tile = _lith_ink_tile(ref, tpx=_tpx)
             if _tile is not None:
+                _hpx_t = int(_tile.shape[1])
+                _vpx_t = int(_tile.shape[0])
                 big = np.tile(_tile, (_rows, _cols, 1))
                 _rpx = max(1, min(big.shape[0],
-                                  int(round(_h_px / _cell * _tpx))))
+                                  int(round(_h_px / _cell * _vpx_t))))
                 _cpx = max(1, min(big.shape[1],
-                                  int(round(_w_px / _cell * _tpx))))
+                                  int(round(_w_px / _cell * _hpx_t))))
                 big = big[:_rpx, :_cpx]
 
                 def _bbox_px(renderer, _fx=x0, _fy=y0, _fw=w, _fh=h):
@@ -1088,7 +1302,7 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
                     return Bbox([[_fx * _cw, _fy * _ch],
                                  [(_fx + _fw) * _cw, (_fy + _fh) * _ch]])
                 bbox_img = BboxImage(_bbox_px, zorder=zorder,
-                                     interpolation='nearest', origin='upper')
+                                     interpolation='antialiased', origin='upper')
                 bbox_img.set_data(big)
                 fig.add_artist(bbox_img)
                 return
@@ -2631,22 +2845,34 @@ def _assemble_ql_full(well_name, p1_path, p2_path, p3_path, out_dir,
         return _PIL.open(str(_x)).convert('RGB')
 
     try:
+        # 【2026-10-23 R21-4】缺页不再整体放弃：p1（页1 右转表）、p2（页2
+        # BH/CS 表）为**可选页**——_save_ql_bhcs_page 在无钻头/套管数据时正常
+        # 返回 None（设计如此），旧逻辑因此让这类井 quicklook 完全出不了 PDF
+        # （只剩 PNG）。现在缺可选页即跳过该页继续拼接，只有**正图主体 p3**
+        # 缺失才放弃（有 p1/p2 时行为与旧版完全一致）。
         _imgs = []
-        for _p in (p1_path, p2_path, p3_path):
+        _p3 = None
+        for _idx, _p in enumerate((p1_path, p2_path, p3_path)):
             _im = _ql_to_img(_p)
             if _im is None:
                 logger.warning('整图拼接缺页, 跳过: %s', _p)
-                return None, None
-            _imgs.append(_im)
+                continue
+            if _idx == 2:
+                _p3 = _im
+            else:
+                _imgs.append(_im)
+        if _p3 is None:
+            logger.warning('整图拼接缺正图主体, 放弃 PDF')
+            return None, None
         # 统一宽度 = 页3（LEGEND+正图）宽度；页1/页2 等比缩放对齐
-        _w3 = _imgs[2].width
+        _w3 = _p3.width
         _aligned = []
-        for _im in _imgs[:2]:
+        for _im in _imgs:
             if _im.width != _w3:
                 _h = max(1, round(_im.height * _w3 / _im.width))
                 _im = _im.resize((_w3, _h), _PIL.LANCZOS)
             _aligned.append(_im)
-        _aligned.append(_imgs[2])
+        _aligned.append(_p3)
         # 【2026-10-14】footer = 正图道头区块，拼接到长图最后（内存 Image 或路径）
         _ft_img = _ql_to_img(footer_path) if footer_path is not None else None
         if _ft_img is not None:
@@ -3701,11 +3927,19 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 _q_layout.append(('RES_TRAD', 1.4))
             if array_res_cols:
                 _q_layout.append(('RES_ARRAY', 1.4))
-            _q_layout += [('DEPTH', 0.30), ('POR', 1.0), ('SW', 0.6), ('POR2', 0.6),
+            # 【2026-10-22 用户要求】3 道深度道与 4 道孔隙度曲线道互换位置
+            # （与综合图 POR→DEPTH 顺序一致）
+            _q_layout += [('POR', 1.0), ('DEPTH', 0.30), ('SW', 0.6), ('POR2', 0.6),
                           ('PROFILE', 1.0)]
+            # 【2026-10-22 用户要求】quicklook 把气测数据也绘制上 → 独立气测道
+            # （原做法仅把 TG 骑在电阻率道末槽，无法呈现组分；此处与综合图同实现）
+            if has_gas:
+                _q_layout.append(('GAS', min(gas_track_width, 1.6)))
+                logger.info("气测道已插入 quicklook 道布局")
             # 【2026-10-21】REG 法综合气层指示道
+            # 【2026-10-22 用户要求】REG 道太宽 → 与其它曲线道一致（1.2→1.0）
             if all(c in data.columns for c in ['RTI','NDI','GSI','CGI']):
-                _q_layout.append(('REG', 1.2))
+                _q_layout.append(('REG', 1.0))
                 logger.info("REG 道组已插入 quicklook 道布局")
             _q_layout.append(('INTERP', 0.42))
             _n_tracks = len(_q_layout)
@@ -3724,7 +3958,8 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             IDX_POR2 = _q_map['POR2']
             IDX_PROFILE = _q_map['PROFILE']
             IDX_INTERP = _q_map['INTERP']
-            IDX_GAS = None
+            # 【2026-10-22】quicklook 新增独立气测道
+            IDX_GAS = _q_map.get('GAS')
             IDX_LITHO_FILL = IDX_FACIES = None
             IDX_REG = _q_map.get('REG')
         else:
@@ -3745,8 +3980,9 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 _layout.append(('GAS', gas_track_width))
             _layout += [('LITHO_FILL', 1.0), ('FACIES', 1.0), ('PROFILE', 1.0)]
             # 【2026-10-21】REG 法综合气层指示道
+            # 【2026-10-22 用户要求】REG 道宽度与其它曲线道一致（1.2→1.0）
             if all(c in data.columns for c in ['RTI','NDI','GSI','CGI']):
-                _layout.append(('REG', 1.2))
+                _layout.append(('REG', 1.0))
                 logger.info("REG 道组已插入综合图道布局")
             _layout.append(('INTERP', 1.0))
             track_widths = [w for _, w in _layout]
@@ -4096,7 +4332,8 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         # （无传统道时并入阵列道末槽）。
         # 【2026-10-15 用户要求】气测刻度一致性自适应：起始值固定 10，最大值取
         # 100/1000/10000/100000/1M…中最小的不小于数据最大值，曲线范围与刻度一致。
-        if quicklook and has_gas and _res_track_specs:
+        # 【2026-10-22】气测已有独立气测道 → 不再在电阻率道末槽骑乘 TG
+        if quicklook and has_gas and _res_track_specs and IDX_GAS is None:
             _tg_col = None
             for _c in ('TG', 'GAS_TG', 'TOTALGAS', 'GAS'):
                 if _c in (gas_data.columns if gas_data is not None else []):
@@ -4392,11 +4629,16 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 _reg_scales = {'RTI':[-0.5,1.0],'NDI':[-0.05,0.15],'GSI':[-0.5,2.0],'CGI':[0,1.5]}
                 _reg_colors = {'RTI':'#c0392b','NDI':'#2471a3','GSI':'#b9770e','CGI':'#27ae60'}
                 _reg_thr = {'RTI':0.20,'NDI':0.05,'GSI':0.5,'CGI':0.6}
-                for _i, _cn in enumerate(['RTI','NDI','GSI','CGI']):
+                _reg_order = ['RTI','NDI','GSI','CGI']
+                _n_reg = len(_reg_order)
+                # 图头标签用 figure 坐标绘制（ax_reg 的 y 轴是深度轴，不能用数据坐标）
+                _reg_pos = ax_reg.get_position()
+                _slot_w = (_reg_pos.x1 - _reg_pos.x0) / float(_n_reg)
+                for _i, _cn in enumerate(_reg_order):
                     if _cn not in data.columns: continue
                     _vmin,_vmax = _reg_scales[_cn]
                     _col = _reg_colors[_cn]
-                    _x0 = _i/4.0; _x1 = (_i+1)/4.0
+                    _x0 = _i/float(_n_reg); _x1 = (_i+1)/float(_n_reg)
                     _vals = pd.to_numeric(data[_cn], errors='coerce')
                     _norm = ((_vals - _vmin)/max(_vmax-_vmin,1e-9)).clip(0,1)
                     _xcurve = _x0 + _norm.values*(_x1-_x0)
@@ -4406,8 +4648,44 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                         if _vmin < _tv < _vmax:
                             _tx = _x0+(_tv-_vmin)/max(_vmax-_vmin,1e-9)*(_x1-_x0)
                             ax_reg.axvline(_tx, color=_col, linestyle='--', linewidth=0.5, alpha=0.6)
-                    ax_reg.text((_x0+_x1)/2, header_bottom_y-(header_top_y-header_bottom_y)*0.05,
-                                _cn, ha='center', va='bottom', fontsize=6, color=_col, weight='bold')
+                            # 【2026-10-22 用户要求】按当前（暂时）阈值标准，把基线
+                            # （阈值虚线）与指示曲线之间填充为指示气层
+                            _mask = (_vals > _tv).fillna(False).values
+                            if _mask.any():
+                                ax_reg.fill_betweenx(depth.values, _tx, _xcurve,
+                                                     where=_mask, color=_col,
+                                                     alpha=0.28, linewidth=0, zorder=1)
+                    # 【2026-10-22 用户要求】图头补曲线名与起止刻度（每个子槽
+                    # 各占一行刻度，横线只画在本格范围内，线中央为曲线名+阈值）
+                    _fx0 = _reg_pos.x0 + _i*_slot_w
+                    _fx1 = _fx0 + _slot_w
+                    _slot_idx = min(_i, len(ALIGNED_POSITIONS_CM)-1)
+                    _y = get_tick_position_in_header(ALIGNED_POSITIONS_CM[_slot_idx])
+                    fig.add_artist(Line2D([_fx0, _fx1], [_y, _y], color=_col,
+                                          linewidth=1.0, zorder=6000,
+                                          transform=fig.transFigure))
+                    # 【2026-10-23 R21】标签压叠修复：子槽宽度=道宽/4，很窄；
+                    # 原写法把"阈值+起止值+曲线名"挤在同一行（"0CGI>=0.65"）
+                    # → 互相覆盖。改为：曲线名居中（唯一主标签），阈值画在
+                    # 曲线名正下方小字，起止值贴子槽左右内缩 12% 处小字。
+                    _lbl = _cn
+                    _lbl_x = (_fx0+_fx1)/2.0
+                    _hh = header_top_y - header_bottom_y
+                    fig.text(_lbl_x, _y, _lbl, ha='center', va='bottom',
+                             fontsize=7, color=_col, weight='bold',
+                             transform=fig.transFigure, zorder=1001)
+                    if _cn in _reg_thr:
+                        fig.text(_lbl_x, _y - _hh*0.075,
+                                 f'>{_reg_thr[_cn]:g}', ha='center', va='top',
+                                 fontsize=6, color=_col,
+                                 transform=fig.transFigure, zorder=1001)
+                    _m = 0.12
+                    fig.text(_fx0+(_fx1-_fx0)*_m, _y, f'{_vmin:g}', ha='left',
+                             va='bottom', fontsize=6, color=_col,
+                             transform=fig.transFigure, zorder=1001)
+                    fig.text(_fx1-(_fx1-_fx0)*_m, _y, f'{_vmax:g}', ha='right',
+                             va='bottom', fontsize=6, color=_col,
+                             transform=fig.transFigure, zorder=1001)
                 ax_reg.set_xlim(0,1)
                 ax_reg.set_ylim(depth_max, depth_min)
                 ax_reg.set_xticks([])
@@ -4440,7 +4718,8 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             _setup_interpretation_track(ax9, data, depth, depth_min, depth_max, curve_height_ratio, header_bottom_y, header_top_y, has_enough_curves)
         
         # ========== 气测道 ==========
-        if has_gas and not quicklook:
+        # 【2026-10-22 用户要求】quicklook 也要把气测数据绘制上 → 与综合图同实现
+        if has_gas and IDX_GAS is not None:
             ax_gas = axes[IDX_GAS]
             _setup_gas_track(ax_gas, depth_max, depth_min, curve_height_ratio, header_bottom_y, header_top_y)
             
@@ -4687,12 +4966,24 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             # 【2026-10-08 统一符号/颜色】岩性背景色引用 LITH_BG_COLORS（_lith_bg_color）
             # —— 与岩性道/PROFILE道/交汇图同一套，不再各写一份；
             # 解释结论颜色与 FLUID_COLOR（交会图）保持同一套色值。
-            fallback_colors = {'Sandstone': '#FFFF00', 'Shale': '#228B22', 'Mudstone': '#228B22',
-                              'Limestone': '#87CEEB', 'Dolomite': '#B0E0E6',
-                              'Anhydrite': '#FFC0CB', 'Gypsum': '#FFC0CB',
-                              'Halite': '#FF69B4', 'Salt': '#FF69B4',
-                              'Coal': '#333333', 'Carbonaceous Shale': '#6B6B6B', 'Pyrite': '#FFD700',
-                              'Volcanic': '#FF0000', 'Conglomerate': '#D2B48C'}
+            # 【2026-10-23 R21】碳酸盐岩改为引用 LITH_BG_COLORS（= 参考图自身
+            # 底色 Limestone.png=#97CFF4 / Dolomite.png=#00BFCF）。此前此处是
+            # 第二份独立硬编码色表且仍是旧值 #87CEEB/#B0E0E6 ⇒ 与符号区不同色，
+            # 在 profile 道/图例露出"淡色不连续色带"。引用统一表后只有一份真值。
+            fallback_colors = {'Sandstone': _lith_bg_color('sandstone'),
+                              'Shale': _lith_bg_color('shale'),
+                              'Mudstone': _lith_bg_color('mudstone'),
+                              'Limestone': _lith_bg_color('limestone'),
+                              'Dolomite': _lith_bg_color('dolomite'),
+                              'Anhydrite': _lith_bg_color('anhydrite'),
+                              'Gypsum': _lith_bg_color('gypsum'),
+                              'Halite': _lith_bg_color('halite'),
+                              'Salt': _lith_bg_color('salt'),
+                              'Coal': _lith_bg_color('coal'),
+                              'Carbonaceous Shale': _lith_bg_color('carbonaceous shale'),
+                              'Pyrite': _lith_bg_color('pyrite'),
+                              'Volcanic': _lith_bg_color('volcanic'),
+                              'Conglomerate': _lith_bg_color('conglomerate')}
             facies_color_map = {'Channel': 'firebrick', 'Floodplain': 'sandybrown',
                                 'Delta Front': 'wheat', 'Prodelta': 'darkolivegreen'}
             # 与 FLUID_COLOR 保持同一套色值；
@@ -6098,7 +6389,16 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
             bounds[i, k + 1] = 1.0 - p
             continue
         total = 1.0 - p
-        scale = min(1.0, total / s)      # Σmv 超过 1-φ 时按比例压缩
+        # 【2026-10-22 用户反馈修复】"灰岩和白云岩含量之后、孔隙度之前又出现
+        # 灰岩符号"——根因：Σmv(清零次要矿物后) < (1-φ)，多出的宽度被"岩性
+        # 定名余量带"占用，而余量带位置固定在**白云岩带之后** ⇒ 灰岩定名段
+        # 出现"灰岩…白云岩…灰岩"夹心；余量带又窄（0.012~0.13）⇒ 时而只有
+        # 底色、时而只有半截符号。
+        # 修复：把保留矿物**重新归一到 (1-φ)**（被剔除次要矿物的体积按比例
+        # 并入主矿物）⇒ 余量带宽度恒为 0、夹心消失、无空白；"整带按定名
+        # 填充"仅保留给组分与定名确实不符的坏点（该情形余量带=整带，
+        # 用户已认可"单独只有灰岩"的表现）。
+        scale = total / s if s > 1e-9 else 1.0
         acc = 0.0
         for j in range(k):
             acc += mv[i, j] * scale
@@ -6125,6 +6425,11 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
         scale = _axes_data_per_px(ax)
         if scale is not None:
             pitch = _lith_pitch_px(kind)   # 与图例/全程序同一来源（机制化）
+            # 【2026-10-22】原生 motif 单元模式（砂/泥）：窄带判定按**单元
+            # 像素宽**（瓦片实际宽）⇒ 单元模式下的窄带门槛与实体一致。
+            _ref_f = _SYMBOL_REF_IMAGE.get(lname)
+            if _ref_f and str(_ref_f) in _SYMBOL_REF_UNIT:
+                pitch = _lith_ref_tile_size(_ref_f)[0]
             dy = max(pitch * abs(scale[1]), 1e-6)
         else:
             dy = max((md.max() - md.min()) / 200.0, 1e-6)

@@ -77,8 +77,8 @@
     "colors": {
       "sandstone": "#FFFF00", "shale": "#228B22", "mudstone": "#228B22",
       "页岩": "#228B22", "泥岩": "#228B22", "泥页岩": "#228B22",
-      "limestone": "#87CEEB", "dolomite": "#B0E0E6", "carbonate": "#87CEEB",
-      "灰岩": "#87CEEB", "白云岩": "#B0E0E6", "碳酸盐岩": "#87CEEB",
+      "limestone": "#97CFF4", "dolomite": "#00BFCF", "carbonate": "#97CFF4",
+      "灰岩": "#97CFF4", "白云岩": "#00BFCF", "碳酸盐岩": "#97CFF4",
       "anhydrite": "#FFC0CB", "gypsum": "#FFC0CB",
       "硬石膏": "#FFC0CB", "石膏": "#FFC0CB",
       "halite": "#FF69B4", "salt": "#FF69B4", "盐岩": "#FF69B4", "盐": "#FF69B4",

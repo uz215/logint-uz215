@@ -2601,6 +2601,13 @@ class DataLoader:
                 _well_name = _well_info.get('well_name') or _well_info.get('WELL') or ''
             if _well_name and self.last_file_path:
                 _search_dirs = [os.path.dirname(os.path.abspath(self.last_file_path))]
+                # 【2026-10-22 用户要求】quicklook 把气测数据也绘制上 → 气测文件
+                # 常放在程序 data/ 目录而不在井文件夹内（如 3-SPS-111D_DDP_GasAv-prof.las
+                # 在 F:/360/src/data/），自动发现范围须补上，否则取不到气测
+                for _extra_dir in (os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data'),
+                                   os.path.join(os.getcwd(), 'data')):
+                    if os.path.isdir(_extra_dir) and _extra_dir not in _search_dirs:
+                        _search_dirs.append(_extra_dir)
                 _gas_path = find_gas_file(str(_well_name), search_dirs=_search_dirs)
                 if _gas_path:
                     logger.info(f"自动发现气测文件: {_gas_path}")
@@ -10447,7 +10454,18 @@ class FaciesAnalyzer:
 - 井名: {well_name}
 - Number of data points: {len(data)}
 - 解释日期: {datetime.datetime.now().strftime('%Y-%m-%d')}
-
+"""
+            
+            # 查询 Wiki 知识库上下文
+            try:
+                from logWiki import query_wiki_context
+                wiki_context = query_wiki_context(well_name)
+                if wiki_context:
+                    interpretation += f"\n## Wiki 知识库上下文\n\n{wiki_context}\n"
+            except Exception as e:
+                logger.debug(f"Wiki 查询失败: {e}")
+            
+            interpretation += """
 ## 岩性统计
 """
             
