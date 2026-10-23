@@ -4634,6 +4634,15 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 # 图头标签用 figure 坐标绘制（ax_reg 的 y 轴是深度轴，不能用数据坐标）
                 _reg_pos = ax_reg.get_position()
                 _slot_w = (_reg_pos.x1 - _reg_pos.x0) / float(_n_reg)
+                # 【2026-10-23 R21-5】4 个子槽是**横向并列**（x 方向把道宽
+                # 四等分），不是纵向堆叠 ⇒ 必须**共用同一条刻度线高度**。
+                # 此前每个子槽各取 ALIGNED_POSITIONS_CM[i]（那是"纵向堆叠的
+                # 曲线槽位"高度）⇒ 4 个标签被画在 4 个不同 y 上（实测
+                # 0.8706/0.8772/0.8837/0.8903），标签阶梯错落、阈值悬空。
+                # 改为统一取一个偏上的槽位：阈值画在曲线名正下方仍落在图头区内。
+                _reg_slot_idx = min(2, len(ALIGNED_POSITIONS_CM) - 1)
+                _reg_hdr_y = get_tick_position_in_header(
+                    ALIGNED_POSITIONS_CM[_reg_slot_idx])
                 for _i, _cn in enumerate(_reg_order):
                     if _cn not in data.columns: continue
                     _vmin,_vmax = _reg_scales[_cn]
@@ -4659,32 +4668,43 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                     # 各占一行刻度，横线只画在本格范围内，线中央为曲线名+阈值）
                     _fx0 = _reg_pos.x0 + _i*_slot_w
                     _fx1 = _fx0 + _slot_w
-                    _slot_idx = min(_i, len(ALIGNED_POSITIONS_CM)-1)
-                    _y = get_tick_position_in_header(ALIGNED_POSITIONS_CM[_slot_idx])
+                    _y = _reg_hdr_y
                     fig.add_artist(Line2D([_fx0, _fx1], [_y, _y], color=_col,
                                           linewidth=1.0, zorder=6000,
                                           transform=fig.transFigure))
-                    # 【2026-10-23 R21】标签压叠修复：子槽宽度=道宽/4，很窄；
-                    # 原写法把"阈值+起止值+曲线名"挤在同一行（"0CGI>=0.65"）
-                    # → 互相覆盖。改为：曲线名居中（唯一主标签），阈值画在
-                    # 曲线名正下方小字，起止值贴子槽左右内缩 12% 处小字。
+                    # 【2026-10-23 R21】标签压叠修复（两轮）：
+                    # ①R21：原写法把"阈值+起止值+曲线名"挤在同一行
+                    #   （"0CGI>=0.65"）→ 互相覆盖；且 4 个子槽各取一个
+                    #   纵向刻度高度（ALIGNED_POSITIONS_CM[i]）⇒ 标签阶梯
+                    #   错落（补丁五已统一为同一高度）。
+                    # ②R21-6：REG 道总宽仅约 83pt、4 子槽各约 21pt，
+                    #   "曲线名(居中)+起止值(左右内缩)" 三元素同行仍会重叠
+                    #   （其它道整道宽≈270px 才放得下）。改为**三行分层**：
+                    #   行1 阈值 / 行2 曲线名 / 行3 起止值（贴曲线区）。
+                    #   方向以 _hh 符号为准（实测 _hh<0 ⇒ y 越大越靠上）。
                     _lbl = _cn
                     _lbl_x = (_fx0+_fx1)/2.0
                     _hh = header_top_y - header_bottom_y
+                    _row = abs(_hh) * 0.075      # 一行的纵向间距
+                    # 行2：曲线名（主标签）
                     fig.text(_lbl_x, _y, _lbl, ha='center', va='bottom',
                              fontsize=7, color=_col, weight='bold',
                              transform=fig.transFigure, zorder=1001)
+                    # 行1：阈值
                     if _cn in _reg_thr:
-                        fig.text(_lbl_x, _y - _hh*0.075,
-                                 f'>{_reg_thr[_cn]:g}', ha='center', va='top',
+                        fig.text(_lbl_x, _y + _row,
+                                 f'>{_reg_thr[_cn]:g}', ha='center', va='bottom',
                                  fontsize=6, color=_col,
                                  transform=fig.transFigure, zorder=1001)
-                    _m = 0.12
-                    fig.text(_fx0+(_fx1-_fx0)*_m, _y, f'{_vmin:g}', ha='left',
-                             va='bottom', fontsize=6, color=_col,
+                    # 行3/行4：起止刻度值**各占一行**（【R21-7】REG 道 4 子槽
+                    # 每槽仅约 21pt，"-0.05"与"0.15"同行必然重叠——实测 NDI
+                    # 子槽叠成 "-0.0⑮"；改为 min 一行、max 一行，彻底分开）
+                    _m = 0.08
+                    fig.text(_fx0+(_fx1-_fx0)*_m, _y - _row, f'{_vmin:g}',
+                             ha='left', va='bottom', fontsize=6, color=_col,
                              transform=fig.transFigure, zorder=1001)
-                    fig.text(_fx1-(_fx1-_fx0)*_m, _y, f'{_vmax:g}', ha='right',
-                             va='bottom', fontsize=6, color=_col,
+                    fig.text(_fx1-(_fx1-_fx0)*_m, _y - 1.5*_row, f'{_vmax:g}',
+                             ha='right', va='bottom', fontsize=6, color=_col,
                              transform=fig.transFigure, zorder=1001)
                 ax_reg.set_xlim(0,1)
                 ax_reg.set_ylim(depth_max, depth_min)
