@@ -1,7 +1,5 @@
 
 
-
-
 # =============================================================================
 # 依赖检查模块
 # =============================================================================
@@ -410,7 +408,6 @@ _ELEMENT_VOL_DRY_DENSITY = {
     'PYRITE': 5.01, 'SIDERITE': 3.94, 'HEMATITE': 5.27,
 }
 
-
 def convert_element_vol_dry_to_volume(data):
     """元素测井 VOL_* 矿物含量干重→体积分数原地转换。
 
@@ -425,25 +422,35 @@ def convert_element_vol_dry_to_volume(data):
         if not vol_cols:
             return data
         w = pd.DataFrame(index=data.index)
+        _src_ok = {}
         for c in vol_cols:
             key = str(c).upper()[4:]
             rho = _ELEMENT_VOL_DRY_DENSITY.get(key, 2.55)
             s = pd.to_numeric(data[c], errors='coerce')
-            w[c] = s.where((s > -900) & (s <= 2.0)).clip(lower=0).fillna(0.0) / rho
+            _sv = s.where((s > -900) & (s <= 2.0))
+            _src_ok[c] = _sv.notna()
+            w[c] = _sv.clip(lower=0).fillna(0.0) / rho
         solid = w.sum(axis=1)
         ok = solid > 1e-6
         if not ok.any():
             return data
         for c in vol_cols:
             v = w[c] / solid.where(ok, 1.0)
-            data[c] = v.where(ok, data[c]).clip(0, 1)
+            v = v.where(ok, data[c])
+            # 【2026-10-26 R24 根因修复】保留缺测语义：源缺测(缺测标记/野值/
+            #   NaN)→NaN 而非 0——此前 fillna(0)+clip 把缺测变 0，使
+            #   apply_elemental_vsh 把缺测点当"元素=0"直接采用，ECS 缺测段
+            #   (111D 顶部 270m)泥质被置 0 且 KTH/GR 外推不触发(泥质充填
+            #   断续、与连续伽马脱节的根因)。下游消费方
+            #   (refine/矿物分析/arbitrate)均已 fillna(0)/notna 兼容 NaN。
+            v = v.where(_src_ok[c])
+            data[c] = v.clip(0, 1)
         logger.info('元素测井VOL_*干重→体积转换完成: %d列 V=(W/ρ)/Σ(W/ρ)，矿物=%s',
                     len(vol_cols), ','.join(str(c) for c in vol_cols))
         return data
     except Exception as _e:
         logger.warning('VOL_*干重→体积转换跳过: %s', _e)
         return data
-
 
 # ---------------- 元素矿物精化（2026-10-16 用户要求） ----------------
 # 干重→体积转换后有效元素段 ΣV≈1；ΣV 低于该阈值视为元素无效段
@@ -463,7 +470,6 @@ _LITH_FILL_MINERAL = {
     'basalt': 'VOL_BASALT', '玄武岩': 'VOL_BASALT',
     'coal': 'VOL_COAL', '煤': 'VOL_COAL',
 }
-
 
 def refine_element_mineral_volumes(data):
     """元素矿物体积精化：总体闭合 ΣV_mineral+φ=1 + 无效段泥质关联填充。
@@ -555,7 +561,21 @@ def refine_element_mineral_volumes(data):
                         '保持原值不填充', n_fill)
             return data
         a, b, r = reg
-        clay = (a + b * x).clip(0, 1).fillna(0.0).values
+        # 【2026-10-26 R24】逐点兜底：首选源(KTH)缺测的点用次选源(GR)
+        # 回归值——与 apply_elemental_vsh 的 KTH/GR 外推同口径，保证泥质
+        # 剖面连续(KTH 缺测点此前 clay.fillna(0)=0，造成充填断续)
+        _reg2 = _x2 = None
+        for _src2 in ('KTH', 'GR'):
+            if _src2 == src:
+                continue
+            _reg2, _x2 = _fit_reg(_src2)
+            if _reg2 is not None:
+                break
+        clay = (a + b * x).clip(0, 1)
+        if _reg2 is not None and _x2 is not None:
+            _sec = (_reg2[0] + _reg2[1] * _x2).clip(0, 1)
+            clay = clay.where(x.notna(), _sec)
+        clay = clay.fillna(0.0).values
         clay = _np.clip(clay, 0.0, 1.0 - phi)      # 为孔隙度保留物理空间
         room = _np.clip(1.0 - phi - clay, 0.0, 1.0)
         _orig = pd.to_numeric(data[ill], errors='coerce') \
@@ -597,7 +617,6 @@ def refine_element_mineral_volumes(data):
     except Exception as _e:
         logger.warning('元素矿物精化跳过: %s', _e)
         return data
-
 
 class DataLoader:
     """数据加载类"""
@@ -2879,7 +2898,6 @@ CURVE_NAME_ALIASES = {
     'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP'],
 }
 
-
 def standardize_curve_names(data, context=""):
     """把曲线列名统一归一化为程序标准名（DEN/CNL/DT/RT/CAL/PE/GR）。
 
@@ -2905,7 +2923,6 @@ def standardize_curve_names(data, context=""):
     print(f"★ 曲线名统一: {renamed}"
           f"{(' [' + context + ']') if context else ''} —— QC/解释/绘图共用标准名")
     return data
-
 
 def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):
     """按优先级选择第一个含有效正值数据的电阻率列。
@@ -2935,7 +2952,6 @@ def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):
             fallback = cand
     return fallback
 
-
 # --- 解释储层过滤统一实现（一处一功能，简化路径与高级引擎共用，禁止重复） ---
 _NON_RESERVOIR_KEYWORDS = [
     '泥岩', 'shale', 'shaly', 'shaley',
@@ -2953,7 +2969,6 @@ _NON_RESERVOIR_KEYWORDS = [
     '黄铁矿', 'pyrite',
     'sandstone_shale', 'sandy_shale',
 ]
-
 
 def _normalize_petro_params(row):
     """从解释行提取归一化 petro 参数 (phi_val, vsh_val, gr_val)。
@@ -2975,7 +2990,6 @@ def _normalize_petro_params(row):
         vsh_val = vsh_val / 100.0
     return phi_val, vsh_val, gr_val
 
-
 def _reservoir_filter_reasons(row, min_porosity):
     """统一储层过滤：返回拒绝原因列表（空列表=通过），
     并返回归一化后的 (phi_val, vsh_val, gr_val) 供后续图版判别复用。"""
@@ -2993,7 +3007,6 @@ def _reservoir_filter_reasons(row, min_porosity):
         reasons.append(f"岩性={lithology}")
     return reasons, phi_val, vsh_val, gr_val
 
-
 def _is_dry_reservoir_point(phi_val, vsh_val, gr_val, lithology, min_porosity):
     """统一干层储层验证：干层首先是储层（DRY→TIGHT 判定共用）。"""
     lith_lower = str(lithology).lower().strip() if lithology else ''
@@ -3001,7 +3014,6 @@ def _is_dry_reservoir_point(phi_val, vsh_val, gr_val, lithology, min_porosity):
             vsh_val <= 0.40 and
             (gr_val < 0 or gr_val <= 120) and
             not any(kw in lith_lower for kw in _NON_RESERVOIR_KEYWORDS))
-
 
 # ========== 解释结论 must/core/deny 规则表（2026-10-08，一处一功能） ==========
 # 用户要求：任何解释结论的判断都要符合 must/core/deny，避免单一条件判断。
@@ -3043,7 +3055,6 @@ INTERPRETATION_RULES = [
         'deny': [],
     },
 ]
-
 
 def match_interpretation_rules(sw_v, phi_val, rt_v, rules=None):
     """解释结论 must/core/deny 判定（简化路径与高级引擎共用的唯一阈值实现）。
@@ -3094,7 +3105,6 @@ def match_interpretation_rules(sw_v, phi_val, rt_v, rules=None):
         return rule['key'], score, '; '.join(reasons)
     return None
 
-
 # 层内流体重力分异（2026-10-09）==============================================
 # 逐点图版判定只看单点物性，同一砂层内油水交错（"一会油一会水"）违反
 # 重力分异规律：同一储层内油气水按密度分异，自上而下 气→油→水 单调叠置。
@@ -3106,7 +3116,6 @@ FLUID_FAMILY_MAP = {
 }
 GRAVITY_ORDER = {'GAS': 0, 'OIL': 1, 'WATER': 2}
 _GRAV_NAME = {0: 'GAS', 1: 'OIL', 2: 'WATER'}
-
 
 def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
     """层内流体重力分异整饰（解释结论后处理统一入口）。
@@ -3314,7 +3323,6 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
 
     return total_fix
 
-
 # ========== 全局缺测标记规则(2026-10-15 用户定案) ==========
 # -999/-999.25/-9999等"前3个9"的负大值是缺测标记(NULL marker)不是有效值，
 # 相当于NaN，禁止参与统计/计算/绘图——对任何曲线全局适用。负值合法性仅
@@ -3323,7 +3331,6 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
 _NULL_MARKER_MAX = -999.0   # ≤该值的负大数视为缺测标记(覆盖-999/-999.25/-9999/-99999)
 _SP_NEG_MIN = -200.0        # SP负值合法下限
 _NPHI_NEG_MIN = -15.0       # 中子负值合法下限
-
 
 def sanitize_null_markers(data):
     """全局缺测标记清洗（一处一功能：无效值统一入口，任何曲线都适用）。
@@ -3363,7 +3370,6 @@ def sanitize_null_markers(data):
                        '(全局规则: -999类负大值为缺测标记，不参与统计/计算/绘图)',
                        n_mark, n_neg)
     return data
-
 
 def reconcile_vsh_with_gr(data):
     """交付泥质列与GR自适应泥质取较低值（一处一功能：泥质含量统一入口）。
@@ -3424,7 +3430,6 @@ def reconcile_vsh_with_gr(data):
                 '取较低值，%d点被GR泥质调低', sand_base, shale_base, n_low)
     return data
 
-
 def apply_elemental_vsh(data):
     """【2026-10-20 用户定案】元素泥质定源：VSH ← 元素测井泥质体积。
 
@@ -3461,27 +3466,37 @@ def apply_elemental_vsh(data):
         return data
 
     vsh_elem = ill.copy()
-    # 缺测点：KTH 回归外推
+    # 缺测点：伽马系回归外推（2026-10-26 R24 用户要求：除火成岩段外全井
+    # 泥质按 ECS↔伽马关系补全，保证泥质剖面连续——此前 111D 顶部 270m
+    # ECS 缺测段泥质被置 0，与连续伽马脱节）。KTH(无铀伽马)与 ECS 相关
+    # 最高(111D r=0.91、零值占比更低)作首选，GR 兜底覆盖 KTH 缺测点。
     _miss = ~_valid
     if _miss.any():
-        _fit = data.loc[_valid]
-        _kth_fit = pd.to_numeric(_fit.get('KTH'), errors='coerce') \
-            if 'KTH' in data.columns else None
-        if _kth_fit is not None and _kth_fit.notna().sum() >= 30:
-            _x = _kth_fit.values.astype(float)
-            _y = vsh_elem.loc[_valid].values.astype(float)
+        _y = vsh_elem.loc[_valid].values.astype(float)
+        for _src in ('KTH', 'GR'):
+            if not bool(_miss.any()):
+                break
+            if _src not in data.columns:
+                continue
+            _xf = pd.to_numeric(data.loc[_valid, _src], errors='coerce')
+            if _xf.notna().sum() < 30:
+                continue
+            _x = _xf.values.astype(float)
             _m = np.isfinite(_x) & np.isfinite(_y)
-            if _m.sum() >= 30:
-                _k, _b = np.polyfit(_x[_m], _y[_m], 1)
-                _r = float(np.corrcoef(_x[_m], _y[_m])[0, 1])
-                _kth_all = pd.to_numeric(data.get('KTH'), errors='coerce')
-                _fill = (_k * _kth_all + _b) if _kth_all is not None else None
-                if _fill is not None:
-                    _use = _miss & _fill.notna()
-                    vsh_elem[_use] = _fill[_use]
-                    logger.info("元素泥质定源: 缺测点 KTH 回归外推 "
-                                "VSH=%.5f%+.5f*KTH (r=%.3f)，补 %d 点",
-                                _k, _b, _r, int(_use.sum()))
+            if _m.sum() < 30:
+                continue
+            _k, _b = np.polyfit(_x[_m], _y[_m], 1)
+            _r = float(np.corrcoef(_x[_m], _y[_m])[0, 1])
+            _all = pd.to_numeric(data[_src], errors='coerce')
+            _fill = _k * _all + _b
+            _use = _miss & _fill.notna()
+            if int(_use.sum()) == 0:
+                continue
+            vsh_elem[_use] = _fill[_use]
+            _miss = _miss & ~_use
+            logger.info("元素泥质定源: 缺测点 %s 回归外推 "
+                        "VSH=%.5f%+.5f*%s (r=%.3f)，补 %d 点",
+                        _src, _k, _b, _src, _r, int(_use.sum()))
 
     # 火成岩段不动（保留原泥质链路结果）
     if 'VOL_BASALT' in data.columns:
@@ -3498,7 +3513,6 @@ def apply_elemental_vsh(data):
                     "覆盖 %d/%d 点（火成岩段保留原值）",
                     int(_covered.sum()), len(data))
     return data
-
 
 def arbitrate_lithology_by_elements(data):
     """【2026-10-20 用户定案】元素含量仲裁岩性：修复"无证据泥岩"。
@@ -3564,12 +3578,10 @@ def arbitrate_lithology_by_elements(data):
                     _n, int(_m1.sum()), int(_m2.sum()))
     return data, _n
 
-
 # 核磁曲线描述关键词（2026-10-16 用户定案）：描述必须出现核磁词汇才认定为
 # 核磁测量；'mr' 按词边界匹配，避免 chamber 等普通单词误命中
 _NMR_DESC_KEYWORDS = ('mr', 'nmr', 'nuclear magnetic',
                       'magnetic resonance', '核磁')
-
 
 def _find_nmr_effective_porosity_col(data, desc_map):
     """按曲线描述识别**核磁**有效孔隙度列（2026-10-16 用户定案）。
@@ -3600,7 +3612,6 @@ def _find_nmr_effective_porosity_col(data, desc_map):
             if _is_nmr:
                 return col
     return None
-
 
 def calculate_mineral_volumes(data):
     """统一矿物体积计算（一处一功能）：仅有泥质(VSH/VSHALE)而无矿物体积列时，
@@ -3662,7 +3673,6 @@ def calculate_mineral_volumes(data):
                 f"灰岩均值{data['VCalcite'].mean():.3f} 白云岩均值{data['VDolomite'].mean():.3f}")
     return data
 
-
 # 主要岩性 → 闭合补齐用的主矿物 VOL 列（2026-10-19 用户定案）
 _MAIN_LITH_VOL_COL = {
     'limestone': 'VOL_CALCITE', 'carbonate': 'VOL_CALCITE', '灰岩': 'VOL_CALCITE',
@@ -3677,7 +3687,6 @@ _MAIN_LITH_VOL_COL = {
     'halite': 'VOL_SALT', 'salt': 'VOL_SALT', '岩盐': 'VOL_SALT',
 }
 
-
 def _resolve_main_vol_col(name):
     """主要岩性 → 主矿物 VOL 列：精确匹配 → 关键词包含 → None。"""
     name = str(name).lower().strip()
@@ -3687,7 +3696,6 @@ def _resolve_main_vol_col(name):
         if k and k in name:
             return v
     return None
-
 
 def close_mineral_balance(data):
     """矿物含量+孔隙度闭合=1（2026-10-19 用户定案，一处一功能）。
@@ -3759,7 +3767,6 @@ def close_mineral_balance(data):
                 n_add, n_scale, n_skip,
                 float(_resid.max()) if len(_resid) else 0.0, _phi_src)
     return data
-
 
 # --- 数据处理类 ---
 class DataProcessor:
@@ -4270,7 +4277,6 @@ def _ql_find_col(data, possible_names):
             return _low[name.strip().lower()]
     return None
 
-
 def _build_hc_reason_sections(results):
     """【2026-10-13 用户要求】解释报告逐油气层归因 + 交汇图。
 
@@ -4694,7 +4700,6 @@ def _build_hc_reason_sections(results):
         '各层交汇图背景点仅取全井储层段数据，泥岩等非储层不参与。</div>')
     return '<h3>逐油气层解释原因分析与交汇图</h3>' + _plate_desc + ''.join(sections), 'crossplots'
 
-
 # --- 报告生成类 ---
 # --- 报告生成类 ---
 class ReportGenerator:
@@ -4798,7 +4803,6 @@ class ReportGenerator:
 DT_CURVE_UNIT = 'us/ft'
 _AC_USFT_TO_USM = 3.28084
 
-
 def set_dt_curve_unit(unit):
     """设置声波DT曲线单位（'us/ft' | 'us/m'），由DataLoader在LAS加载时调用。"""
     global DT_CURVE_UNIT
@@ -4811,16 +4815,13 @@ def set_dt_curve_unit(unit):
         DT_CURVE_UNIT = 'us/ft'
     return DT_CURVE_UNIT
 
-
 def dt_ac_scale():
     """骨架AC特征值随DT曲线单位的换算系数：英制井1.0，公制井3.28084。"""
     return _AC_USFT_TO_USM if DT_CURVE_UNIT == 'us/m' else 1.0
 
-
 def _limestone_ac_locked():
     """灰岩骨架AC锁定值（用户定案常数）：英制47.5us/ft，公制156us/m。"""
     return 156.0 if DT_CURVE_UNIT == 'us/m' else 47.5
-
 
 def _dolomite_cnl_matrix(phi):
     """白云岩骨架CNL特征值（2026-10-15 用户定案，随孔隙度分段）：
@@ -4831,7 +4832,6 @@ def _dolomite_cnl_matrix(phi):
     except (TypeError, ValueError):
         return 0.065
     return 0.085 if (0.055 <= phi <= 0.30) else 0.065
-
 
 class LithologyCrossplotAnalyzer:
     """岩性交汇图分析类，用于确定本井主要岩性类型和骨架参数"""
@@ -5333,7 +5333,6 @@ class LithologyCrossplotAnalyzer:
         
         return result
 
-
 # --- 特殊岩性图版分析类 ---
 class SpecialLithologyPlateAnalyzer:
     """特殊岩性图版分析类，用于火山岩等特殊岩性识别"""
@@ -5414,7 +5413,6 @@ class SpecialLithologyPlateAnalyzer:
             return {'quartz_type': dominant_type, 'distribution': dict(counter)}
         
         return None
-
 
 # --- 深度分段判别类 ---
 class SegmentClassifier:
@@ -5746,7 +5744,6 @@ class SegmentClassifier:
         self.save_lith_profile(profile_data)
         
         return local_profile_type
-
 
 # --- 多矿物分析类 ---
 class MineralAnalyzer:
@@ -8821,7 +8818,6 @@ def _step_of(md, default=0.25):
     diffs = diffs[np.isfinite(diffs) & (diffs > 0)]
     return float(np.median(diffs)) if diffs.size else default
 
-
 def detect_well_profile_type(data, well_name='Unknown',
                              carbonate_cnl_max=12.0,
                              sandstone_gr_max=100.0):
@@ -9042,7 +9038,6 @@ def detect_well_profile_type(data, well_name='Unknown',
     _kb_enrich(info, ptype)
     return ptype, info
 
-
 def parse_casing_from_mudlog(mudlog_path, well_name='Unknown'):
     """从录井 PDF 的 CASING DATA 表解析套管鞋深度（权威来源）。
 
@@ -9133,7 +9128,6 @@ def parse_casing_from_mudlog(mudlog_path, well_name='Unknown'):
         for _lg, _lv in _restore.items():
             logging.getLogger(_lg).setLevel(_lv)
 
-
 def apply_mudlog_casing(data, casing_records, min_len_ft=5.0):
     """把录井套管记录应用到数据上，生成套管掩码。
 
@@ -9174,7 +9168,6 @@ def apply_mudlog_casing(data, casing_records, min_len_ft=5.0):
     }
     logger.info("[套管-录井] %s", info['summary'])
     return pd.Series(mask, index=data.index), info
-
 
 def export_las_with_casing(data, las_path, casing_info=None, well_name='Unknown',
                            depth_unit='ft', null_value=-9999.25,
@@ -9355,7 +9348,6 @@ def export_las_with_casing(data, las_path, casing_info=None, well_name='Unknown'
         logger.warning('导出带套管头的 LAS 失败: %s', e)
         return None
 
-
 def _merge_casing_segs(segs, gap_ft=10.0):
     """合并相邻/重叠的套管段（间隔小于 gap_ft 视为同一套管程序）。"""
     if not segs:
@@ -9368,7 +9360,6 @@ def _merge_casing_segs(segs, gap_ft=10.0):
         else:
             out.append([a, b])
     return [(a, b) for a, b in out]
-
 
 def _casing_shoe_from_masterlog(data, well_name='Unknown'):
     """从 masterlog/录井 PDF 井身结构取套管/尾管鞋深记录（用户定案权威来源）。
@@ -9477,7 +9468,6 @@ def _casing_shoe_from_masterlog(data, well_name='Unknown'):
         for _lg, _lv in _restore.items():
             logging.getLogger(_lg).setLevel(_lv)
 
-
 def _casing_layers_from_header(data):
     """解析 LAS 头段编号套管记录，返回全部层位 [(鞋深, 尺寸), ...]（升序）。
 
@@ -9546,7 +9536,6 @@ def _casing_layers_from_header(data):
         return layers
     except Exception:
         return []
-
 
 def _triple_verify_casing_shoe(data, well_name, curve_shoe=None):
     """套管鞋三重交叉验证【2026-10-15 用户定案】。
@@ -9649,7 +9638,6 @@ def _triple_verify_casing_shoe(data, well_name, curve_shoe=None):
                    ' / '.join('%s=%.0f' % (c[0], c[1]) for c in cands),
                    tol, n, d)
     return d, s, info
-
 
 def detect_casing_interval(data, well_name='Unknown',
                             pe_thr=8.0, den_thr=2.30, cnl_thr=35.0,
@@ -10027,7 +10015,6 @@ def detect_casing_interval(data, well_name='Unknown',
     else:
         logger.info(f"[{well_name}] 未检测到套管段")
     return mask, info
-
 
 class FaciesAnalyzer:
     """沉积相分析类"""
@@ -10615,7 +10602,6 @@ def save_data_to_file(data, file_path, well_name="Unknown"):
 
 # --- 弹簧段校正类 ---
 
-
 # ============================================================================
 # 岩性识别（按矿物特征值 + 曲线响应）
 #   放在解释侧（logInt）而非绘图侧：岩性属于解释成果，绘图只负责呈现。
@@ -10733,7 +10719,6 @@ MINERAL_PROPS = {
 #   deny        : 排除项，命中即否决。支持 {'all': [...]} 多条件 AND 写法
 #   desc        : 判别说明（写入报告供专家复核）
 
-
 def _fmt_thr(t):
     """阈值格式化：数值保留两位小数；'@KEY?fallback' 自适应引用显示为可读文本。"""
     if isinstance(t, str) and t.startswith('@'):
@@ -10743,7 +10728,6 @@ def _fmt_thr(t):
         return '%.2f' % t
     except (TypeError, ValueError):
         return str(t)
-
 
 def _fmt_criteria(items):
     """把判据列表格式化为可读文本（支持 tuple 与 {'all': [...]} 两种写法）。"""
@@ -11220,7 +11204,6 @@ def adaptive_thresholds(series_map):
     out['RT_mud_strong'] = (max(_rt40, 2.0) if _rt40 else None)
     return out
 
-
 # -*- coding: utf-8 -*-
 """基于矿物特征值与曲线响应的岩性识别器。
 
@@ -11244,8 +11227,6 @@ def adaptive_thresholds(series_map):
 import numpy as np
 import pandas as pd
 
-
-
 # 煤层等需要更细的分辨率：最小保留厚度（ft）
 # 各岩性最小保留厚度（ft）—— 薄于该厚度就并入邻段，避免毛刺。
 # 煤与碳质泥岩是**标志层**，本身就很薄（BET-1 实测 7 个煤层段厚
@@ -11258,7 +11239,6 @@ MIN_THICKNESS_FT = {
     'conglomerate': 2.0, 'sandstone': 1.5, 'shale': 1.5,
 }
 SMOOTH_PTS = 3          # 中值滤波点数（0.25 ft 采样 → 0.75 ft；再重会把煤层薄层边界抹掉）
-
 
 class LithologyRecognizer:
     def __init__(self, data, depth_unit='ft', smooth=SMOOTH_PTS,
@@ -12167,8 +12147,6 @@ class LithologyRecognizer:
             lines.append('')
             lines.append('   本井自适应阈值: ' + '  '.join('%s=%.1f' % (k, v) for k, v in sorted(_ad.items())))
         return '\n'.join(lines)
-
-
 
 class SpringSegmentCorrector:
     """弹簧段校正类"""
@@ -13262,7 +13240,17 @@ class WellLogProcessor:
                               if c in self.data_processor.data.columns]
             available_correct_curves = correct_curves
 
-            if detect_curve in self.data_processor.data.columns:
+            # 【2026-10-26 R25 用户反馈】弹簧段自动检测会把岩性边界引起的密度
+            # 跳变误报为弹簧段并施加校正，造成密度不合理尖峰（3-SPS-111D
+            # 实测误报 10 段/替换 255 点；用户确认该井无弹簧段）→ 分井禁用
+            # 表，如需恢复把井名移出 _SPRING_SKIP_WELLS 即可。
+            _SPRING_SKIP_WELLS = {'3-SPS-111D'}
+            if str(getattr(self, 'well_name', 'Unknown')).strip().upper() \
+                    in _SPRING_SKIP_WELLS:
+                logger.info("弹簧段校正: 井 %s 在分井禁用表中, 跳过检测与校正"
+                            "（用户确认无弹簧段）",
+                            getattr(self, 'well_name', 'Unknown'))
+            elif detect_curve in self.data_processor.data.columns:
                 # 【2026-10-07】套管段不参与弹簧段**检测** —— 套管内密度是
                 # 泥浆而非岩石，据此检测必然误报。
                 # 但**校正结果要合并回完整数据**（不能只保留剔除套管的子集），
@@ -14150,29 +14138,6 @@ class WellLogProcessor:
                     self.results['processed_data'] = close_mineral_balance(
                         self.results['processed_data'])
 
-                processed_csv_path = well_output_dir / f"{well_name}_processed.csv"
-                self.results['processed_data'].to_csv(processed_csv_path, index=False, encoding='utf-8')
-                print(f"处理后数据已保存到: {processed_csv_path}")
-                logger.info(f"处理后数据CSV已保存: {processed_csv_path}")
-
-                # ========== 同时导出带套管头的 LAS（2026-10-07）==========
-                # 为什么重要：SLAM 输出的 LAS 头段**没有套管字段**（实测 BET-1
-                # 只有 WELL/STRT/STOP 等 15 个字段，无 CSIZ/CDF/CADT），
-                # 导致后续处理只能靠曲线反演猜套管段。
-                # 完善的 LAS 应该在 ~PARAMETER 段写入 CSIZ/CDF/CADT，
-                # 这样套管信息随文件流转，换井/换软件都可靠。
-                try:
-                    _las_ok = export_las_with_casing(
-                        pd_data,
-                        well_output_dir / f"{well_name}_interpreted.LAS",
-                        casing_info=self.results.get('casing_info', {}),
-                        well_name=well_name,
-                        depth_unit=self.config.get('depth_unit', 'ft')
-                        if isinstance(getattr(self, 'config', None), dict) else 'ft')
-                    if _las_ok:
-                        logger.info('带套管头的 LAS 已导出: %s', _las_ok)
-                except Exception as _le:
-                    logger.warning('导出带套管头的 LAS 失败（不影响 CSV）: %s', _le)
             
             # 将输出目录保存到结果中，供可视化模块使用
             self.results['output_dir'] = str(well_output_dir)
@@ -14257,11 +14222,64 @@ class WellLogProcessor:
             try:
                 if 'processed_data' in self.results and self.results['processed_data'] is not None:
                     _pd = self.results['processed_data']
-                    _pd = calculate_reg_indicators(_pd, gas_data=self.results.get('gas_data') or gas_data)
+                    # 【2026-10-26 R25】不能用 `or` 兜底: DataFrame 的真值
+                    # 判定歧义(ValueError: truth value ambiguous), 曾致 REG
+                    # 法静默失败、CSV 恒缺 RTI/NDI/GSI/CGI。改显式 None 判断。
+                    _gas_rg = self.results.get('gas_data')
+                    if _gas_rg is None:
+                        _gas_rg = gas_data
+                    _pd = calculate_reg_indicators(_pd, gas_data=_gas_rg)
                     self.results['processed_data'] = _pd
                     logger.info("REG 法: RTI/NDI/GSI/CGI 四条列已写入 processed_data")
             except Exception as _re:
                 logger.warning("REG 法计算失败（不影响主流程）: %s", _re)
+
+            # 【2026-10-26 R24】盖层(盐岩/硬石膏)下气测异常储层:
+            # WATER→油气补偿(用户要求, 详见 rejudge_hc_below_seal)
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    _gas_rh = self.results.get('gas_data')
+                    if _gas_rh is None:
+                        _gas_rh = gas_data
+                    _pd_rh, _nre = rejudge_hc_below_seal(
+                        self.results['processed_data'],
+                        gas_data=_gas_rh)
+                    self.results['processed_data'] = _pd_rh
+                    if _nre:
+                        logger.info("盖层下油气补偿: %d 点已改判", _nre)
+            except Exception as _rh:
+                logger.warning("盖层下油气补偿判定失败（不影响主流程）: %s", _rh)
+                logger.warning('盖层下油气补偿 traceback:\n%s',
+                               __import__('traceback').format_exc())
+
+            # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
+            # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
+            # 导致 CSV 缺 REG 列且 354 点 WATER→OIL 改判不落盘
+            # （CSV/LAS/绘图必须共用同一份成果——一处一功能口径）。
+            processed_csv_path = well_output_dir / f"{well_name}_processed.csv"
+            self.results['processed_data'].to_csv(processed_csv_path, index=False, encoding='utf-8')
+            print(f"处理后数据已保存到: {processed_csv_path}")
+            logger.info(f"处理后数据CSV已保存: {processed_csv_path}")
+
+            # ========== 同时导出带套管头的 LAS（2026-10-07）==========
+            # 为什么重要：SLAM 输出的 LAS 头段**没有套管字段**（实测 BET-1
+            # 只有 WELL/STRT/STOP 等 15 个字段，无 CSIZ/CDF/CADT），
+            # 导致后续处理只能靠曲线反演猜套管段。
+            # 完善的 LAS 应该在 ~PARAMETER 段写入 CSIZ/CDF/CADT，
+            # 这样套管信息随文件流转，换井/换软件都可靠。
+            try:
+                _las_ok = export_las_with_casing(
+                    self.results['processed_data'],
+                    well_output_dir / f"{well_name}_interpreted.LAS",
+                    casing_info=self.results.get('casing_info', {}),
+                    well_name=well_name,
+                    depth_unit=self.config.get('depth_unit', 'ft')
+                    if isinstance(getattr(self, 'config', None), dict) else 'ft')
+                if _las_ok:
+                    logger.info('带套管头的 LAS 已导出: %s', _las_ok)
+            except Exception as _le:
+                logger.warning('导出带套管头的 LAS 失败（不影响 CSV）: %s', _le)
 
             # 5. 结果可视化（调用visualize_composite_log函数）- 图片将保存在同一目录下
             if self.config['visualization']:
@@ -14383,14 +14401,12 @@ class WellLogProcessor:
 _GAS_FILE_KW = ('gas', 'gastotal', 'tgas', '气测', '录井气', 'welltest', 'well test',
                 'dst', 'rop', '钻井参数', '钻时')
 
-
 def _is_gas_file(p):
     """判断文件是否为气测/录井/测试类数据文件"""
     name = p.name.lower()
     if p.suffix.lower() not in ('.txt', '.csv', '.xls', '.xlsx', '.dat'):
         return False
     return any(k in name for k in _GAS_FILE_KW)
-
 
 def _find_main_las(well_dir):
     """在井文件夹中寻找主测井 LAS 文件。
@@ -14430,7 +14446,6 @@ def _find_main_las(well_dir):
     all_las.sort(key=lambda x: x.stat().st_size, reverse=True)
     return all_las[0]
 
-
 def _extract_md_knowledge(md_files, limit_chars=6000):
     """从井文件夹中的 .md 知识文件提取结构化知识（BET-1 模式下这些是
     已知识化的地质认识/分层/岩性/试油/气测分析文档）。"""
@@ -14459,7 +14474,6 @@ def _extract_md_knowledge(md_files, limit_chars=6000):
         parts.append(f"### 来源: {md.name}\n**{title}**\n{excerpt[:limit_chars]}")
     return '\n\n'.join(parts)
 
-
 def _extract_pdf_knowledge(pdf_files, max_pages=3, limit_chars=4000):
     """用 PyMuPDF 提取 PDF（mud log/DWOP/钻井程序等）关键文本。"""
     parts = []
@@ -14485,14 +14499,12 @@ def _extract_pdf_knowledge(pdf_files, max_pages=3, limit_chars=4000):
             logger.warning("PDF 文本提取失败 %s: %s", pdf.name, e)
     return '\n\n'.join(parts)
 
-
 def _extract_table_knowledge(xls_files):
     """登记井文件夹中的试油/测试表格文件名（内容解析由后续试油库负责）。"""
     if not xls_files:
         return ''
     names = '\n'.join(f"- {p.name}" for p in xls_files[:10])
     return f"### 井文件夹表格资料（试油/测试/成果表）\n{names}"
-
 
 def _guess_region(well_dir, las_info=None):
     """从文件夹路径层级 + LAS Well 段推断国家/区块（硬约束优先: 国家目录路径）。"""
@@ -14526,7 +14538,6 @@ def _guess_region(well_dir, las_info=None):
         if w.get('field'):
             well_extra = f" 油田: {w['field']}"
     return region, well_extra
-
 
 def _kb_add_knowledge(well_name, knowledge_md, category='well_quicklook'):
     """把 quick look 知识摘要写入 logKnow 知识库（增量索引）。
@@ -14581,7 +14592,6 @@ def _kb_add_knowledge(well_name, knowledge_md, category='well_quicklook'):
     except Exception as e:
         logger.warning("知识入库 logKnow 失败: %s", e)
         return False
-
 
 def _find_well_logos(well_dir):
     """查找业主/承包商图标（随井的业主动态更换）。
@@ -14640,9 +14650,6 @@ def _find_well_logos(well_dir):
         found_ct = _first_match(_wdirs, False)
     return (str(found_c) if found_c else str(_default_c),
             str(found_ct) if found_ct else str(_default_ct))
-
-
-
 
 def _enrich_well_info(results, text_parts):
     """从知识文件文本补充 las_info['well'] 缺失字段（公司/国家/区块/日期/套管等）。
@@ -14727,7 +14734,6 @@ def _enrich_well_info(results, text_parts):
         param['casing_record_rows'] = [
             {'size': s, 'from': f, 'to': t} for s, f, t in _cs_rows]
 
-
 def _scan_to_quicklook_config(res):
     """qlscan 扫描结果 → logvis 可消费的 quicklook_config 结构。
 
@@ -14764,7 +14770,6 @@ def _scan_to_quicklook_config(res):
                 _cfg['scale'] = f"1:{_m.group(1)}"
     return _cfg
 
-
 def _load_quicklook_config(config_file):
     """加载甲方 quick look 出图格式配置。
 
@@ -14797,7 +14802,6 @@ def _load_quicklook_config(config_file):
     except Exception as _e:  # noqa: BLE001
         logger.warning("quicklook 配置解析失败, 用图版默认: %s", _e)
         return None
-
 
 # ============================================================================
 # 井信息收集模块（【2026-10-14 用户定案】原 wellinfo.py 并入 logInt：
@@ -14850,7 +14854,6 @@ _MUDLOG_LABEL_KEYWORDS = (
     'classification', 'geologist', 'engineers', 'loggers', 'surface',
     'bottom', 'hole', 'location', 'x', 'y',
 )
-
 
 def _mudlog_match_label(label):
     """录井图标签英文简写模糊匹配（英文均为简写需综合判断）→ 内部键或 None。
@@ -14923,7 +14926,6 @@ def _mudlog_match_label(label):
                 return _k
     return None
 
-
 def find_mudlog_pdf(well_dir):
     """在井文件夹查找录井图/masterlog PDF（文件名含 mud log/mudlog/mud_log/录井/masterlog）。"""
     try:
@@ -14939,7 +14941,6 @@ def find_mudlog_pdf(well_dir):
     except Exception as e:
         logger.warning("查找录井图失败: %s", e)
     return None
-
 
 def extract_mudlog_header(pdf_path):
     """解析录井图 PDF 第 1 页表头 HOLE DATA 块 → 井设置字段 dict。
@@ -15019,7 +15020,6 @@ def extract_mudlog_header(pdf_path):
         logger.warning("录井图表头解析失败: %s", e)
         return {}
 
-
 # ---------------------------------------------------------------------------
 # 【2026-10-21 R18】录井图「平面文本键值对」兜底 + 井眼/套管/泥浆程序
 # ---------------------------------------------------------------------------
@@ -15052,7 +15052,6 @@ _ML_KV_MAP = {
     'scale': 'scale',
 }
 
-
 def extract_mudlog_flat_kv(pdf_path, max_pages=2):
     """录井图「平面 key:value」兜底提取（第 1~2 页全文正则）。
 
@@ -15082,7 +15081,6 @@ def extract_mudlog_flat_kv(pdf_path, max_pages=2):
             out[key] = val
     return out
 
-
 def _parse_hole_size(txt):
     """井眼/套管尺寸文本 → float(inch)。支持 '17 1/2' / '13.375' / '9 5/8'。
 
@@ -15110,7 +15108,6 @@ def _parse_hole_size(txt):
         except Exception:
             return None
     return None
-
 
 def extract_mudlog_hole_casing(pdf_path, max_pages=2):
     """录井图井眼/套管程序 → (borehole_rows, casing_rows, bit_size, hole_sizes)。
@@ -15176,7 +15173,6 @@ def extract_mudlog_hole_casing(pdf_path, max_pages=2):
         _bit = '%g' % _holelist[-1][0]
     return _hole, _casing, _bit, _holelist
 
-
 def extract_mudlog_mud_program(pdf_path, max_pages=2):
     """录井图泥浆程序 → '类型(起止)' 串（表2 Type of Fluid in Hole）。
 
@@ -15196,13 +15192,11 @@ def extract_mudlog_mud_program(pdf_path, max_pages=2):
         parts.append('%s(%s-%sm)' % (kind, lo, hi))
     return ' / '.join(parts)
 
-
 # ---------------------------------------------------------------------------
 # 【2026-10-21 R18】MIFT/试油报告（第四信息源：测井单位/日期/井段/人员）
 # ---------------------------------------------------------------------------
 _MIFT_PDF_KEYS = ('mift', 'pressure data', 'formation test', '试油', 'mdt',
                   'drill stem test', 'dst report')
-
 
 def find_test_report_pdf(well_dir):
     """查找 MIFT/试油/地层压力报告 PDF（井文件夹内）。"""
@@ -15217,7 +15211,6 @@ def find_test_report_pdf(well_dir):
     except Exception as e:
         logger.warning("查找试油/MIFT报告失败: %s", e)
     return None
-
 
 def extract_test_report_info(pdf_path, max_pages=3):
     """MIFT/试油报告 → {field_name, logging_unit, log_date, ...}。
@@ -15251,7 +15244,6 @@ def extract_test_report_info(pdf_path, max_pages=3):
             out[k] = ' '.join(m.group(1).split())[:40]
     return out
 
-
 # ---------------------------------------------------------------------------
 # 地质设计（钻探程序 / DWOP / GTO）信息提取
 # ---------------------------------------------------------------------------
@@ -15261,7 +15253,6 @@ _GEO_PDF_KEYS = ('drilling program', 'dwop', '地质设计',
                  # （Geological Technical Order），此前不在关键词内 → 地质设计
                  # 一个字段都提取不到（表1 目的层/井型/坐标全空）
                  'gto', 'geological technical order', 'well prognosis')
-
 
 def find_geodesign_files(well_dir):
     """查找地质设计文件: 中文翻译/地质设计 MD + 钻探程序/DWOP PDF。"""
@@ -15282,7 +15273,6 @@ def find_geodesign_files(well_dir):
     except Exception as e:
         logger.warning("查找地质设计文件失败: %s", e)
     return mds, pdfs
-
 
 def extract_geodesign_info(well_dir):
     """从地质设计提取井信息 → {target_formation, well_type, designed_td,
@@ -15400,7 +15390,6 @@ def extract_geodesign_info(well_dir):
                 out[_k] = _v
     return out
 
-
 def _extract_gto_summary_kv(pdf_path, max_pages=12):
     """GTO(Geological Technical Order) Well Summary 键值 → 内部键。
 
@@ -15513,7 +15502,6 @@ def _extract_gto_summary_kv(pdf_path, max_pages=12):
         logger.warning("GTO Well Summary 解析失败: %s", e)
     return out
 
-
 # ---------------------------------------------------------------------------
 # 井名 info.json 收集 / 加载 / 应用
 # ---------------------------------------------------------------------------
@@ -15527,7 +15515,6 @@ _PARAM_KEYS = {'bit_size', 'drilling_fluid_type', 'drilling_fluid_density',
                'drilling_fluid_loss', 'rm_meas_temp', 'rmf_meas_temp',
                'rmc_meas_temp', 'rm_bht', 'time_since_circulation',
                'max_record_temp', 'casing_record', 'borehole_record'}
-
 
 def _collect_las_curves(well_dir, results=None):
     """从 LAS ~C 收集曲线清单 "MNEM:UNIT:说明; ..."（失败返回 ''）。
@@ -15564,13 +15551,11 @@ def _collect_las_curves(well_dir, results=None):
         logger.warning("LAS 曲线收集失败: %s", e)
         return ''
 
-
 def well_info_json_path(well_dir, well_name=''):
     """<井名>info.json 路径（井文件夹下, 便于人工修改）。"""
     wd = Path(well_dir)
     _name = str(well_name or wd.name or 'well').strip() or 'well'
     return wd / f"{_name}info.json"
-
 
 def _flatten_groups(cfg):
     """分组 json → 展平 dict（跳过 _ 开头说明键；仅保留非空值）。"""
@@ -15587,7 +15572,6 @@ def _flatten_groups(cfg):
             if _sv and not _sv.startswith('-999'):
                 flat[_k] = _sv
     return flat
-
 
 def load_well_info_json(results):
     """供可视化读取: 从 results 定位 <井名>info.json 并展平（找不到→{}）。
@@ -15613,7 +15597,6 @@ def load_well_info_json(results):
         except Exception as e:
             logger.warning("井信息 json 读取失败 %s: %s", p, e)
     return {}
-
 
 def collect_well_info(results, well_dir):
     """多源收集井信息 → 生成/读取 <井名>info.json 并应用到 results。
@@ -16112,7 +16095,6 @@ def collect_well_info(results, well_dir):
     print(f"  井信息: 应用 {_n} 个字段（{json_path.name}）")
     return cfg
 
-
 def quicklook_well(well_dir=None, config_file=None, gas_file=None):
     """quick look 快速解释主入口（嵌入 logInt 的功能之一）。
 
@@ -16462,7 +16444,6 @@ def select_run_mode():
     # 【2026-10-15 二五轮】第4元 = 数据选择界面选定的气测文件（未选 None）
     return _m, _ret.get('target'), _ret.get('config'), _ret.get('gas')
 
-
 def run_well_log_workflow(plot_mode='all', file_path=None, gas_file=None):
     """运行测井资料处理工作流
     plot_mode: 'all'(综合图+交汇图) / 'composite'(仅综合图) / 'crossplot'(仅交汇图)
@@ -16608,7 +16589,6 @@ except Exception:
 # 自检项清单（供静默模式复用）
 _SELFTEST_GROUPS = None
 
-
 def _selftest_groups():
     global _SELFTEST_GROUPS
     if _SELFTEST_GROUPS is None:
@@ -16622,7 +16602,6 @@ def _selftest_groups():
             ('剖面/岩性防翻回归', selftest_profile_no_flip),
         ]
     return _SELFTEST_GROUPS
-
 
 def selftest_rule_structure():
     """检查每条规则都是"必要项 + 排除项 + M-of-K"，杜绝单条件触发。"""
@@ -16655,7 +16634,6 @@ def selftest_rule_structure():
                               f'煤层本身扩径达 1.5，会误杀煤层核心')
     return errors
 
-
 def selftest_samples():
     """用 BET-1 实测参数验证判定结果。"""
     errors = []
@@ -16682,7 +16660,6 @@ def selftest_samples():
                           f'命中判据={rec.why[i]}')
     return errors
 
-
 def selftest_casing_not_marker():
     """套管/水泥返高段不得被当成煤或碳质泥岩。"""
     errors = []
@@ -16697,7 +16674,6 @@ def selftest_casing_not_marker():
     elif '_shoe + 60.0' not in body:
         errors.append('水泥返高段识别未限定在套管鞋以下影响带内')
     return errors
-
 
 def selftest_marker_thickness():
     """煤与碳质泥岩是标志层，薄层必须保留。"""
@@ -16716,7 +16692,6 @@ def selftest_marker_thickness():
         errors.append('_merge_thin 段厚未加采样间隔修正 `+ _step`')
     return errors
 
-
 def selftest_facies_names():
     """沉积相命名：煤与碳质泥岩同属沼泽相。"""
     errors = []
@@ -16734,7 +16709,6 @@ def selftest_facies_names():
         if _re.search(r'^\s+' + _re.escape(bad) + r'\s*$', _SRC_TEXT, _re.M):
             errors.append(f'仍有旧的 {bad} —— {why}')
     return errors
-
 
 def selftest_plot_uses_mc():
     """绘图读的 LITHOLOGY 必须来自多判据识别器（同步守卫）。"""
@@ -16757,7 +16731,6 @@ def selftest_plot_uses_mc():
             errors.append("logvis.py 仍有 'floodplain' 拼写 —— "
                           "应统一为 'flood_plain'（同一相的两种拼写）")
     return errors
-
 
 def selftest_profile_no_flip():
     """剖面/岩性防翻回归【2026-10-15】：砂泥岩⇄碳酸盐岩三次反复翻面
@@ -16891,7 +16864,6 @@ def selftest_profile_no_flip():
 
     return errors
 
-
 def run_selftest(verbose=True):
     """运行全部自检。返回错误列表（空 = 全部通过）。"""
     total = []
@@ -16919,9 +16891,6 @@ def run_selftest(verbose=True):
     for _t, fn in _selftest_groups():
         total += fn()
     return total
-
-
-
 
 def calculate_reg_indicators(data, gas_data=None):
     """REG 法综合气层指示（2026-10-21 用户最终命名 REG）。
@@ -17093,6 +17062,122 @@ def calculate_reg_indicators(data, gas_data=None):
     logger.info("REG CGI: 综合完成, CGI>=0.6 层数=%d", n_gas)
     return out
 
+def rejudge_hc_below_seal(data, gas_data=None):
+    """【2026-10-26 R24 用户要求】盖层(盐岩/硬石膏)下气测异常储层水层→油气补偿。
+
+    3-SPS-111D 实测：硬石膏盖层(6507-6519m)以下 6676-6721m 石灰岩储层
+    (POR≈0.10)被 Sw 图版判为 WATER，但该段 TG=基线3.4倍、C1=6.6倍、
+    C1/C2=3.3(比值法油区)——Sw 反算偏淡(Rw Pickett 下包络)连带的低阻
+    不构成水层证据，解释为水层不成立。
+
+    口径(延续 2026-10-20 用户定案"盖层下有孔隙度+气测异常即为油气层")：
+      1) 盖层下：本点深度大于最浅盐岩/硬石膏/石膏盖层段顶界(按 LITHOLOGY)；
+      2) 储层：POR(缺省 PHI) >= 0.06，与 OIL must 门槛一致；
+      3) 气测异常：对齐气测 TG >= 1.5×全井 TG 基线(中位，断测 NaN 不进分母)，
+         与气测"有显示"双通道口径的比值通道一致。
+    同时满足的 WATER/WATER_POSSIBLE 点改判油气——类型按比值法:
+    C1/C2>=8 且 C1/C3>=15 → GAS，否则 OIL(组分缺失按 OIL，用户口径)。
+    只动 Water 族；NonReservoir/DRY/TIGHT 保持原口径。
+
+    Returns: (data, 改判点数)（原地修改）。
+    """
+    try:
+        if data is None or len(data) == 0 \
+                or 'INTERPRETATION' not in data.columns:
+            return data, 0
+        _itp = data['INTERPRETATION'].astype(str).str.upper()
+        _wm = _itp.str.startswith('WATER')
+        if not bool(_wm.any()):
+            return data, 0
+        if 'LITHOLOGY' not in data.columns or 'MD' not in data.columns:
+            return data, 0
+        _md = pd.to_numeric(data['MD'], errors='coerce')
+        _lith = data['LITHOLOGY'].astype(str).str.lower().str.strip()
+        _seal = _lith.isin(('anhydrite', 'halite', 'gypsum',
+                            '硬石膏', '盐岩', '石膏'))
+        if not bool(_seal.any()):
+            return data, 0
+        _seal_top = float(pd.to_numeric(_md[_seal], errors='coerce').min())
+        _below = _md > _seal_top
+        if 'POR' in data.columns:
+            _por = pd.to_numeric(data['POR'], errors='coerce')
+        elif data.get('PHI') is not None:
+            _por = pd.to_numeric(data['PHI'], errors='coerce')
+        else:
+            return data, 0
+        _res = _por >= 0.06
+        _show = pd.Series(False, index=data.index)
+        _c1 = pd.Series(np.nan, index=data.index)
+        _c2 = pd.Series(np.nan, index=data.index)
+        _c3 = pd.Series(np.nan, index=data.index)
+        if gas_data is not None and 'MD' in gas_data.columns:
+            # 【2026-10-26 R24b】对齐改 merge_asof(容差1.0m)：气测采样远稀于
+            # 主网格，round(2) 键映射只命中个别点(实测 2/354)；重复列防御
+            # (去重保首列)。
+            _gd = gas_data.loc[:, ~gas_data.columns.duplicated(keep='first')]
+            _cols = [c for c in ('TG', 'C1', 'C2', 'C3') if c in _gd.columns]
+            _g = pd.DataFrame({
+                'MD': pd.to_numeric(_gd['MD'], errors='coerce')
+            })
+            for c in _cols:
+                _g[c] = pd.to_numeric(_gd[c], errors='coerce')
+            _g = _g.dropna(subset=['MD']).sort_values('MD')
+            if len(_g) and _cols:
+                _left = pd.DataFrame({
+                    'MD': _md.values,
+                    '_i': np.arange(len(_md), dtype=int),
+                }).sort_values('MD')
+                _mrg = pd.merge_asof(_left, _g, on='MD',
+                                     direction='nearest', tolerance=1.0)
+                _mrg = _mrg.sort_values('_i')
+                def _col(name):
+                    if name not in _mrg.columns:
+                        return pd.Series(np.nan, index=data.index)
+                    return pd.Series(_mrg[name].values, index=data.index)
+                _tg = _col('TG')
+                # 基线口径=【盖层上邻接背景窗】(盖层顶上方 2-100m 的 TG 中位)：
+                # 盖层封堵烃类垂向运移，其下 TG 整体抬升即聚集证据——与盖层上
+                #   背景对比才是本井异常(111D: 背景窗≈479 → 阈值≈719, 水层段
+                #   TG 中位 2627 全部命中)。全井中位会被下部高值段偏置
+                #   (映射中位 2009/文件中位 535 均不可用)；背景窗不足 30 点
+                #   回退气测列全量中位。
+                _bg = _tg[(_md >= _seal_top - 100.0)
+                          & (_md <= _seal_top - 2.0)]
+                if _bg.notna().sum() >= 30:
+                    _base = float(_bg.dropna().median())
+                elif 'TG' in _gd.columns:
+                    _tf = pd.to_numeric(_gd['TG'], errors='coerce')
+                    _base = (float(_tf.dropna().median())
+                             if _tf.notna().any() else float('nan'))
+                else:
+                    _base = float('nan')
+                if np.isfinite(_base) and _base > 0:
+                    _show = _tg >= 1.5 * _base
+                _c1 = _col('C1')
+                _c2 = _col('C2')
+                _c3 = _col('C3')
+        _rej = _wm & _below & _res & _show
+        n = int(_rej.sum())
+        if n == 0:
+            logger.info("盖层下油气补偿: 无满足条件点(盖层下WATER储层+气测异常)")
+            return data, 0
+        _gas_like = ((_c1 / _c2.replace(0, np.nan) >= 8)
+                     & (_c1 / _c3.replace(0, np.nan) >= 15))
+        _new = np.where(
+            _gas_like.fillna(False).values[_rej.values], 'GAS', 'OIL')
+        data.loc[_rej, 'INTERPRETATION'] = _new
+        if 'ITP' in data.columns:
+            data.loc[_rej, 'ITP'] = _new
+        _rng = (float(_md[_rej].min()), float(_md[_rej].max()))
+        _kind = ('GAS' if (_new == 'GAS').all() else
+                 'OIL' if (_new == 'OIL').all() else 'GAS/OIL')
+        logger.info("盖层下油气补偿: %d 点 WATER→%s, 深度 %.1f-%.1f m "
+                    "(盖层顶 %.1f m 之下, POR>=0.06, TG>=1.5x基线)",
+                    n, _kind, _rng[0], _rng[1], _seal_top)
+        return data, n
+    except Exception as _e:
+        logger.warning('盖层下油气补偿判定跳过: %s', _e)
+        return data, 0
 
 # ================= gas_constraint 闭包内联(2026-10-26 并库) =================
 # logInt 使用: load_gas_file / find_gas_file / read_gas_text_table /

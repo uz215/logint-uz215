@@ -485,6 +485,17 @@ _SYMBOL_REF_RESAMPLE = {
 #   注意：dx/dy 仍按"格距像素"算 ⇒ 符号在屏幕上的**物理尺寸不变**，
 #         只把栅格变细，不改变用户已确认的间距/大小。
 # ---------------------------------------------------------------------------
+# 【2026-10-26 R24】参考图栅格边长覆盖表：白云岩 trim+方化后原生 122x122。
+# R22 把裁边后的 122x126 BOX 缩到 108x108（非整数、横纵系数不同），
+# 45° 阶梯斜杠被重采样打乱——用户反馈"斜线不直/砖块下部莫名向上的短竖线"
+# 即阶梯步距不均产生的竖向粘连。改为保留原生像素（见 _lith_ink_tile
+# 方化裁剪），渲染时 imshow 一次性 area-average（122→54 单级），阶梯
+# 不再被两级重采样破坏。灰岩 motif 为竖线/横缝，对非整数缩放不敏感，
+# 维持原 pitch×SS 规则。
+_SYMBOL_REF_RASTER = {
+    'Dolomite.png': 122,
+}
+
 _SYMBOL_REF_SS = 2.0
 
 # 单次 imshow 的瓦片像素上限（RGBA 字节 ≈ 4×）—— 超限时放大格距而非撑爆内存
@@ -701,7 +712,13 @@ def _lith_ref_raster(ref_file, ss=None):
             native = int(min(im.size))
         _ss = float(_SYMBOL_REF_SS if ss is None else ss)
         pitch = _lith_ref_pitch(str(ref_file))
-        out = int(max(8, min(native, round(pitch * _ss))))
+        # 【2026-10-26 R24】覆盖表优先：白云岩用方化后原生 122，
+        # 避免 122x126→108x108 非整数缩放破坏 45° 阶梯斜杠
+        _ov = _SYMBOL_REF_RASTER.get(str(ref_file))
+        if _ov:
+            out = int(max(8, int(_ov)))
+        else:
+            out = int(max(8, min(native, round(pitch * _ss))))
     except Exception as exc:
         logger.warning('参考图栅格尺寸计算失败 %s: %s', ref_file, exc)
         out = int(max(8, round(_lith_ref_pitch(str(ref_file)))))
@@ -765,6 +782,23 @@ def _lith_ink_tile(ref_file, tpx=None):
         #   横向平铺后每格边界出现灰白竖条（用户反馈"中间有5道竖的空白"）。
         #   裁剪后重采样回方瓦，图案本体不受影响。
         a, _ct, _cl = _trim_ref_frame(a, bg)
+        # ⓪b【2026-10-26 R24】方化裁剪：trim 后若横纵差 ≤8px，把多余行
+        #   从底部整条裁掉（前提：底部多余行是贯穿缝带——如白云岩底部
+        #   残余缝 4 行，裁掉不伤斜杠；竖向拼接为"砖→缝"自然衔接，
+        #   接缝厚度与内部缝一致）。避免非正方瓦片被强行缩放成正方而
+        #   破坏 45° 阶梯斜杠（R22 遗留"斜线不直/短竖线"根因）。
+        _h0, _w0 = a.shape[:2]
+        if _h0 > _w0 and (_h0 - _w0) <= 8:
+            _cut = _h0 - _w0
+            _tail_ink = float((np.abs(a[-_cut:] - bg).sum(axis=2) > 60).mean())
+            if _tail_ink > 0.85:  # 底部多余行确为贯穿缝带才裁
+                a = np.ascontiguousarray(a[:-_cut])
+        elif _w0 > _h0 and (_w0 - _h0) <= 8:
+            # 列多余时从右裁（仅当右侧多余列近乎无墨，防误切真实纹理）
+            _cut = _w0 - _h0
+            _tail_ink = float((np.abs(a[:, -_cut:] - bg).sum(axis=2) > 60).mean())
+            if _tail_ink < 0.02:
+                a = np.ascontiguousarray(a[:, :-_cut])
         h, w = a.shape[:2]
         # ①【2026-10-23 R21 顺序修正】行相位 roll **先于** 外圈清理。
         #   原实现"先清框 → 后 roll"：被清成底色的边框行随后被 np.roll 搬进
@@ -1221,7 +1255,18 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
             g0 = _org + math.floor((z0 - _org) / dy + 1e-9) * dy
             n_rows = max(1, int(math.ceil((z1 - g0) / dy - 1e-9)))
             n_cols = max(1, int(math.ceil((x1 - gx0) / dx - 1e-9)))
-        _tile = _lith_ink_tile(ref, tpx=_tpx)
+        # 【2026-10-26 R25】_SYMBOL_REF_RASTER 覆盖图(白云岩)设备1:1模式:
+        # 瓦片阵列按**最终显示设备像素数**预采样(PIL BOX), imshow 用
+        # nearest 1:1 贴图 —— 消除 mpl antialiased 二次重采样把 2px 斜杠
+        # 糊成 ~1px 灰线(整页 150dpi 栅格下 122px 阵列压到 54px 格的
+        # 必然结果, 用户反馈"斜线不直/短竖线")。其余参考图维持原链路。
+        if str(ref) in _SYMBOL_REF_RASTER and scale is not None:
+            _dev_px = (dx / abs(scale[0]) + dy / abs(scale[1])) / 2.0
+            _tile = _lith_ink_tile(ref, tpx=int(max(8, round(_dev_px))))
+            _im_interp = 'nearest'
+        else:
+            _tile = _lith_ink_tile(ref, tpx=_tpx)
+            _im_interp = 'antialiased'
         if _tile is None:
             return
         # 【2026-10-23 R21】栅格换算一律用**实际瓦片像素数**（_hpx/_vpx），
@@ -1240,7 +1285,7 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
             im = ax.imshow(big,
                            extent=[gx0, gx0 + _cpx / float(_hpx) * dx,
                                    g0 + _rpx / float(_vpx) * dy, g0],
-                           aspect='auto', interpolation='antialiased',
+                           aspect='auto', interpolation=_im_interp,
                            zorder=zorder, snap=False)
             im.set_clip_path(_Rect((x0, z0), x1 - x0, z1 - z0,
                                    transform=ax.transData))
@@ -1360,6 +1405,38 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
                 _cell = float(np.clip(_h_px, 8.0, 48.0))
             else:
                 _cell = _lith_ref_pitch(ref)       # 与实体同一格距（机制化）
+            # 【2026-10-26 R25】小框缩略模式: 框高不足一个格距时, 把**整张
+            # 瓦片**单次 BOX 采样到框设备像素(全部 motif 行可见, 与参考图
+            # 缩略观感一致), 替代旧"裁角+二次重采样"链(碎斜线/短竖线/
+            # 行残缺, 用户反馈图头图例白云岩不可辨)。
+            if (not motif) and _h_px < _cell * 0.75:
+                _tw2 = max(4, int(round(_w_px)))
+                _th2 = max(4, int(round(_h_px)))
+                _tarr = _lith_ink_tile(ref)
+                if _tarr is not None:
+                    from PIL import Image as _PILImg
+                    _u8 = (np.clip(_tarr[..., :3], 0.0, 1.0)
+                           * 255).astype(np.uint8)
+                    _mini = np.asarray(
+                        _PILImg.fromarray(_u8, 'RGB').resize(
+                            (_tw2, _th2), _PILImg.BOX)).astype(
+                                np.float32) / 255.0
+                    _alpha = np.ones(_mini.shape[:2] + (1,),
+                                     dtype=np.float32)
+                    big = np.concatenate([_mini, _alpha], axis=2)
+
+                    def _bbox_px(renderer, _fx=x0, _fy=y0,
+                                 _fw=w, _fh=h):
+                        _cw, _ch = renderer.get_canvas_width_height()
+                        return Bbox([[_fx * _cw, _fy * _ch],
+                                     [(_fx + _fw) * _cw,
+                                      (_fy + _fh) * _ch]])
+                    bbox_img = BboxImage(_bbox_px, zorder=zorder,
+                                         interpolation='nearest',
+                                         origin='upper')
+                    bbox_img.set_data(big)
+                    fig.add_artist(bbox_img)
+                    return
             _rows = max(1, int(math.ceil(_h_px / _cell - 1e-9)))
             _cols = max(1, int(math.ceil(_w_px / _cell - 1e-9)))
             # 【2026-10-23 R21】图例与实体道用**同一栅格规格**
@@ -6468,6 +6545,12 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
     _row_sum = mv.sum(axis=1)
     _minor = (mv > 0) & (_row_sum[:, None] > 0) \
         & (mv / np.maximum(_row_sum, 1e-9)[:, None] < 0.10)
+    # 【2026-10-26 R25 用户反馈】泥质(j=0)豁免<10%剔除: R24-2 已按
+    # ECS↔伽马关系补全全井连续 VSH, 但 6490m 以下 VSH 多为 0.05-0.08,
+    # 仍被本规则清零 ⇒ 泥质带断续(用户复看未解决)。泥质带保留真实
+    # 宽度(窄带按既有规则只画底色, 连续无空缺); 其余矿物维持<10%剔除
+    # (泥岩段石英噪声带, 2026-10-20 定案不变)。
+    _minor[:, 0] = False
     if _minor.any():
         mv[_minor] = 0.0
         logger.info("PROFILE道次要矿物剔除(<10%%): %d 个分量清零", int(_minor.sum()))
