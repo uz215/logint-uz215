@@ -17098,6 +17098,8 @@ def calculate_reg_indicators(data, gas_data=None):
 # logInt 使用: load_gas_file / find_gas_file / read_gas_text_table /
 # normalize_gas_units(logger 复用本文件全局)。interpret/run_* 路径未内联
 # (logInt 不调用, Gas.py 依赖随原模块保留)。
+# 2026-10-26 用户拍板: Gas.py 为独立气测处理程序保留(带 main 入口, 可单独调用),
+# 不并入主程序、不内联; gas_constraint.py 同步保留(其解释链优先调用 Gas.py 图版法)。
 
 # ----------------------------------------------------------------------------
 # 气测组分列归一化映射（原始列名(去空格/换行/小写/去单位) -> 标准名）
