@@ -4645,10 +4645,13 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 draw_tick_labels(ax5, ALIGNED_POSITIONS_CM[0],
                                  f'{_por_sw_col} (v/v)', 0.5, 0, 'green')
         else:
-            # 【2026-10-10 严格对齐样本】quick look 饱和度道加 POR 双刻度
-            # 【2026-10-12 用户定案】POR 刻度条 50→0、与 SW 刻度条分开；
+            # 【2026-10-10 严格对齐样本】quick look 饱和度道加孔隙度双刻度
+            # 【2026-10-12 用户定案】孔隙度刻度条 50→0、与 SW 刻度条分开；
             # 数据为小数(<0.6)自动 ×100；非储层归 0 显示在 0 刻度。
-            _por_sw_col = _find_column(data, ['POR', 'PHI_DISP', 'PHI', 'PHIE'])
+            # 【2026-10-26 R22b 用户修正】画 **PHI_DISP**（非储层归0后的
+            # 孔隙度），与 profile 道留白同一列同一口径——此前 POR 优先
+            # 导致归零口径不一致（POR 未归零、PHI_DISP 归零）。
+            _por_sw_col = _find_column(data, ['PHI_DISP', 'PHI', 'PHIE', 'POR'])
             if _por_sw_col:
                 _por_sw = data[_por_sw_col].copy()
                 _por_dmax = float(_por_sw.max())
@@ -4705,15 +4708,11 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         
         # ========== 矿物剖面道 ==========
         ax_profile = axes[IDX_PROFILE]
-        # 【2026-10-26 R22】孔隙度留白列与"第5道"曲线**完全同源**：
-        # quicklook 第5道(SW)画 ['POR','PHI_DISP','PHI','PHIE'] 首个命中列，
-        # 综合图第5道(SWPOR)画 ['PHI_DISP','PHI','PHIE','POR'] 首个命中列，
-        # 此处按模式取同一列传入（否则 quicklook 下 POR vs PHI_DISP 有
-        # 581 行差异 ⇒ 留白边界与绿曲线对不上、"台阶明显"）。
-        if quicklook:
-            _prof_phi = _find_column(data, ['POR', 'PHI_DISP', 'PHI', 'PHIE'])
-        else:
-            _prof_phi = _find_column(data, ['PHI_DISP', 'PHI', 'PHIE', 'POR'])
+        # 【2026-10-26 R22】孔隙度留白列与"第5道"曲线**完全同源**。
+        # 【2026-10-26 R22b 用户修正】第5道绿曲线应画 **PHI_DISP**（非储层
+        # 归0后的孔隙度），quicklook 与综合图同口径——留白列两模式统一
+        # PHI_DISP 优先（与第5道同一候选链、同一归零语义）。
+        _prof_phi = _find_column(data, ['PHI_DISP', 'PHI', 'PHIE', 'POR'])
         _setup_profile_track(ax_profile, data, depth, depth_min, depth_max, curve_height_ratio, header_bottom_y, header_top_y, has_enough_curves, phi_col=_prof_phi)
 
         # ========== REG 法综合气层指示道 ==========
@@ -6385,10 +6384,12 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
     图头图例小方框（砂岩点/泥岩线/灰岩砖），孔隙度图例空白。
 
     【2026-10-26 R22】phi_col：孔隙度留白列显式指定——调用方按"第5道曲线
-    实际画的列"传入（quicklook 第5道=POR 优先、综合图第5道=PHI_DISP 优先），
-    保证留白边界与第5道曲线逐点一致（此前固定 PHI_DISP，quicklook 两列
-    有 581 行 >0.005 差异 ⇒ 用户反馈"孔隙度台阶明显"）。None 时维持旧
-    回退链 PHI_DISP→PHI（综合图口径不变）。"""
+    实际画的列"传入，保证留白边界与第5道曲线逐点一致（此前固定 PHI_DISP，
+    quicklook 两列有 581 行 >0.005 差异 ⇒ 用户反馈"孔隙度台阶明显"）。
+    【2026-10-26 R22b 用户修正】第5道绿曲线改画 PHI_DISP（非储层归0孔隙度），
+    两模式候选链统一 PHI_DISP→PHI→PHIE→POR。
+    矿物重调：合格点矿物带按 scale=total/s 归一到 (1-φ)——φ 取 PHI_DISP
+    归零口径 ⇒ 非储层段 φ=0、矿物铺满整带，矿物+孔隙度恒=1。"""
 
     PROFILE_MINERALS = [
         # 【2026-10-08 统一符号】颜色统一引用 LITH_BG_COLORS（_lith_bg_color）——
