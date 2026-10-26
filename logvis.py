@@ -611,6 +611,76 @@ def _ring_ink(ink_mask, n):
     return np.concatenate(parts) if parts else np.zeros(0, bool)
 
 
+def _trim_ref_frame(a, bg):
+    """【2026-10-26 R22】裁掉参考图四边的**装饰框线**（如白云岩灰+黑双边框）。
+
+    判据（逐边、最多 4px）：
+    - 左/右（几何判据）：近实线列——列内像素与该列自身中位色一致比例>0.92、
+      墨迹率>0.9 且 > 3x 内部列墨迹率中位。灰岩边缘真实竖缝（墨迹率~0.6）、
+      煤（全黑，内部同为 1.0）均不触发。
+    - 上/下（颜色判据）：近实线行且该行中位色与**主墨色**（全部墨迹像素的
+      中位色）色距>60。白云岩顶部灰带触发；灰岩/泥岩底部真实黑缝带
+      （=主墨色）不触发。
+    返回 (裁剪后数组, 顶部裁剪行数, 左侧裁剪列数)。行相位 roll 前调用，
+    _sh 按顶部裁剪量修正。
+    """
+    h, w = a.shape[:2]
+    ink = (np.abs(a - bg).sum(axis=2) > 60)
+    if float(ink.mean()) < 0.02 or int(ink.sum()) < 50:
+        return a, 0, 0
+    dom = np.median(a[ink], axis=0)
+
+    def _solid(colors):
+        med = np.median(colors, axis=0)
+        return float((np.abs(colors - med).sum(axis=1) < 60).mean()) > 0.92
+
+    def _vert_frame(ci):
+        # 几何判据：近实线列 + 墨迹率远超内部列中位（白云岩框线 1.0 vs
+        # 内部 0.34；灰岩真实竖缝 0.61、煤内部=框线=1.0 均不触发）
+        col = a[:, ci]
+        if float(ink[:, ci].mean()) < 0.9:
+            return False
+        if float(ink[:, ci].mean()) < 2.5 * _inner_col_ink:
+            return False
+        med = np.median(col, axis=0)
+        if np.abs(med - bg).sum() < 60:
+            return False
+        return _solid(col)
+
+    def _horz_color(ri):
+        # 颜色判据：**中灰消色差**实线行（装饰灰框；灰岩/泥岩底部真实黑缝带
+        # 亮度~0 不触发，白云岩底部青色半缝为彩色不触发，Unknown 灰底
+        # 与 bg 同色不触发）
+        row = a[ri, :]
+        med = np.median(row, axis=0)
+        if np.abs(med - bg).sum() < 60:
+            return False
+        if (med.max() - med.min()) > 40:
+            return False
+        if not (77.0 < float(med.mean()) < 235.0):
+            return False
+        return _solid(row)
+
+    _inner_col_ink = (float(np.median(ink[:, 8:max(9, w - 8)].mean(axis=0)))
+                      if w > 16 else 0.0)
+    top = bottom = left = right = 0
+    while top < 4 and _horz_color(top):
+        top += 1
+    while bottom < 4 and _horz_color(h - 1 - bottom):
+        bottom += 1
+    while left < 4 and _vert_frame(left):
+        left += 1
+    while right < 4 and _vert_frame(w - 1 - right):
+        right += 1
+    if top == 0 and bottom == 0 and left == 0 and right == 0:
+        return a, 0, 0
+    logger.info('参考图装饰框线裁剪: top=%d bottom=%d left=%d right=%d',
+                top, bottom, left, right)
+    sub = a[top:h - bottom if bottom else h,
+            left:w - right if right else w]
+    return np.ascontiguousarray(sub), top, left
+
+
 _LITH_REF_RASTER_CACHE = {}
 
 
@@ -690,12 +760,18 @@ def _lith_ink_tile(ref_file, tpx=None):
         cols, counts = np.unique(
             a.reshape(-1, 3).astype(np.int16), axis=0, return_counts=True)
         bg = cols[int(counts.argmax())].astype(np.float64)
+        # ⓪【2026-10-26 R22】装饰框线**裁剪**（先于 roll）：白云岩参考图自带
+        #   灰+黑双边框（0/127 列灰线、1-2/125-126 列黑线、顶部 0-1 行灰带），
+        #   横向平铺后每格边界出现灰白竖条（用户反馈"中间有5道竖的空白"）。
+        #   裁剪后重采样回方瓦，图案本体不受影响。
+        a, _ct, _cl = _trim_ref_frame(a, bg)
+        h, w = a.shape[:2]
         # ①【2026-10-23 R21 顺序修正】行相位 roll **先于** 外圈清理。
         #   原实现"先清框 → 后 roll"：被清成底色的边框行随后被 np.roll 搬进
         #   瓦片**内部** ⇒ 每个格子中间出现一条纯底色横带（用户反馈"灰岩和
         #   白云岩都有淡色不连续色带"）。改为先 roll 后清框，框永远留在外圈。
         _P, _O = _ref_row_phase(ref_file)[:2]
-        _sh = (int(round(_O)) % h) if (_P and _O) else 0
+        _sh = (max(0, int(round(_O)) - int(_ct)) % h) if (_P and _O) else 0
         # ② 装饰外框判定（**真框线**判据）：外 2px 环墨迹率高 **且** 框内侧
         #   紧邻一圈几乎无墨迹（框与内容之间留空）。
         #   旧判据只看外 2px 环均值 > 0.5，实测会误判真实纹理：
@@ -1125,9 +1201,14 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         # 相邻段/相邻岩性的行线落在同一全局网格上，跨段接续对齐（配合瓦片
         # 行相位对齐与"格距=N行×统一行高"）；tile_origin 显式传入时以其为准。
         _org = 0.0 if tile_origin is None else float(tile_origin)
+        # 【2026-10-26 R22】列相位全局锚定 x=0：profile 道按 bounds 漂移切分
+        #   的子段各自从自身 x0 起排瓦片 → 段界竖缝/砖缝水平错位（用户反馈
+        #   "错开的竖线"）。统一锚定 x=0 后同道内所有段共享同一列网格。
+        _x_org = 0.0
+        gx0 = _x_org + math.floor((x0 - _x_org) / dx + 1e-9) * dx
         g0 = _org + math.floor((z0 - _org) / dy + 1e-9) * dy
         n_rows = max(1, int(math.ceil((z1 - g0) / dy - 1e-9)))
-        n_cols = max(1, int(math.ceil((x1 - x0) / dx - 1e-9)))
+        n_cols = max(1, int(math.ceil((x1 - gx0) / dx - 1e-9)))
         # 防御：巨型数组时放大格距（网格数 **或** 瓦片像素量超限都放大）
         _f = math.sqrt(float(n_rows * n_cols) / 4000.0)
         if n_rows * n_cols * _tpx * _tpx > _LITH_REF_MAX_PIX:
@@ -1136,9 +1217,10 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         if _f > 1.0:
             dx *= _f
             dy *= _f
+            gx0 = _x_org + math.floor((x0 - _x_org) / dx + 1e-9) * dx
             g0 = _org + math.floor((z0 - _org) / dy + 1e-9) * dy
             n_rows = max(1, int(math.ceil((z1 - g0) / dy - 1e-9)))
-            n_cols = max(1, int(math.ceil((x1 - x0) / dx - 1e-9)))
+            n_cols = max(1, int(math.ceil((x1 - gx0) / dx - 1e-9)))
         _tile = _lith_ink_tile(ref, tpx=_tpx)
         if _tile is None:
             return
@@ -1148,13 +1230,15 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         _vpx = int(_tile.shape[0])
         big = np.tile(_tile, (n_rows, n_cols, 1))
         # 精确裁剪到段区（含半格按比例裁像素，不越界到邻段）
+        # 【R22】裁剪/extent 均以全局列锚 gx0 为基准（gx0<=x0，超出部分由
+        # clip_path 裁掉），子段间图案连续
         _rpx = min(big.shape[0], max(1, int(round((z1 - g0) / dy * _vpx))))
-        _cpx = min(big.shape[1], max(1, int(round((x1 - x0) / dx * _hpx))))
+        _cpx = min(big.shape[1], max(1, int(round((x1 - gx0) / dx * _hpx))))
         big = big[:_rpx, :_cpx]
         try:
             from matplotlib.patches import Rectangle as _Rect
             im = ax.imshow(big,
-                           extent=[x0, x0 + _cpx / float(_hpx) * dx,
+                           extent=[gx0, gx0 + _cpx / float(_hpx) * dx,
                                    g0 + _rpx / float(_vpx) * dy, g0],
                            aspect='auto', interpolation='antialiased',
                            zorder=zorder, snap=False)
@@ -3929,13 +4013,14 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 _q_layout.append(('RES_ARRAY', 1.4))
             # 【2026-10-22 用户要求】3 道深度道与 4 道孔隙度曲线道互换位置
             # （与综合图 POR→DEPTH 顺序一致）
-            _q_layout += [('POR', 1.0), ('DEPTH', 0.30), ('SW', 0.6), ('POR2', 0.6),
-                          ('PROFILE', 1.0)]
+            _q_layout += [('POR', 1.0), ('DEPTH', 0.30), ('SW', 0.6), ('POR2', 0.6)]
             # 【2026-10-22 用户要求】quicklook 把气测数据也绘制上 → 独立气测道
             # （原做法仅把 TG 骑在电阻率道末槽，无法呈现组分；此处与综合图同实现）
+            # 【2026-10-26 用户要求】气测道与 profile 道互换 → 气测道在前
             if has_gas:
                 _q_layout.append(('GAS', min(gas_track_width, 1.6)))
-                logger.info("气测道已插入 quicklook 道布局")
+                logger.info("气测道已插入 quicklook 道布局（位于 profile 道之前）")
+            _q_layout.append(('PROFILE', 1.0))
             # 【2026-10-21】REG 法综合气层指示道
             # 【2026-10-22 用户要求】REG 道太宽 → 与其它曲线道一致（1.2→1.0）
             if all(c in data.columns for c in ['RTI','NDI','GSI','CGI']):
@@ -4620,7 +4705,16 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         
         # ========== 矿物剖面道 ==========
         ax_profile = axes[IDX_PROFILE]
-        _setup_profile_track(ax_profile, data, depth, depth_min, depth_max, curve_height_ratio, header_bottom_y, header_top_y, has_enough_curves)
+        # 【2026-10-26 R22】孔隙度留白列与"第5道"曲线**完全同源**：
+        # quicklook 第5道(SW)画 ['POR','PHI_DISP','PHI','PHIE'] 首个命中列，
+        # 综合图第5道(SWPOR)画 ['PHI_DISP','PHI','PHIE','POR'] 首个命中列，
+        # 此处按模式取同一列传入（否则 quicklook 下 POR vs PHI_DISP 有
+        # 581 行差异 ⇒ 留白边界与绿曲线对不上、"台阶明显"）。
+        if quicklook:
+            _prof_phi = _find_column(data, ['POR', 'PHI_DISP', 'PHI', 'PHIE'])
+        else:
+            _prof_phi = _find_column(data, ['PHI_DISP', 'PHI', 'PHIE', 'POR'])
+        _setup_profile_track(ax_profile, data, depth, depth_min, depth_max, curve_height_ratio, header_bottom_y, header_top_y, has_enough_curves, phi_col=_prof_phi)
 
         # ========== REG 法综合气层指示道 ==========
         try:
@@ -6286,9 +6380,15 @@ def _load_mineral_symbol(name):
 
 
 
-def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_ratio, header_bottom_y, header_top_y, has_enough_curves):
+def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_ratio, header_bottom_y, header_top_y, has_enough_curves, phi_col=None):
     """矿物比例堆叠 profile 道：储层按 (1-φ) 归一、非储层主矿物填满、孔隙度区留白；
-    图头图例小方框（砂岩点/泥岩线/灰岩砖），孔隙度图例空白。"""
+    图头图例小方框（砂岩点/泥岩线/灰岩砖），孔隙度图例空白。
+
+    【2026-10-26 R22】phi_col：孔隙度留白列显式指定——调用方按"第5道曲线
+    实际画的列"传入（quicklook 第5道=POR 优先、综合图第5道=PHI_DISP 优先），
+    保证留白边界与第5道曲线逐点一致（此前固定 PHI_DISP，quicklook 两列
+    有 581 行 >0.005 差异 ⇒ 用户反馈"孔隙度台阶明显"）。None 时维持旧
+    回退链 PHI_DISP→PHI（综合图口径不变）。"""
 
     PROFILE_MINERALS = [
         # 【2026-10-08 统一符号】颜色统一引用 LITH_BG_COLORS（_lith_bg_color）——
@@ -6334,7 +6434,8 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
     md = t['MD'].values.astype(float)
     # 【2026-10-08】孔隙度留白读显示列 PHI_DISP（非储层归0，仅第5/6道显示语义）；
     # 无显示列时回退原始 PHI。任何解释判断逻辑仍读原始 PHI/PHIE/Sw。
-    _phi_src = 'PHI_DISP' if 'PHI_DISP' in t.columns else 'PHI'
+    _phi_src = (phi_col if phi_col else
+                ('PHI_DISP' if 'PHI_DISP' in t.columns else 'PHI'))
     phi = (pd.to_numeric(t[_phi_src], errors='coerce').values
            if _phi_src in t.columns else np.zeros(len(t)))
     phi = np.clip(np.nan_to_num(phi, nan=0.0), 0.0, 1.0)
