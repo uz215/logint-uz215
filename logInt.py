@@ -10073,9 +10073,45 @@ def detect_casing_interval(data, well_name='Unknown',
                 else:
                     extra_parts.append('套管来自三重校验工程记录（曲线无明显套管响应）')
                 # 取并集：工程记录 + 曲线反演
+                # 【R32 用户反馈 XIMENIA-5 只绘出井底10m】工程鞋深权威：
+                # 三重校验采纳工程鞋深后，曲线反演掩码深于鞋深+容差的点
+                # 不再当套管——曲线在裸眼段的套管样响应(扩径/劣质数据)
+                # 不得推翻工程记录；鞋下水泥返高/固结段由下方
+                # _extend_cement_below 按判据受控延伸。教训：XIMENIA-5
+                # 头段套管 0-460.5m、曲线反演推到 2836m，旧并集把全井
+                # 99.5% 标成套管 → 绘图置空只剩井底 13m。
+                _tol_shoe = max(5.0, 0.001 * float(_tri_shoe))
+                _below = np.asarray(mask, dtype=bool) & (
+                    md_v > float(_tri_shoe) + _tol_shoe)
+                if _below.any():
+                    extra_parts.append(
+                        '⚠曲线反演鞋下假阳性%d点(至%.0f)已按工程鞋深%.0f剔除'
+                        % (int(_below.sum()),
+                           float(np.nanmax(md_v[_below])), float(_tri_shoe)))
+                    logger.warning(
+                        '[%s] 曲线反演套管掩码深于工程鞋深 %.0f+%.0f 的 %d 点'
+                        '(至%.0f)已剔除——工程记录权威，裸眼段不得标套管',
+                        well_name, float(_tri_shoe), _tol_shoe,
+                        int(_below.sum()), float(np.nanmax(md_v[_below])))
+                    mask = mask & ~_below
                 mask = mask | las_mask
                 ratio = float(mask.mean())
-                segs = _merge_casing_segs(segs + las_segs)
+                # 重建 segs（曲线段可能已被鞋深截断）
+                _mv_r = np.asarray(mask, dtype=bool)
+                _segs_r = []
+                _i_r = 0
+                while _i_r < n:
+                    if not _mv_r[_i_r]:
+                        _i_r += 1
+                        continue
+                    _j_r = _i_r
+                    while _j_r + 1 < n and _mv_r[_j_r + 1]:
+                        _j_r += 1
+                    _a_r, _b_r = md_v[_i_r], md_v[_j_r]
+                    if not (np.isnan(_a_r) or np.isnan(_b_r)) and _b_r >= _a_r:
+                        _segs_r.append((float(_a_r), float(_b_r)))
+                    _i_r = _j_r + 1
+                segs = _merge_casing_segs(_segs_r)
 
     # ========== 水泥返高带/固结段延伸（三重校验并集之后重跑）==========
     # 【2026-10-15 修复】原扩径带/声波两段判据位于并集之前且被 mask.any()
@@ -13385,7 +13421,12 @@ class WellLogProcessor:
                 _casing_mask = _cm
                 self.results['casing_info'] = _cinfo
                 # 剖面预判要排除套管段，否则泥浆响应会把结论带偏
-                _d2 = (self.data_processor.data.loc[~_cm.values].copy()
+                # 【R32】缓存的掩码可能是 ndarray（"套管顶以上扩展"分支把
+                # mask 变成 ndarray 存进 attrs），直接 _cm.values 会
+                # AttributeError（本井"套管/剖面预判失败"告警根因）
+                _cm_v = (_cm.values if isinstance(_cm, pd.Series)
+                         else np.asarray(_cm, dtype=bool))
+                _d2 = (self.data_processor.data.loc[~_cm_v].copy()
                        if _casing_mask is not None
                        else self.data_processor.data)
                 _ptype, _pinfo = detect_well_profile_type(_d2, _well_for_casing)
