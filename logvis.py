@@ -856,6 +856,75 @@ def _lith_ink_tile(ref_file, tpx=None):
     return tile
 
 
+# 【2026-10-27 R26】矢量重绘注册岩性：参考图 motif 含细斜线且原生像素
+# 宽度不足以承受"整页 150dpi 栅格→54px 设备格"降采样的岩性，直接在
+# 最终显示像素矢量重绘（几何参数按参考图实测提取，见 _lith_vector_tile）。
+# 仅注册岩性走此链路，其余 10 张参考图维持"原样瓦片"基线不动。
+_SYMBOL_VECTOR = {'Dolomite.png'}
+
+
+def _lith_vector_tile(ref_file, size_px, ss=8):
+    """矢量重绘瓦片（仅 _SYMBOL_VECTOR 注册岩性）：按参考图实测几何在
+    **最终显示设备像素**尺寸直接绘制（8x 超采样 → BOX 降采样 → nearest
+    1:1 贴图）。
+
+    白云岩（Dolomite.png 128px 实测）：
+      - 水平缝：缝距 20.3px（取 6 行/瓦）、缝厚 4.5px；
+      - 砖宽 58px（取 0.5 瓦宽 = 2 块/瓦），行间错缝半砖；
+      - 斜缝：3 段阶梯、跨层高（缝到缝）、左倾总 Δx≈-7px、段宽 4px。
+    底色 (0,191,207) / 笔画 (0,0,0) 均取自参考图众数色。
+    返回 (h, w, 4) float32 RGBA（归一化 0-1）。
+    """
+    try:
+        if isinstance(size_px, (tuple, list)):
+            _w, _h = int(max(6, round(size_px[0]))), int(max(6, round(size_px[1])))
+        else:
+            _w = _h = int(max(6, round(size_px)))
+        key = ('vec', str(ref_file), _w, _h)
+        if key in _lith_ink_tile_cache:
+            return _lith_ink_tile_cache[key]
+        from PIL import Image, ImageDraw
+        S = max(_w, _h)
+        C = S * ss
+        bg = (0, 191, 207)
+        fg = (0, 0, 0)
+        im = Image.new('RGB', (C, C), bg)
+        dr = ImageDraw.Draw(im)
+        _rows, _cols = 6, 2
+        rowh = C / _rows
+        seam = 0.037 * C          # 缝厚 4.5/122
+        stroke = 0.040 * C        # 斜缝段宽 4/122（略加粗保证 54px 可辨）
+        dx_step = 0.019 * C       # 每阶梯段左移（总 Δx≈7/122）
+        # ① 水平缝（行边界居中，r=0/rows 的半缝与邻瓦互补 → 无缝平铺）
+        for r in range(_rows + 1):
+            y = r * rowh
+            dr.rectangle([0, y - seam / 2.0, C, y + seam / 2.0], fill=fg)
+        # ② 斜缝阶梯（跨层高，3 段左倾下行）
+        for r in range(_rows):
+            y0 = r * rowh + seam / 2.0
+            y1 = (r + 1) * rowh - seam / 2.0
+            sh = (y1 - y0) / 3.0
+            phase = (r % 2) * 0.25 * C     # 行间错缝半砖
+            k = -1
+            while k * 0.5 * C + phase < C * 1.3:
+                xj = phase + k * 0.5 * C
+                for i in range(3):
+                    xc = xj - i * dx_step
+                    yc = y0 + i * sh
+                    dr.rectangle([xc - stroke / 2.0, yc - sh * 0.08,
+                                  xc + stroke / 2.0, yc + sh * 1.08], fill=fg)
+                k += 1
+        u8 = np.asarray(im.resize((_w, _h), Image.BOX)).astype(np.float32) / 255.0
+        rgba = np.zeros((_h, _w, 4), dtype=np.float32)
+        rgba[..., :3] = u8
+        rgba[..., 3] = 1.0
+        _lith_ink_tile_cache[key] = rgba
+        return rgba
+    except Exception as exc:
+        logger.warning('矢量瓦片绘制失败 %s: %s', ref_file, exc)
+        return None
+
+
 def _axes_px_width(ax):
     """返回 axes 宽度（屏幕像素）；布局未完成时返回 None。"""
     try:
@@ -1260,7 +1329,14 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         # nearest 1:1 贴图 —— 消除 mpl antialiased 二次重采样把 2px 斜杠
         # 糊成 ~1px 灰线(整页 150dpi 栅格下 122px 阵列压到 54px 格的
         # 必然结果, 用户反馈"斜线不直/短竖线")。其余参考图维持原链路。
-        if str(ref) in _SYMBOL_REF_RASTER and scale is not None:
+        if str(ref) in _SYMBOL_VECTOR and scale is not None:
+            # R26 矢量岩性: 按最终显示设备像素直接重绘(降采样链路对细斜线
+            # motif 无解, 见 _lith_vector_tile), nearest 1:1 贴图。
+            _dev_w = max(8.0, dx / abs(scale[0]))
+            _dev_h = max(8.0, dy / abs(scale[1]))
+            _tile = _lith_vector_tile(ref, (_dev_w, _dev_h))
+            _im_interp = 'nearest'
+        elif str(ref) in _SYMBOL_REF_RASTER and scale is not None:
             _dev_px = (dx / abs(scale[0]) + dy / abs(scale[1])) / 2.0
             _tile = _lith_ink_tile(ref, tpx=int(max(8, round(_dev_px))))
             _im_interp = 'nearest'
@@ -1412,15 +1488,25 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
             if (not motif) and _h_px < _cell * 0.75:
                 _tw2 = max(4, int(round(_w_px)))
                 _th2 = max(4, int(round(_h_px)))
-                _tarr = _lith_ink_tile(ref)
+                if str(ref) in _SYMBOL_VECTOR:
+                    # R26 矢量岩性: 按框设备像素直接绘制(整瓦二次缩样会把
+                    # 细斜缝再稀释一次, 图例小样必须与实体同一矢量链路)
+                    _tarr = _lith_vector_tile(ref, (_tw2, _th2))
+                else:
+                    _tarr = _lith_ink_tile(ref)
                 if _tarr is not None:
                     from PIL import Image as _PILImg
-                    _u8 = (np.clip(_tarr[..., :3], 0.0, 1.0)
-                           * 255).astype(np.uint8)
-                    _mini = np.asarray(
-                        _PILImg.fromarray(_u8, 'RGB').resize(
-                            (_tw2, _th2), _PILImg.BOX)).astype(
-                                np.float32) / 255.0
+                    if (str(ref) in _SYMBOL_VECTOR
+                            and _tarr.shape[0] == _th2
+                            and _tarr.shape[1] == _tw2):
+                        _mini = np.clip(_tarr[..., :3], 0.0, 1.0)
+                    else:
+                        _u8 = (np.clip(_tarr[..., :3], 0.0, 1.0)
+                               * 255).astype(np.uint8)
+                        _mini = np.asarray(
+                            _PILImg.fromarray(_u8, 'RGB').resize(
+                                (_tw2, _th2), _PILImg.BOX)).astype(
+                                    np.float32) / 255.0
                     _alpha = np.ones(_mini.shape[:2] + (1,),
                                      dtype=np.float32)
                     big = np.concatenate([_mini, _alpha], axis=2)
@@ -1447,7 +1533,11 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
             # 缩进框里，与实体道单 motif 不一致）。
             _tpx = (max(8, int(round(_cell))) if motif
                     else _lith_ref_raster(ref))
-            _tile = _lith_ink_tile(ref, tpx=_tpx)
+            if str(ref) in _SYMBOL_VECTOR:
+                # R26 矢量岩性: 按格距设备像素绘制, BboxImage nearest 1:1
+                _tile = _lith_vector_tile(ref, max(8, int(round(_cell))))
+            else:
+                _tile = _lith_ink_tile(ref, tpx=_tpx)
             if _tile is not None:
                 _hpx_t = int(_tile.shape[1])
                 _vpx_t = int(_tile.shape[0])
@@ -1463,7 +1553,10 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
                     return Bbox([[_fx * _cw, _fy * _ch],
                                  [(_fx + _fw) * _cw, (_fy + _fh) * _ch]])
                 bbox_img = BboxImage(_bbox_px, zorder=zorder,
-                                     interpolation='antialiased', origin='upper')
+                                     interpolation=('nearest'
+                                                    if str(ref) in _SYMBOL_VECTOR
+                                                    else 'antialiased'),
+                                     origin='upper')
                 bbox_img.set_data(big)
                 fig.add_artist(bbox_img)
                 return

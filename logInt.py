@@ -10292,9 +10292,27 @@ class FaciesAnalyzer:
             # 创建FACIES列
             if 'FACIES' not in data.columns:
                 data['FACIES'] = 'Unknown'
-            
-            # 获取有效曲线足够的索引
-            valid_indices = data[data['VALID_CURVES_COUNT'] >= 3].index
+
+            # 【2026-10-27 R26 用户定案】火成岩段不做沉积相分析：火山岩相
+            # 不是沉积相，硬套沉积相分类无意义（要做也是火山岩相分析）。
+            # 火成岩行直接标'火山岩相'并排除出沉积相分类。
+            _ig = pd.Series(False, index=data.index)
+            if 'LITHOLOGY' in data.columns:
+                _ls_ig = data['LITHOLOGY'].astype(str).str.lower()
+                for _kw in ('basalt', 'andesite', 'rhyolite', 'dacite',
+                            'tuff', 'igneous', 'volcanic', 'granite',
+                            'diorite', '玄武', '安山', '流纹', '凝灰',
+                            '火成', '火山'):
+                    _ig = _ig | _ls_ig.str.contains(_kw, na=False)
+            if _ig.any():
+                data.iloc[np.where(_ig.values)[0],
+                          data.columns.get_loc('FACIES')] = '火山岩相'
+                logger.info('火成岩段 %d 点跳过沉积相分析（标火山岩相）',
+                            int(_ig.sum()))
+
+            # 获取有效曲线足够的索引（排除火成岩段）
+            valid_indices = data[(data['VALID_CURVES_COUNT'] >= 3)
+                                 & (~_ig)].index
             
             if len(valid_indices) == 0:
                 logger.info("有效曲线不足3条的井段，跳过沉积相分类")
@@ -12238,8 +12256,10 @@ class SpringSegmentCorrector:
         # 阈值 = 正常变化的sensitivity倍
         threshold = range_median + sensitivity * range_mad
 
-        # 绝对阈值：峰-峰变化小于0.03 g/cm3不认为是螺旋锯齿
-        min_abs_jump = 0.03
+        # 绝对阈值：峰-峰变化小于0.05 g/cm3不认为是螺旋锯齿
+        # 【2026-10-27 R26】0.03→0.05：螺旋锯齿典型幅度 0.06-0.15 g/cc，
+        # 岩性界面跳变常在 0.03-0.05 量级，抬高下限减少误报（用户定案）。
+        min_abs_jump = 0.05
         threshold = max(threshold, min_abs_jump)
 
         # 波动点：局部峰-峰超过阈值（螺旋锯齿带）
@@ -12331,9 +12351,11 @@ class SpringSegmentCorrector:
                 drho_range = (_dmax - _dmin).to_numpy(copy=True)
                 drho_range[~np.isfinite(drho_range)] = 0.0
                 # DRHO 局部峰-峰 > 0.05（standoff 变化剧烈）且与密度锯齿同带
+                # 【2026-10-27 R26】删除"<3 点退化为全井异常"兜底：全局 DRHO
+                # 异常（井壁粗糙/扩径）不是弹簧段证据——111D 无弹簧段被误报
+                # 10 段并错误校正 255 点的根因之一（用户定案"首先就不应该
+                # 监测出来"）。
                 drho_mask = (drho_range > 0.05) & fluct
-                if np.sum(drho_mask) < 3:
-                    drho_mask = drho_range > 0.05
                 if np.sum(drho_mask) >= 3:
                     logger.info(f"  判据5(DRHO异常同步): {np.sum(drho_mask)} 点")
 
@@ -12361,8 +12383,8 @@ class SpringSegmentCorrector:
                         _cmad = np.std(_cvalid)
                     cal_threshold = max(_cmed + 2.0 * _cmad, 0.25)
                     caliper_mask = (cal_range > cal_threshold) & fluct
-                    if np.sum(caliper_mask) < 3:
-                        caliper_mask = cal_range > cal_threshold
+                    # 【2026-10-27 R26】同判据5：删全局异常兜底（井壁粗糙不
+                    # 等于弹簧段，必须与密度锯齿同带才算强证据）
                     if np.sum(caliper_mask) >= 3:
                         logger.info(f"  判据6(井径同步): {np.sum(caliper_mask)} 点")
 
@@ -12393,8 +12415,7 @@ class SpringSegmentCorrector:
                         _rmad = np.std(_rvalid)
                     res_threshold = max(_rmed + 2.0 * _rmad, 0.15)
                     cross_mask = (res_rel > res_threshold) & fluct
-                    if np.sum(cross_mask) < 3:
-                        cross_mask = res_rel > res_threshold
+                    # 【2026-10-27 R26】同判据5：删全局异常兜底
                     if np.sum(cross_mask) >= 3:
                         logger.info(f"  判据7(跨曲线同步): {np.sum(cross_mask)} 点")
 
@@ -12409,12 +12430,15 @@ class SpringSegmentCorrector:
         condition4 = drho_mask | caliper_mask | cross_mask
 
         # 综合规则：
-        #  - 有强证据（condition4）时，只需跳跃高频即可（螺旋噪声必然高频）
-        #  - 无强证据时，保持原规则（周期性/幅度一致 + GR不相关）
-        if np.sum(condition4) > 0:
-            spring_mask = condition1 & (condition2 | condition3 | condition4)
-        else:
-            spring_mask = condition1 & (condition2 | condition3)
+        # 【2026-10-27 R26 用户定案】强证据**必须**：周期性/幅度一致这类
+        # 统计特征在岩性边界跳变带同样成立（111D 碳酸盐岩/蒸发岩界面
+        # 密度跳变 + 井壁粗糙 → 误报 10 段并错误校正 255 点），不能单独
+        # 定案。弹簧段判定 = 高频跳跃 AND 周期/幅度一致 AND 物理几何
+        # 强证据（DRHO/井径/跨曲线与密度锯齿**同带**）。无强证据（含
+        # 曲线缺失）一律不判弹簧段——宁漏勿误；确有弹簧段的井由分井
+        # 配置显式管理（_SPRING_SKIP_WELLS 为禁用表，检测参数
+        # use_drho/use_caliper/use_cross_curve 可按井关掉强证据要求）。
+        spring_mask = condition1 & condition2 & condition4
         
         logger.info(f"弹簧段检测 - {curve_name}:")
         logger.info(f"  采样间隔: {dz:.3f}m, 1米窗口大小: {window_size_1m}")
@@ -14252,6 +14276,19 @@ class WellLogProcessor:
                 logger.warning("盖层下油气补偿判定失败（不影响主流程）: %s", _rh)
                 logger.warning('盖层下油气补偿 traceback:\n%s',
                                __import__('traceback').format_exc())
+
+            # 【2026-10-27 R26】盐下气层 REG 证据复核：无 REG 气层异常的
+            # GAS 层降为 OIL（用户定案"盐岩下解释成气层没有依据，REG 方法
+            # 没有明显异常特征"；按层核算 CGI/RTI/NDI/GSI，逐层留痕）
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    _pd_gr, _n_gr = rejudge_gas_by_reg_below_seal(
+                        self.results['processed_data'])
+                    if _n_gr:
+                        self.results['processed_data'] = _pd_gr
+            except Exception as _gr:
+                logger.warning("盐下气层REG复核失败（不影响主流程）: %s", _gr)
 
             # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
             # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
@@ -17061,6 +17098,82 @@ def calculate_reg_indicators(data, gas_data=None):
     n_gas = int((out['CGI'] >= 0.6).sum())
     logger.info("REG CGI: 综合完成, CGI>=0.6 层数=%d", n_gas)
     return out
+
+def rejudge_gas_by_reg_below_seal(data):
+    """【2026-10-27 R26 用户定案】盐下气层 REG 证据复核（按层）。
+
+    背景：INTERPRETATION_RULES 的 GAS 规则只看 Sw<0.5+POR>=0.06+RT>50，
+    蒸发岩盖层（盐岩/硬石膏）下大量储层因 RT 高被逐点判成 GAS，但 REG 法
+    （RTI/NDI/GSI/CGI，calculate_reg_indicators）无气层异常特征——
+    用户："盐岩下解释成气层没有依据，REG 方法没有明显异常特征，解释还是
+    应该按 logInt 流程按层解释。"
+
+    规则（按层，非逐点）：盖层（halite/anhydrite/gypsum/盐/膏）顶之下的
+    GAS 点按连续段分层（间隔>1.5m 断层），逐层核算 REG 证据：
+      层内 CGI 中位数 >= 0.6，或 RTI/NDI/GSI 三项中至少两项达阈值
+      （RTI>=0.20 / NDI>=0.05 / GSI>=0.5）
+    → 维持 GAS；否则整层降为 OIL（保留 Sw/POR/RT 的含油气证据，只撤
+    无依据的"气"字）。逐层打印证据表，供交会图/综合图核对。
+    """
+    import numpy as np
+    import pandas as pd
+    if data is None or len(data) == 0 or 'INTERPRETATION' not in data.columns:
+        return data, 0
+    if 'LITHOLOGY' not in data.columns or 'MD' not in data.columns:
+        return data, 0
+    _md = pd.to_numeric(data['MD'], errors='coerce')
+    _ls = data['LITHOLOGY'].astype(str).str.lower()
+    _seal = _ls.str.contains('halite|anhydrite|gypsum|salt|盐|膏', na=False)
+    if not _seal.any():
+        return data, 0
+    _seal_top = float(_md[_seal].min())
+    _itp = data['INTERPRETATION'].astype(str)
+    _gas = (_itp == 'GAS') & (_md > _seal_top)
+    _gas = _gas.fillna(False)
+    n_gas = int(_gas.sum())
+    if n_gas == 0:
+        logger.info('盐下气层REG复核: 盖层顶 %.1fm 之下无 GAS 点', _seal_top)
+        return data, 0
+    out = data.copy()
+    _rows = np.where(_gas.values)[0]
+    _mds = _md.values[_rows]
+    _order = np.argsort(_mds)
+    _rows = _rows[_order]
+    _mds = _mds[_order]
+    _brk = [0] + [i for i in range(1, len(_rows))
+                  if _mds[i] - _mds[i - 1] > 1.5] + [len(_rows)]
+    _col_itp = out.columns.get_loc('INTERPRETATION')
+    _col_itp2 = out.columns.get_loc('ITP') if 'ITP' in out.columns else None
+    n_demoted = 0
+    for a, b in zip(_brk[:-1], _brk[1:]):
+        _seg = _rows[a:b]
+
+        def _med(col):
+            if col in out.columns:
+                return float(pd.to_numeric(
+                    out.iloc[_seg][col], errors='coerce').median())
+            return float('nan')
+
+        _cgi, _rti, _ndi, _gsi = _med('CGI'), _med('RTI'), _med('NDI'), _med('GSI')
+        _hits = sum(1 for v, t in ((_rti, 0.20), (_ndi, 0.05), (_gsi, 0.5))
+                    if np.isfinite(v) and v >= t)
+        _ok = (np.isfinite(_cgi) and _cgi >= 0.6) or _hits >= 2
+        if not _ok:
+            out.iloc[_seg, _col_itp] = 'OIL'
+            if _col_itp2 is not None:
+                out.iloc[_seg, _col_itp2] = 'OIL'
+            n_demoted += len(_seg)
+        logger.info(
+            '盐下气层REG复核 %.1f-%.1fm n=%d: CGI=%.2f RTI=%.2f NDI=%.3f '
+            'GSI=%.2f 达标项=%d → %s',
+            float(_mds[a]), float(_mds[b - 1]), len(_seg),
+            _cgi if np.isfinite(_cgi) else -9.0,
+            _rti if np.isfinite(_rti) else -9.0,
+            _ndi if np.isfinite(_ndi) else -9.0,
+            _gsi if np.isfinite(_gsi) else -9.0,
+            _hits, '维持GAS' if _ok else '降为OIL(无REG气层证据)')
+    logger.info('盐下气层REG复核: GAS %d 点中 %d 点降为 OIL', n_gas, n_demoted)
+    return out, n_demoted
 
 def rejudge_hc_below_seal(data, gas_data=None):
     """【2026-10-26 R24 用户要求】盖层(盐岩/硬石膏)下气测异常储层水层→油气补偿。
