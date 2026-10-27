@@ -14290,6 +14290,22 @@ class WellLogProcessor:
             except Exception as _gr:
                 logger.warning("盐下气层REG复核失败（不影响主流程）: %s", _gr)
 
+
+            # 【2026-10-27 R27】按孔隙度截止值分层解释：储层点聚合成层、
+            # 层内多数票整层统一、薄层按流体分布规律并入邻层
+            # （用户"解释要按孔隙度截止值分层"）
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    _pd_ly, _n_ly = layered_interpretation_by_cutoff(
+                        self.results['processed_data'])
+                    if _n_ly:
+                        self.results['processed_data'] = _pd_ly
+            except Exception as _ly:
+                logger.warning("按层解释整合失败（不影响主流程）: %s", _ly)
+                logger.warning('按层解释 traceback:\n%s',
+                               __import__('traceback').format_exc())
+
             # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
             # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
             # 导致 CSV 缺 REG 列且 354 点 WATER→OIL 改判不落盘
@@ -17174,6 +17190,100 @@ def rejudge_gas_by_reg_below_seal(data):
             _hits, '维持GAS' if _ok else '降为OIL(无REG气层证据)')
     logger.info('盐下气层REG复核: GAS %d 点中 %d 点降为 OIL', n_gas, n_demoted)
     return out, n_demoted
+
+
+def layered_interpretation_by_cutoff(data, min_thick=0.4, thin_absorb=0.6,
+                                     gap_break=0.5):
+    """【2026-10-27 R27 用户要求】按孔隙度截止值分层解释（分层聚合）。
+
+    背景：主流程逐点解释产出碎片化结论段（如 5 点 OIL 夹在 NonReservoir
+    之间），用户："解释感觉没有按照孔隙度截止值进行分层"。孔隙度截止
+    （碳酸盐岩 6% 等）在逐点储层过滤时已严格执行（OIL/GAS 点全部
+    POR>=0.06），缺的是"分层"——本函数把储层点按连续段聚合成层：
+      - 层边界 = 储层资格（孔隙度截止/岩性过滤）变化处 + 深度间断(>gap_break m)；
+      - 层内结论 = 层内逐点结论多数票（保留 rejudge/盐下 GAS 复核的成果）；
+      - 整层统一赋值（INTERPRETATION 与 ITP 同步）；
+      - 薄层(<min_thick m)沿用前一层结论（首层用次层）；薄层(<thin_absorb m)
+        夹在同结论两 层之间时并入（按流体分布规律整合）。
+    非储层/未定义点保持原标签——截止口径不被破坏。逐层统计表落日志。
+    返回 (data, 改写点数)。
+    """
+    import numpy as np
+    import pandas as pd
+    if data is None or len(data) == 0 or 'INTERPRETATION' not in data.columns:
+        return data, 0
+    if 'MD' not in data.columns:
+        return data, 0
+    out = data.copy()
+    _md = pd.to_numeric(out['MD'], errors='coerce')
+    # 【R27 修复】pandas 3.x str dtype 下 astype(str) 保留 NaN → NaN 点
+    # 会被误判为储层点参与多数票（L01 全 NaN 段层标签='nan'）。先 fillna。
+    _itp = out['INTERPRETATION'].fillna('').astype(str).str.strip().str.upper()
+    _res = ~_itp.isin({'NONRESERVOIR', 'UNDEFINED', 'TIGHT',
+                       'NAN', 'NONE', ''})
+    _res = _res.fillna(False).values
+    _rows = np.where(_res)[0]
+    if len(_rows) == 0:
+        logger.info('按层解释: 无储层点, 跳过')
+        return out, 0
+    _mds = _md.values[_rows]
+    _brk = [0] + [i for i in range(1, len(_rows))
+                  if _mds[i] - _mds[i - 1] > gap_break] + [len(_rows)]
+    layers = []
+    for a, b in zip(_brk[:-1], _brk[1:]):
+        _seg = _rows[a:b]
+        layers.append({'rows': _seg,
+                       'top': float(_mds[a]), 'bot': float(_mds[b - 1])})
+    # ① 层内多数票
+    for L in layers:
+        labs = _itp.values[L['rows']]
+        vals, cnts = np.unique(labs, return_counts=True)
+        L['lab'] = str(vals[int(np.argmax(cnts))])
+    # ② 薄层并入前层（首层并入次层）
+    for i, L in enumerate(layers):
+        if (L['bot'] - L['top']) < min_thick:
+            if i > 0:
+                L['lab'] = layers[i - 1]['lab']
+            elif len(layers) > 1:
+                L['lab'] = layers[1]['lab']
+    # ③ 流体分布规律整合：薄层夹在同结论邻层之间 → 并入
+    for i in range(1, len(layers) - 1):
+        L = layers[i]
+        if (L['bot'] - L['top']) < thin_absorb \
+                and layers[i - 1]['lab'] == layers[i + 1]['lab'] \
+                and L['lab'] != layers[i - 1]['lab']:
+            L['lab'] = layers[i - 1]['lab']
+    # ④ 整层赋值
+    _col = out.columns.get_loc('INTERPRETATION')
+    _col2 = out.columns.get_loc('ITP') if 'ITP' in out.columns else None
+    n_chg = 0
+
+    def _med(seg, c):
+        if c in out.columns:
+            v = pd.to_numeric(out.iloc[seg][c], errors='coerce').dropna()
+            if len(v):
+                return float(v.median())
+        return float('nan')
+
+    for k, L in enumerate(layers):
+        seg = L['rows']
+        old = out.iloc[seg, _col].astype(str).str.strip().str.upper().values
+        chg = int((old != L['lab']).sum())
+        n_chg += chg
+        out.iloc[seg, _col] = L['lab']
+        if _col2 is not None:
+            out.iloc[seg, _col2] = L['lab']
+        _pm = _med(seg, 'POR') if 'POR' in out.columns else _med(seg, 'PHI')
+        logger.info(
+            '按层解释 L%02d %.1f-%.1fm 厚%.1fm n=%d POR=%.3f Sw=%.3f RT=%.1f'
+            ' → %s (改%d点)',
+            k + 1, L['top'], L['bot'], L['bot'] - L['top'], len(seg),
+            _pm if np.isfinite(_pm) else -1.0,
+            _med(seg, 'Sw') if np.isfinite(_med(seg, 'Sw')) else -1.0,
+            _med(seg, 'RT') if np.isfinite(_med(seg, 'RT')) else -1.0,
+            L['lab'], chg)
+    logger.info('按层解释: 共 %d 层, 改写 %d 点', len(layers), n_chg)
+    return out, n_chg
 
 def rejudge_hc_below_seal(data, gas_data=None):
     """【2026-10-26 R24 用户要求】盖层(盐岩/硬石膏)下气测异常储层水层→油气补偿。

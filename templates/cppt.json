@@ -84,6 +84,26 @@
       "mode": "fluid",
       "x_log": true,
       "percent_scale": true
+    },
+    {
+      "x_curves": ["CGI"],
+      "y_curves": ["SW_A", "SW", "Sw"],
+      "x_label": "REG 气层指示 CGI",
+      "y_label": "含水饱和度 Sw (%)",
+      "purpose": "REG对比：CGI-含水饱和度（气层依据）",
+      "mode": "fluid",
+      "x_log": false,
+      "percent_scale": true
+    },
+    {
+      "x_curves": ["RTI"],
+      "y_curves": ["PHI_DN_c", "PHI", "PHIE", "POR"],
+      "x_label": "REG 电阻率增量 RTI",
+      "y_label": "孔隙度 φ (%)",
+      "purpose": "REG对比：RTI-孔隙度（油气层依据）",
+      "mode": "fluid",
+      "x_log": false,
+      "percent_scale": true
     }
   ],
   "note_crossplots": "交会图组合表：x_curves/y_curves 为候选列名（按顺序取第一个存在的列）；x_label/y_label 为轴标签；purpose 为图题；mode=fluid 按流体类型着色（FLUID_COLOR），mode=lith 按岩性着色（logvis LITH_BG_COLORS，与综合图同套颜色）；x_log=true 时 x 轴对数刻度；percent_scale=true 时若数值为 0-1 小数自动×100 成百分数。增删/调整本数组可改变交会图种类。"

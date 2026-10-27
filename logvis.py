@@ -4120,8 +4120,13 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         # logger.info(f"图头区高度: {header_top_y - header_bottom_y:.4f}")
         
         # 【2026-10-10 图版化】图宽可配（图版 figure.figwidth_inch，默认24）
+        # 【2026-10-27 R27】figure 必须用与 savefig 相同的 dpi 创建：此前缺省
+        # dpi=100、savefig 用模板 150 —— 设备像素按 100dpi 计算，最终被
+        # nearest 放大 1.5 倍，矢量瓦片斜缝出现锯齿（"毛毛刺刺"），
+        # 竖线因轴对齐不受影响。dpi 一致后瓦片 1:1 贴图。
         _fig_w = _fig_cfg.get('figwidth_inch') or 24
-        fig = plt.figure(figsize=(_fig_w, total_height_inch))
+        _fig_dpi = int(_fig_cfg.get('dpi') or 150)
+        fig = plt.figure(figsize=(_fig_w, total_height_inch), dpi=_fig_dpi)
         has_gas = gas_data is not None and len(gas_data) > 0
         
         # 预检测气测曲线数量（用于动态计算气测道宽度）
@@ -4191,11 +4196,8 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 _q_layout.append(('GAS', min(gas_track_width, 1.6)))
                 logger.info("气测道已插入 quicklook 道布局（位于 profile 道之前）")
             _q_layout.append(('PROFILE', 1.0))
-            # 【2026-10-21】REG 法综合气层指示道
-            # 【2026-10-22 用户要求】REG 道太宽 → 与其它曲线道一致（1.2→1.0）
-            if all(c in data.columns for c in ['RTI','NDI','GSI','CGI']):
-                _q_layout.append(('REG', 1.0))
-                logger.info("REG 道组已插入 quicklook 道布局")
+            # 【2026-10-27 R27 用户要求】REG 道撤出 quicklook：REG 对比改在
+            # 交会图中呈现（CGI-Sw / RTI-孔隙度，作气层或油气层依据）。
             _q_layout.append(('INTERP', 0.42))
             _n_tracks = len(_q_layout)
             # 【2026-10-13 用户要求】解释图与表1/表2/表3 一样宽：近满幅（留半线宽余量）。
@@ -4234,11 +4236,8 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             if has_gas:
                 _layout.append(('GAS', gas_track_width))
             _layout += [('LITHO_FILL', 1.0), ('FACIES', 1.0), ('PROFILE', 1.0)]
-            # 【2026-10-21】REG 法综合气层指示道
-            # 【2026-10-22 用户要求】REG 道宽度与其它曲线道一致（1.2→1.0）
-            if all(c in data.columns for c in ['RTI','NDI','GSI','CGI']):
-                _layout.append(('REG', 1.0))
-                logger.info("REG 道组已插入综合图道布局")
+            # 【2026-10-27 R27 用户要求】REG 道撤出综合图：REG 对比改在交会图
+            # 中呈现（CGI-Sw / RTI-孔隙度，作气层或油气层依据）。
             _layout.append(('INTERP', 1.0))
             track_widths = [w for _, w in _layout]
             _n_tracks = len(_layout)
