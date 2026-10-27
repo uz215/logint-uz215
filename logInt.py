@@ -3070,6 +3070,25 @@ DEFAULT_CUTOFFS = {
     'rt_water': None,     # 水层 RT 上限（默认 20）
 }
 
+# 【R31 用户要求】每个截止值参数的中文说明——写入 <井名>info.json
+# 「解释截止值」组的 _参数说明 键，便于人工修改理解。_norm_cutoffs 只读
+# DEFAULT_CUTOFFS 的 7 个参数键，_参数说明 自动忽略，不影响加载。
+_CUTOFF_PARAM_DOCS = {
+    'por_hc': '油气层孔隙度下限(小数)。储层岩性但孔隙度低于此值=不解释'
+              '(结论留空,不成层,无图例)；默认 0.06(巴西海上深水经验值,'
+              '碳酸盐岩；其它岩性默认 0.08)',
+    'por_dry_max': '干层孔隙度上限=水层孔隙度下限(小数)。孔隙度≥por_hc '
+                   '但低于此值且出不来油气也不是水层=干层DRY(独立成层)；'
+                   '默认 0.10',
+    'sw_hc': '油气层含水饱和度上限(小数)。Sw 低于此值才可能解释为油气层；'
+             '默认 0.5',
+    'sw_deny': 'Sw 否决线(小数)。Sw 高于此值否决油气层结论；默认 0.65',
+    'rt_gas': '气层电阻率 RT 下限(ohm·m)。RT 高于此值才可能解释为气层；'
+              '默认 50',
+    'rt_oil': '油层电阻率 RT 下限(ohm·m)；默认 30',
+    'rt_water': '水层电阻率 RT 上限(ohm·m)；默认 20',
+}
+
 # 当前井生效的解释截止值（run_workflow 读取 info.json 后设置；
 # 模块级单井流程缓存——logInt 单进程一次处理一口井）
 _ACTIVE_CUTOFFS = dict(DEFAULT_CUTOFFS)
@@ -3772,8 +3791,8 @@ def calculate_mineral_volumes(data):
     # 交接处跳变。仅影响第5道矿物显示列，原始PHI/PHIE与一切判断逻辑不动。
     if 'INTERPRETATION' in data.columns:
         _itp = data['INTERPRETATION'].astype(str).str.upper().str.strip()
-        # 【R30】TIGHT(低于截止不解释)保留真实孔隙——与非储层的区别
-        _nonres = (~_itp.isin(('OIL', 'GAS', 'WATER', 'DRY', 'TIGHT',
+        # 【R30/R31】不解释(低于截止值,结论留空)保留真实孔隙——与非储层的区别
+        _nonres = (~_itp.isin(('OIL', 'GAS', 'WATER', 'DRY', '', 'TIGHT',
                                'OIL_POSSIBLE', 'GAS_POSSIBLE'))).values
         phi = phi.mask(_nonres, 0.0)
     rest = (1.0 - vsh.fillna(0.0) - phi).clip(0, 1)
@@ -13934,14 +13953,16 @@ class WellLogProcessor:
                                 reasons, phi_val, vsh_val, gr_val = _reservoir_filter_reasons(row, min_porosity)
                                 
                                 if reasons:
-                                    # 【R30 用户定案】非储层=纯岩性概念；储层岩性
+                                    # 【R31 用户定案】非储层=纯岩性概念；储层岩性
                                     # 但低于截止值(POR<下限/VSH/GR 门槛)=不解释
-                                    # (TIGHT)：不成层、孔隙不归0——截止值就是这个
-                                    # 意思。≥下限出不来油气也不是水层才是干层(DRY)
+                                    # (结论留空, 不成层, 无图例)——只是没有工业
+                                    # 油流, 不理它; 不是致密层(TIGHT=致密层, 是
+                                    # 另一个概念)。孔隙不归0(与非储层的区别)。
+                                    # ≥下限出不来油气也不是水层才是干层(DRY)
                                     _lith_bad = any(str(_r0).startswith('岩性=')
                                                     for _r0 in reasons)
                                     data.at[idx, 'INTERPRETATION'] = (
-                                        'NonReservoir' if _lith_bad else 'TIGHT')
+                                        'NonReservoir' if _lith_bad else '')
                                     data.at[idx, 'INTERPRETATION_SCORE'] = 0.0
                                     data.at[idx, 'DISTANCE'] = 999.0
                                     data.at[idx, 'HIT_RATE'] = 0.0
@@ -13980,9 +14001,9 @@ class WellLogProcessor:
                                 if conclusion_en == 'DRY':
                                     # 干层首先是储层：统一储层验证（一处一功能）
                                     if not _is_dry_reservoir_point(phi_val, vsh_val, gr_val, lithology, min_porosity):
-                                        conclusion_en = 'TIGHT'
+                                        conclusion_en = ''
                                         logger.debug(
-                                            f"深度 {row.get('MD', idx):.1f}m: DRY→TIGHT (不满足储层条件)"
+                                            f"深度 {row.get('MD', idx):.1f}m: DRY→不解释 (不满足储层条件)"
                                         )
                                 
                                 data.at[idx, 'INTERPRETATION'] = conclusion_en
@@ -14074,11 +14095,12 @@ class WellLogProcessor:
                                 reasons, phi_val, vsh_val, gr_val = _reservoir_filter_reasons(row, min_porosity)
                                 
                                 if reasons:
-                                    # 【R30 用户定案】非储层=纯岩性概念；储层岩性
-                                    # 但低于截止值=不解释(TIGHT)：不成层、孔隙不归0
+                                    # 【R31 用户定案】非储层=纯岩性概念；储层岩性
+                                    # 但低于截止值=不解释(结论留空,不成层,无图例)
+                                    # ——只是没有工业油流, 不是致密层。孔隙不归0
                                     _lith_bad = any(str(_r0).startswith('岩性=')
                                                     for _r0 in reasons)
-                                    _rj = 'NonReservoir' if _lith_bad else 'TIGHT'
+                                    _rj = 'NonReservoir' if _lith_bad else ''
                                     data.at[idx, 'INTERPRETATION'] = _rj
                                     data.at[idx, 'INTERPRETATION_SCORE'] = 0.0
                                     data.at[idx, 'DISTANCE'] = 999.0
@@ -14152,7 +14174,7 @@ class WellLogProcessor:
                                 # 干层首先是储层！非储层不能判为干层
                                 if result == 'DRY':
                                     if not _is_dry_reservoir_point(phi_val, vsh_val, gr_val, lithology, min_porosity):
-                                        result = 'TIGHT'
+                                        result = ''
                                 
                                 # 直接使用英文存储，不映射到中文
                                 data.at[idx, 'INTERPRETATION'] = result
@@ -14466,6 +14488,15 @@ class WellLogProcessor:
             self.results['processed_data'].to_csv(processed_csv_path, index=False, encoding='utf-8')
             print(f"处理后数据已保存到: {processed_csv_path}")
             logger.info(f"处理后数据CSV已保存: {processed_csv_path}")
+
+            # 【2026-10-27 R31】CLI 逐文件路径同样生成/回填 <井名>info.json
+            # （此前只有井文件夹工作流生成, CLI 模式只读不写——分井解释
+            # 截止值等人工配置无处落盘）。放在 CSV 导出后: 数据已定稿,
+            # 收集失败不影响主流程。
+            try:
+                collect_well_info(self.results, well_output_dir)
+            except Exception as _cwi:
+                logger.warning("井信息收集失败（不影响主流程）: %s", _cwi)
 
             # ========== 同时导出带套管头的 LAS（2026-10-07）==========
             # 为什么重要：SLAM 输出的 LAS 头段**没有套管字段**（实测 BET-1
@@ -16110,8 +16141,10 @@ def collect_well_info(results, well_dir):
                           'permanent_datum': final.get('permanent_datum') or ''},
                 # 【2026-10-14 二十轮】旧 json 补 log_date 键（date 改名，原 'date' 键留存不删）
                 '日期': {'log_date': final.get('log_date') or ''},
-                # 【2026-10-27 R28】旧 json 补「解释截止值」组（空值=默认）
-                '解释截止值': {k: '' for k in DEFAULT_CUTOFFS},
+                # 【2026-10-27 R28/R31】旧 json 补「解释截止值」组（空值=默认；
+                # _参数说明=每个参数中文含义, 便于人工修改理解）
+                '解释截止值': {'_参数说明': dict(_CUTOFF_PARAM_DOCS),
+                              **{k: '' for k in DEFAULT_CUTOFFS}},
             }
             for _g, _d in _new_keys.items():
                 if _g == '解释截止值' and not isinstance(_old.get(_g), dict):
@@ -16148,7 +16181,9 @@ def collect_well_info(results, well_dir):
                         'por_dry_max 0.10、sw_hc 0.5、sw_deny 0.65、rt_gas 50、'
                         'rt_oil 30、rt_water 20），每个区块每口井可能不同——'
                         '人工填写非空数值即覆盖本井解释（孔隙度/饱和度填小数，'
-                        'RT 单位 ohm·m），留空用默认'),
+                        'RT 单位 ohm·m），留空用默认；储层岩性但孔隙度低于 por_hc '
+                        '的点不解释（结论留空、不成层、无图例）'),
+                '_参数说明': dict(_CUTOFF_PARAM_DOCS),
                 'por_hc': '',
                 'por_dry_max': '',
                 'sw_hc': '',

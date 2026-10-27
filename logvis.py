@@ -5543,7 +5543,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                         ('Oil', '#1a9850'), ('Poor Oil', '#a6d96a'),
                         ('Oil & Water', '#8c6bb1'), ('Oil-bearing Water', '#c994c7'),
                         ('Gas & Oil', '#f4a582'), ('Water', '#00a8f8'),
-                        ('Tight', '#bdbdbd'), ('Possible Hydrocarbon', '#ffd700'),
+                        ('Possible Hydrocarbon', '#ffd700'),
                     ]
                 # 【2026-10-12 修复】LEGEND 双色块：复合流体项（Gas&Water 等）样本为
                 #   双色块并列（红+蓝/绿+蓝/红+绿），第三页正放表按 (label, color, color2)
@@ -5620,7 +5620,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                         ('Oil', '#1a9850'), ('Poor Oil', '#a6d96a'),
                         ('Oil & Water', '#8c6bb1'), ('Oil-bearing Water', '#c994c7'),
                         ('Gas & Oil', '#f4a582'), ('Water', '#00a8f8'),
-                        ('Tight', '#bdbdbd'), ('Possible Hydrocarbon', '#ffd700'),
+                        ('Possible Hydrocarbon', '#ffd700'),
                     ]
                 _ql_legend_title = (quicklook_config or {}).get(
                     'legend_title') or (_tpl or {}).get('legend', {}).get(
