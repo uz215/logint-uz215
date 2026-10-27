@@ -3056,6 +3056,125 @@ INTERPRETATION_RULES = [
     },
 ]
 
+# 【2026-10-27 R28 用户定案】解释截止值分井配置：下列默认值（孔隙度 0.06 等）
+# 是巴西海上深水的经验知识，不能作为所有井的统一要求——每个区块每口井可能
+# 不同。井级覆盖走 <井名>info.json 的「解释截止值」组（人工填非空数值即生效，
+# 留空=用默认）；键值 None 表示未配置（沿用各使用处的内联默认）。
+DEFAULT_CUTOFFS = {
+    'por_hc': None,       # 油气层孔隙度下限（默认 0.06；储层过滤碳酸盐岩/其它分叉 0.06/0.08）
+    'por_dry_max': None,  # 干层孔隙度上限 = 水层孔隙度下限（默认 0.10）
+    'sw_hc': None,        # 油气层含水饱和度上限（默认 0.5）
+    'sw_deny': None,      # Sw 否决线（默认 0.65）
+    'rt_gas': None,       # 气层 RT 下限（默认 50 ohm·m）
+    'rt_oil': None,       # 油层 RT 下限（默认 30）
+    'rt_water': None,     # 水层 RT 上限（默认 20）
+}
+
+# 当前井生效的解释截止值（run_workflow 读取 info.json 后设置；
+# 模块级单井流程缓存——logInt 单进程一次处理一口井）
+_ACTIVE_CUTOFFS = dict(DEFAULT_CUTOFFS)
+
+
+def set_active_cutoffs(cut):
+    global _ACTIVE_CUTOFFS
+    _ACTIVE_CUTOFFS = dict(cut or DEFAULT_CUTOFFS)
+
+
+def get_active_cutoffs():
+    return _ACTIVE_CUTOFFS
+
+
+def _norm_cutoffs(raw):
+    """「解释截止值」组 → 规范化 dict（空/非法值回落 None=默认并告警）。"""
+    cut = dict(DEFAULT_CUTOFFS)
+    if not isinstance(raw, dict):
+        return cut
+    for k in list(cut):
+        v = raw.get(k)
+        if v is None or str(v).strip() == '':
+            continue
+        try:
+            f = float(v)
+        except (TypeError, ValueError):
+            logger.warning("解释截止值 %s=%r 非数值, 用默认", k, v)
+            continue
+        if k.startswith(('por_', 'sw_')):
+            if not (0.0 < f < 1.0):
+                logger.warning("解释截止值 %s=%s 超出 (0,1), 用默认", k, f)
+                continue
+        elif f <= 0:
+            logger.warning("解释截止值 %s=%s 需为正数, 用默认", k, f)
+            continue
+        cut[k] = f
+    return cut
+
+
+def load_interpretation_cutoffs(well_dir, well_name=''):
+    """读 <井名>info.json「解释截止值」组 → cutoffs dict（无文件/无组=全默认）。
+
+    候选位置: well_dir/<井名>info.json 与 well_dir 父目录同名文件（各试一次，
+    先命中先用）；找不到 → 打印默认口径说明并返回全 None（用内联默认）。
+    """
+    _name = str(well_name or '').strip() or 'well'
+    _cands = []
+    try:
+        wd = Path(well_dir)
+        _cands.append(wd / (_name + 'info.json'))
+        _cands.append(wd.parent / (_name + 'info.json'))
+    except Exception:
+        pass
+    for p in _cands:
+        try:
+            if not p.exists():
+                continue
+            cfg = json.loads(p.read_text(encoding='utf-8'))
+            sec = cfg.get('解释截止值') if isinstance(cfg, dict) else None
+            cut = _norm_cutoffs(sec)
+            _ov = [k for k in DEFAULT_CUTOFFS if cut[k] is not None]
+            if _ov:
+                print('  解释截止值: %s 覆盖 %s' % (
+                    p.name, ', '.join('%s=%g' % (k, cut[k]) for k in _ov)))
+            else:
+                print('  解释截止值: %s 未配置（默认=巴西海上深水经验值, '
+                      '可在该 json「解释截止值」组分井覆盖）' % p.name)
+            return cut
+        except Exception as e:
+            logger.warning("解释截止值读取失败 %s: %s", p, e)
+    print('  解释截止值: 未找到 <井名>info.json 配置（默认=巴西海上深水经验值: '
+          'por_hc 0.06 / por_dry_max 0.10 / sw_hc 0.5 / sw_deny 0.65 / '
+          'rt_gas 50 / rt_oil 30 / rt_water 20）')
+    return dict(DEFAULT_CUTOFFS)
+
+
+def build_interpretation_rules(cut=None):
+    """按分井截止值构建解释规则表（cut 全空 → 直接返回默认 INTERPRETATION_RULES）。
+
+    must/core/deny 中与默认阈值相同的数值按 cutoffs 替换；RT 次档阈值
+    （55/35/25）按原表与主档的比例缩放，保持"严格/宽松"两档打分结构。
+    """
+    if not cut or not any(cut.get(k) is not None for k in DEFAULT_CUTOFFS):
+        return INTERPRETATION_RULES
+    por = cut['por_hc'] if cut.get('por_hc') is not None else 0.06
+    dry = cut['por_dry_max'] if cut.get('por_dry_max') is not None else 0.10
+    swh = cut['sw_hc'] if cut.get('sw_hc') is not None else 0.5
+    swd = cut['sw_deny'] if cut.get('sw_deny') is not None else 0.65
+    rg = cut['rt_gas'] if cut.get('rt_gas') is not None else 50.0
+    ro = cut['rt_oil'] if cut.get('rt_oil') is not None else 30.0
+    rw = cut['rt_water'] if cut.get('rt_water') is not None else 20.0
+    _vmap = {0.06: por, 0.10: dry, 0.5: swh, 0.65: swd,
+             50.0: rg, 55.0: rg * 1.1,
+             30.0: ro, 35.0: ro * 35.0 / 30.0,
+             20.0: rw, 25.0: rw * 25.0 / 20.0}
+    import copy as _copy
+    rules = _copy.deepcopy(INTERPRETATION_RULES)
+    for r in rules:
+        for sec in ('must', 'deny', 'core'):
+            r[sec] = [tuple(c[:2]) + (_vmap[c[2]],) + tuple(c[3:])
+                      if len(c) > 2 and c[2] in _vmap else tuple(c)
+                      for c in r[sec]]
+    return rules
+
+
 def match_interpretation_rules(sw_v, phi_val, rt_v, rules=None):
     """解释结论 must/core/deny 判定（简化路径与高级引擎共用的唯一阈值实现）。
 
@@ -4492,7 +4611,8 @@ def _build_hc_reason_sections(results):
         # ---- 图版判定：段均值对照 INTERPRETATION_RULES must/core/deny 逐条说明 ----
         plate_html = ''
         _bk = lab.split('_')[0]
-        _rule = next((r for r in INTERPRETATION_RULES if r['key'] == _bk), None)
+        _rules_eff = build_interpretation_rules(get_active_cutoffs())
+        _rule = next((r for r in _rules_eff if r['key'] == _bk), None)
         if _rule is not None:
             def _pv(key):
                 v = {'Sw': sm['SW'], 'POR': sm['PHI'], 'RT': sm['RT']}.get(key)
@@ -7253,7 +7373,7 @@ class MineralAnalyzer:
             data['VQuartz'] = 1 - data['VSH'] - data['PHI']
             return data
     
-    def _identify_typical_water_layers(self, data):
+    def _identify_typical_water_layers(self, data, por_hc=None):
         """
         从全井段中识别典型水层（连续厚水层）。
         
@@ -7287,7 +7407,8 @@ class MineralAnalyzer:
             
             # === 条件1: 储层识别（孔隙度 > 下限）===
             # 砂泥岩孔隙度下限8%，碳酸盐岩6%
-            min_porosity = 0.06  # 用较低的碳酸盐岩下限，避免漏掉碳酸盐岩水层
+            # 默认碳酸盐岩下限；分井覆盖 ← <井名>info.json「解释截止值」(por_hc)
+            min_porosity = 0.06 if por_hc is None else por_hc
             is_reservoir = (phi > min_porosity) & np.isfinite(phi)
             
             # === 条件2: 泥质含量低（干净地层）===
@@ -7398,7 +7519,8 @@ class MineralAnalyzer:
             logger.info(f"自动检测Rw使用电阻率列: {rt_col_name}")
             
             # ========== 识别典型厚水层 ==========
-            water_layers = self._identify_typical_water_layers(data)
+            water_layers = self._identify_typical_water_layers(
+                data, por_hc=get_active_cutoffs().get('por_hc'))
             
             if water_layers:
                 # 从典型水层中提取数据点
@@ -13253,6 +13375,17 @@ class WellLogProcessor:
                 logger.warning("套管/剖面预判失败（不影响主流程）: %s", _e)
 
             # 2. 弹簧段校正（基于密度变化检测，校正时同时校正RHOB和MSFL）
+            # 【2026-10-27 R28 用户定案】解释截止值分井配置：0.06 等默认值是
+            # 巴西海上深水经验知识，不作所有井统一要求——每口井可在
+            # <井名>info.json「解释截止值」组覆盖（人工填非空值即生效）。
+            try:
+                cutoffs = load_interpretation_cutoffs(
+                    str(well_output_dir), str(getattr(self, 'well_name', '')))
+            except Exception as _ce:
+                logger.warning("解释截止值加载回退默认: %s", _ce)
+                cutoffs = dict(DEFAULT_CUTOFFS)
+            set_active_cutoffs(cutoffs)
+            _rules_well = build_interpretation_rules(cutoffs)
             logger.info("Step 2: Spring segment correction")
 
             # 检测时只用密度曲线，但校正时同时校正密度和电阻率曲线
@@ -13793,7 +13926,9 @@ class WellLogProcessor:
                                 # 非储层不解释油气水干层——从源头拦截
                                 lithology = row.get('LITHOLOGY', '其他')
                                 carbonate_lithologies = ['灰岩', '白云岩', '碳酸盐岩', 'limestone', 'dolomite', 'carbonate']
-                                min_porosity = 0.06 if lithology in carbonate_lithologies else 0.08
+                                _cut_por = cutoffs.get('por_hc')
+                                min_porosity = (_cut_por if _cut_por is not None else
+                                                (0.06 if lithology in carbonate_lithologies else 0.08))
                                 
                                 reasons, phi_val, vsh_val, gr_val = _reservoir_filter_reasons(row, min_porosity)
                                 
@@ -13924,7 +14059,9 @@ class WellLogProcessor:
                                 # ========== 统一储层过滤（简化路径） ==========
                                 lithology = row.get('LITHOLOGY', '其他')
                                 carbonate_lithologies = ['灰岩', '白云岩', '碳酸盐岩', 'limestone', 'dolomite', 'carbonate']
-                                min_porosity = 0.06 if lithology in carbonate_lithologies else 0.08
+                                _cut_por = cutoffs.get('por_hc')
+                                min_porosity = (_cut_por if _cut_por is not None else
+                                                (0.06 if lithology in carbonate_lithologies else 0.08))
                                 
                                 reasons, phi_val, vsh_val, gr_val = _reservoir_filter_reasons(row, min_porosity)
                                 
@@ -13961,7 +14098,8 @@ class WellLogProcessor:
                                 if np.isfinite(rt_v) and rt_v <= 0:
                                     rt_v = np.nan
 
-                                _mcd = match_interpretation_rules(sw_v, phi_val, rt_v)
+                                _mcd = match_interpretation_rules(sw_v, phi_val, rt_v,
+                                                                  rules=_rules_well)
                                 if _mcd is not None:
                                     result, _score, _why = _mcd
                                     rule_based = True
@@ -14268,7 +14406,8 @@ class WellLogProcessor:
                         _gas_rh = gas_data
                     _pd_rh, _nre = rejudge_hc_below_seal(
                         self.results['processed_data'],
-                        gas_data=_gas_rh)
+                        gas_data=_gas_rh,
+                        por_hc=cutoffs.get('por_hc'))
                     self.results['processed_data'] = _pd_rh
                     if _nre:
                         logger.info("盖层下油气补偿: %d 点已改判", _nre)
@@ -15958,8 +16097,12 @@ def collect_well_info(results, well_dir):
                           'permanent_datum': final.get('permanent_datum') or ''},
                 # 【2026-10-14 二十轮】旧 json 补 log_date 键（date 改名，原 'date' 键留存不删）
                 '日期': {'log_date': final.get('log_date') or ''},
+                # 【2026-10-27 R28】旧 json 补「解释截止值」组（空值=默认）
+                '解释截止值': {k: '' for k in DEFAULT_CUTOFFS},
             }
             for _g, _d in _new_keys.items():
+                if _g == '解释截止值' and not isinstance(_old.get(_g), dict):
+                    _old[_g] = {}
                 if isinstance(_old.get(_g), dict):
                     for _k2, _v2 in _d.items():
                         if _k2 not in _old[_g]:
@@ -15986,6 +16129,20 @@ def collect_well_info(results, well_dir):
                 'well': final['well_name'],
                 'updated': _today,
                 'sources': [s for s in _src if s.split(':')[-1].strip()],
+            },
+            '解释截止值': {
+                '_说明': ('解释截止值分井配置：默认=巴西海上深水经验值（por_hc 0.06、'
+                        'por_dry_max 0.10、sw_hc 0.5、sw_deny 0.65、rt_gas 50、'
+                        'rt_oil 30、rt_water 20），每个区块每口井可能不同——'
+                        '人工填写非空数值即覆盖本井解释（孔隙度/饱和度填小数，'
+                        'RT 单位 ohm·m），留空用默认'),
+                'por_hc': '',
+                'por_dry_max': '',
+                'sw_hc': '',
+                'sw_deny': '',
+                'rt_gas': '',
+                'rt_oil': '',
+                'rt_water': '',
             },
             '井信息': {
                 '_说明': '业主公司/井名/区块/区域/井别（LAS头 COMPANY/FLD/AREA、录井图、地质设计）；'
@@ -17285,7 +17442,7 @@ def layered_interpretation_by_cutoff(data, min_thick=0.4, thin_absorb=0.6,
     logger.info('按层解释: 共 %d 层, 改写 %d 点', len(layers), n_chg)
     return out, n_chg
 
-def rejudge_hc_below_seal(data, gas_data=None):
+def rejudge_hc_below_seal(data, gas_data=None, por_hc=None):
     """【2026-10-26 R24 用户要求】盖层(盐岩/硬石膏)下气测异常储层水层→油气补偿。
 
     3-SPS-111D 实测：硬石膏盖层(6507-6519m)以下 6676-6721m 石灰岩储层
@@ -17295,7 +17452,8 @@ def rejudge_hc_below_seal(data, gas_data=None):
 
     口径(延续 2026-10-20 用户定案"盖层下有孔隙度+气测异常即为油气层")：
       1) 盖层下：本点深度大于最浅盐岩/硬石膏/石膏盖层段顶界(按 LITHOLOGY)；
-      2) 储层：POR(缺省 PHI) >= 0.06，与 OIL must 门槛一致；
+      2) 储层：POR(缺省 PHI) >= 0.06，与 OIL must 门槛一致
+         （por_hc 参数分井覆盖, ← <井名>info.json「解释截止值」）；
       3) 气测异常：对齐气测 TG >= 1.5×全井 TG 基线(中位，断测 NaN 不进分母)，
          与气测"有显示"双通道口径的比值通道一致。
     同时满足的 WATER/WATER_POSSIBLE 点改判油气——类型按比值法:
@@ -17328,7 +17486,7 @@ def rejudge_hc_below_seal(data, gas_data=None):
             _por = pd.to_numeric(data['PHI'], errors='coerce')
         else:
             return data, 0
-        _res = _por >= 0.06
+        _res = _por >= (0.06 if por_hc is None else por_hc)
         _show = pd.Series(False, index=data.index)
         _c1 = pd.Series(np.nan, index=data.index)
         _c2 = pd.Series(np.nan, index=data.index)
