@@ -3772,7 +3772,8 @@ def calculate_mineral_volumes(data):
     # 交接处跳变。仅影响第5道矿物显示列，原始PHI/PHIE与一切判断逻辑不动。
     if 'INTERPRETATION' in data.columns:
         _itp = data['INTERPRETATION'].astype(str).str.upper().str.strip()
-        _nonres = (~_itp.isin(('OIL', 'GAS', 'WATER', 'DRY',
+        # 【R30】TIGHT(低于截止不解释)保留真实孔隙——与非储层的区别
+        _nonres = (~_itp.isin(('OIL', 'GAS', 'WATER', 'DRY', 'TIGHT',
                                'OIL_POSSIBLE', 'GAS_POSSIBLE'))).values
         phi = phi.mask(_nonres, 0.0)
     rest = (1.0 - vsh.fillna(0.0) - phi).clip(0, 1)
@@ -13933,7 +13934,14 @@ class WellLogProcessor:
                                 reasons, phi_val, vsh_val, gr_val = _reservoir_filter_reasons(row, min_porosity)
                                 
                                 if reasons:
-                                    data.at[idx, 'INTERPRETATION'] = 'NonReservoir'
+                                    # 【R30 用户定案】非储层=纯岩性概念；储层岩性
+                                    # 但低于截止值(POR<下限/VSH/GR 门槛)=不解释
+                                    # (TIGHT)：不成层、孔隙不归0——截止值就是这个
+                                    # 意思。≥下限出不来油气也不是水层才是干层(DRY)
+                                    _lith_bad = any(str(_r0).startswith('岩性=')
+                                                    for _r0 in reasons)
+                                    data.at[idx, 'INTERPRETATION'] = (
+                                        'NonReservoir' if _lith_bad else 'TIGHT')
                                     data.at[idx, 'INTERPRETATION_SCORE'] = 0.0
                                     data.at[idx, 'DISTANCE'] = 999.0
                                     data.at[idx, 'HIT_RATE'] = 0.0
@@ -14066,7 +14074,12 @@ class WellLogProcessor:
                                 reasons, phi_val, vsh_val, gr_val = _reservoir_filter_reasons(row, min_porosity)
                                 
                                 if reasons:
-                                    data.at[idx, 'INTERPRETATION'] = 'NonReservoir'
+                                    # 【R30 用户定案】非储层=纯岩性概念；储层岩性
+                                    # 但低于截止值=不解释(TIGHT)：不成层、孔隙不归0
+                                    _lith_bad = any(str(_r0).startswith('岩性=')
+                                                    for _r0 in reasons)
+                                    _rj = 'NonReservoir' if _lith_bad else 'TIGHT'
+                                    data.at[idx, 'INTERPRETATION'] = _rj
                                     data.at[idx, 'INTERPRETATION_SCORE'] = 0.0
                                     data.at[idx, 'DISTANCE'] = 999.0
                                     data.at[idx, 'HIT_RATE'] = 0.0
@@ -14074,7 +14087,7 @@ class WellLogProcessor:
                                     data.at[idx, 'BETTER_COUNT'] = 0
                                     results.append({
                                         'MD': row['MD'],
-                                        'ITP': 'NonReservoir'
+                                        'ITP': _rj
                                     })
                                     continue
                                 
@@ -17359,6 +17372,8 @@ def layered_interpretation_by_cutoff(data, min_thick=0.4, thin_absorb=0.6,
     POR>=0.06），缺的是"分层"——本函数把储层点按连续段聚合成层：
       - 层边界 = 储层资格（孔隙度截止/岩性过滤）变化处 + 深度间断(>gap_break m)；
       - 层内结论 = 层内逐点结论多数票（保留 rejudge/盐下 GAS 复核的成果）；
+      - 【R29】干层（储层岩性但 POR<截止=无效储层）与有效储层（油气水）
+        性质转折处强制切层——干层段独立成层, 与上下油气层分开；
       - 整层统一赋值（INTERPRETATION 与 ITP 同步）；
       - 薄层(<min_thick m)沿用前一层结论（首层用次层）；薄层(<thin_absorb m)
         夹在同结论两 层之间时并入（按流体分布规律整合）。
@@ -17384,29 +17399,44 @@ def layered_interpretation_by_cutoff(data, min_thick=0.4, thin_absorb=0.6,
         logger.info('按层解释: 无储层点, 跳过')
         return out, 0
     _mds = _md.values[_rows]
+    # 【R29 用户定案】干层(无效储层)与油气水层(有效储层)性质不同——
+    # 层边界除深度间断外, 还要落在两者转折处（干层段独立成层, 与上下
+    # 油气层分开, 不混入同一层）
+    _kind = np.where(_itp.values[_rows] == 'DRY', 'DRY', 'EFF')
     _brk = [0] + [i for i in range(1, len(_rows))
-                  if _mds[i] - _mds[i - 1] > gap_break] + [len(_rows)]
+                  if _mds[i] - _mds[i - 1] > gap_break
+                  or _kind[i] != _kind[i - 1]] + [len(_rows)]
     layers = []
     for a, b in zip(_brk[:-1], _brk[1:]):
         _seg = _rows[a:b]
         layers.append({'rows': _seg,
                        'top': float(_mds[a]), 'bot': float(_mds[b - 1])})
-    # ① 层内多数票
+    # ① 层内多数票（干层段固定 DRY；有效储层段对油气水投票）
+
+    def _kind_of(lab):
+        return 'DRY' if str(lab) == 'DRY' else 'EFF'
+
     for L in layers:
         labs = _itp.values[L['rows']]
-        vals, cnts = np.unique(labs, return_counts=True)
-        L['lab'] = str(vals[int(np.argmax(cnts))])
-    # ② 薄层并入前层（首层并入次层）
+        if _kind_of(labs[0]) == 'DRY':
+            L['lab'] = 'DRY'
+        else:
+            vals, cnts = np.unique(labs, return_counts=True)
+            L['lab'] = str(vals[int(np.argmax(cnts))])
+    # ② 薄层并入前层（首层并入次层）——【R29】仅同性质（干层↔干层、
+    #    有效储层↔有效储层）才并入, 干层不并入油气层
     for i, L in enumerate(layers):
         if (L['bot'] - L['top']) < min_thick:
-            if i > 0:
-                L['lab'] = layers[i - 1]['lab']
-            elif len(layers) > 1:
-                L['lab'] = layers[1]['lab']
-    # ③ 流体分布规律整合：薄层夹在同结论邻层之间 → 并入
+            _nb = layers[i - 1] if i > 0 else (
+                layers[1] if len(layers) > 1 else None)
+            if _nb is not None and _kind_of(L['lab']) == _kind_of(_nb['lab']):
+                L['lab'] = _nb['lab']
+    # ③ 流体分布规律整合：薄层夹在同结论邻层之间 → 并入（同样限同性质）
     for i in range(1, len(layers) - 1):
         L = layers[i]
         if (L['bot'] - L['top']) < thin_absorb \
+                and _kind_of(L['lab']) == _kind_of(layers[i - 1]['lab']) \
+                and _kind_of(L['lab']) == _kind_of(layers[i + 1]['lab']) \
                 and layers[i - 1]['lab'] == layers[i + 1]['lab'] \
                 and L['lab'] != layers[i - 1]['lab']:
             L['lab'] = layers[i - 1]['lab']
