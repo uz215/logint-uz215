@@ -2633,8 +2633,11 @@ class DataLoader:
         # 【2026-10-20 RASHIDPUR_13】CLI 批处理模式（--quicklook）不弹对话框：
         # 后台/无人值守运行时 askopenfilename 会永久阻塞（本轮实录卡死 25 分钟），
         # 自动发现失败即返回 None 跳过气测（quick look 主流程不受影响）。
-        if '--quicklook' in sys.argv:
-            logger.warning("CLI --quicklook 模式跳过气测文件选择对话框（气测不参与本次解释）")
+        # 【R33】CLI 无人值守判定扩展：命令行带任意参数（如主 LAS 路径）
+        # 即视为批处理模式——askopenfilename 在后台/无人值守会永久阻塞
+        # （本轮实录卡死 20+ 分钟），自动发现失败即返回 None 跳过气测。
+        if '--quicklook' in sys.argv or len(sys.argv) > 1:
+            logger.warning("CLI 批处理模式跳过气测文件选择对话框（气测不参与本次解释）")
             return None
 
         import tkinter as tk
@@ -10713,11 +10716,10 @@ class FaciesAnalyzer:
                         'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
                         'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
                         'PE', 'PEF',
-                        # 【2026-10-21 R18】井径：RP-13 的井径列名是 CAL_AVERAGE，
-                        # 原名单只有 CAL/CALS/CALX/CALY → 井径这条有效曲线数不出来
-                        'CAL', 'CALS', 'CALX', 'CALY', 'CALI',
-                        'CAL_AVERAGE', 'CAL-AVG', 'CALAVG', 'CAL_MEAN',
-                        'SP', 'BIT']
+                        # 【R33 用户定案】井径（CAL 族）/钻头（BIT）不算有效
+                        # 曲线——井径只反映井眼状况，不构成解释依据；SP 是
+                        # 真地层信号保留。
+                        'SP']
 
         # 创建有效曲线计数列
         valid_counts = []
@@ -10730,7 +10732,18 @@ class FaciesAnalyzer:
             for curve in valid_curves:
                 if curve in data.columns:
                     window_data = data[curve].iloc[start_idx:end_idx]
-                    valid_ratio = (window_data > 0).sum() / len(window_data)
+                    _wd = pd.to_numeric(window_data, errors='coerce')
+                    _ok = _wd > 0
+                    if not bool(_ok.any()):
+                        continue
+                    _vals = _wd[_ok]
+                    # 【R33 用户定案】平直段不算有效：窗口内近似常数
+                    # （井底回填常值/坯数据）不构成解释依据
+                    _flat = (float(_vals.std()) <=
+                             max(1e-6, abs(float(_vals.median())) * 1e-4))
+                    if _flat:
+                        continue
+                    valid_ratio = _ok.sum() / len(_wd)
                     if valid_ratio > 0.3:
                         count += 1
             
@@ -10953,6 +10966,9 @@ LITHOLOGY_RULES = [
         'must': [
             ('DEN', '<', 2.00),     # 密度极低：骨架极度多孔
             ('DT',  '>', 100.0),    # 声波显著高：煤疏松、孔隙极发育
+            # 【R33 用户定案】真煤电阻率有明显高尖——扩径/坏井眼的低密度
+            # 高声波段 RT 无尖峰，不得判煤（XIMENIA-5：RT 5.7 < 34 全排除）
+            ('RT',  '>', '@RT_coal_min?15'),
         ],
         'core': [
             ('DEN', '<', 1.85, 2.0),   # 极低密度（煤核部）
@@ -10995,6 +11011,13 @@ LITHOLOGY_RULES = [
             # 【2026-10-08 自适应】中高伽马（碳质泥岩位于砂泥分界的泥岩侧，
             # 煤为低伽马、砂岩更低）
             ('GR', '>', '@GR_shale_min?95'),
+            # 【R33 用户定案】密度必须明显低于本井泥岩基线（DEN P50−0.08）
+            # ——绝对阈值 2.45 不通用，普通泥岩密度偏低的井（XIMENIA-5）
+            # 会整段误判碳质泥岩
+            ('DEN', '<', '@DEN_shale_light?2.35'),
+            # 【R33 用户定案】碳质泥岩富有机质→电阻率高于普通泥岩；
+            # RT 无支持的'低密度高声波'是坏井眼响应不是碳质泥岩
+            ('RT',  '>', '@RT_carb_min?5'),
         ],
         'core': [
             ('DEN', '<', 2.45, 2.0),   # 密度低于泥岩
@@ -11326,6 +11349,13 @@ def adaptive_thresholds(series_map):
     out['GR_p20'] = q('GR', 20)
     out['GR_p80'] = q('GR', 80)
     out['GR_p90'] = q('GR', 90)
+    # 【R33】泥岩密度基线：碳质泥岩'密度明显低于泥岩'改为**相对本井**
+    # 门限（DEN P50 − 0.08）。绝对阈值 2.45 不通用——XIMENIA-5 全井
+    # 泥岩密度本就 2.2-2.3，绝对阈值把 6881 点普通泥岩判成碳质泥岩
+    # （用户定案本井无煤层/碳质泥岩，砂泥岩剖面）。
+    _den_p50 = q('DEN', 50)
+    if _den_p50 is not None:
+        out['DEN_shale_light'] = _den_p50 - 0.08
 
     # ---- GR 自适应砂泥分界（2026-10-08 用户要求）----
     # 伽马绝对阈值（如砂岩 GR<105 / 泥岩 GR>95）不通用：不同地区/地层/井段
@@ -11397,6 +11427,12 @@ def adaptive_thresholds(series_map):
     _rt50 = q('RT', 50)
     _rt40 = q('RT', 40)
     out['RT_mud_max'] = (max(_rt50, 3.0) if _rt50 else None)
+    # 【R33 用户定案 XIMENIA-5】煤/碳质泥岩必须有**电阻率支持**——
+    # 有机质/煤是高阻的，'电阻率没有特别明显变化、没有高尖'就不是煤。
+    # RT_coal_min  = 3×泥质响应上限（下限 15）；RT_carb_min = 0.8×上限
+    # （碳质泥岩电阻率高于普通泥岩但不化）
+    out['RT_coal_min'] = (max(3.0 * _rt50, 15.0) if _rt50 else None)
+    out['RT_carb_min'] = (0.8 * _rt50 if _rt50 else None)
     out['RT_mud_strong'] = (max(_rt40, 2.0) if _rt40 else None)
     return out
 
@@ -12417,6 +12453,19 @@ class SpringSegmentCorrector:
         local_range = (_smax - _smin).to_numpy(copy=True)
         local_range[~np.isfinite(local_range)] = np.nan
 
+        # 【R33】电阻率检测曲线（MSFL/RMSL 等）用**相对**局部极差（Δ/|值|）：
+        # 其数量级跨度大，绝对阈值无意义（XIMENIA-5 2670m 以下 MSFL 典型
+        # 弹簧段而密度仅轻微——单看密度漏检）。相对峰-峰下限 15%（与判据7
+        # 同口径）；密度等曲线维持绝对口径（R26 0.05 g/cc）。
+        _is_res_curve = str(curve_name).upper() in (
+            'MSFL', 'RMSL', 'MCFL', 'RD', 'RS', 'LLS', 'LLD', 'RT', 'AT90')
+        if _is_res_curve:
+            _base_v = np.abs(valid_curve)
+            with np.errstate(divide='ignore', invalid='ignore'):
+                local_range = np.where(_base_v > 0,
+                                       local_range / _base_v, np.nan)
+            local_range[~np.isfinite(local_range)] = np.nan
+
         # 移除NaN
         valid_ranges = local_range[np.isfinite(local_range)]
         if len(valid_ranges) == 0:
@@ -12437,7 +12486,8 @@ class SpringSegmentCorrector:
         # 绝对阈值：峰-峰变化小于0.05 g/cm3不认为是螺旋锯齿
         # 【2026-10-27 R26】0.03→0.05：螺旋锯齿典型幅度 0.06-0.15 g/cc，
         # 岩性界面跳变常在 0.03-0.05 量级，抬高下限减少误报（用户定案）。
-        min_abs_jump = 0.05
+        # 【R33】电阻率检测曲线相对峰-峰下限 15%；密度维持 0.05 g/cc
+        min_abs_jump = 0.15 if _is_res_curve else 0.05
         threshold = max(threshold, min_abs_jump)
 
         # 波动点：局部峰-峰超过阈值（螺旋锯齿带）
@@ -12465,27 +12515,37 @@ class SpringSegmentCorrector:
             # 计算跳跃间隔的自相关
             jump_intervals = np.diff(jump_locations)
             if len(jump_intervals) >= 3:
-                # 归一化自相关
-                acf = correlate(jump_intervals - np.mean(jump_intervals), 
-                               jump_intervals - np.mean(jump_intervals), 
-                               mode='same')
-                acf = acf / (np.std(jump_intervals)**2 * len(jump_intervals))
-                # 检测峰值（排除自相关峰值）
-                for lag in range(1, min(10, len(acf)//2)):
-                    if acf[len(acf)//2 + lag] > 0.5 or acf[len(acf)//2 - lag] > 0.5:
-                        acf_mask[jump_locations] = True
+                _iv_sd = float(np.std(jump_intervals))
+                # 【R33】间隔完全规则（std=0，规则锯齿）= 严格周期：
+                # 旧 acf 除零 → NaN → 恒 False，规则弹簧段被整体漏检
+                if _iv_sd <= 1e-9:
+                    acf_mask[jump_locations] = True
+                else:
+                    # 归一化自相关
+                    acf = correlate(jump_intervals - np.mean(jump_intervals),
+                                    jump_intervals - np.mean(jump_intervals),
+                                    mode='same')
+                    acf = acf / (_iv_sd ** 2 * len(jump_intervals))
+                    # 检测峰值（排除自相关峰值）
+                    for lag in range(1, min(10, len(acf)//2)):
+                        if acf[len(acf)//2 + lag] > 0.5 or acf[len(acf)//2 - lag] > 0.5:
+                            acf_mask[jump_locations] = True
 
         # 3. 检测最值一致性（变化幅度相似）
         # 在波动区域内，局部极差的变异系数较小
+        # 【R33】幅度一致性改按 10m 滑动窗口核算：旧实现全井一个 CV，
+        # 各井段幅度不同（背景 0.3 vs 弹簧带 0.8）→ 全井 CV>0.5 恒
+        # False，弹簧段被条件2整体否决（XIMENIA-5 MSFL 检测 0 段根因）。
         amplitude_consistency = np.zeros(len(valid_curve), dtype=bool)
         if np.sum(fluct) >= 5:
-            jump_amplitudes = _lr[fluct]
-            if len(jump_amplitudes) >= 5:
-                amp_mean = np.mean(jump_amplitudes)
-                amp_std = np.std(jump_amplitudes)
-                # 如果波动幅度的变异系数较小，说明幅度一致
-                if amp_mean > 0 and amp_std / amp_mean < 0.5:
-                    amplitude_consistency[fluct] = True
+            _wac = max(int(10.0 / dz), 20)
+            _lr_f = pd.Series(np.where(fluct, _lr, np.nan))
+            _am = _lr_f.rolling(_wac, center=True, min_periods=5).mean().values
+            _asd = _lr_f.rolling(_wac, center=True, min_periods=5).std().values
+            with np.errstate(divide='ignore', invalid='ignore'):
+                _cv = np.where((_am > 0) & np.isfinite(_asd), _asd / _am,
+                               np.inf)
+            amplitude_consistency[fluct & np.isfinite(_cv) & (_cv < 0.5)] = True
 
         # 4. 检测与GR曲线的相关性（弹簧段通常与GR无关，弱证据）
         #    真地层变化（薄层/岩性）会让密度与GR同变，螺旋噪声不会。
@@ -12571,8 +12631,14 @@ class SpringSegmentCorrector:
         #    度量方式：电阻率局部极差的相对值（%/100）> 15% 且与密度锯齿同带。
         cross_mask = np.zeros(len(valid_curve), dtype=bool)
         if use_cross_curve:
+            # 【R33】跨曲线证据不得取检测曲线自身（MSFL 检测时自参照
+            # =平凡成立，会把 condition4 弱化成 fluct 本身）；检测曲线为
+            # 电阻率时改用密度锯齿同步作跨曲线证据。
             _res_col = next((c for c in ('MSFL', 'RMSL', 'MCFL', 'RD', 'RS', 'LLS', 'LLD')
-                             if c in data.columns), None)
+                             if c in data.columns and c != curve_name), None)
+            if _res_col is None and _is_res_curve:
+                _res_col = next((c for c in ('RHOB', 'ZDEN', 'DEN', 'RHOZ')
+                                 if c in data.columns), None)
             if _res_col is not None:
                 res_data = data[_res_col].values[valid_mask]
                 _rs = pd.Series(res_data)
@@ -12584,15 +12650,20 @@ class SpringSegmentCorrector:
                 with np.errstate(divide='ignore', invalid='ignore'):
                     res_rel = np.where(res_base > 0, res_range / res_base, 0.0)
                 res_rel[~np.isfinite(res_rel)] = 0.0
-                # 电阻率相对局部极差阈值：中位数+2*MAD，下限 15%
-                _rvalid = res_rel[res_rel > 0]
+                # 跨曲线阈值：电阻率用相对极差（中位数+2*MAD，下限15%）；
+                # 【R33】跨曲线为密度时用绝对极差（下限 0.05 g/cc，R26 口径）
+                _res_is_den = _res_col in ('RHOB', 'ZDEN', 'DEN', 'RHOZ')
+                _rvalid = (res_range[res_range > 0] if _res_is_den
+                           else res_rel[res_rel > 0])
                 if len(_rvalid) > 0:
                     _rmed = np.median(_rvalid)
                     _rmad = np.median(np.abs(_rvalid - _rmed))
                     if _rmad == 0 or np.isnan(_rmad):
                         _rmad = np.std(_rvalid)
-                    res_threshold = max(_rmed + 2.0 * _rmad, 0.15)
-                    cross_mask = (res_rel > res_threshold) & fluct
+                    res_threshold = max(_rmed + 2.0 * _rmad,
+                                        0.05 if _res_is_den else 0.15)
+                    _cmp_arr = res_range if _res_is_den else res_rel
+                    cross_mask = (_cmp_arr > res_threshold) & fluct
                     # 【2026-10-27 R26】同判据5：删全局异常兜底
                     if np.sum(cross_mask) >= 3:
                         logger.info(f"  判据7(跨曲线同步): {np.sum(cross_mask)} 点")
@@ -13139,21 +13210,43 @@ class SpringSegmentCorrector:
                 trend_params = {'window_m': 3.0, 'residual_ratio': 3.0,
                                 'drho_max': 0.15}
             
-            # 只使用detect_curve检测弹簧段
+            # 【R33 用户定案 XIMENIA-5】检测曲线扩展为"密度+贴壁电阻率"：
+            # 螺旋井眼影响所有贴壁仪器，有的井密度特征轻微而 MSFL 典型
+            # （XIMENIA-5 2670m 以下 MSFL 典型弹簧、RHOB 轻微）→ 单看
+            # 密度漏检。各检测曲线分别检测后取并集（区间合并）统一校正。
+            _det_curves = [detect_curve]
+            _msfl2 = next((c for c in ('MSFL', 'RMSL', 'MCFL')
+                           if c in data.columns and c != detect_curve), None)
+            if _msfl2:
+                _det_curves.append(_msfl2)
             all_segments = {}
-            if detect_curve in data.columns:
+            _merged = []
+            for _dc in _det_curves:
                 segments = self.detect_spring_segments(
-                    data, detect_curve, sensitivity=sensitivity,
+                    data, _dc, sensitivity=sensitivity,
                     use_drho=detect_opts.get('use_drho', True),
                     use_caliper=detect_opts.get('use_caliper', True),
                     use_cross_curve=detect_opts.get('use_cross_curve', True),
                     use_gr_independent=detect_opts.get('use_gr_independent', True))
-                all_segments[detect_curve] = segments
-                total_segments = len(segments)
-                logger.info(f"基于 {detect_curve} 曲线检测到 {len(segments)} 个弹簧段")
-            else:
+                all_segments[_dc] = segments
+                _merged.extend(segments)
+                logger.info(f"基于 {_dc} 曲线检测到 {len(segments)} 个弹簧段")
+            if detect_curve not in data.columns:
                 logger.warning(f"检测曲线 {detect_curve} 不存在，无法检测弹簧段")
                 return None
+            # 区间并集（重叠/相接合并）
+            _merged.sort()
+            _union = []
+            for s, e in _merged:
+                if _union and s <= _union[-1][1] + 1e-6:
+                    _union[-1] = (_union[-1][0], max(_union[-1][1], e))
+                else:
+                    _union.append((s, e))
+            total_segments = len(_union)
+            all_segments['__union__'] = _union
+            logger.info("多曲线检测合并后 %d 个弹簧段: %s",
+                        total_segments, [(round(s, 1), round(e, 1))
+                                         for s, e in _union[:10]])
             
             # 如果没有检测到任何弹簧段，返回None，不进行校正
             if total_segments == 0:
@@ -13173,7 +13266,8 @@ class SpringSegmentCorrector:
             # 进行校正（对所有指定曲线使用相同的弹簧段深度范围）
             corrected_data = self.correct_spring_segments(
                 data, curve_names, depth_range, method,
-                all_segments[detect_curve], trend_params=trend_params)
+                all_segments.get('__union__', all_segments.get(detect_curve, [])),
+                trend_params=trend_params)
             
             logger.info("弹簧段校正完成")
             
@@ -13480,6 +13574,11 @@ class WellLogProcessor:
                     # 注意：本方法内没有 numpy 的局部导入，这里用 pandas API。
                     _spring_input = self.data_processor.data.copy()
                     _cvals = pd.Series(_casing_mask, dtype=bool).values
+                    # 【R33】屏蔽所有检测曲线（密度+贴壁电阻率），套管内
+                    # 泥浆响应不得参与弹簧检测
+                    for _dc in ('MSFL', 'RMSL', 'MCFL'):
+                        if _dc in _spring_input.columns:
+                            _spring_input.loc[_cvals, _dc] = float('nan')
                     if detect_curve in _spring_input.columns:
                         _spring_input.loc[_cvals, detect_curve] = float('nan')
                     logger.info("弹簧段检测已屏蔽套管段 %d 点",
@@ -13581,11 +13680,30 @@ class WellLogProcessor:
                             # PE 与密度/GR/RT 的一致性。**PE 与密度不匹配时
                             # 不能用 PE 判断岩性** —— 把该结论传给识别器，
                             # PE 相关的所有判据（must/deny/core）会被跳过。
-                            _pe_ok = bool(
-                                (getattr(self, 'pe_quality', None) or {})
-                                .get('pe_reliable', True))
-                            _pe_reason = (getattr(self, 'pe_quality', None) or {}) \
-                                .get('reason', '')
+                            # 【R33】PE 质量必须在岩性识别**之前**判定：
+                            # 旧代码读 self.pe_quality（处理器上不存在，
+                            # pe_quality 在 FaciesAnalyzer 上）→ 恒 True，且
+                            # check_pe_quality 在 run_mineral_analysis 里
+                            # 更晚才跑（XIMENIA-5 实测：识别器 PE可信=True
+                            # 而 QC 已判"PE绝对值不可信"——用户定案本井
+                            # PE 不合格不能用于识别岩性）。
+                            _fa = getattr(self, 'facies_analyzer', None)
+                            _ma = (getattr(_fa, 'mineral_analyzer', None)
+                                   if _fa is not None else None)
+                            _pe_q = (getattr(_ma, 'pe_quality', None)
+                                     if _ma is not None else None)
+                            if not _pe_q and _ma is not None:
+                                try:
+                                    _pe_q = _ma.check_pe_quality(
+                                        self.data_processor.data,
+                                        getattr(self, 'well_name', 'Unknown'))
+                                    _ma.pe_quality = _pe_q
+                                except Exception as _pqe:
+                                    logger.warning("PE质量预检失败（按可信处理）: %s",
+                                                   _pqe)
+                                    _pe_q = {}
+                            _pe_ok = bool((_pe_q or {}).get('pe_reliable', True))
+                            _pe_reason = (_pe_q or {}).get('reason', '')
                             if not _pe_ok:
                                 logger.info("PE质量不合格，岩性识别将忽略全部PE判据: %s",
                                             _pe_reason)
@@ -13608,6 +13726,20 @@ class WellLogProcessor:
                             # 下游（绘图/图例/交汇图/解释/矿物归类）全部一致；
                             # 旧 classify_lithology 链路不再覆盖（见该方法内守卫）。
                             data['LITHOLOGY'] = _lith
+                            # 【R33 用户定案 XIMENIA-5】煤/碳质泥岩需要真
+                            # 煤层证据：扩径段密度/声波/中子异常是井眼造成
+                            # （用户"密度和声波的异常都是井径扩径造成的"），
+                            # 真煤电阻率有明显高尖——扩径且 RT 无高尖的
+                            # 煤/碳质泥岩改归泥岩（砂泥岩剖面）。
+                            try:
+                                _n_coal = _demote_coal_in_enlarged_hole(data)
+                                if _n_coal:
+                                    logger.info("扩径段煤/碳质泥岩降级: %d 点改归泥岩"
+                                                "（扩径 CAL/BIT>1.20 且 RT 无高尖）",
+                                                _n_coal)
+                            except Exception as _dce:
+                                logger.warning("扩径煤降级失败（不影响主流程）: %s",
+                                               _dce)
                             data['LITH_MC_CONF'] = _rec.confidence
                             data['LITH_MC_WHY'] = _rec.why
                             # 套管掩码落盘，供绘图/报告使用。
@@ -13973,9 +14105,10 @@ class WellLogProcessor:
                                 row = data.iloc[idx]
                                 
                                 # 有效曲线不足3条的井段不解释
+                                # 【R33 用户定案】依据不足=不解释(结论留空)
                                 valid_count = row.get('VALID_CURVES_COUNT', 0)
                                 if valid_count < 3:
-                                    data.at[idx, 'INTERPRETATION'] = 'Undefined'
+                                    data.at[idx, 'INTERPRETATION'] = ''
                                     data.at[idx, 'INTERPRETATION_SCORE'] = 0.0
                                     data.at[idx, 'DISTANCE'] = 999.0
                                     data.at[idx, 'HIT_RATE'] = 0.0
@@ -14018,7 +14151,8 @@ class WellLogProcessor:
                                         unknown[std_name] = row[col_name]
                                 
                                 if len(unknown) < 3:
-                                    data.at[idx, 'INTERPRETATION'] = 'Undefined'
+                                    # 【R33】依据不足=不解释(结论留空)
+                                    data.at[idx, 'INTERPRETATION'] = ''
                                     data.at[idx, 'INTERPRETATION_SCORE'] = 0.0
                                     data.at[idx, 'DISTANCE'] = 999.0
                                     data.at[idx, 'HIT_RATE'] = 0.0
@@ -14112,9 +14246,10 @@ class WellLogProcessor:
                                 row = data.iloc[idx]
                                 
                                 # 有效曲线不足3条的井段不解释
+                                # 【R33 用户定案】依据不足=不解释(结论留空)
                                 valid_count = row.get('VALID_CURVES_COUNT', 0)
                                 if valid_count < 3:
-                                    data.at[idx, 'INTERPRETATION'] = 'Undefined'
+                                    data.at[idx, 'INTERPRETATION'] = ''
                                     data.at[idx, 'INTERPRETATION_SCORE'] = 0.0
                                     data.at[idx, 'DISTANCE'] = 999.0
                                     data.at[idx, 'HIT_RATE'] = 0.0
@@ -14122,7 +14257,7 @@ class WellLogProcessor:
                                     data.at[idx, 'BETTER_COUNT'] = 0
                                     results.append({
                                         'MD': row['MD'],
-                                        'ITP': 'Undefined'
+                                        'ITP': ''
                                     })
                                     continue
                                 
@@ -14209,7 +14344,8 @@ class WellLogProcessor:
                                     if valid_types:
                                         result = max(valid_types.items(), key=lambda x: x[1])[0]
                                     else:
-                                        result = "Undefined"
+                                        # 【R33】依据不足=不解释(结论留空)
+                                        result = ''
                                 
                                 # ========== 干层储层验证（简化路径，统一实现） ==========
                                 # 干层首先是储层！非储层不能判为干层
@@ -14505,6 +14641,20 @@ class WellLogProcessor:
             except Exception as _gr:
                 logger.warning("盐下气层REG复核失败（不影响主流程）: %s", _gr)
 
+            # 【2026-10-27 R33】全井 GAS 证据复核（用户 XIMENIA-5："本井
+            # 主要是油层，为什么解释了很多气层"——GAS 规则无气层专有
+            # 证据；无气测资料且 REG 无异常的 GAS 层降 OIL。有气测/REG
+            # 证据的井不受影响。口径与盐下复核一致，按层留痕）
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    _pd_gw, _n_gw = rejudge_gas_by_reg_whole(
+                        self.results['processed_data'])
+                    if _n_gw:
+                        self.results['processed_data'] = _pd_gw
+            except Exception as _gw:
+                logger.warning("全井气层REG复核失败（不影响主流程）: %s", _gw)
+
 
             # 【2026-10-27 R27】按孔隙度截止值分层解释：储层点聚合成层、
             # 层内多数票整层统一、薄层按流体分布规律并入邻层
@@ -14640,11 +14790,10 @@ class WellLogProcessor:
                         'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
                         'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
                         'PE', 'PEF',
-                        # 【2026-10-21 R18】井径：RP-13 的井径列名是 CAL_AVERAGE，
-                        # 原名单只有 CAL/CALS/CALX/CALY → 井径这条有效曲线数不出来
-                        'CAL', 'CALS', 'CALX', 'CALY', 'CALI',
-                        'CAL_AVERAGE', 'CAL-AVG', 'CALAVG', 'CAL_MEAN',
-                        'SP', 'BIT']
+                        # 【R33 用户定案】井径（CAL 族）/钻头（BIT）不算有效
+                        # 曲线——井径只反映井眼状况，不构成解释依据；SP 是
+                        # 真地层信号保留。
+                        'SP']
         valid_counts = []
         
         for i in range(len(data)):
@@ -14655,7 +14804,18 @@ class WellLogProcessor:
             for curve in valid_curves:
                 if curve in data.columns:
                     window_data = data[curve].iloc[start_idx:end_idx]
-                    valid_ratio = (window_data > 0).sum() / len(window_data)
+                    _wd = pd.to_numeric(window_data, errors='coerce')
+                    _ok = _wd > 0
+                    if not bool(_ok.any()):
+                        continue
+                    _vals = _wd[_ok]
+                    # 【R33 用户定案】平直段不算有效：窗口内近似常数
+                    # （井底回填常值/坯数据）不构成解释依据
+                    _flat = (float(_vals.std()) <=
+                             max(1e-6, abs(float(_vals.median())) * 1e-4))
+                    if _flat:
+                        continue
+                    valid_ratio = _ok.sum() / len(_wd)
                     if valid_ratio > 0.3:
                         count += 1
             
@@ -17435,6 +17595,118 @@ def rejudge_gas_by_reg_below_seal(data):
             _gsi if np.isfinite(_gsi) else -9.0,
             _hits, '维持GAS' if _ok else '降为OIL(无REG气层证据)')
     logger.info('盐下气层REG复核: GAS %d 点中 %d 点降为 OIL', n_gas, n_demoted)
+    return out, n_demoted
+
+
+def _demote_coal_in_enlarged_hole(data, cal_ratio_thr=1.20):
+    """【2026-10-27 R33 用户定案】扩径段煤/碳质泥岩降级。
+
+    煤判据（DEN<2.0+DT>100+CNL高+GR低）会被井眼效应整段满足：扩径→
+    密度读低（泥浆）、声波/中子增大；而真煤电阻率有明显高尖。
+    用户（XIMENIA-5）："没有煤层和碳质泥岩，密度和声波的异常都是井径
+    扩径造成的，电阻率没有特别明显变化，没有高尖是特征"。
+
+    规则：煤/碳质泥岩点 且 扩径比(CAL/BIT)>cal_ratio_thr 且 RT 未进入
+    全井有效值前 10%（无高尖）→ 改归 shale（砂泥岩剖面）。
+    真煤井 RT 高尖（P90 以上）→ 保留不受影响。
+    """
+    import numpy as np
+    import pandas as pd
+    if data is None or len(data) == 0 or 'LITHOLOGY' not in data.columns:
+        return 0
+    _cal = next((c for c in ('CAL', 'CALS', 'CALI', 'CALX')
+                 if c in data.columns), None)
+    _bit = next((c for c in ('BIT', 'BS', 'BIT_SIZE')
+                 if c in data.columns), None)
+    if _cal is None:
+        return 0
+    cal = pd.to_numeric(data[_cal], errors='coerce')
+    if _bit is not None:
+        bit = pd.to_numeric(data[_bit], errors='coerce')
+        bit_val = float(bit[bit > 0].median()) if (bit > 0).any() else 8.5
+    else:
+        bit_val = 8.5
+    if not np.isfinite(bit_val) or bit_val <= 0:
+        bit_val = 8.5
+    ratio = cal / bit_val
+    rt = pd.to_numeric(data.get('RT'), errors='coerce') \
+        if 'RT' in data.columns else pd.Series(np.nan, index=data.index)
+    rt_ok = rt[(rt > 0) & (rt < 1e6)]
+    rt_p90 = float(rt_ok.quantile(0.90)) if len(rt_ok) >= 20 else np.inf
+    _lith = data['LITHOLOGY'].astype(str).str.lower()
+    _mask = (_lith.isin(('coal', 'carbonaceous_shale'))
+             & (ratio > cal_ratio_thr)
+             & ~(rt >= rt_p90))
+    n = int(_mask.sum())
+    if n:
+        data.loc[_mask, 'LITHOLOGY'] = 'shale'
+    return n
+
+
+def rejudge_gas_by_reg_whole(data):
+    """【2026-10-27 R33 用户定案】全井 GAS 证据复核（按层）。
+
+    用户（XIMENIA-5）："本井主要是油层，为什么解释了很多气层"——
+    GAS 规则（Sw<0.5+POR>=0.06+RT>50）没有气层专有证据；本井无气测
+    资料、REG（RTI/NDI/GSI/CGI）无气层异常（GAS 点 RTI 中位 -1.05、
+    CGI 全缺）。逐层复核口径与盐下复核（rejudge_gas_by_reg_below_seal）
+    一致：层内 CGI 中位>=0.6，或 RTI/NDI/GSI 至少两项达阈值
+    （RTI>=0.20 / NDI>=0.05 / GSI>=0.5）→ 维持 GAS；否则整层降 OIL
+    （保留含油气证据，只撤无依据的"气"字）。逐层证据表落日志。
+    有气测且 CGI 达标的井不受影响。
+    """
+    import numpy as np
+    import pandas as pd
+    if data is None or len(data) == 0 or 'INTERPRETATION' not in data.columns:
+        return data, 0
+    _md = pd.to_numeric(data['MD'], errors='coerce')
+    _itp = data['INTERPRETATION'].astype(str)
+    _gas = (_itp == 'GAS') & _md.notna()
+    _gas = _gas.fillna(False)
+    n_gas = int(_gas.sum())
+    if n_gas == 0:
+        logger.info('全井气层REG复核: 无 GAS 点')
+        return data, 0
+    out = data.copy()
+    _rows = np.where(_gas.values)[0]
+    _mds = _md.values[_rows]
+    _order = np.argsort(_mds)
+    _rows = _rows[_order]
+    _mds = _mds[_order]
+    _brk = [0] + [i for i in range(1, len(_rows))
+                  if _mds[i] - _mds[i - 1] > 1.5] + [len(_rows)]
+    _col_itp = out.columns.get_loc('INTERPRETATION')
+    _col_itp2 = out.columns.get_loc('ITP') if 'ITP' in out.columns else None
+    n_demoted = 0
+    for a, b in zip(_brk[:-1], _brk[1:]):
+        _seg = _rows[a:b]
+
+        def _med(col):
+            if col in out.columns:
+                return float(pd.to_numeric(
+                    out.iloc[_seg][col], errors='coerce').median())
+            return float('nan')
+
+        _cgi, _rti, _ndi, _gsi = (_med('CGI'), _med('RTI'),
+                                  _med('NDI'), _med('GSI'))
+        _hits = sum(1 for v, t in ((_rti, 0.20), (_ndi, 0.05), (_gsi, 0.5))
+                    if np.isfinite(v) and v >= t)
+        _ok = (np.isfinite(_cgi) and _cgi >= 0.6) or _hits >= 2
+        if not _ok:
+            out.iloc[_seg, _col_itp] = 'OIL'
+            if _col_itp2 is not None:
+                out.iloc[_seg, _col_itp2] = 'OIL'
+            n_demoted += len(_seg)
+        logger.info(
+            '全井气层REG复核 %.1f-%.1fm n=%d: CGI=%.2f RTI=%.2f NDI=%.3f '
+            'GSI=%.2f 达标项=%d → %s',
+            float(_mds[a]), float(_mds[b - 1]), len(_seg),
+            _cgi if np.isfinite(_cgi) else -9.0,
+            _rti if np.isfinite(_rti) else -9.0,
+            _ndi if np.isfinite(_ndi) else -9.0,
+            _gsi if np.isfinite(_gsi) else -9.0,
+            _hits, '维持GAS' if _ok else '降为OIL(无气层专有证据)')
+    logger.info('全井气层REG复核: GAS %d 点中 %d 点降为 OIL', n_gas, n_demoted)
     return out, n_demoted
 
 

@@ -1296,7 +1296,12 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
                 else _lith_ref_raster(ref))
         if scale is not None:
             dx = max(_tw * abs(scale[0]), x0d / LITH_MAX_COLS)
-            dy = max(_th * abs(scale[1]), z0d / LITH_MAX_ROWS)
+            # 【R33】格距只按设备像素密度（原生 motif 行高），不再随段高
+            # 放大——旧 dy=max(..., z0d/LITH_MAX_ROWS) 对厚泥岩长段把横线
+            # 间距放大（XIMENIA-5 厚泥岩段横线周期 8pt vs 互层段 4pt，
+            # 用户反馈"1807m/1997m 以下泥岩符号明显不一样"）。内存防护
+            # 由下方按行分块渲染承担。
+            dy = _th * abs(scale[1])
         else:
             dx = x0d / 12.0
             dy = z0d / 12.0
@@ -1312,18 +1317,9 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         g0 = _org + math.floor((z0 - _org) / dy + 1e-9) * dy
         n_rows = max(1, int(math.ceil((z1 - g0) / dy - 1e-9)))
         n_cols = max(1, int(math.ceil((x1 - gx0) / dx - 1e-9)))
-        # 防御：巨型数组时放大格距（网格数 **或** 瓦片像素量超限都放大）
-        _f = math.sqrt(float(n_rows * n_cols) / 4000.0)
-        if n_rows * n_cols * _tpx * _tpx > _LITH_REF_MAX_PIX:
-            _f = max(_f, math.sqrt(float(n_rows * n_cols * _tpx * _tpx)
-                                   / float(_LITH_REF_MAX_PIX)))
-        if _f > 1.0:
-            dx *= _f
-            dy *= _f
-            gx0 = _x_org + math.floor((x0 - _x_org) / dx + 1e-9) * dx
-            g0 = _org + math.floor((z0 - _org) / dy + 1e-9) * dy
-            n_rows = max(1, int(math.ceil((z1 - g0) / dy - 1e-9)))
-            n_cols = max(1, int(math.ceil((x1 - gx0) / dx - 1e-9)))
+        # 【R33】删除"巨型段放大格距"防御（_f 倍增）：同一符号在任意
+        # 厚度井段格距必须一致（与参考图逐形一致铁律）。内存防护由下方
+        # 按行分块渲染承担（每块行数受 _LITH_REF_MAX_PIX 约束）。
         # 【2026-10-26 R25】_SYMBOL_REF_RASTER 覆盖图(白云岩)设备1:1模式:
         # 瓦片阵列按**最终显示设备像素数**预采样(PIL BOX), imshow 用
         # nearest 1:1 贴图 —— 消除 mpl antialiased 二次重采样把 2px 斜杠
@@ -1349,22 +1345,34 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         # 不再假设"栅格边长 = 格距像素"（高分辨率栅格后二者已不同）。
         _hpx = int(_tile.shape[1])
         _vpx = int(_tile.shape[0])
-        big = np.tile(_tile, (n_rows, n_cols, 1))
-        # 精确裁剪到段区（含半格按比例裁像素，不越界到邻段）
-        # 【R22】裁剪/extent 均以全局列锚 gx0 为基准（gx0<=x0，超出部分由
-        # clip_path 裁掉），子段间图案连续
-        _rpx = min(big.shape[0], max(1, int(round((z1 - g0) / dy * _vpx))))
-        _cpx = min(big.shape[1], max(1, int(round((x1 - gx0) / dx * _hpx))))
-        big = big[:_rpx, :_cpx]
+        # 【R33】按行分块渲染：每块行数受 _LITH_REF_MAX_PIX 约束，格距
+        # 恒定不变；块间共享全局网格（g0 行相位锚定 + gx0 列锚）→ 跨块
+        # 图案无缝接续。精确裁剪仍以 gx0 为基准（R22），clip_path 限定段区。
+        from matplotlib.patches import Rectangle as _Rect
+        _clip = _Rect((x0, z0), x1 - x0, z1 - z0, transform=ax.transData)
+        _cap_rows = max(16, int(_LITH_REF_MAX_PIX /
+                                max(1, n_cols * max(1, _tpx) * max(1, _tpx))))
+        _k_a = max(0, int(math.floor((z0 - g0) / dy - 1e-9)))
+        _k_b = max(_k_a + 1, int(math.ceil((z1 - g0) / dy + 1e-9)))
         try:
-            from matplotlib.patches import Rectangle as _Rect
-            im = ax.imshow(big,
-                           extent=[gx0, gx0 + _cpx / float(_hpx) * dx,
-                                   g0 + _rpx / float(_vpx) * dy, g0],
-                           aspect='auto', interpolation=_im_interp,
-                           zorder=zorder, snap=False)
-            im.set_clip_path(_Rect((x0, z0), x1 - x0, z1 - z0,
-                                   transform=ax.transData))
+            _ka = _k_a
+            while _ka < _k_b:
+                _kb = min(_ka + _cap_rows, _k_b)
+                _z0c = g0 + _ka * dy
+                _nr = _kb - _ka
+                big = np.tile(_tile, (_nr, n_cols, 1))
+                _rpx = min(big.shape[0], max(1, int(round(
+                    (min(_z0c + _nr * dy, z1) - max(_z0c, z0)) / dy * _vpx))))
+                _cpx = min(big.shape[1], max(1, int(round(
+                    (x1 - gx0) / dx * _hpx))))
+                big = big[:_rpx, :_cpx]
+                im = ax.imshow(big,
+                               extent=[gx0, gx0 + _cpx / float(_hpx) * dx,
+                                       _z0c + _rpx / float(_vpx) * dy, _z0c],
+                               aspect='auto', interpolation=_im_interp,
+                               zorder=zorder, snap=False)
+                im.set_clip_path(_clip)
+                _ka = _kb
         except Exception as exc:
             logger.warning('ref 墨迹瓦片实体绘制失败 %s: %s', name, exc)
         return
