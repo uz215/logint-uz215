@@ -8155,6 +8155,10 @@ def visualize_fluid_crossplots(data, results=None, output_dir='output',
             mode = _cp.get('mode') or 'fluid'
         else:
             xc, yc, xlab, ylab, purpose, mode = _cp
+        # 【R37 用户定案】面板级开关：包含非储层点——煤/碳质泥岩判别
+        # 面板需要泥岩基线与煤/碳质泥岩点本身（默认交会图只绘储层数据）
+        include_nonres = (bool(_cp.get('include_nonres'))
+                          if isinstance(_cp, dict) else False)
         cx = _pick_column(d, xc)
         cy = _pick_column(d, yc)
         if cx is None or cy is None:
@@ -8179,7 +8183,10 @@ def visualize_fluid_crossplots(data, results=None, output_dir='output',
         # 【2026-10-15 用户定案】交会图只用储层数据——泥岩等非储层点不画
         # （此前灰色底色点已去除，INTERPRETATION∈{OIL,GAS,WATER,DRY,*_POSSIBLE}
         # 才上图；other 掩码仍用于岩性交会图 _res_mask 过滤）
-        other = d['INTERPRETATION'].map(classify_fluid) == 'OTHER'
+        if include_nonres:
+            other = pd.Series(False, index=d.index)   # 非储层点也上图
+        else:
+            other = d['INTERPRETATION'].map(classify_fluid) == 'OTHER'
 
         _seen = []
         if mode == 'lith' and lith_colors and 'LITHOLOGY' in d.columns:

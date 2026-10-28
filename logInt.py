@@ -11521,12 +11521,13 @@ def adaptive_thresholds(series_map):
     _rt50 = q('RT', 50)
     _rt40 = q('RT', 40)
     out['RT_mud_max'] = (max(_rt50, 3.0) if _rt50 else None)
-    # 【R33 用户定案 XIMENIA-5】煤/碳质泥岩必须有**电阻率支持**——
-    # 有机质/煤是高阻的，'电阻率没有特别明显变化、没有高尖'就不是煤。
-    # RT_coal_min  = 3×泥质响应上限（下限 15）；RT_carb_min = 0.8×上限
-    # （碳质泥岩电阻率高于普通泥岩但不化）
+    # 【R33/R37 用户定案】煤/碳质泥岩必须有**电阻率支持**——用户：
+    # "煤一般都是有电阻率高尖的（突然升高）；碳质泥岩虽不如煤明显，
+    # 但相对泥岩也是较高的"。RT_coal_min  = 3×泥质响应基线（高尖，
+    # 下限 15）；RT_carb_min = 1.2×基线（明显高于泥岩——旧 0.8×低于
+    # 基线，与'相对泥岩较高'的知识矛盾，按知识修正判据）
     out['RT_coal_min'] = (max(3.0 * _rt50, 15.0) if _rt50 else None)
-    out['RT_carb_min'] = (0.8 * _rt50 if _rt50 else None)
+    out['RT_carb_min'] = (1.2 * _rt50 if _rt50 else None)
     out['RT_mud_strong'] = (max(_rt40, 2.0) if _rt40 else None)
     return out
 
