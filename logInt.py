@@ -10854,7 +10854,10 @@ COL_CANDIDATES = {
     'DT':   ['DT', 'DTC', 'DTCO', 'AC'],
     'RT':   ['RT_LAS', 'RT', 'RMSL', 'RD', 'MSFL'],
     'PE':   ['PE', 'PEF'],
-    'CAL':  ['CAL_LAS', 'CAL', 'CALX', 'CALY'],
+    # 【R35】补 CALS/BS：XIMENIA-5 用 CALS+BS 命名，此前没映射到
+    # CAL/BIT → 派生扩径比 CALR 缺失，煤 deny 的井径条件无从判定
+    'CAL':  ['CAL_LAS', 'CAL', 'CALX', 'CALY', 'CALS', 'CALI'],
+    'BIT':  ['BIT', 'BIT_LAS', 'BS', 'BIT_SIZE'],
     'BIT':  ['BIT', 'BIT_LAS'],
     # 扩径比 CAL/BIT —— 识别**水泥返高段**（套管鞋以下、固井水泥污染带）
     # 的关键信号。实测 BET-1 6447-6460ft 水泥返高段 CAL/BIT=1.38，
@@ -10996,7 +10999,12 @@ LITHOLOGY_RULES = [
             # 响应不是煤（XIMENIA-5：煤点 RT 5.7 vs 阈值 34 全排除）。
             # 从 must 改写为 deny：排除逻辑集中在 deny 层，PE 门控等其它
             # 门控开/关不影响本排除的稳定性
-            {'all': [('RT', '<', '@RT_coal_min?15')]},
+            # 【R35 用户定案】'低密度高声波是扩径造成'这一排除理由本身
+            # 需要井径证据支持：只有**确实扩径**（CALR=CAL/BIT>1.20）且
+            # RT 无高尖才否决——井径正常的低密度高声波段（物理底线已过）
+            # 仍可能是真煤（如低阻煤），不因 RT 单条被误杀
+            {'all': [('RT', '<', '@RT_coal_min?15'),
+                     ('CALR', '>', 1.20)]},
         ],
     },
     # ================= 碳质泥岩 =================
