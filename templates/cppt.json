@@ -95,10 +95,11 @@
       ],
       "x_label": "自然伽马 GR (API)",
       "y_label": "密度 DEN (g/cm³)",
-      "purpose": "岩性识别：伽马-密度",
+      "purpose": "岩性识别：伽马-密度（岩性识别面板必须包含全部数据）",
       "mode": "lith",
       "x_log": false,
-      "percent_scale": false
+      "percent_scale": false,
+      "include_nonres": true
     },
     {
       "x_curves": [
@@ -112,10 +113,11 @@
       ],
       "x_label": "自然伽马 GR (API)",
       "y_label": "中子 CNL (%)",
-      "purpose": "岩性识别：伽马-中子",
+      "purpose": "岩性识别：伽马-中子（岩性识别面板必须包含全部数据）",
       "mode": "lith",
       "x_log": false,
-      "percent_scale": true
+      "percent_scale": true,
+      "include_nonres": true
     },
     {
       "x_curves": [
@@ -207,5 +209,5 @@
       "percent_scale": false
     }
   ],
-  "note_crossplots": "交会图组合表：x_curves/y_curves 为候选列名（按顺序取第一个存在的列）；x_label/y_label 为轴标签；purpose 为图题；mode=fluid 按流体类型着色（FLUID_COLOR），mode=lith 按岩性着色（logvis LITH_BG_COLORS，与综合图同套颜色）；x_log=true 时 x 轴对数刻度；percent_scale=true 时若数值为 0-1 小数自动×100 成百分数。增删/调整本数组可改变交会图种类。include_nonres=true 时该面板包含非储层点（默认只绘储层数据）——用于煤/碳质泥岩等岩性判别面板。"
+  "note_crossplots": "交会图组合表：x_curves/y_curves 为候选列名（按顺序取第一个存在的列）；x_label/y_label 为轴标签；purpose 为图题；mode=fluid 按流体类型着色（FLUID_COLOR），mode=lith 按岩性着色（logvis LITH_BG_COLORS，与综合图同套颜色）；x_log=true 时 x 轴对数刻度；percent_scale=true 时若数值为 0-1 小数自动×100 成百分数。增删/调整本数组可改变交会图种类。include_nonres=true 时该面板包含非储层点（默认只绘储层数据）。【R39 用户定案】数据范围按面板用途划分：**流体/油气识别类面板（物性、Sw-孔隙度、REG对比、储层评价）只用储层数据；岩性识别类面板（伽马-密度、伽马-中子、煤/碳质泥岩判别）必须用全部数据**（泥岩基线与非储层点正是岩性判别的对象）。"
 }
