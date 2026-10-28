@@ -11068,6 +11068,13 @@ LITHOLOGY_RULES = [
             # 这样既排除高伽马泥岩，又不误杀 GR 140-150 的灰分煤（其 ρ<1.7）。
             {'all': [('GR', '>', 150.0), ('DEN', '>', 1.80)]},
             {'all': [('GR', '>', 135.0), ('DEN', '>', 1.95)]},
+            # 【2026-10-28 R38 用户知识定案】煤伽玛低值是与泥岩/碳质泥岩
+            # 的最强判别项（用户："煤和泥岩、碳质泥岩的区别是煤伽玛低值，
+            # 这应该很好区分"）：伽马已进入本井泥岩区间（>=GR_shale_min，
+            # 井级自适应 token 放 deny 层）且密度不够极低（>1.85，灰分煤
+            # ρ<1.7 不受影响）→ 泥质地层不是煤
+            {'all': [('GR', '>=', '@GR_shale_min?110'),
+                     ('DEN', '>', 1.85)]},
             # 密度不够低（必须由必要项把关，这里兜底）
             {'all': [('DEN', '>', 2.05)]},
             # 【R34 deny 原则】真煤电阻率有明显高尖——RT 无高尖（低于
@@ -13839,6 +13846,21 @@ class WellLogProcessor:
                             # （用户"密度和声波的异常都是井径扩径造成的"），
                             # 真煤电阻率有明显高尖——扩径且 RT 无高尖的
                             # 煤/碳质泥岩改归泥岩（砂泥岩剖面）。
+                            # 【R38 用户知识定案】尖峰状突变校验：煤=
+                            # 三高两低且高低相对邻近围岩是**突然变化**
+                            # （用户："没有这个一般都不是煤"）；碳质泥岩
+                            # 相似但较缓。段内响应与邻近围岩无突变对比
+                            # （渐变一致，如整段扩径坏井眼）→ 改归泥岩
+                            # （deny 式后置过滤，不依赖门控副作用）
+                            try:
+                                _n_spk = _demote_coal_without_spike(data)
+                                if _n_spk:
+                                    logger.info("无尖峰煤/碳质泥岩降级: %d 点"
+                                                "改归泥岩（段内响应与邻近围岩"
+                                                "无突变对比）", _n_spk)
+                            except Exception as _spe:
+                                logger.warning("尖峰校验降级失败"
+                                               "（不影响主流程）: %s", _spe)
                             try:
                                 _n_coal = _demote_coal_in_enlarged_hole(data)
                                 if _n_coal:
@@ -17726,6 +17748,127 @@ def rejudge_gas_by_reg_below_seal(data):
             _hits, '维持GAS' if _ok else '降为OIL(无REG气层证据)')
     logger.info('盐下气层REG复核: GAS %d 点中 %d 点降为 OIL', n_gas, n_demoted)
     return out, n_demoted
+
+
+def _demote_coal_without_spike(data):
+    """【2026-10-28 R38 用户知识定案】无尖峰状突变的煤/碳质泥岩降级。
+
+    用户知识（已写入知识库 data/materials/知识_煤碳质泥岩泥岩测井判别_20261028.md）：
+      煤 = 三高两低（高中子/高声波/高电阻，低密度/低伽玛），且高低是
+      **尖峰状**突变——相对邻近围岩突然升高/降低；"没有这个一般都
+      不是煤"。碳质泥岩与煤相似但不如煤剧烈；煤伽玛低值是与泥岩/
+      碳质泥岩的最强判别项。
+
+    判别：逐连续段取段内中位 vs 段边界邻近围岩（非煤/碳质泥岩点）中位：
+      煤（剧烈，满足任一即视为尖峰）：
+        DEN ≤ 围岩−0.12 / DT ≥ 围岩+15 / CNL ≥ 围岩+8 / RT ≥ 1.8×围岩
+      碳质泥岩（较缓）：
+        DEN ≤ 围岩−0.05 / DT ≥ 围岩+6 / CNL ≥ 围岩+4 / RT ≥ 1.3×围岩
+    全部不满足（响应与邻近围岩渐变一致、无突变）→ 改归 shale
+    （LITHOLOGY 与 LITHOLOGY_MC 双列同步，R36 教训）。
+    邻近围岩 <3 点或可用曲线 <1 条 → 不降级（证据不足不动）。
+
+    扩径坏井眼段（如 XIMENIA-5 2670m 下）整段密度/声波渐变异常、段内
+    无对比 → 全部拦下；真煤层薄而尖、与围岩突变 → 不受影响。
+    """
+    import numpy as np
+    import pandas as pd
+    if data is None or len(data) == 0 or 'LITHOLOGY' not in data.columns:
+        return 0
+    _lith_s = data['LITHOLOGY'].astype(str).str.lower()
+    _targets = ('coal', 'carbonaceous_shale')
+    if not _lith_s.isin(_targets).any():
+        return 0
+
+    _curves = [('DEN', ('DEN', 'RHOB', 'RHOZ')),
+               ('DT',  ('DT', 'AC', 'DTC')),
+               ('CNL', ('CNL', 'NPHI', 'TNPH')),
+               ('RT',  ('RT', 'RD', 'LLD', 'ILD'))]
+    _series = {}
+    for _std, _cands in _curves:
+        _c = next((c for c in _cands if c in data.columns), None)
+        if _c is None:
+            continue
+        _v = pd.to_numeric(data[_c], errors='coerce')
+        if _std == 'RT':
+            _v = _v.where((_v > 0) & (_v < 1e6))
+        if _v.notna().sum() >= 5:
+            _series[_std] = _v
+    if not _series:
+        return 0
+
+    # 煤/碳质泥岩阈值（段类型 → {曲线: (le_delta, ge_delta, rt_ratio)}）
+    _thr = {'coal': {'DEN': (0.12, None, None), 'DT': (None, 15.0, None),
+                     'CNL': (None, 8.0, None), 'RT': (None, None, 1.8)},
+            'carbonaceous_shale': {'DEN': (0.05, None, None),
+                                   'DT': (None, 6.0, None),
+                                   'CNL': (None, 4.0, None),
+                                   'RT': (None, None, 1.3)}}
+
+    _is_t = _lith_s.isin(_targets).to_numpy()
+    _lab = _lith_s.to_numpy()
+    n = len(_lab)
+    _demote_idx = []
+    i = 0
+    while i < n:
+        if not _is_t[i]:
+            i += 1
+            continue
+        j = i
+        while j + 1 < n and _is_t[j + 1] and _lab[j + 1] == _lab[i]:
+            j += 1
+        kind = _lab[i]
+        seg_med = {k: float(v.iloc[i:j + 1].median()) for k, v in _series.items()
+                   if v.iloc[i:j + 1].notna().sum() >= 1}
+        # 邻近围岩：段边界外各取最多 max(4, 2×段长) 个非煤/碳质点
+        _k = min(n, max(4, 2 * (j - i + 1)))
+        _b = i - 1
+        _bg_before = []
+        while _b >= 0 and len(_bg_before) < _k:
+            if not _is_t[_b]:
+                _bg_before.append(_b)
+            _b -= 1
+        _f = j + 1
+        _bg_after = []
+        while _f < n and len(_bg_after) < _k:
+            if not _is_t[_f]:
+                _bg_after.append(_f)
+            _f += 1
+        _bg_idx = _bg_before + _bg_after
+        if len(_bg_idx) < 3 or not seg_med:
+            i = j + 1
+            continue  # 证据不足不动
+        _bg_med = {}
+        for k, v in _series.items():
+            _vals = v.iloc[_bg_idx]
+            _vals = _vals[_vals.notna()]
+            if len(_vals) >= 3:
+                _bg_med[k] = float(_vals.median())
+        _rules = _thr.get(kind, {})
+        _spike = False
+        for k, m in seg_med.items():
+            bm = _bg_med.get(k)
+            if bm is None or not np.isfinite(m) or not np.isfinite(bm):
+                continue
+            dle, dge, rr = _rules.get(k, (None, None, None))
+            if dle is not None and m <= bm - dle:
+                _spike = True
+            elif dge is not None and m >= bm + dge:
+                _spike = True
+            elif rr is not None and bm > 0 and m >= rr * bm:
+                _spike = True
+        if not _spike:
+            _demote_idx.extend(range(i, j + 1))
+        i = j + 1
+
+    _cnt = len(_demote_idx)
+    if _cnt:
+        _mask = np.zeros(n, dtype=bool)
+        _mask[np.array(_demote_idx, dtype=int)] = True
+        for _c in ('LITHOLOGY', 'LITHOLOGY_MC'):
+            if _c in data.columns:
+                data.loc[_mask, _c] = 'shale'
+    return _cnt
 
 
 def _demote_coal_in_enlarged_hole(data, cal_ratio_thr=1.20):
