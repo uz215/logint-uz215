@@ -3168,6 +3168,82 @@ def load_interpretation_cutoffs(well_dir, well_name=''):
     return dict(DEFAULT_CUTOFFS)
 
 
+# 【2026-10-28 R36 用户定案】区域知识结构化配置：区域级地质认识（砂泥岩剖面/
+# 有无煤层/有无碳质泥岩等）此前只能每次口头纠正，现在落到 <井名>info.json
+# 「区域知识」组，每次处理自动生效；区域认识优先于单点统计判据。
+_REGIONAL_KN_ALLOWED = {
+    '剖面类型': ('', 'sand_shale', 'carbonate', 'mixed'),
+    '煤层': ('', '有', '无'),
+    '碳质泥岩': ('', '有', '无'),
+}
+
+_REGIONAL_KNOWLEDGE_DOCS = {
+    '剖面类型': '区域剖面类型：sand_shale=砂泥岩剖面(碳酸盐判据加严)、'
+                'carbonate=碳酸盐岩剖面、mixed=混合；空=程序按曲线聚类自动'
+                '判定。区域地质认识优先于自动判定',
+    '煤层': '该区域是否有煤层：有/无/空。空=不约束；无=单点判据命中的煤'
+            '改归泥岩并留痕（区域认识优先于单点判据）；有=正常判煤',
+    '碳质泥岩': '该区域是否有碳质泥岩：有/无/空。语义同煤层',
+}
+
+# 当前井生效的区域知识（run_workflow 读取 info.json 后设置；模块级单井缓存）
+_ACTIVE_REGIONAL = {}
+
+
+def set_active_regional(reg):
+    global _ACTIVE_REGIONAL
+    _ACTIVE_REGIONAL = dict(reg or {})
+
+
+def get_active_regional():
+    return dict(_ACTIVE_REGIONAL)
+
+
+def load_regional_knowledge(well_dir, well_name=''):
+    """读 <井名>info.json「区域知识」组 → dict（无文件/无组/空值=不约束）。
+
+    候选位置与 load_interpretation_cutoffs 相同：well_dir/<井名>info.json
+    与 well_dir 父目录同名文件，先命中先用；值域校验失败忽略该项。
+    """
+    reg = {k: '' for k in _REGIONAL_KN_ALLOWED}
+    _name = str(well_name or '').strip() or 'well'
+    _cands = []
+    try:
+        wd = Path(well_dir)
+        _cands.append(wd / (_name + 'info.json'))
+        _cands.append(wd.parent / (_name + 'info.json'))
+    except Exception:
+        pass
+    for p in _cands:
+        try:
+            if not p.exists():
+                continue
+            cfg = json.loads(p.read_text(encoding='utf-8'))
+            sec = cfg.get('区域知识') if isinstance(cfg, dict) else None
+            if not isinstance(sec, dict):
+                print('  区域知识: %s 无该组（空=不约束, 可在 json「区域知识」'
+                      '组填写区域地质认识）' % p.name)
+                return reg
+            for k, allowed in _REGIONAL_KN_ALLOWED.items():
+                v = str(sec.get(k) or '').strip()
+                if v and v not in allowed:
+                    logger.warning("区域知识 %s=%r 非法（允许 %s）, 忽略",
+                                   k, v, '/'.join(allowed))
+                    continue
+                reg[k] = v
+            _ov = {k: v for k, v in reg.items() if v}
+            if _ov:
+                print('  区域知识: %s → %s' % (p.name, _ov))
+            else:
+                print('  区域知识: %s 未配置（空=不约束）' % p.name)
+            return reg
+        except Exception as e:
+            logger.warning("区域知识读取失败 %s: %s", p, e)
+    print('  区域知识: 未找到 <井名>info.json（空=不约束, 区域认识可在该 '
+          'json「区域知识」组填写：剖面类型/煤层/碳质泥岩）')
+    return reg
+
+
 def build_interpretation_rules(cut=None):
     """按分井截止值构建解释规则表（cut 全空 → 直接返回默认 INTERPRETATION_RULES）。
 
@@ -13559,6 +13635,19 @@ class WellLogProcessor:
                 cutoffs = dict(DEFAULT_CUTOFFS)
             set_active_cutoffs(cutoffs)
             _rules_well = build_interpretation_rules(cutoffs)
+            # 【R36 用户定案】区域知识同样关键：剖面类型/有无煤层等区域级
+            # 认识走 <井名>info.json「区域知识」组（空=不约束），结构化
+            # 承接——以前只能口头纠正的知识现在每次处理自动生效
+            try:
+                _regional = load_regional_knowledge(
+                    str(well_output_dir), str(getattr(self, 'well_name', '')))
+            except Exception as _rge:
+                logger.warning("区域知识加载失败（不约束）: %s", _rge)
+                _regional = {}
+            set_active_regional(_regional)
+            if str(_regional.get('剖面类型') or '').strip():
+                _profile_type = _regional['剖面类型']
+                logger.info("区域知识剖面类型覆盖自动预判: %s", _profile_type)
             logger.info("Step 2: Spring segment correction")
 
             # 检测时只用密度曲线，但校正时同时校正密度和电阻率曲线
@@ -13758,6 +13847,20 @@ class WellLogProcessor:
                             except Exception as _dce:
                                 logger.warning("扩径煤降级失败（不影响主流程）: %s",
                                                _dce)
+                            # 【R36 用户定案】区域知识接入：info.json「区域知识」
+                            # 组标注 煤层=无 / 碳质泥岩=无 时，单点判据命中的
+                            # 煤/碳质泥岩按区域认识改归泥岩并留痕——区域知识
+                            # 优先于单点统计判据（deny 式后置过滤，不依赖
+                            # 任何门控副作用，判据不反复）
+                            try:
+                                _nk, _nc = _apply_regional_lith_knowledge(data)
+                                if _nk or _nc:
+                                    logger.info("区域知识: 煤 %d 点/碳质泥岩 %d 点"
+                                                "改归泥岩（info.json「区域知识」"
+                                                "标注该区域无此岩性）", _nk, _nc)
+                            except Exception as _rke:
+                                logger.warning("区域知识岩性修正失败"
+                                               "（不影响主流程）: %s", _rke)
                             data['LITH_MC_CONF'] = _rec.confidence
                             data['LITH_MC_WHY'] = _rec.why
                             # 套管掩码落盘，供绘图/报告使用。
@@ -16337,6 +16440,14 @@ def collect_well_info(results, well_dir):
                     'rmc_meas_temp': final.get('rmc_meas_temp') or '',
                     'rm_bht': final.get('rm_bht') or '',
                 },
+                # 【2026-10-28 R36 用户定案】区域知识组：区域级地质认识
+                # 结构化承接（剖面类型/有无煤层/有无碳质泥岩），空=不约束
+                '区域知识': {
+                    '_参数说明': dict(_REGIONAL_KNOWLEDGE_DOCS),
+                    '剖面类型': '',
+                    '煤层': '',
+                    '碳质泥岩': '',
+                },
             }
             for _g, _d in _new_groups.items():
                 if _g not in _old:
@@ -17658,7 +17769,45 @@ def _demote_coal_in_enlarged_hole(data, cal_ratio_thr=1.20):
     n = int(_mask.sum())
     if n:
         data.loc[_mask, 'LITHOLOGY'] = 'shale'
+        # 【R36】LITHOLOGY_MC 同步（下游 10418 行优先读 MC，只改一列会分叉）
+        if 'LITHOLOGY_MC' in data.columns:
+            data.loc[_mask, 'LITHOLOGY_MC'] = 'shale'
     return n
+
+
+def _apply_regional_lith_knowledge(data):
+    """【2026-10-28 R36 用户定案】区域知识岩性约束。
+
+    info.json「区域知识」组标注 煤层=无 / 碳质泥岩=无 时，单点判据命中的
+    煤/碳质泥岩改归 shale——区域认识优先于单点统计判据（用户 XIMENIA-5：
+    "这些知识以前也已经说过多次，这是砂泥岩剖面，为什么没有形成知识"）。
+    LITHOLOGY 与 LITHOLOGY_MC 两列同步改，避免下游读 MC 分叉。
+    返回 (煤改点数, 碳质泥岩改点数)（按 LITHOLOGY 列计）。
+    """
+    import pandas as pd
+    if data is None or len(data) == 0:
+        return 0, 0
+    _col = 'LITHOLOGY' if 'LITHOLOGY' in data.columns else (
+        'LITHOLOGY_MC' if 'LITHOLOGY_MC' in data.columns else None)
+    if _col is None:
+        return 0, 0
+    reg = get_active_regional()
+    n_coal = n_carb = 0
+    _cols = [c for c in ('LITHOLOGY', 'LITHOLOGY_MC') if c in data.columns]
+    _lith = data[_col].astype(str).str.lower()
+    if str(reg.get('煤层', '')).strip() == '无':
+        _m = (_lith == 'coal')
+        n_coal = int(_m.sum())
+        if n_coal:
+            for _c in _cols:
+                data.loc[_m, _c] = 'shale'
+    if str(reg.get('碳质泥岩', '')).strip() == '无':
+        _m = _lith.isin(('carbonaceous_shale', 'carbonaceous mudstone'))
+        n_carb = int(_m.sum())
+        if n_carb:
+            for _c in _cols:
+                data.loc[_m, _c] = 'shale'
+    return n_coal, n_carb
 
 
 def rejudge_gas_by_reg_whole(data):
