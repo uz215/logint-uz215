@@ -7995,6 +7995,30 @@ def _pct(series, lo, hi):
     pad = (b - a) * 0.05
     return (max(a - pad, 0 if a >= 0 else a - pad), b + pad)
 
+def _pct_robust(series, lo, hi):
+    """【2026-10-29 R41 用户定案】岩性面板稳健截轴。
+
+    先 IQR 围栏（P25-5×IQR, P75+5×IQR）剔除物理不可能的饱和/哨兵值
+    （如 CNL=1371.8 的坏点占 1.15%>0.5%，单次 P99.5 本身被污染——
+    伽马-中子面板 y 轴曾被拉到 1400%），再取 P0.5-P99.5 分位截断。
+    仅岩性面板（mode=lith，数据含全部岩性点）使用；流体面板数据
+    已经储层过滤，沿用单次 _pct。
+    """
+    v = pd.to_numeric(series, errors='coerce').dropna()
+    if len(v) == 0:
+        return (0, 1)
+    p25, p75 = np.percentile(v, [25, 75])
+    iqr = p75 - p25
+    if iqr > 0:
+        _v = v[(v >= p25 - 5 * iqr) & (v <= p75 + 5 * iqr)]
+        if len(_v) >= 10:      # 围栏几乎全剔时退回原值（防误杀窄分布）
+            v = _v
+    a, b = np.percentile(v, [lo, hi])
+    if b <= a:
+        b = a + 1
+    pad = (b - a) * 0.05
+    return (max(a - pad, 0 if a >= 0 else a - pad), b + pad)
+
 
 def _segment_table(segs, d, xv, yv, unit='ft'):
     """生成右侧层段清单文本。"""
@@ -8238,8 +8262,14 @@ def visualize_fluid_crossplots(data, results=None, output_dir='output',
         ax.set_xlabel(xlab, fontsize=11)
         ax.set_ylabel(ylab, fontsize=11)
         ax.grid(alpha=0.3, lw=0.5)
-        ax.set_xlim(_pct(xv, 0.5, 99.5))
-        ax.set_ylim(_pct(yv, 0.5, 99.5))
+        # 【R41 用户定案】岩性面板（含全部数据，可能有饱和坏点）用稳健截轴；
+        # 流体面板（只绘储层数据）维持单次分位截断
+        if mode == 'lith':
+            ax.set_xlim(_pct_robust(xv, 0.5, 99.5))
+            ax.set_ylim(_pct_robust(yv, 0.5, 99.5))
+        else:
+            ax.set_xlim(_pct(xv, 0.5, 99.5))
+            ax.set_ylim(_pct(yv, 0.5, 99.5))
 
         # 右侧层段清单
         txt = _segment_table(segs, d, xv, yv, depth_unit)
