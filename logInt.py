@@ -8196,6 +8196,21 @@ class MineralAnalyzer:
                 profile_type = 'mixed'
                 logger.info(f"交汇图判定：混合剖面，主要岩性 {main_lithology}")
             
+            # 【R42 2026-10-29 用户定案】剖面类型以《测井岩性识别技术标准》
+            # 第7章 PTI 综合判别为准（元素矿物+大段统计+密度-中子交会图+
+            # GR形态，四因子加权）。旧交会图法把 3-SPS-111D 判成 sand_shale
+            # ——砂泥岩守门使灰岩规则 need+1，6454-6500m 致密灰岩（DEN
+            # 2.84-2.88）整段落入泥岩兜底，即"几层泥岩密度都2.7以上"根因
+            # 第一环。PTI 实测 111D=0.70（碳酸盐，高置信）、XIMENIA-5≈0.03
+            # （砂泥岩），分离干净。
+            try:
+                _pti_t2, _pti_v2, _pti_d2 = pti_profile_type(data, str(well_name))
+                if _pti_t2:
+                    logger.info("PTI 剖面判别: %s (PTI=%.3f) %s ｜ 交会图法: %s",
+                                _pti_t2, _pti_v2, _pti_d2, profile_type)
+                    profile_type = _pti_t2
+            except Exception as _pti_e2:
+                logger.warning("PTI 剖面判别失败（用交会图法结果）: %s", _pti_e2)
             # 将剖面类型存入data.attrs，供下游模块使用（特殊岩性检测、解释等）
             data.attrs['profile_type'] = profile_type
             data.attrs['main_lithology'] = main_lithology
@@ -9038,6 +9053,122 @@ def _step_of(md, default=0.25):
     diffs = np.abs(np.diff(d))
     diffs = diffs[np.isfinite(diffs) & (diffs > 0)]
     return float(np.median(diffs)) if diffs.size else default
+
+def pti_profile_type(data, well_name='Unknown'):
+    """《测井岩性识别技术标准》第7章 PTI 剖面类型综合判别【R42 2026-10-29】。
+
+    PTI = Σ(Wi×Fi)/ΣWi，缺失项按可用项权重归一化重分配（标准 7.7）：
+      F_ecs   0.30  元素测井矿物三大类占比（标准 7.1）——无元素测井时缺失
+      F_stat  0.25  大段统计比例（标准 7.3）：P_den265 / P_rt100 / P_ac60
+      F_cross 0.20  密度-中子交会图碳酸盐区域点占比（标准 7.4 量化口径）
+      F_morph 0.15  GR 形态（标准 7.6）：σ_GR、ΔGR_pp 越小越偏碳酸盐
+      （F_cluster 0.10 不参与——全井聚类代价高且不稳定，按标准"缺失项
+        归一化"规则由其余四项承担判别力）
+
+    用户知识校准（2026-10-29）：砂泥岩声波基本 >60us/ft、碳酸盐岩 <70
+    ——统计声波项用 P_ac60 替代标准缺省 P_ac50：深部井致密灰岩 DT
+    50-67 全部 >50，P_ac50 在深部井失去区分度（111D 实测 0.98）。
+
+    特殊岩性（盐岩 DEN<2.20/负中子、硬石膏 DEN>2.93 近零中子、煤
+    DEN<1.8，标准 7.2 曲线判据）与套管段剔除后才统计——否则膏盐段
+    系统性拉高 P_den265/P_rt100 把砂泥岩井误判成碳酸盐（标准原文警告）。
+
+    判别分界（标准 7.8）：PTI≥0.55 碳酸盐岩、<0.35 砂泥岩、其余混合。
+
+    返回 (profile_type|None, pti值, 明细串)：统计段不足返回 (None, 0, 原因)。
+    """
+    def _pick(*names):
+        for nm in names:
+            if nm in data.columns:
+                return pd.to_numeric(data[nm], errors='coerce')
+        return pd.Series(np.nan, index=data.index)
+
+    den = _pick('RHOB', 'DEN', 'ZDEN')
+    cnl = _pick('NPHI', 'CNL', 'CNCF')
+    gr = _pick('GR', 'GRX', 'GR_XMAC')
+    dt = _pick('DT', 'DTC', 'DTCO', 'AC')
+    rt = _pick('RT_LAS', 'RT', 'RMSL', 'RD')
+    try:
+        _cas = pd.Series(data['IS_CASING']).fillna(False).astype(bool) \
+            if 'IS_CASING' in data.columns \
+            else pd.Series(False, index=data.index)
+    except Exception:
+        _cas = pd.Series(False, index=data.index)
+    _sp = (den < 2.20) | (den > 2.93) | (cnl < 0) | (den < 1.8)
+    valid = den.notna() & dt.notna() & gr.notna() & (~_cas) & (~_sp)
+    n_valid = int(valid.sum())
+    if n_valid < 200:
+        return (None, 0.0, '统计段不足(%d<200)' % n_valid)
+
+    _parts = []
+    _wsum = 0.0
+    _pti = 0.0
+    # --- F_ecs（标准 7.1：三大类矿物占比）---
+    _fec = None
+    _ev_share = 0.0
+    _volc = [c for c in data.columns if str(c).upper().startswith('VOL_')]
+    if _volc:
+        def _v(c):
+            return (pd.to_numeric(data[c], errors='coerce').fillna(0.0)
+                    if c in data.columns
+                    else pd.Series(0.0, index=data.index))
+        _w_si = (_v('VOL_QUARTZ') + 0.5 * _v('VOL_ILLITE')
+                 + _v('VOL_KAOL') + _v('VOL_CHLOR'))
+        _w_ca = _v('VOL_CALCITE') + _v('VOL_DOLOM')
+        _w_ev = _v('VOL_ANHY') + _v('VOL_SALT') + _v('VOL_GYPS')
+        _tot = _w_si + _w_ca + _w_ev
+        _tot = _tot.where(_tot > 0.05)
+        _f = ((_w_ca + 0.5 * _w_ev) / _tot)[valid].dropna()
+        if len(_f) >= 100:
+            _fec = float(_f.median())
+            _ev_share = float((_w_ev / _tot >= 0.30)[valid].mean())
+    if _fec is not None:
+        _pti += 0.30 * _fec
+        _wsum += 0.30
+        _parts.append('F_ecs=%.2f' % _fec)
+    # --- F_stat（标准 7.3，声波项 P_ac60 用户校准）---
+    _pd265 = float((den[valid] > 2.65).mean())
+    _pr100 = (float((rt[valid] > 100).mean())
+              if bool(rt.notna()[valid].any()) else None)
+    _pa60 = float((dt[valid] > 60.0).mean())
+    _fs = (0.35 * (1 - _pd265)
+           + 0.25 * ((1 - _pr100) if _pr100 is not None else 0.5)
+           + 0.40 * _pa60)
+    _fst = 1.0 - _fs
+    _pti += 0.25 * _fst
+    _wsum += 0.25
+    _parts.append('F_stat=%.2f(P_den265=%.2f,P_rt100=%s,P_ac60=%.2f)'
+                  % (_fst, _pd265,
+                     ('%.2f' % _pr100) if _pr100 is not None else '缺', _pa60))
+    # --- F_cross（标准 7.4 量化：密度-中子交会碳酸盐区域占比）---
+    # 碳酸盐区域 = 方解石线 DEN=2.71-1.71×φN 的碳酸盐侧(容差0.05) 且
+    # CNL≤22%（用户：碳酸盐中子 20 以下甚至更低、砂泥岩 30 以上）
+    _cnl_f = (cnl / 100.0).clip(-0.02, 0.5)
+    _calcite = 2.71 - 1.71 * _cnl_f
+    _inC = valid & (_cnl_f <= 0.22) & (den >= _calcite - 0.05)
+    _fc = float(_inC.sum()) / n_valid
+    _pti += 0.20 * _fc
+    _wsum += 0.20
+    _parts.append('F_cross=%.2f' % _fc)
+    # --- F_morph（标准 7.6：GR 低平=碳酸盐，起伏大=砂泥岩）---
+    _sig = float(gr[valid].std())
+    _pp = float(gr[valid].quantile(0.98) - gr[valid].quantile(0.02))
+    _fm = (min(max((25.0 - _sig) / 20.0, 0.0), 1.0) * 0.6
+           + min(max((60.0 - _pp) / 50.0, 0.0), 1.0) * 0.4)
+    _pti += 0.15 * _fm
+    _wsum += 0.15
+    _parts.append('F_morph=%.2f(σ_GR=%.1f,ΔGR_pp=%.1f)' % (_fm, _sig, _pp))
+    _pti = float(_pti / _wsum) if _wsum > 0 else 0.5
+    if _pti >= 0.55:
+        _t = 'carbonate'
+    elif _pti < 0.35:
+        _t = 'sand_shale'
+    else:
+        _t = 'mixed'
+    if _ev_share > 0.30:
+        _parts.append('含膏盐段(蒸发岩类占比%.2f)' % _ev_share)
+    return (_t, _pti, ' '.join(_parts))
+
 
 def detect_well_profile_type(data, well_name='Unknown',
                              carbonate_cnl_max=12.0,
@@ -11165,7 +11296,9 @@ LITHOLOGY_RULES = [
         'core': [
             ('CNL', '<', 8.0, 2.5),    # 极低中子（碳酸盐的强标志）
             ('PE',  '>', 4.20, 0.5),   # 辅助（权重低：泥岩也会高）
-            ('GR',  '<', 55.0, 1.5),
+            # 【R42】GR 上限分位值化（@GR_lime_max?55）：死值 55 在高伽马
+            # 灰岩井（111D GR P50=84.6）让灰岩规则永远拿不到 GR 分
+            ('GR',  '<', '@GR_lime_max?55', 1.5),
             ('RT',  '>', 3.00, 1.0),
             ('DEN', '>', 2.70, 1.0),
             ('DT',  '<', 72.0, 1.0),
@@ -11191,7 +11324,8 @@ LITHOLOGY_RULES = [
         'core': [
             ('CNL', '<', 7.0, 2.5),
             ('PE',  '>', 3.00, 0.8),
-            ('GR',  '<', 50.0, 1.5),
+            # 【R42】GR 上限分位值化（@GR_dol_max?50），同灰岩口径
+            ('GR',  '<', '@GR_dol_max?50', 1.5),
             ('RT',  '>', 3.00, 1.0),
             ('DEN', '>', 2.82, 1.0),
         ],
@@ -11405,12 +11539,28 @@ LITHOLOGY_RULES = [
             ('GR', '>', '@GR_shale_soft?95'),
         ],
         'core': [
-            ('DEN', '>', 2.40, 1.5),
+            # 【R42 用户定案】"密度大"本身不是泥岩证据——密度上限随本井
+            # 泥岩分布带分位适配（@DEN_shale_lo）：砂泥岩井解析≈2.40（与
+            # 旧死值等价），碳酸盐井致密化后上移（111D≈2.54）。旧死值
+            # 2.40 无上界，把深部致密灰岩（DEN 2.85）当"中高密度"送分
+            # ——那正是"泥岩密度2.7以上"反复出现的帮凶
+            ('DEN', '>', '@DEN_shale_lo?2.40', 1.5),
             ('DT',  '>', 85.0, 1.0),
             ('CNL', '>', 20.0, 1.0),
             ('GR',  '>', '@GR_sand_max?120', 1.0),
         ],
-        'deny': [],
+        'deny': [
+            # 【R42 用户定案】deny 用物理死值（物理不因井而异，允许多条件
+            # 组合防误杀）：
+            # ① "密度2.70以上、声波60以下——这是什么泥岩"（111D 6454-6500m
+            #    致密灰岩/膏质段 DEN 2.84-2.88、DT 51-53 被兜底成泥岩）。
+            #    真泥岩声波高（用户：砂泥岩声波基本在 60us/ft 以上；泥质
+            #    骨架 DT 85+），双条件组合只排除致密碳酸盐/蒸发岩
+            {'all': [('DEN', '>', 2.70), ('DT', '<', 60.0)]},
+            # ② 标准 12.3.1 [DH]：DEN>致密砂岩P95(缺省2.68) 且 PEF>4.5
+            #    —— 指向灰岩/膏岩（泥岩 PE 3.0-3.6；灰分煤 PE<1.5）
+            {'all': [('DEN', '>', 2.68), ('PE', '>', 4.5)]},
+        ],
     },
 ]
 
@@ -11536,6 +11686,21 @@ def adaptive_thresholds(series_map):
     out['RT_coal_min'] = (max(3.0 * _rt50, 15.0) if _rt50 else None)
     out['RT_carb_min'] = (1.2 * _rt50 if _rt50 else None)
     out['RT_mud_strong'] = (max(_rt40, 2.0) if _rt40 else None)
+
+    # ---- 【R42 2026-10-29 用户定案】must/core 分位值化（deny 才用死值）----
+    # 泥岩密度证据下限：P75−0.15 夹在 [2.40,2.60]。砂泥岩井 P75−0.15<2.40
+    # → 解析 2.40 与旧死值逐点等价（XIMENIA-5 实测 P75=2.37）；碳酸盐井
+    # 致密化后上移（111D P75=2.69→2.54）——密度得分只落在泥岩分布带内
+    _den_p75 = q('DEN', 75)
+    if _den_p75 is not None:
+        out['DEN_shale_lo'] = float(min(max(_den_p75 - 0.15, 2.40), 2.60))
+    # 灰岩/白云岩 GR 上限：本井 P40 夹在 [35,60]/[30,55]——"碳酸盐伽马低"
+    # 是相对本井分布而言（111D 全井 GR P50=84.6 的高伽马灰岩井，GR<55
+    # 死值让灰岩规则永远拿不到 GR 分）
+    _gr_p40 = q('GR', 40)
+    if _gr_p40 is not None:
+        out['GR_lime_max'] = float(min(max(_gr_p40, 35.0), 60.0))
+        out['GR_dol_max'] = float(min(max(_gr_p40, 30.0), 55.0))
     return out
 
 # -*- coding: utf-8 -*-
@@ -12078,6 +12243,53 @@ class LithologyRecognizer:
             conf[i] = best_s
             rup[i] = cands[1][2] if len(cands) > 1 else ''
             why[i] = best_why
+        # 【R42 2026-10-29 用户定案】高密度点不得兜底为泥岩："无判据命中
+        # →保持默认泥岩"的静默兜底在深部致密碳酸盐/蒸发岩井会整段产出
+        # 假泥岩（111D 6454-6480m DEN 2.84-2.88/DT 51-53/CNL 6-9 兜底成
+        # 泥岩）。与 deny 同一物理条件（DEN>2.70）的静默兜底点就近并入
+        # 邻段已定岩性（取两侧已定段较长一侧、同长取近者，与薄层并入同
+        # 惯例）——剖面是一个整体，不由单个孤点定岩性
+        try:
+            _n_fill = 0
+            for _i in range(n):
+                if lith[_i] != 'shale' or conf[_i] != 0.0:
+                    continue
+                if self.n_casing and bool(self.casing_mask[_i]):
+                    continue
+                _dv = self._val(_i, 'DEN')
+                if _dv is None or _dv <= 2.70:
+                    continue
+                _best = None
+                for _dirn in (-1, 1):
+                    _k = _i + _dirn
+                    while 0 <= _k < n:
+                        # 【R42 补充】归并目标排除 shale——高密度(DEN>2.70)
+                        # 无判据点并入泥岩等于把整段假泥岩重新串起来
+                        # （111D 6454.3-6454.5m 膏质过渡 6 点规则命中泥岩
+                        # 作种子，把 21 个高密度点拽回泥岩）
+                        if (lith[_k] != 'casing' and lith[_k] != 'shale'
+                                and conf[_k] > 0.0):
+                            _a = _k
+                            while _a - 1 >= 0 and lith[_a - 1] == lith[_k]:
+                                _a -= 1
+                            _b = _k
+                            while _b + 1 < n and lith[_b + 1] == lith[_k]:
+                                _b += 1
+                            _seg = (_b - _a + 1, -abs(_k - _i), lith[_k])
+                            if _best is None or _seg[:2] > _best[:2]:
+                                _best = _seg
+                            break
+                        _k += _dirn
+                if _best is not None:
+                    lith[_i] = _best[2]
+                    why[_i] = ('高密度无判据命中(DEN>2.70)就近并入邻段%s'
+                               % _best[2])
+                    _n_fill += 1
+            if _n_fill:
+                logger.info('高密度兜底点就近归并: %d 点改归邻段岩性'
+                            '（DEN>2.70 且无判据命中，R42）', _n_fill)
+        except Exception as _cfe:
+            logger.warning('高密度兜底归并失败（不影响主流程）: %s', _cfe)
         self.confidence = conf
         self.runner_up = rup
         self.why = why
@@ -13626,6 +13838,19 @@ class WellLogProcessor:
                        if _casing_mask is not None
                        else self.data_processor.data)
                 _ptype, _pinfo = detect_well_profile_type(_d2, _well_for_casing)
+                # 【R42】PTI 综合判别优先（同 P2，喂给岩性识别器的井级约束）
+                try:
+                    _pti_t3, _pti_v3, _pti_d3 = pti_profile_type(
+                        _d2, _well_for_casing)
+                    if _pti_t3:
+                        _pinfo['pti'] = {'value': round(_pti_v3, 3),
+                                         'type': _pti_t3,
+                                         'detail': _pti_d3}
+                        logger.info("PTI 剖面判别(识别器): %s (PTI=%.3f) %s",
+                                    _pti_t3, _pti_v3, _pti_d3)
+                        _ptype = _pti_t3
+                except Exception as _pti_e3:
+                    logger.warning("PTI 剖面判别失败(识别器,用旧法): %s", _pti_e3)
                 _profile_type = _ptype
                 self.results['profile_type_detected'] = _pinfo
             except Exception as _e:
