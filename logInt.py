@@ -14239,6 +14239,33 @@ class WellLogProcessor:
                             except Exception as _lwe:
                                 logger.warning("岩性留痕后置标注失败"
                                                "（不影响主流程）: %s", _lwe)
+                            # 【R46 用户定案】岩性识别迭代复核（二阶段）：
+                            # 少数派岩性段参数对比→确认/否决降级/待目检，
+                            # 确认段联动灰质含量 CALC_CONTENT（§9A）
+                            try:
+                                # 【R46】剖面类型取当前数据的 PTI 现算值：
+                                # run_workflow 预判块因 np 局部导入问题
+                                # 一直失败回退 mixed（既有遗留），不能
+                                # 依赖过时的 _profile_type
+                                _pt_r46 = _profile_type
+                                try:
+                                    _pt_t6, _pt_v6, _pt_d6 = pti_profile_type(
+                                        data, str(getattr(self, 'well_name',
+                                                          'Unknown')))
+                                    if _pt_t6:
+                                        _pt_r46 = _pt_t6
+                                except Exception:
+                                    pass
+                                _rc, _rp, _rd, _rn = _iterative_lith_review(
+                                    data, _pt_r46)
+                                if _rc or _rp or _rd or _rn:
+                                    logger.info("岩性迭代复核: 确认 %d 段 / "
+                                                "待目检 %d 段 / 否决降级 %d 段"
+                                                " / 灰质含量 %d 点",
+                                                _rc, _rp, _rd, _rn)
+                            except Exception as _ire:
+                                logger.warning("岩性迭代复核失败"
+                                               "（不影响主流程）: %s", _ire)
                             # 套管掩码落盘，供绘图/报告使用。
                             # 【注意】必须与 LITHOLOGY_MC 一起在
                             # run_facies_analysis **之前**写入 ——
@@ -18392,6 +18419,280 @@ def _lith_why_post_annotate(data):
     if _n_q4 or _n_ok or _n_bad:
         data.iloc[:, _ci] = _whyv
     return (_n_q4, _n_ok, _n_bad)
+
+
+def _iterative_lith_review(data, profile_type='mixed'):
+    """【R46 用户定案】岩性识别迭代复核（二阶段）——判完回检+灰质含量联动。
+
+    用户："不能一次定……定完后要再去比较是不是参数上有明显区别，
+    如果有确定是，最优化算法的矿物成分就应该加进去灰岩，算出灰质
+    含量……整个的岩性识别的迭代过程应该写进程序，增加泛化能力。"
+    地质依据：煤/碳质泥岩是泻湖等环境生成，与砂泥岩河流相的过渡区
+    中间地带能生成灰质岩性——砂泥岩剖面可以出现很少的灰岩/灰质泥岩，
+    但判完后必须回检参数（规则文档 §9A，v2.4）。
+
+    流程：
+      Step A 少数派段提取：背景岩性集之外的岩性，连续 ≥3 点、
+             该岩性全井占比 <10%；
+      Step B 参数对比（段中位 vs 段上下各 30 点背景岩性中位），
+             证据计分：普通差别 1 分/强差别 2 分，段或围岩缺测的
+             参数不计入（避免"凑不满项数"误杀真钙质段）；
+      Step C ≥3 分确认；≤1 分否决降级（sand_shale 剖面按 GR 回
+             shale/sandstone；其它剖面本轮只留痕不降级）；
+             =2 分保留原判 + 待目检留痕；
+      Step D 确认/待目检的灰岩/白云岩段灰质含量联动：
+             有元素道 → 元素反演全集矿物已含 Calcite，留痕即解锁；
+             无元素道 → 段级石英/方解石/水三组分解析解混
+             （DEN+PE+物质守恒，VSH 先扣泥质），写 CALC_CONTENT
+             列（0-1）；DT 作独立校验，|残差|>10 留痕告警
+             （可能含泥/压实效应，BET-1 钙质胶结段实测即如此）。
+
+    返回 (确认段数, 待目检段数, 否决降级段数, 灰质含量点数)。
+    """
+    _litcol = ('LITHOLOGY_MC' if 'LITHOLOGY_MC' in data.columns
+               else ('LITHOLOGY' if 'LITHOLOGY' in data.columns else None))
+    if _litcol is None or 'LITH_MC_WHY' not in data.columns:
+        return (0, 0, 0, 0)
+    _md = None
+    for _c in ('MD', 'DEPTH', 'DEPT'):
+        if _c in data.columns:
+            _md = pd.to_numeric(data[_c], errors='coerce')
+            break
+    if _md is None:
+        return (0, 0, 0, 0)
+    # 曲线族候选（段/围岩缺测参数自动跳过）
+    _fam = {
+        'DEN': ('RHOB', 'ZDEN', 'DEN', 'RHOZ'),
+        'DT': ('DT', 'DTC', 'DTTC', 'AC', 'DTCO'),
+        'CNL': ('CNL', 'NPHI', 'CNCF'),
+        'GR': ('GR', 'GRX', 'GR_XMAC', 'CGR', 'SGR'),
+        'PE': ('PE', 'PEF'),
+        'RT': ('RT', 'RT_LAS', 'RMSL', 'RD', 'LLD', 'ILD', 'AT90',
+               'M2RX', 'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1', 'AT60'),
+    }
+    _series = {}
+    for _k, _cands in _fam.items():
+        for _c in _cands:
+            if _c in data.columns:
+                _series[_k] = pd.to_numeric(data[_c], errors='coerce')
+                break
+    # 普通差别/强差别阈值（物理死值，规则文档 §9A Step B）
+    _THR = {'DEN': (0.08, 0.15), 'DT': (8.0, 15.0), 'CNL': (4.0, 8.0),
+            'GR': (30.0, 60.0), 'PE': (1.0, 2.0)}
+    # RT 用比值
+    _RT_N = (2.0, 4.0)
+    _RT_LO = (0.5, 0.25)
+    _BG = {
+        'sand_shale': {'shale', 'sandstone', 'coal', 'carbonaceous_shale'},
+        'carbonate': {'limestone', 'dolomite', 'shale', 'halite',
+                      'anhydrite'},
+        'mixed': {'shale', 'sandstone', 'coal', 'carbonaceous_shale',
+                  'limestone', 'dolomite', 'halite', 'anhydrite'},
+    }
+    _bg = _BG.get(str(profile_type or '').strip(), _BG['mixed'])
+    _has_elem = any(str(c).upper().startswith('VOL_') for c in data.columns)
+
+    _litv = data[_litcol].astype(str).values
+    if 'IS_CASING' in data.columns:
+        _cas = data['IS_CASING'].fillna(False).astype(bool).values
+    else:
+        _cas = np.zeros(len(data), dtype=bool)
+    n = len(data)
+    _mdv = _md.values
+    _whyv = data['LITH_MC_WHY'].astype(str).values.copy()
+    _ci = data.columns.get_loc('LITH_MC_WHY')
+    _n_ok = _n_pend = _n_dem = _n_calc = 0
+
+    def _append_tag(arr, idx, tag):
+        _w = arr[idx]
+        arr[idx] = ((_w + '；') if _w and _w != 'nan' else '') + tag
+
+    # ---- Step A 少数派岩性（占比<10% 且不属于背景集）----
+    _cnt = {}
+    for _v in _litv:
+        if _v in ('nan', '', 'casing') or _v in _bg:
+            continue
+        _cnt[_v] = _cnt.get(_v, 0) + 1
+    _minor = {k for k, v in _cnt.items() if v < 0.10 * n}
+    if not _minor:
+        return (0, 0, 0, 0)
+
+    # CALC_CONTENT 列（无元素道的灰质含量输出）
+    if not _has_elem and 'CALC_CONTENT' not in data.columns:
+        data['CALC_CONTENT'] = np.nan
+    _cc_col = ('CALC_CONTENT' if not _has_elem and 'CALC_CONTENT'
+               in data.columns else None)
+    _cc_idx = (data.columns.get_loc('CALC_CONTENT')
+               if _cc_col is not None else -1)
+    _ccv = (data['CALC_CONTENT'].values.astype(float).copy()
+            if _cc_col is not None else None)
+    # 解混响应矩阵（石英/方解石/水：DEN、PE、物质守恒）
+    _A = np.array([[2.65, 2.71, 1.00],
+                   [1.81, 5.08, 0.36],
+                   [1.00, 1.00, 1.00]])
+
+    _inm = np.isin(_litv, list(_minor))
+    i = 0
+    while i < n:
+        if not _inm[i] or _cas[i]:
+            i += 1
+            continue
+        j = i
+        while (j + 1 < n and _inm[j + 1] and not _cas[j + 1]):
+            j += 1
+        _lith_i = _litv[i]
+        if j - i + 1 >= 3:
+            # ---- Step B 参数对比 ----
+            _ctx = [k for k in range(max(0, i - 30), i)
+                    if not _cas[k] and _litv[k] in _bg]
+            _ctx += [k for k in range(j + 1, min(n, j + 31))
+                     if not _cas[k] and _litv[k] in _bg]
+            _ctx = np.array(_ctx, dtype=int)
+            _score = 0.0
+            _det = []
+            for _k, _sv in _series.items():
+                _svv = _sv.values
+                _si = _svv[i:j + 1]
+                _si = _si[np.isfinite(_si)]
+                if _si.size < 3 or _ctx.size < 5:
+                    continue
+                _ci_v = _svv[_ctx]
+                _ci_v = _ci_v[np.isfinite(_ci_v)]
+                if _ci_v.size < 5:
+                    continue
+                _sm = float(np.median(_si))
+                _cm = float(np.median(_ci_v))
+                if _k == 'RT':
+                    if _cm <= 0 or _sm <= 0:
+                        continue
+                    _ratio = _sm / _cm
+                    if _ratio >= _RT_N[1] or _ratio <= _RT_LO[1]:
+                        _score += 2
+                        _det.append('RT强(%.1f倍)' % _ratio)
+                    elif _ratio >= _RT_N[0] or _ratio <= _RT_LO[0]:
+                        _score += 1
+                        _det.append('RT(%.1f倍)' % _ratio)
+                else:
+                    _d = abs(_sm - _cm)
+                    _lo, _hi = _THR[_k]
+                    if _d >= _hi:
+                        _score += 2
+                        _det.append('%s强(Δ%.2f)' % (_k, _d))
+                    elif _d >= _lo:
+                        _score += 1
+                        _det.append('%s(Δ%.2f)' % (_k, _d))
+            # ---- Step C 判定 ----
+            _rng = '%.1f-%.1f' % (np.nanmin(_mdv[i:j + 1]),
+                                  np.nanmax(_mdv[i:j + 1]))
+            if _score >= 3:
+                _n_ok += 1
+                _tag = '少数派岩性参数对比确认(%.0f分:%s)' % (
+                    _score, ','.join(_det) if _det else '无明细')
+                logger.info('迭代复核 %s 段 %s n=%d: 得分 %.0f → 确认',
+                            _lith_i, _rng, j - i + 1, _score)
+                _do_calc = True
+            elif _score <= 1:
+                if str(profile_type) == 'sand_shale':
+                    _gr_s = (_series['GR'].values[i:j + 1]
+                             if 'GR' in _series else np.array([]))
+                    _gr_s = _gr_s[np.isfinite(_gr_s)]
+                    _gr_c = (_series['GR'].values[_ctx]
+                             if ('GR' in _series and _ctx.size) else np.array([]))
+                    _gr_c = _gr_c[np.isfinite(_gr_c)]
+                    if _gr_s.size >= 3 and _gr_c.size >= 5:
+                        _tgt = ('shale' if float(np.median(_gr_s))
+                                >= float(np.median(_gr_c)) else 'sandstone')
+                    else:
+                        _tgt = 'shale'
+                    _n_dem += 1
+                    _tag = '少数派岩性参数对比否决降级→%s(%.0f分:%s)' % (
+                        _tgt, _score, ','.join(_det) if _det else '无明细')
+                    _mask = np.zeros(n, dtype=bool)
+                    _mask[i:j + 1] = True
+                    for _c2 in ('LITHOLOGY', 'LITHOLOGY_MC'):
+                        if _c2 in data.columns:
+                            data.loc[_mask, _c2] = _tgt
+                    logger.info('迭代复核 %s 段 %s n=%d: 得分 %.0f → 否决'
+                                '降级 %s', _lith_i, _rng, j - i + 1,
+                                _score, _tgt)
+                    for _i2 in range(i, j + 1):
+                        _append_tag(_whyv, _i2, _tag)
+                    i = j + 1
+                    continue
+                else:
+                    _n_pend += 1
+                    _tag = '少数派岩性参数对比存疑待目检(%.0f分:%s)' % (
+                        _score, ','.join(_det) if _det else '无明细')
+                    logger.info('迭代复核 %s 段 %s n=%d: 得分 %.0f → '
+                                '存疑留痕（%s 剖面不降级）',
+                                _lith_i, _rng, j - i + 1, _score,
+                                profile_type)
+                _do_calc = False
+            else:
+                _n_pend += 1
+                _tag = '少数派岩性参数对比待目检(%.0f分:%s)' % (
+                    _score, ','.join(_det) if _det else '无明细')
+                logger.info('迭代复核 %s 段 %s n=%d: 得分 %.0f → 保留'
+                            '原判待目检', _lith_i, _rng, j - i + 1, _score)
+                _do_calc = True
+            # ---- Step D 灰质含量联动（确认/待目检的灰岩类段）----
+            if _lith_i in ('limestone', 'dolomite'):
+                if _has_elem:
+                    _tag2 = _tag + '；元素反演已含方解石组分(灰质见VCalcite)'
+                elif _ccv is not None:
+                    _vsh = (pd.to_numeric(data['VSH'], errors='coerce')
+                            .values if 'VSH' in data.columns else None)
+                    for _i2 in range(i, j + 1):
+                        _den = (_series['DEN'].values[_i2]
+                                if 'DEN' in _series else np.nan)
+                        _pe = (_series['PE'].values[_i2]
+                               if 'PE' in _series else np.nan)
+                        if not (np.isfinite(_den) and np.isfinite(_pe)):
+                            continue
+                        _vs = float(_vsh[_i2]) if _vsh is not None else 0.0
+                        if not np.isfinite(_vs) or _vs < 0:
+                            _vs = 0.0
+                        _vs = min(_vs, 0.8)
+                        try:
+                            _vv = np.linalg.solve(_A, np.array([
+                                _den - 2.55 * _vs,
+                                _pe - 3.45 * _vs,
+                                1.0 - _vs]))
+                        except Exception:
+                            continue
+                        if not np.all(np.isfinite(_vv)):
+                            continue
+                        _vv = np.clip(_vv, 0.0, 1.0)
+                        _ccv[_i2] = float(_vv[1])
+                        _n_calc += 1
+                        _dt_tag = ''
+                        if 'DT' in _series:
+                            _dt = _series['DT'].values[_i2]
+                            if np.isfinite(_dt):
+                                _dtp = (55.5 * _vv[0] + 47.5 * _vv[1]
+                                        + 189.0 * _vv[2])
+                                if abs(_dt - _dtp) > 10.0:
+                                    _dt_tag = ('；DT残差%.0f'
+                                               '(可能含泥/压实)' % abs(_dt - _dtp))
+                        _append_tag(_whyv, _i2,
+                                    _tag + '；灰质含量≈%.0f%%%s'
+                                    % (_vv[1] * 100.0, _dt_tag))
+                    logger.info('迭代复核 %s 段 %s 灰质含量解混: %d 点'
+                                '写入 CALC_CONTENT', _lith_i, _rng, _n_calc)
+                    i = j + 1
+                    continue
+                _tag2 = _tag
+            else:
+                _tag2 = _tag
+            for _i2 in range(i, j + 1):
+                _append_tag(_whyv, _i2, _tag2)
+        i = j + 1
+
+    if _n_ok or _n_pend or _n_dem:
+        data.iloc[:, _ci] = _whyv
+    if _ccv is not None and _n_calc:
+        data.iloc[:, _cc_idx] = _ccv
+    return (_n_ok, _n_pend, _n_dem, _n_calc)
 
 
 def _apply_regional_lith_knowledge(data):
