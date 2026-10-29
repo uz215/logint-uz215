@@ -8209,6 +8209,24 @@ class MineralAnalyzer:
                     logger.info("PTI 剖面判别: %s (PTI=%.3f) %s ｜ 交会图法: %s",
                                 _pti_t2, _pti_v2, _pti_d2, profile_type)
                     profile_type = _pti_t2
+                    # 【R45 Q7 用户定案】PTI 灰区(0.35-0.55)：区域知识优先；
+                    # 无区域知识则保留自动判别不自动改判，提示人工目检
+                    # 密度-中子交会图
+                    if 0.35 <= _pti_v2 < 0.55:
+                        try:
+                            _reg_q7 = get_active_regional() or {}
+                        except Exception:
+                            _reg_q7 = {}
+                        _reg_p7 = str(_reg_q7.get('剖面类型') or '').strip()
+                        if _reg_p7:
+                            logger.info("PTI 灰区(%.3f)——按区域知识定剖面: %s",
+                                        _pti_v2, _reg_p7)
+                            profile_type = _reg_p7
+                        else:
+                            logger.warning(
+                                "PTI 灰区(%.3f∈[0.35,0.55])且区域知识未配置"
+                                "剖面类型——保留 %s 不自动改判，建议人工目检"
+                                "密度-中子交会图", _pti_v2, profile_type)
             except Exception as _pti_e2:
                 logger.warning("PTI 剖面判别失败（用交会图法结果）: %s", _pti_e2)
             # 将剖面类型存入data.attrs，供下游模块使用（特殊岩性检测、解释等）
@@ -11447,7 +11465,14 @@ LITHOLOGY_RULES = [
             ('DEN', '>', 2.75, 1.0),
             ('GR',  '<', 120.0, 0.5),
         ],
-        'deny': [],
+        # 【R45 Q5 用户定案】火成岩一定是高密度、高电阻，比上部的沉积
+        # 岩明显高得多，沉积岩/火成岩界面有明显电阻率幅度抬升（111D
+        # 实测：火成岩 RT 中位 142 vs 上覆 200m 沉积岩 7.2，约 20 倍）。
+        # deny 死值：含氢(CNL>18)且高伽马(GR>150)绝不是火成岩；
+        # 界面抬升校验见 _lith_why_post_annotate 后置留痕
+        'deny': [
+            {'all': [('CNL', '>', 18.0), ('GR', '>', 150.0)]},
+        ],
     },
     # ---------- 硬石膏：巴西蒸发岩序列特殊岩性【2026-10-15新增】 ----------
     # 用户：3-SPS-111D 硬石膏层是"很明显的特殊岩性"却没有识别出来。
@@ -13875,6 +13900,7 @@ class WellLogProcessor:
             #     整套管段会被判成灰岩（此前 446 点误判）。
             _casing_mask = None
             _profile_type = 'mixed'
+            _pti_main = None
             _well_for_casing = getattr(self, 'well_name', 'Unknown')
             try:
                 # 【2026-10-15】加载阶段 QC 前已检测过套管并缓存于 attrs，
@@ -13924,6 +13950,7 @@ class WellLogProcessor:
                         logger.info("PTI 剖面判别(识别器): %s (PTI=%.3f) %s",
                                     _pti_t3, _pti_v3, _pti_d3)
                         _ptype = _pti_t3
+                        _pti_main = float(_pti_v3)
                 except Exception as _pti_e3:
                     logger.warning("PTI 剖面判别失败(识别器,用旧法): %s", _pti_e3)
                 _profile_type = _ptype
@@ -13956,6 +13983,13 @@ class WellLogProcessor:
             if str(_regional.get('剖面类型') or '').strip():
                 _profile_type = _regional['剖面类型']
                 logger.info("区域知识剖面类型覆盖自动预判: %s", _profile_type)
+            elif (_pti_main is not None and 0.35 <= _pti_main < 0.55):
+                # 【R45 Q7 用户定案】灰区且无区域知识：不自动改判，
+                # 日志提示人工目检密度-中子交会图
+                logger.warning(
+                    "PTI 灰区(%.3f∈[0.35,0.55])且区域知识无剖面类型——"
+                    "保留 %s 不自动改判，建议人工目检密度-中子交会图",
+                    _pti_main, _profile_type)
             logger.info("Step 2: Spring segment correction")
 
             # 检测时只用密度曲线，但校正时同时校正密度和电阻率曲线
@@ -14186,6 +14220,25 @@ class WellLogProcessor:
                                                "（不影响主流程）: %s", _rke)
                             data['LITH_MC_CONF'] = _rec.confidence
                             data['LITH_MC_WHY'] = _rec.why
+                            # 【R45 Q4/Q5 用户定案】岩性留痕后置补充：
+                            # Q4 高密度泥岩(可能钙质)标注（暂不新增钙质
+                            # 泥岩类）；Q5 火成岩界面电阻率抬升校验
+                            # （用户：火成岩一定高密度高电阻，界面有
+                            # 明显电阻率抬升）
+                            try:
+                                _q4n, _igok, _igbad = _lith_why_post_annotate(
+                                    data)
+                                if _q4n:
+                                    logger.info("高密度泥岩留痕: %d 点标注"
+                                                "'可能钙质'（Q4 暂不新增钙"
+                                                "质泥岩类）", _q4n)
+                                if _igok or _igbad:
+                                    logger.info("火成岩界面电阻率抬升校验: "
+                                                "%d 段确认 / %d 段存疑",
+                                                _igok, _igbad)
+                            except Exception as _lwe:
+                                logger.warning("岩性留痕后置标注失败"
+                                               "（不影响主流程）: %s", _lwe)
                             # 套管掩码落盘，供绘图/报告使用。
                             # 【注意】必须与 LITHOLOGY_MC 一起在
                             # run_facies_analysis **之前**写入 ——
@@ -18217,6 +18270,128 @@ def _demote_coal_in_enlarged_hole(data, cal_ratio_thr=1.20):
         if 'LITHOLOGY_MC' in data.columns:
             data.loc[_mask, 'LITHOLOGY_MC'] = 'shale'
     return n
+
+
+def _lith_why_post_annotate(data):
+    """【R45 Q4/Q5 用户定案】岩性识别后置留痕标注（只改 WHY 不改岩性）。
+
+    Q4：泥岩且 DEN>2.70 → WHY 标注"高密度泥岩(可能钙质)"。用户定案：
+    BET-1 暂不判钙质泥岩——最优化计算的钙质含量尚未确认，不新增岩性
+    类，先留痕备查，待最优化钙质结果出来后再定（防止图例/解释链连锁
+    改动的反复）。
+
+    Q5：火成岩类段（igneous/basalt/tuff 等逐段）校验用户物理铁律
+    "火成岩一定是高密度、高电阻，比上部的沉积岩明显高得多，在沉积岩
+    和火成岩界面上有明显的电阻率幅度的抬升"：段顶之上 300 深度单位
+    （单位同井）沉积岩 RT 中位 vs 段内 RT 中位——
+      抬升 >= 2.0 倍 → WHY 留痕"火成岩特征确认"；
+      抬升 <  1.5 倍 → WHY 留痕"存疑"并 warning（仅留痕不改判，
+      防止反复；是否降级待用户目检后拍板）。
+    111D 实测约 20 倍（142 vs 7.2），确认分支必命中、存疑分支不触发。
+
+    返回 (高密度泥岩点数, 抬升确认段数, 抬升存疑段数)。
+    """
+    _litcol = 'LITHOLOGY_MC' if 'LITHOLOGY_MC' in data.columns else (
+        'LITHOLOGY' if 'LITHOLOGY' in data.columns else None)
+    if _litcol is None or 'LITH_MC_WHY' not in data.columns:
+        return (0, 0, 0)
+    _den = None
+    for _c in ('RHOB', 'ZDEN', 'DEN', 'RHOZ'):
+        if _c in data.columns:
+            _den = pd.to_numeric(data[_c], errors='coerce')
+            break
+    _md = None
+    for _c in ('MD', 'DEPTH', 'DEPT'):
+        if _c in data.columns:
+            _md = pd.to_numeric(data[_c], errors='coerce')
+            break
+    _rt = None
+    for _c in ('RT', 'RT_LAS', 'RMSL', 'RD', 'LLD', 'ILD', 'AT90',
+               'M2RX', 'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1', 'AT60'):
+        if _c in data.columns:
+            _rt = pd.to_numeric(data[_c], errors='coerce')
+            break
+    _n_q4 = _n_ok = _n_bad = 0
+    _whyv = data['LITH_MC_WHY'].astype(str).values.copy()
+    _litv = data[_litcol].astype(str).values
+    _ci = data.columns.get_loc('LITH_MC_WHY')
+
+    def _append_tag(arr, idx, tag):
+        _w = arr[idx]
+        arr[idx] = ((_w + '；') if _w and _w != 'nan' else '') + tag
+
+    # ---- Q4：高密度泥岩留痕 ----
+    if _den is not None:
+        _why_s = pd.Series(_whyv, index=data.index)
+        _m4 = ((_litv == 'shale') & (_den > 2.70).values
+               & (~_why_s.str.contains('可能钙质', na=False).values))
+        _idx4 = np.where(_m4)[0]
+        for _i in _idx4:
+            _append_tag(_whyv, _i, '高密度泥岩(可能钙质,待最优化钙质含量确认)')
+        _n_q4 = int(len(_idx4))
+
+    # ---- Q5：火成岩界面电阻率抬升校验 ----
+    if _md is not None and _rt is not None:
+        _igfam = {'igneous', 'basalt', 'volcanic', 'tuff', 'granite',
+                  'andesite', 'rhyolite', 'dacite'}
+        _spec = {'coal', 'carbonaceous_shale', 'halite', 'anhydrite',
+                 'casing', 'pyrite'} | _igfam
+        if 'IS_CASING' in data.columns:
+            _cas = (data['IS_CASING'].fillna(False).astype(bool).values)
+        else:
+            _cas = np.zeros(len(data), dtype=bool)
+        _mdv = _md.values
+        _rtv = _rt.values
+        _inig = np.isin(_litv, list(_igfam))
+        _okref = (~np.isin(_litv, list(_spec)) & np.isfinite(_rtv) & (~_cas))
+        n = len(_litv)
+        i = 0
+        while i < n:
+            if not _inig[i]:
+                i += 1
+                continue
+            j = i
+            while j + 1 < n and _inig[j + 1]:
+                j += 1
+            _rti = _rtv[i:j + 1]
+            _rti = _rti[np.isfinite(_rti)]
+            if _rti.size >= 10:
+                _top = np.nanmin(_mdv[i:j + 1])
+                _win = _okref & (_mdv >= _top - 300.0) & (_mdv < _top)
+                _rto = _rtv[_win]
+                if _rto.size >= 30:
+                    _med_o = float(np.median(_rto))
+                    _med_i = float(np.median(_rti))
+                    if _med_o > 0:
+                        _ratio = _med_i / _med_o
+                        logger.info(
+                            '火成岩段 %.0f-%.0f: RT中位 %.1f vs 上覆300 '
+                            '沉积岩 %.1f → 抬升 %.1f 倍',
+                            np.nanmin(_mdv[i:j + 1]), np.nanmax(_mdv[i:j + 1]),
+                            _med_i, _med_o, _ratio)
+                        if _ratio >= 2.0:
+                            _n_ok += 1
+                            for _i in range(i, j + 1):
+                                _append_tag(_whyv, _i,
+                                            '界面电阻率抬升%.1f倍'
+                                            '(火成岩特征确认)' % _ratio)
+                        elif _ratio < 1.5:
+                            _n_bad += 1
+                            logger.warning(
+                                '火成岩段 %.0f-%.0f 界面电阻率仅抬升 %.2f 倍'
+                                '（用户: 火成岩一定明显高于上覆沉积岩），'
+                                '留痕存疑不改判，建议人工目检',
+                                np.nanmin(_mdv[i:j + 1]),
+                                np.nanmax(_mdv[i:j + 1]), _ratio)
+                            for _i in range(i, j + 1):
+                                _append_tag(_whyv, _i,
+                                            '界面电阻率仅抬升%.2f倍,'
+                                            '火成岩存疑(建议目检)' % _ratio)
+            i = j + 1
+
+    if _n_q4 or _n_ok or _n_bad:
+        data.iloc[:, _ci] = _whyv
+    return (_n_q4, _n_ok, _n_bad)
 
 
 def _apply_regional_lith_knowledge(data):
