@@ -9086,8 +9086,8 @@ def pti_profile_type(data, well_name='Unknown'):
     den = _pick('RHOB', 'DEN', 'ZDEN')
     cnl = _pick('NPHI', 'CNL', 'CNCF')
     gr = _pick('GR', 'GRX', 'GR_XMAC')
-    dt = _pick('DT', 'DTC', 'DTCO', 'AC')
-    rt = _pick('RT_LAS', 'RT', 'RMSL', 'RD')
+    dt = _pick('DT', 'DTC', 'DTTC', 'DTCO', 'AC')
+    rt = _pick('RT_LAS', 'RT', 'RMSL', 'RD', 'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1')
     try:
         _cas = pd.Series(data['IS_CASING']).fillna(False).astype(bool) \
             if 'IS_CASING' in data.columns \
@@ -9145,7 +9145,13 @@ def pti_profile_type(data, well_name='Unknown'):
     # CNL≤22%（用户：碳酸盐中子 20 以下甚至更低、砂泥岩 30 以上）
     _cnl_f = (cnl / 100.0).clip(-0.02, 0.5)
     _calcite = 2.71 - 1.71 * _cnl_f
-    _inC = valid & (_cnl_f <= 0.22) & (den >= _calcite - 0.05)
+    # 【R43 四井标定】区域改为**非对称带** [线-0.05, 线+0.10]：原单侧
+    # den>=线-0.05 把泥岩/含气砂岩点（CNL 8-22%、DEN 2.5-2.66，位于线
+    # 上方 0.1-0.3）也划进碳酸盐区域——R-13 F_cross 曾达 0.82 致 PTI
+    # 落灰区。四井实测：V2 口径 111D=0.59 / R-13=0.35 / XIMENIA=0.13 /
+    # BET-1=0.11，分离干净（对称带 ±0.05 会把 111D 压到 0.28，勿用）
+    _inC = (valid & (_cnl_f <= 0.22) & (den >= _calcite - 0.05)
+            & (den <= _calcite + 0.10))
     _fc = float(_inC.sum()) / n_valid
     _pti += 0.20 * _fc
     _wsum += 0.20
@@ -9369,6 +9375,21 @@ def detect_well_profile_type(data, well_name='Unknown',
         elif _pe_p50 < 2.6:
             ss_score += 1.0
 
+    # 4.6) 电阻率【R43 2026-10-29 用户定案】剖面判别"光伽玛、中子、
+    # 声波、密度还不够，还要有电阻"——砂泥岩电阻率低（大部分<200，
+    # 泥岩段通常个位数~几十），碳酸盐岩基本>100 甚至更高。RT P50
+    # 量级判断（电阻率跨数量级，中位数最稳健）
+    _rt = pick('RT_LAS', 'RT', 'RMSL', 'RD', 'RAL5', 'RAL4', 'RAL3',
+               'RAL2', 'RAL1')
+    _rt_v = _rt[valid & (_rt > 0)]
+    if _rt_v.notna().sum() >= 50:
+        _rt_p50 = float(_rt_v.median())
+        info['rt_p50'] = _rt_p50
+        if _rt_p50 > 50.0:
+            cb_score += 1.0
+        elif _rt_p50 < 15.0:
+            ss_score += 1.0
+
     if cb_score > ss_score + 1.0:
         ptype = 'carbonate'
     elif ss_score > cb_score + 1.0:
@@ -9386,6 +9407,8 @@ def detect_well_profile_type(data, well_name='Unknown',
         % (cn[ptype], ss_score, cb_score, info['gr_p50'], info['gr_iqr'],
            info['gr_fluct'] * 100, info['cnl_p50'], info['den_p50'],
            info['gr_low_frac'] * 100, info['gr_high_frac'] * 100))
+    if 'rt_p50' in info:
+        info['summary'] += '、RT中位%.1f' % info['rt_p50']
     logger.info(f"[{well_name}] 井级剖面预判: {info['summary']}")
     _kb_enrich(info, ptype)
     return ptype, info
@@ -10645,7 +10668,7 @@ class FaciesAnalyzer:
         gr = _pick('GR', 'GRX', 'GR_LAS', 'GR_XMAC')
         den = _pick('RHOB', 'DEN', 'ZDEN', 'DEN_LAS')
         cnl = _pick('NPHI', 'CNL', 'CNCF', 'CNL_LAS')
-        dt = _pick('DT', 'DTC', 'DTCO', 'AC')
+        dt = _pick('DT', 'DTC', 'DTTC', 'DTCO', 'AC')
         pe = _pick('PE', 'PEF')
 
         # 煤的地球物理指纹：极低密度 + 高声波 + 高中子 + 低伽马（4项同时）
@@ -11058,14 +11081,15 @@ COL_CANDIDATES = {
     'GR':   ['GR_LAS', 'GR', 'GRX', 'GR_XMAC'],
     'DEN':  ['DEN_LAS', 'DEN', 'ZDEN', 'RHOB'],
     'CNL':  ['CNL_LAS', 'CNL', 'CNCF', 'NPHI', 'CNC'],
-    'DT':   ['DT', 'DTC', 'DTCO', 'AC'],
-    'RT':   ['RT_LAS', 'RT', 'RMSL', 'RD', 'MSFL'],
+    'DT':   ['DT', 'DTC', 'DTTC', 'DTCO', 'AC'],  # DTTC=纵波时差(R-13)
+    'RT':   ['RT_LAS', 'RT', 'RMSL', 'RD', 'MSFL', 'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1', 'LLD', 'LLS', 'ILD'],  # RAL1-5=阵列电阻率(R-13)，深探优先
     'PE':   ['PE', 'PEF'],
     # 【R35】补 CALS/BS：XIMENIA-5 用 CALS+BS 命名，此前没映射到
     # CAL/BIT → 派生扩径比 CALR 缺失，煤 deny 的井径条件无从判定
-    'CAL':  ['CAL_LAS', 'CAL', 'CALX', 'CALY', 'CALS', 'CALI'],
+    'CAL':  ['CAL_LAS', 'CAL', 'CALX', 'CALY', 'CALS', 'CALI', 'CAL_AVERAGE'],
     'BIT':  ['BIT', 'BIT_LAS', 'BS', 'BIT_SIZE'],
-    'BIT':  ['BIT', 'BIT_LAS'],
+    # 横波时差（R43 用户：R-13 DTTST=横波）——留作 Vp/Vs 岩性判别备用
+    'DTS':  ['DTTST', 'DTSO', 'DTS'],
     # 扩径比 CAL/BIT —— 识别**水泥返高段**（套管鞋以下、固井水泥污染带）
     # 的关键信号。实测 BET-1 6447-6460ft 水泥返高段 CAL/BIT=1.38，
     # 而正常裸岩段中位仅 1.02。扩径段的密度/中子测的是水泥+岩屑，
