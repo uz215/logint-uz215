@@ -10465,6 +10465,54 @@ def detect_casing_interval(data, well_name='Unknown',
         logger.info(f"[{well_name}] 未检测到套管段")
     return mask, info
 
+def count_valid_curves_per_segment(data, window_size=50):
+    """【2026-10-30 性能修复】逐点统计"有效曲线数"（滚动窗口，向量化）。
+
+    原实现按 点×曲线 做 pandas 切片 + to_numeric，4233 点 × 40 曲线 ≈ 850 万次
+    pandas 操作，实测在"统计逐井段有效曲线数量"步骤停滞 >14 分钟（CPU 持续增长）。
+    本实现用 rolling 向量化，同口径 <2 s。判定口径（与旧实现逐条一致）：
+      - 曲线值 > 0 且非 NaN 视为该点有效；
+      - 窗口内该曲线没有任何正值 → 不计；
+      - 窗口内正值近似常数（std <= max(1e-6, |median|*1e-4)）→ 不计（平直段/回填常值）；
+      - 窗口内有效占比 > 0.3 → 计 1 条。
+    """
+    import numpy as np
+    import pandas as pd
+
+    VALID_CURVES = ['GR', 'GRX', 'GR_LAS', 'RT', 'RT_LAS', 'LLD', 'ILD', 'R90',
+                    'RD', 'RS', 'RMSL', 'MSFL', 'LLS',
+                    'RAL1', 'RAL2', 'RAL3', 'RAL4', 'RAL5',
+                    'DEN', 'DEN_LAS', 'RHOB', 'ZDEN',
+                    'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
+                    'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
+                    'PE', 'PEF', 'SP']
+    n = len(data)
+    total = np.zeros(n, dtype=np.int32)
+    if n == 0:
+        data['VALID_CURVES_COUNT'] = total
+        return data
+    win = max(1, int(window_size))
+    for curve in VALID_CURVES:
+        if curve not in data.columns:
+            continue
+        raw = data[curve]
+        if isinstance(raw, pd.DataFrame):          # 重复列名时取首列
+            raw = raw.iloc[:, 0]
+        s = pd.to_numeric(raw, errors='coerce')
+        valid = s > 0
+        pos = s.where(valid)
+        r = pos.rolling(win, center=True, min_periods=1)
+        has_any = r.count() > 0
+        med = r.median()
+        std = r.std()
+        flat = std <= np.maximum(1e-6, med.abs() * 1e-4)
+        ratio = valid.astype('float64').rolling(win, center=True, min_periods=1).mean()
+        ok = has_any & (~flat.fillna(False)) & (ratio > 0.3)
+        total += ok.to_numpy(dtype=np.int32)
+    data['VALID_CURVES_COUNT'] = total
+    return data
+
+
 class FaciesAnalyzer:
     """沉积相分析类"""
     
@@ -10962,63 +11010,8 @@ class FaciesAnalyzer:
             return None
     
     def _count_valid_curves_per_segment(self, data, window_size=50):
-        """
-        逐井段统计有效曲线数量
-        有效曲线：曲线值 > 0 且 非NaN
-        
-        参数:
-            data: 测井数据DataFrame
-            window_size: 滑动窗口大小（数据点数）
-        
-返回:
-            data: 添加了 VALID_CURVES_COUNT 列的DataFrame
-        """
-        # 候选名必须覆盖 LAS 原始列名，否则统计不到有效曲线。
-        # 实测 BET-1（LAS 列名 ZDEN/CNCF/DTC/RD/RMSL/CALX/CALY）在原列表下
-        # 只能数出 1 条曲线，导致"有效曲线数量不足"而跳过岩性/沉积相/绘图。
-        valid_curves = ['GR', 'GRX', 'GR_LAS', 'RT', 'RT_LAS', 'LLD', 'ILD', 'R90',
-                        'RD', 'RS', 'RMSL', 'MSFL', 'LLS',
-                        # 【2026-10-21 R18】HAL7506 等老井的阵列电阻率 RAL1-5
-                        'RAL1', 'RAL2', 'RAL3', 'RAL4', 'RAL5',
-                        'DEN', 'DEN_LAS', 'RHOB', 'ZDEN',
-                        'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
-                        'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
-                        'PE', 'PEF',
-                        # 【R33 用户定案】井径（CAL 族）/钻头（BIT）不算有效
-                        # 曲线——井径只反映井眼状况，不构成解释依据；SP 是
-                        # 真地层信号保留。
-                        'SP']
-
-        # 创建有效曲线计数列
-        valid_counts = []
-        
-        for i in range(len(data)):
-            start_idx = max(0, i - window_size // 2)
-            end_idx = min(len(data), i + window_size // 2)
-            
-            count = 0
-            for curve in valid_curves:
-                if curve in data.columns:
-                    window_data = data[curve].iloc[start_idx:end_idx]
-                    _wd = pd.to_numeric(window_data, errors='coerce')
-                    _ok = _wd > 0
-                    if not bool(_ok.any()):
-                        continue
-                    _vals = _wd[_ok]
-                    # 【R33 用户定案】平直段不算有效：窗口内近似常数
-                    # （井底回填常值/坯数据）不构成解释依据
-                    _flat = (float(_vals.std()) <=
-                             max(1e-6, abs(float(_vals.median())) * 1e-4))
-                    if _flat:
-                        continue
-                    valid_ratio = _ok.sum() / len(_wd)
-                    if valid_ratio > 0.3:
-                        count += 1
-            
-            valid_counts.append(count)
-        
-        data['VALID_CURVES_COUNT'] = valid_counts
-        return data
+        """逐井段统计有效曲线数量（向量化实现，见模块级 count_valid_curves_per_segment）。"""
+        return count_valid_curves_per_segment(data, window_size=window_size)
     
     def run_facies_analysis(self, data, well_name='Unknown'):
         """运行沉积相分析"""
@@ -15431,59 +15424,8 @@ class WellLogProcessor:
             return None
     
     def _count_valid_curves_per_segment(self, data, window_size=50):
-        """
-        逐井段统计有效曲线数量
-        有效曲线：曲线值 > 0 且 非NaN
-        
-        参数:
-            data: 测井数据DataFrame
-            window_size: 滑动窗口大小（数据点数）
-        
-        返回:
-            data: 添加了 VALID_CURVES_COUNT 列的DataFrame
-        """
-        # 同上：必须覆盖 LAS 原始列名（ZDEN/CNCF/DTC/RD/RMSL/CALX…）
-        valid_curves = ['GR', 'GRX', 'GR_LAS', 'RT', 'RT_LAS', 'LLD', 'ILD', 'R90',
-                        'RD', 'RS', 'RMSL', 'MSFL', 'LLS',
-                        # 【2026-10-21 R18】HAL7506 等老井的阵列电阻率 RAL1-5
-                        'RAL1', 'RAL2', 'RAL3', 'RAL4', 'RAL5',
-                        'DEN', 'DEN_LAS', 'RHOB', 'ZDEN',
-                        'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
-                        'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
-                        'PE', 'PEF',
-                        # 【R33 用户定案】井径（CAL 族）/钻头（BIT）不算有效
-                        # 曲线——井径只反映井眼状况，不构成解释依据；SP 是
-                        # 真地层信号保留。
-                        'SP']
-        valid_counts = []
-        
-        for i in range(len(data)):
-            start_idx = max(0, i - window_size // 2)
-            end_idx = min(len(data), i + window_size // 2)
-            
-            count = 0
-            for curve in valid_curves:
-                if curve in data.columns:
-                    window_data = data[curve].iloc[start_idx:end_idx]
-                    _wd = pd.to_numeric(window_data, errors='coerce')
-                    _ok = _wd > 0
-                    if not bool(_ok.any()):
-                        continue
-                    _vals = _wd[_ok]
-                    # 【R33 用户定案】平直段不算有效：窗口内近似常数
-                    # （井底回填常值/坯数据）不构成解释依据
-                    _flat = (float(_vals.std()) <=
-                             max(1e-6, abs(float(_vals.median())) * 1e-4))
-                    if _flat:
-                        continue
-                    valid_ratio = _ok.sum() / len(_wd)
-                    if valid_ratio > 0.3:
-                        count += 1
-            
-            valid_counts.append(count)
-        
-        data['VALID_CURVES_COUNT'] = valid_counts
-        return data
+        """逐井段统计有效曲线数量（向量化实现，见模块级 count_valid_curves_per_segment）。"""
+        return count_valid_curves_per_segment(data, window_size=window_size)
 
 # ============================================================================
 #  quick look 快速解释模块（2026-10-10 嵌入 logInt 的功能之一）
