@@ -1,0 +1,213 @@
+{
+  "meta": {
+    "format": "cppt",
+    "name": "流体/岩性交会图 Crossplot 图版",
+    "version": "1.0",
+    "updated": "2026-10-10",
+    "note": "本文件为流体交会图（visualization_fluid 模块）的图版定义。logvis.visualize_fluid 读取本图版并透传给 visualize_fluid_crossplots；未配置的键用代码内置默认值。修改本文件可改变交会图组合、轴、颜色与版式，无需改代码。"
+  },
+  "figure": {
+    "figsize": [
+      11.5,
+      8.6
+    ],
+    "dpi": 150,
+    "subplots_adjust": {
+      "top": 0.885,
+      "bottom": 0.085,
+      "left": 0.085,
+      "right": 0.975
+    },
+    "note": "figsize 为每张交会图画布尺寸（英寸）；subplots_adjust 为画布内绘图区边距；dpi 为输出分辨率。"
+  },
+  "min_thickness": 3.0,
+  "note_min_thickness": "层段最小厚度（米/英尺单位与主数据一致，小于该厚度不参与编号，避免碎层）",
+  "fluid": {
+    "colors": {
+      "OIL": "#1a9850",
+      "GAS": "#d73027",
+      "OIL_POSSIBLE": "#a6d96a",
+      "GAS_POSSIBLE": "#fc8d59",
+      "WATER": "#00a8f8",
+      "DRY": "#bdbdbd"
+    },
+    "labels_cn": {
+      "OIL": "油层",
+      "GAS": "气层",
+      "OIL_POSSIBLE": "弱油/油水过渡",
+      "GAS_POSSIBLE": "含气可能",
+      "WATER": "水层",
+      "DRY": "致密/干层",
+      "OTHER": "非储层"
+    },
+    "note": "fluid.colors 为流体类别着色表（油绿/气红/水蓝，用户2026-10-09定）；labels_cn 为中文标签（图例/层号标注用）。"
+  },
+  "crossplots": [
+    {
+      "x_curves": [
+        "RT",
+        "RD",
+        "LLD",
+        "R90"
+      ],
+      "y_curves": [
+        "PHI_DN",
+        "PHI",
+        "PHIE",
+        "POR",
+        "PHI_DN_c"
+      ],
+      "x_label": "电阻率 RT (Ω·m, 对数)",
+      "y_label": "孔隙度 φ (%)",
+      "purpose": "储集岩物性：电阻率-孔隙度",
+      "mode": "fluid",
+      "x_log": true,
+      "percent_scale": false
+    },
+    {
+      "x_curves": [
+        "SW_A",
+        "SW",
+        "Sw"
+      ],
+      "y_curves": [
+        "PHI_DN_c",
+        "PHI",
+        "PHIE",
+        "POR"
+      ],
+      "x_label": "含水饱和度 Sw (%)",
+      "y_label": "孔隙度 φ (%)",
+      "purpose": "含油气性：含水饱和度-孔隙度",
+      "mode": "fluid",
+      "x_log": false,
+      "percent_scale": true
+    },
+    {
+      "x_curves": [
+        "GR",
+        "GR_XMAC"
+      ],
+      "y_curves": [
+        "DEN",
+        "ZDEN",
+        "RHOB"
+      ],
+      "x_label": "自然伽马 GR (API)",
+      "y_label": "密度 DEN (g/cm³)",
+      "purpose": "岩性识别：伽马-密度（岩性识别面板必须包含全部数据）",
+      "mode": "lith",
+      "x_log": false,
+      "percent_scale": false,
+      "include_nonres": true
+    },
+    {
+      "x_curves": [
+        "GR",
+        "GR_XMAC"
+      ],
+      "y_curves": [
+        "CNL",
+        "CNCF",
+        "NPHI"
+      ],
+      "x_label": "自然伽马 GR (API)",
+      "y_label": "中子 CNL (%)",
+      "purpose": "岩性识别：伽马-中子（岩性识别面板必须包含全部数据）",
+      "mode": "lith",
+      "x_log": false,
+      "percent_scale": true,
+      "include_nonres": true
+    },
+    {
+      "x_curves": [
+        "RT",
+        "RD"
+      ],
+      "y_curves": [
+        "VSH_GR",
+        "VSH",
+        "VSHALE"
+      ],
+      "x_label": "电阻率 RT (Ω·m, 对数)",
+      "y_label": "泥质含量 Vsh (%)",
+      "purpose": "储层评价：电阻率-泥质",
+      "mode": "fluid",
+      "x_log": true,
+      "percent_scale": true
+    },
+    {
+      "x_curves": [
+        "CGI"
+      ],
+      "y_curves": [
+        "SW_A",
+        "SW",
+        "Sw"
+      ],
+      "x_label": "REG 气层指示 CGI",
+      "y_label": "含水饱和度 Sw (%)",
+      "purpose": "REG对比：CGI-含水饱和度（气层依据）",
+      "mode": "fluid",
+      "x_log": false,
+      "percent_scale": true
+    },
+    {
+      "x_curves": [
+        "RTI"
+      ],
+      "y_curves": [
+        "PHI_DN_c",
+        "PHI",
+        "PHIE",
+        "POR"
+      ],
+      "x_label": "REG 电阻率增量 RTI",
+      "y_label": "孔隙度 φ (%)",
+      "purpose": "REG对比：RTI-孔隙度（油气层依据）",
+      "mode": "fluid",
+      "x_log": false,
+      "percent_scale": true
+    },
+    {
+      "x_curves": [
+        "DEN",
+        "ZDEN",
+        "RHOB"
+      ],
+      "y_curves": [
+        "DT",
+        "AC",
+        "SONIC",
+        "DTC"
+      ],
+      "x_label": "密度 DEN (g/cm³)",
+      "y_label": "声波 DT",
+      "purpose": "煤/碳质泥岩判别：密度-声波（煤/碳质泥岩=低密度高声波区，含非储层点）",
+      "mode": "lith",
+      "include_nonres": true,
+      "x_log": false,
+      "percent_scale": false
+    },
+    {
+      "x_curves": [
+        "RT",
+        "RD",
+        "LLD"
+      ],
+      "y_curves": [
+        "DEN",
+        "ZDEN",
+        "RHOB"
+      ],
+      "x_label": "电阻率 RT (Ω·m, 对数)",
+      "y_label": "密度 DEN (g/cm³)",
+      "purpose": "煤/碳质泥岩判别：电阻率-密度（煤=低密度+RT高尖、碳质泥岩=低密度+RT偏高、泥岩=RT基线）",
+      "mode": "lith",
+      "include_nonres": true,
+      "x_log": true,
+      "percent_scale": false
+    }
+  ],
+  "note_crossplots": "交会图组合表：x_curves/y_curves 为候选列名（按顺序取第一个存在的列）；x_label/y_label 为轴标签；purpose 为图题；mode=fluid 按流体类型着色（FLUID_COLOR），mode=lith 按岩性着色（logvis LITH_BG_COLORS，与综合图同套颜色）；x_log=true 时 x 轴对数刻度；percent_scale=true 时若数值为 0-1 小数自动×100 成百分数。增删/调整本数组可改变交会图种类。include_nonres=true 时该面板包含非储层点（默认只绘储层数据）。【R39 用户定案】数据范围按面板用途划分：**流体/油气识别类面板（物性、Sw-孔隙度、REG对比、储层评价）只用储层数据；岩性识别类面板（伽马-密度、伽马-中子、煤/碳质泥岩判别）必须用全部数据**（泥岩基线与非储层点正是岩性判别的对象）。"
+}

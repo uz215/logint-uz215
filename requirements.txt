@@ -1,0 +1,12 @@
+# 测井解释知识库系统依赖
+whoosh>=2.7.4
+jieba>=0.42.1
+langchain>=0.1.0
+fastapi>=0.100.0
+uvicorn>=0.23.2
+requests>=2.31.0
+beautifulsoup4>=4.12.2
+pyyaml>=6.0
+python-frontmatter>=1.0.0
+pandas>=2.0.0
+numpy>=1.24.0

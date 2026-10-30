@@ -1,0 +1,1621 @@
+{
+  "source": "F:\\360\\Indonesia\\BET-1\\BET-1_8.5IN_SLAM_Res_MD200_20261003.pdf",
+  "pages": 4,
+  "scanned": [
+    {
+      "page": 1,
+      "size": [
+        1246,
+        7500
+      ],
+      "n_items": 218,
+      "crop": [
+        0.0,
+        1.0
+      ],
+      "fields": [
+        {
+          "label": "Corrected",
+          "value": "processed",
+          "x0": 25,
+          "y": 18
+        },
+        {
+          "label": "TD",
+          "value": "Betara East Target-1(BET-1)",
+          "x0": 580,
+          "y": 70
+        },
+        {
+          "label": "coordinate",
+          "value": "",
+          "x0": 686,
+          "y": 85
+        },
+        {
+          "label": "Long :",
+          "value": "Lat",
+          "x0": 678,
+          "y": 230
+        },
+        {
+          "label": "Field Recorded E",
+          "value": "Max. Record",
+          "x0": 80,
+          "y": 441
+        },
+        {
+          "label": "Conglomeratic",
+          "value": "",
+          "x0": 975,
+          "y": 2182
+        },
+        {
+          "label": "Depth",
+          "value": "240",
+          "x0": 401,
+          "y": 2228
+        }
+      ],
+      "big_text": [
+        {
+          "kind": "well_name",
+          "text": "ZhouHaibin TanYusong 6305-9027 3-Oct-2026 2-Oct-2026 1-Oct-2026 05-Sep-2026",
+          "y": 262
+        },
+        {
+          "kind": "well_name",
+          "text": "ECI-001 :103° a Niaga Gemilang GEMILANG",
+          "y": 289
+        },
+        {
+          "kind": "well_name",
+          "text": "5700 Tengah Block TA",
+          "y": 304
+        },
+        {
+          "kind": "well_name",
+          "text": "01 Interpretation Result Plot",
+          "y": 321
+        },
+        {
+          "kind": "well_name",
+          "text": "9,886,901.00 341,597.000",
+          "y": 628
+        },
+        {
+          "kind": "well_name",
+          "text": "298.1 DegF 0.063 ohm.I 10 / 6.2 ( 9.9 LB/0 KCI-Polymer",
+          "y": 692
+        },
+        {
+          "kind": "well_name",
+          "text": "CEALLINTERPRETATIONSAREOPINIONSBASED ONINFERENCESFROMELECTRICALOR OTHERMEASUREMENTS.WECANNOT,A",
+          "y": 938
+        },
+        {
+          "kind": "well_name",
+          "text": "THECUSTOMER RESULTING FROM ANY INTERPRETATION MADEBYANY OUR EMPLOYEES",
+          "y": 983
+        },
+        {
+          "kind": "well_name",
+          "text": "BOREHOLE RECORD CASING RECORD",
+          "y": 1059
+        },
+        {
+          "kind": "well_name",
+          "text": "SIZE FROM SIZE FROM",
+          "y": 1135
+        },
+        {
+          "kind": "well_name",
+          "text": "26 IN 0 FT 118 FT 20 IN 0 FT 118 FT",
+          "y": 1196
+        },
+        {
+          "kind": "well_name",
+          "text": "17.5IN 118 FT 2640 FT 13.375 IN 0 FT 2630.97.0 FT",
+          "y": 1261
+        },
+        {
+          "kind": "well_name",
+          "text": "12.25 IN 2640 FT 6450 FT 9.625IN OFT 6441 FT",
+          "y": 1326
+        },
+        {
+          "kind": "well_name",
+          "text": "8.5 IN 6450FT 9032 FT",
+          "y": 1393
+        },
+        {
+          "kind": "well_name",
+          "text": "LEGEND ( OF WELL-LOGGING RESULT",
+          "y": 1468
+        },
+        {
+          "kind": "well_name",
+          "text": "250 GR 500 PE",
+          "y": 1962
+        },
+        {
+          "kind": "well_name",
+          "text": "gAPI 250 OE B/E20",
+          "y": 1996
+        },
+        {
+          "kind": "well_name",
+          "text": "SP CNCF Shale",
+          "y": 2043
+        },
+        {
+          "kind": "well_name",
+          "text": "-50 mV 150 RT 60 PU Limestone RESULT",
+          "y": 2079
+        },
+        {
+          "kind": "well_name",
+          "text": "BIT 0.2 OHMM 200 2.7 ZDEN 3.7 Sandstone",
+          "y": 2116
+        },
+        {
+          "kind": "well_name",
+          "text": "1.7 G/C3 2.7 Coal",
+          "y": 2147
+        },
+        {
+          "kind": "well_name",
+          "text": "CALX 0.2 OHMM 200 DT",
+          "y": 2197
+        },
+        {
+          "kind": "well_name",
+          "text": "WASH OUT 0.2 ohm.m 200 1:200 ZDEN>CNCF 50 0.2 mD 2 2000 Water",
+          "y": 2265
+        }
+      ],
+      "rows": [
+        {
+          "y": 18,
+          "x0": 25,
+          "x1": 822,
+          "text": "Corrected processed RIG Name Equip. I Logged I Date I Date I Date Date Fielc Company",
+          "cells": [
+            [
+              25,
+              "Corrected"
+            ],
+            [
+              74,
+              "processed"
+            ],
+            [
+              136,
+              "RIG Name"
+            ],
+            [
+              188,
+              "Equip. I"
+            ],
+            [
+              407,
+              "Logged I"
+            ],
+            [
+              467,
+              "Date I"
+            ],
+            [
+              524,
+              "Date I"
+            ],
+            [
+              578,
+              "Date"
+            ],
+            [
+              634,
+              "Date"
+            ],
+            [
+              743,
+              "Fielc"
+            ],
+            [
+              795,
+              "Company"
+            ]
+          ]
+        },
+        {
+          "y": 37,
+          "x0": 244,
+          "x1": 935,
+          "text": "levatic levations levations Well Logging I",
+          "cells": [
+            [
+              244,
+              "levatic"
+            ],
+            [
+              300,
+              "levations"
+            ],
+            [
+              356,
+              "levations"
+            ],
+            [
+              891,
+              "Well Logging I"
+            ]
+          ]
+        },
+        {
+          "y": 70,
+          "x0": 466,
+          "x1": 1036,
+          "text": "Processe Logge TD Betara East Target-1(BET-1)",
+          "cells": [
+            [
+              466,
+              "Processe"
+            ],
+            [
+              519,
+              "Logge"
+            ],
+            [
+              580,
+              "TD"
+            ],
+            [
+              964,
+              "Betara East Target-1(BET-1)"
+            ]
+          ]
+        },
+        {
+          "y": 85,
+          "x0": 249,
+          "x1": 714,
+          "text": "ion Spudde coordinate",
+          "cells": [
+            [
+              249,
+              "ion"
+            ],
+            [
+              632,
+              "Spudde"
+            ],
+            [
+              686,
+              "coordinate"
+            ]
+          ]
+        },
+        {
+          "y": 101,
+          "x0": 411,
+          "x1": 435,
+          "text": "Interv",
+          "cells": [
+            [
+              411,
+              "Interv"
+            ]
+          ]
+        },
+        {
+          "y": 119,
+          "x0": 578,
+          "x1": 1146,
+          "text": "Reache CNG",
+          "cells": [
+            [
+              578,
+              "Reache"
+            ],
+            [
+              1086,
+              "CNG"
+            ]
+          ]
+        },
+        {
+          "y": 141,
+          "x0": 636,
+          "x1": 656,
+          "text": "ed",
+          "cells": [
+            [
+              636,
+              "ed"
+            ]
+          ]
+        },
+        {
+          "y": 171,
+          "x0": 579,
+          "x1": 600,
+          "text": "led",
+          "cells": [
+            [
+              579,
+              "led"
+            ]
+          ]
+        },
+        {
+          "y": 230,
+          "x0": 678,
+          "x1": 823,
+          "text": "Long : Lat Jabung Cipta I",
+          "cells": [
+            [
+              678,
+              "Long :"
+            ],
+            [
+              704,
+              "Lat"
+            ],
+            [
+              741,
+              "Jabung"
+            ],
+            [
+              796,
+              "Cipta I"
+            ]
+          ]
+        },
+        {
+          "y": 262,
+          "x0": 26,
+          "x1": 660,
+          "text": "ZhouHaibin TanYusong 6305-9027 3-Oct-2026 2-Oct-2026 1-Oct-2026 05-Sep-2026",
+          "cells": [
+            [
+              26,
+              "ZhouHaibin"
+            ],
+            [
+              79,
+              "TanYusong"
+            ],
+            [
+              411,
+              "6305-9027"
+            ],
+            [
+              467,
+              "3-Oct-2026"
+            ],
+            [
+              521,
+              "2-Oct-2026"
+            ],
+            [
+              576,
+              "1-Oct-2026"
+            ],
+            [
+              633,
+              "05-Sep-2026"
+            ]
+          ]
+        },
+        {
+          "y": 289,
+          "x0": 136,
+          "x1": 1109,
+          "text": "ECI-001 :103° a Niaga Gemilang GEMILANG",
+          "cells": [
+            [
+              136,
+              "ECI-001"
+            ],
+            [
+              675,
+              ":103°"
+            ],
+            [
+              793,
+              "a Niaga Gemilang"
+            ],
+            [
+              1088,
+              "GEMILANG"
+            ]
+          ]
+        },
+        {
+          "y": 304,
+          "x0": 191,
+          "x1": 1137,
+          "text": "5700 Tengah Block TA",
+          "cells": [
+            [
+              191,
+              "5700"
+            ],
+            [
+              739,
+              "Tengah Block"
+            ],
+            [
+              1125,
+              "TA"
+            ]
+          ]
+        },
+        {
+          "y": 321,
+          "x0": 706,
+          "x1": 942,
+          "text": "01 Interpretation Result Plot",
+          "cells": [
+            [
+              706,
+              "01"
+            ],
+            [
+              887,
+              "Interpretation Result Plot"
+            ]
+          ]
+        },
+        {
+          "y": 374,
+          "x0": 702,
+          "x1": 729,
+          "text": "22.523\"",
+          "cells": [
+            [
+              702,
+              "22.523\""
+            ]
+          ]
+        },
+        {
+          "y": 399,
+          "x0": 675,
+          "x1": 885,
+          "text": "35.019\" 00",
+          "cells": [
+            [
+              675,
+              "35.019\""
+            ],
+            [
+              846,
+              "00"
+            ]
+          ]
+        },
+        {
+          "y": 441,
+          "x0": 80,
+          "x1": 658,
+          "text": "Field Recorded E Max. Record Circulation Time Since RM RMC RM RM / Visvosit Fluid Flui Bit :",
+          "cells": [
+            [
+              80,
+              "Field Recorded E"
+            ],
+            [
+              134,
+              "Max. Record"
+            ],
+            [
+              177,
+              "Circulation"
+            ],
+            [
+              203,
+              "Time Since"
+            ],
+            [
+              248,
+              "RM"
+            ],
+            [
+              301,
+              "RMC"
+            ],
+            [
+              357,
+              "RM"
+            ],
+            [
+              412,
+              "RM"
+            ],
+            [
+              509,
+              "/ Visvosit"
+            ],
+            [
+              538,
+              "Fluid"
+            ],
+            [
+              568,
+              "Flui"
+            ],
+            [
+              635,
+              "Bit :"
+            ]
+          ]
+        },
+        {
+          "y": 456,
+          "x0": 26,
+          "x1": 506,
+          "text": "ield Witnessed I Fluid Loss luid F",
+          "cells": [
+            [
+              26,
+              "ield Witnessed I"
+            ],
+            [
+              455,
+              "Fluid Loss"
+            ],
+            [
+              481,
+              "luid F"
+            ]
+          ]
+        },
+        {
+          "y": 476,
+          "x0": 247,
+          "x1": 433,
+          "text": "at BH at Meas. Temp. at I",
+          "cells": [
+            [
+              247,
+              "at BH"
+            ],
+            [
+              354,
+              "at Meas. Temp."
+            ],
+            [
+              413,
+              "at I"
+            ]
+          ]
+        },
+        {
+          "y": 491,
+          "x0": 303,
+          "x1": 726,
+          "text": "at Meas. Densi SE",
+          "cells": [
+            [
+              303,
+              "at"
+            ],
+            [
+              412,
+              "Meas."
+            ],
+            [
+              537,
+              "Densi"
+            ],
+            [
+              677,
+              "SE"
+            ]
+          ]
+        },
+        {
+          "y": 532,
+          "x0": 303,
+          "x1": 321,
+          "text": "leas",
+          "cells": [
+            [
+              303,
+              "leas"
+            ]
+          ]
+        },
+        {
+          "y": 565,
+          "x0": 137,
+          "x1": 434,
+          "text": "1Temp Temp Tem",
+          "cells": [
+            [
+              137,
+              "1Temp"
+            ],
+            [
+              300,
+              "Temp"
+            ],
+            [
+              412,
+              "Tem"
+            ]
+          ]
+        },
+        {
+          "y": 628,
+          "x0": 674,
+          "x1": 731,
+          "text": "9,886,901.00 341,597.000",
+          "cells": [
+            [
+              674,
+              "9,886,901.00"
+            ],
+            [
+              699,
+              "341,597.000"
+            ]
+          ]
+        },
+        {
+          "y": 651,
+          "x0": 301,
+          "x1": 435,
+          "text": "0.339 ohm.M@68DegF 0.177 ohm.M@68DegF 0.255 ohm.M@68DegF",
+          "cells": [
+            [
+              301,
+              "0.339 ohm.M@68DegF"
+            ],
+            [
+              357,
+              "0.177 ohm.M@68DegF"
+            ],
+            [
+              410,
+              "0.255 ohm.M@68DegF"
+            ]
+          ]
+        },
+        {
+          "y": 670,
+          "x0": 27,
+          "x1": 107,
+          "text": "Afif/Christiono XieSong/Rhomi",
+          "cells": [
+            [
+              27,
+              "Afif/Christiono"
+            ],
+            [
+              77,
+              "XieSong/Rhomi"
+            ]
+          ]
+        },
+        {
+          "y": 692,
+          "x0": 135,
+          "x1": 601,
+          "text": "298.1 DegF 0.063 ohm.I 10 / 6.2 ( 9.9 LB/0 KCI-Polymer",
+          "cells": [
+            [
+              135,
+              "298.1 DegF"
+            ],
+            [
+              259,
+              "0.063 ohm.I"
+            ],
+            [
+              466,
+              "10 / 6.2 ("
+            ],
+            [
+              522,
+              "9.9 LB/0"
+            ],
+            [
+              578,
+              "KCI-Polymer"
+            ]
+          ]
+        },
+        {
+          "y": 710,
+          "x0": 235,
+          "x1": 259,
+          "text": "2298.1 degF",
+          "cells": [
+            [
+              235,
+              "2298.1 degF"
+            ]
+          ]
+        },
+        {
+          "y": 731,
+          "x0": 190,
+          "x1": 218,
+          "text": "Hours",
+          "cells": [
+            [
+              190,
+              "Hours"
+            ]
+          ]
+        },
+        {
+          "y": 772,
+          "x0": 469,
+          "x1": 492,
+          "text": "C3",
+          "cells": [
+            [
+              469,
+              "C3"
+            ]
+          ]
+        },
+        {
+          "y": 938,
+          "x0": 15,
+          "x1": 1175,
+          "text": "CEALLINTERPRETATIONSAREOPINIONSBASED ONINFERENCESFROMELECTRICALOR OTHERMEASUREMENTS.WECANNOT,A",
+          "cells": [
+            [
+              15,
+              "CEALLINTERPRETATIONSAREOPINIONSBASED ONINFERENCESFROMELECTRICALOR OTHERMEASUREMENTS.WECANNOT,A"
+            ]
+          ]
+        },
+        {
+          "y": 960,
+          "x0": 15,
+          "x1": 1177,
+          "text": "NDWEDONOTGUARANTEETHEACCURANCYORCORRECTNESSOFANYEXPENSESWHATSOEVERINCURREDORSUSTAINEDBY",
+          "cells": [
+            [
+              15,
+              "NDWEDONOTGUARANTEETHEACCURANCYORCORRECTNESSOFANYEXPENSESWHATSOEVERINCURREDORSUSTAINEDBY"
+            ]
+          ]
+        },
+        {
+          "y": 983,
+          "x0": 17,
+          "x1": 817,
+          "text": "THECUSTOMER RESULTING FROM ANY INTERPRETATION MADEBYANY OUR EMPLOYEES",
+          "cells": [
+            [
+              17,
+              "THECUSTOMER RESULTING FROM ANY INTERPRETATION MADEBYANY OUR EMPLOYEES"
+            ]
+          ]
+        },
+        {
+          "y": 1059,
+          "x0": 151,
+          "x1": 1015,
+          "text": "BOREHOLE RECORD CASING RECORD",
+          "cells": [
+            [
+              151,
+              "BOREHOLE"
+            ],
+            [
+              332,
+              "RECORD"
+            ],
+            [
+              757,
+              "CASING"
+            ],
+            [
+              892,
+              "RECORD"
+            ]
+          ]
+        },
+        {
+          "y": 1135,
+          "x0": 87,
+          "x1": 915,
+          "text": "SIZE FROM SIZE FROM",
+          "cells": [
+            [
+              87,
+              "SIZE"
+            ],
+            [
+              277,
+              "FROM"
+            ],
+            [
+              672,
+              "SIZE"
+            ],
+            [
+              861,
+              "FROM"
+            ]
+          ]
+        },
+        {
+          "y": 1196,
+          "x0": 81,
+          "x1": 1123,
+          "text": "26 IN 0 FT 118 FT 20 IN 0 FT 118 FT",
+          "cells": [
+            [
+              81,
+              "26 IN"
+            ],
+            [
+              272,
+              "0 FT"
+            ],
+            [
+              456,
+              "118 FT"
+            ],
+            [
+              662,
+              "20 IN"
+            ],
+            [
+              855,
+              "0 FT"
+            ],
+            [
+              1041,
+              "118 FT"
+            ]
+          ]
+        },
+        {
+          "y": 1261,
+          "x0": 72,
+          "x1": 1157,
+          "text": "17.5IN 118 FT 2640 FT 13.375 IN 0 FT 2630.97.0 FT",
+          "cells": [
+            [
+              72,
+              "17.5IN"
+            ],
+            [
+              262,
+              "118 FT"
+            ],
+            [
+              449,
+              "2640 FT"
+            ],
+            [
+              643,
+              "13.375 IN"
+            ],
+            [
+              855,
+              "0 FT"
+            ],
+            [
+              1007,
+              "2630.97.0 FT"
+            ]
+          ]
+        },
+        {
+          "y": 1326,
+          "x0": 64,
+          "x1": 1130,
+          "text": "12.25 IN 2640 FT 6450 FT 9.625IN OFT 6441 FT",
+          "cells": [
+            [
+              64,
+              "12.25 IN"
+            ],
+            [
+              258,
+              "2640 FT"
+            ],
+            [
+              453,
+              "6450 FT"
+            ],
+            [
+              649,
+              "9.625IN"
+            ],
+            [
+              863,
+              "OFT"
+            ],
+            [
+              1036,
+              "6441 FT"
+            ]
+          ]
+        },
+        {
+          "y": 1393,
+          "x0": 76,
+          "x1": 546,
+          "text": "8.5 IN 6450FT 9032 FT",
+          "cells": [
+            [
+              76,
+              "8.5 IN"
+            ],
+            [
+              262,
+              "6450FT"
+            ],
+            [
+              452,
+              "9032 FT"
+            ]
+          ]
+        },
+        {
+          "y": 1468,
+          "x0": 248,
+          "x1": 939,
+          "text": "LEGEND ( OF WELL-LOGGING RESULT",
+          "cells": [
+            [
+              248,
+              "LEGEND ("
+            ],
+            [
+              416,
+              "OF"
+            ],
+            [
+              495,
+              "WELL-LOGGING"
+            ],
+            [
+              793,
+              "RESULT"
+            ]
+          ]
+        },
+        {
+          "y": 1546,
+          "x0": 116,
+          "x1": 1128,
+          "text": "Gas Poor Gas Gas & Water Gas-bearing Water",
+          "cells": [
+            [
+              116,
+              "Gas"
+            ],
+            [
+              391,
+              "Poor Gas"
+            ],
+            [
+              660,
+              "Gas & Water"
+            ],
+            [
+              939,
+              "Gas-bearing Water"
+            ]
+          ]
+        },
+        {
+          "y": 1663,
+          "x0": 113,
+          "x1": 1127,
+          "text": "oil Poor oil Oil & Water Oil-bearing Water",
+          "cells": [
+            [
+              113,
+              "oil"
+            ],
+            [
+              385,
+              "Poor oil"
+            ],
+            [
+              662,
+              "Oil & Water"
+            ],
+            [
+              938,
+              "Oil-bearing Water"
+            ]
+          ]
+        },
+        {
+          "y": 1774,
+          "x0": 116,
+          "x1": 1159,
+          "text": "Gas & Oil Water Tight Possible Hydrocarbon",
+          "cells": [
+            [
+              116,
+              "Gas & Oil"
+            ],
+            [
+              390,
+              "Water"
+            ],
+            [
+              663,
+              "Tight"
+            ],
+            [
+              936,
+              "Possible Hydrocarbon"
+            ]
+          ]
+        },
+        {
+          "y": 1866,
+          "x0": 988,
+          "x1": 1099,
+          "text": "Volume",
+          "cells": [
+            [
+              988,
+              "Volume"
+            ]
+          ]
+        },
+        {
+          "y": 1885,
+          "x0": 47,
+          "x1": 947,
+          "text": "Lithology Resistivity Porosity Saturation Permeability",
+          "cells": [
+            [
+              47,
+              "Lithology"
+            ],
+            [
+              239,
+              "Resistivity"
+            ],
+            [
+              497,
+              "Porosity"
+            ],
+            [
+              660,
+              "Saturation"
+            ],
+            [
+              779,
+              "Permeability"
+            ]
+          ]
+        },
+        {
+          "y": 1905,
+          "x0": 988,
+          "x1": 1107,
+          "text": "Analysis",
+          "cells": [
+            [
+              988,
+              "Analysis"
+            ]
+          ]
+        },
+        {
+          "y": 1962,
+          "x0": 12,
+          "x1": 521,
+          "text": "250 GR 500 PE",
+          "cells": [
+            [
+              12,
+              "250"
+            ],
+            [
+              88,
+              "GR"
+            ],
+            [
+              165,
+              "500"
+            ],
+            [
+              483,
+              "PE"
+            ]
+          ]
+        },
+        {
+          "y": 1996,
+          "x0": 85,
+          "x1": 550,
+          "text": "gAPI 250 OE B/E20",
+          "cells": [
+            [
+              85,
+              "gAPI"
+            ],
+            [
+              164,
+              "250"
+            ],
+            [
+              457,
+              "OE"
+            ],
+            [
+              477,
+              "B/E20"
+            ]
+          ]
+        },
+        {
+          "y": 2043,
+          "x0": 90,
+          "x1": 1078,
+          "text": "SP CNCF Shale",
+          "cells": [
+            [
+              90,
+              "SP"
+            ],
+            [
+              517,
+              "CNCF"
+            ],
+            [
+              1017,
+              "Shale"
+            ]
+          ]
+        },
+        {
+          "y": 2079,
+          "x0": 15,
+          "x1": 1192,
+          "text": "-50 mV 150 RT 60 PU Limestone RESULT",
+          "cells": [
+            [
+              15,
+              "-50"
+            ],
+            [
+              91,
+              "mV"
+            ],
+            [
+              166,
+              "150"
+            ],
+            [
+              283,
+              "RT"
+            ],
+            [
+              454,
+              "60"
+            ],
+            [
+              537,
+              "PU"
+            ],
+            [
+              997,
+              "Limestone"
+            ],
+            [
+              1155,
+              "RESULT"
+            ]
+          ]
+        },
+        {
+          "y": 2116,
+          "x0": 89,
+          "x1": 1099,
+          "text": "BIT 0.2 OHMM 200 2.7 ZDEN 3.7 Sandstone",
+          "cells": [
+            [
+              89,
+              "BIT"
+            ],
+            [
+              207,
+              "0.2"
+            ],
+            [
+              272,
+              "OHMM"
+            ],
+            [
+              358,
+              "200"
+            ],
+            [
+              454,
+              "2.7"
+            ],
+            [
+              518,
+              "ZDEN"
+            ],
+            [
+              611,
+              "3.7"
+            ],
+            [
+              995,
+              "Sandstone"
+            ]
+          ]
+        },
+        {
+          "y": 2147,
+          "x0": 455,
+          "x1": 1073,
+          "text": "1.7 G/C3 2.7 Coal",
+          "cells": [
+            [
+              455,
+              "1.7"
+            ],
+            [
+              527,
+              "G/C3"
+            ],
+            [
+              611,
+              "2.7"
+            ],
+            [
+              1022,
+              "Coal"
+            ]
+          ]
+        },
+        {
+          "y": 2162,
+          "x0": 176,
+          "x1": 320,
+          "text": "18] RS",
+          "cells": [
+            [
+              176,
+              "18]"
+            ],
+            [
+              284,
+              "RS"
+            ]
+          ]
+        },
+        {
+          "y": 2182,
+          "x0": 648,
+          "x1": 1130,
+          "text": "100 Conglomeratic",
+          "cells": [
+            [
+              648,
+              "100"
+            ],
+            [
+              975,
+              "Conglomeratic"
+            ]
+          ]
+        },
+        {
+          "y": 2197,
+          "x0": 76,
+          "x1": 571,
+          "text": "CALX 0.2 OHMM 200 DT",
+          "cells": [
+            [
+              76,
+              "CALX"
+            ],
+            [
+              206,
+              "0.2"
+            ],
+            [
+              272,
+              "OHMM"
+            ],
+            [
+              358,
+              "200"
+            ],
+            [
+              534,
+              "DT"
+            ]
+          ]
+        },
+        {
+          "y": 2212,
+          "x0": 984,
+          "x1": 1110,
+          "text": "Moved Hydro",
+          "cells": [
+            [
+              984,
+              "Moved Hydro"
+            ]
+          ]
+        },
+        {
+          "y": 2228,
+          "x0": 97,
+          "x1": 914,
+          "text": "IN 18 RMSL Depth 240 us/ft 40 POR PERM",
+          "cells": [
+            [
+              97,
+              "IN"
+            ],
+            [
+              178,
+              "18"
+            ],
+            [
+              269,
+              "RMSL"
+            ],
+            [
+              401,
+              "Depth"
+            ],
+            [
+              454,
+              "240"
+            ],
+            [
+              530,
+              "us/ft"
+            ],
+            [
+              619,
+              "40"
+            ],
+            [
+              697,
+              "POR"
+            ],
+            [
+              842,
+              "PERM"
+            ]
+          ]
+        },
+        {
+          "y": 2245,
+          "x0": 402,
+          "x1": 1121,
+          "text": "(feet) Residual Hydro",
+          "cells": [
+            [
+              402,
+              "(feet)"
+            ],
+            [
+              973,
+              "Residual Hydro"
+            ]
+          ]
+        },
+        {
+          "y": 2265,
+          "x0": 40,
+          "x1": 1080,
+          "text": "WASH OUT 0.2 ohm.m 200 1:200 ZDEN>CNCF 50 0.2 mD 2 2000 Water",
+          "cells": [
+            [
+              40,
+              "WASH OUT"
+            ],
+            [
+              206,
+              "0.2"
+            ],
+            [
+              271,
+              "ohm.m"
+            ],
+            [
+              356,
+              "200"
+            ],
+            [
+              400,
+              "1:200"
+            ],
+            [
+              474,
+              "ZDEN>CNCF"
+            ],
+            [
+              648,
+              "50"
+            ],
+            [
+              801,
+              "0.2"
+            ],
+            [
+              860,
+              "mD 2"
+            ],
+            [
+              900,
+              "2000"
+            ],
+            [
+              1015,
+              "Water"
+            ]
+          ]
+        },
+        {
+          "y": 2482,
+          "x0": 1143,
+          "x1": 1173,
+          "text": "59",
+          "cells": [
+            [
+              1143,
+              "59"
+            ]
+          ]
+        },
+        {
+          "y": 2545,
+          "x0": 1143,
+          "x1": 1176,
+          "text": "60",
+          "cells": [
+            [
+              1143,
+              "60"
+            ]
+          ]
+        },
+        {
+          "y": 2665,
+          "x0": 1142,
+          "x1": 1173,
+          "text": "61",
+          "cells": [
+            [
+              1142,
+              "61"
+            ]
+          ]
+        },
+        {
+          "y": 2798,
+          "x0": 408,
+          "x1": 428,
+          "text": "65",
+          "cells": [
+            [
+              408,
+              "65"
+            ]
+          ]
+        },
+        {
+          "y": 3675,
+          "x0": 1143,
+          "x1": 1173,
+          "text": "62",
+          "cells": [
+            [
+              1143,
+              "62"
+            ]
+          ]
+        },
+        {
+          "y": 4109,
+          "x0": 1146,
+          "x1": 1171,
+          "text": "63",
+          "cells": [
+            [
+              1146,
+              "63"
+            ]
+          ]
+        },
+        {
+          "y": 5304,
+          "x0": 1142,
+          "x1": 1205,
+          "text": "64",
+          "cells": [
+            [
+              1142,
+              "64"
+            ]
+          ]
+        },
+        {
+          "y": 5357,
+          "x0": 1143,
+          "x1": 1177,
+          "text": "65",
+          "cells": [
+            [
+              1143,
+              "65"
+            ]
+          ]
+        },
+        {
+          "y": 5908,
+          "x0": 408,
+          "x1": 428,
+          "text": "686",
+          "cells": [
+            [
+              408,
+              "686"
+            ]
+          ]
+        }
+      ],
+      "disclaimer": "CEALLINTERPRETATIONSAREOPINIONSBASED ONINFERENCESFROMELECTRICALOR OTHERMEASUREMENTS.WECANNOT,A NDWEDONOTGUARANTEETHEACCURANCYORCORRECTNESSOFANYEXPENSESWHATSOEVERINCURREDORSUSTAINEDBY THECUSTOMER RESULTING FROM ANY INTERPRETATION MADEBYANY OUR EMPLOYEES",
+      "legend_title": "LEGEND ( OF WELL-LOGGING RESULT",
+      "legend_items": [
+        {
+          "label": "Gas Poor Gas Gas & Water Gas-bearing Water",
+          "y": 1546
+        },
+        {
+          "label": "oil Poor oil Oil & Water Oil-bearing Water",
+          "y": 1663
+        },
+        {
+          "label": "Gas & Oil Water Tight Possible Hydrocarbon",
+          "y": 1774
+        },
+        {
+          "label": "Lithology Resistivity Porosity Saturation Permeability",
+          "y": 1885
+        },
+        {
+          "label": "SP CNCF Shale",
+          "y": 2043
+        },
+        {
+          "label": "-50 mV 150 RT 60 PU Limestone RESULT",
+          "y": 2079
+        },
+        {
+          "label": "BIT 0.2 OHMM 200 2.7 ZDEN 3.7 Sandstone",
+          "y": 2116
+        },
+        {
+          "label": "1.7 G/C3 2.7 Coal",
+          "y": 2147
+        },
+        {
+          "label": "WASH OUT 0.2 ohm.m 200 1:200 ZDEN>CNCF 50 0.2 mD 2 2000 Water",
+          "y": 2265
+        }
+      ]
+    }
+  ]
+}
