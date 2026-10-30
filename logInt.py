@@ -15212,6 +15212,20 @@ class WellLogProcessor:
                 logger.warning('按层解释 traceback:\n%s',
                                __import__('traceback').format_exc())
 
+            # 【2026-10-30 R57】盐岩/硬石膏下大层划分+分层解释统一归集层表：
+            # 盖层(盐岩/硬石膏/石膏)=大层边界，POR>=0.06 截止分层单独解释，
+            # 全井统一归集 <井名>_interpretation_layers.csv（用户要求"能分开
+            # 层的一定要分开层，单独解释，统一归集"）
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    build_interpretation_layer_table(
+                        self.results['processed_data'],
+                        getattr(self, 'well_name', 'Well'),
+                        well_output_dir)
+            except Exception as _lt57:
+                logger.warning("解释层表生成失败（不影响主流程）: %s", _lt57)
+
             # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
             # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
             # 导致 CSV 缺 REG 列且 354 点 WATER→OIL 改判不落盘
@@ -18918,9 +18932,33 @@ def layered_interpretation_by_cutoff(data, min_thick=0.4, thin_absorb=0.6,
     # 层边界除深度间断外, 还要落在两者转折处（干层段独立成层, 与上下
     # 油气层分开, 不混入同一层）
     _kind = np.where(_itp.values[_rows] == 'DRY', 'DRY', 'EFF')
+    # 【2026-10-30 R57 用户要求】盐岩/硬石膏(盖层)之下开新层——
+    # 【R57b 用户拍板】盖层切层不能强制，有孔隙度要求的：本切层只发生在
+    # 相邻两个"解释点"之间，而解释点在逐点解释阶段已按分井孔隙度截止值
+    # （碳酸盐岩 0.06 等）定案——即盖层两侧都有达到截止值的解释层才切开，
+    # 盖层之下没有达标储层就不开新层（不会凭盖层产生无孔隙度依据的层）。
+    # 逐对相邻储层点检查中间是否夹盖层点（二分查找，O(log n)）。
+    _seal_md_sorted = None
+    if 'LITHOLOGY' in out.columns:
+        _lith_arr = out['LITHOLOGY'].fillna('').astype(str) \
+            .str.lower().str.strip()
+        _sm = _md.values[_lith_arr.isin(_SEAL_LITHS).values]
+        _sm = _sm[np.isfinite(_sm)]
+        if len(_sm):
+            _seal_md_sorted = np.sort(_sm)
+    import bisect as _bisect57
+
+    def _seal_between(_a, _b):
+        if _seal_md_sorted is None:
+            return False
+        _lo = _bisect57.bisect_right(_seal_md_sorted, _a)
+        _hi = _bisect57.bisect_left(_seal_md_sorted, _b)
+        return _hi > _lo
+
     _brk = [0] + [i for i in range(1, len(_rows))
                   if _mds[i] - _mds[i - 1] > gap_break
-                  or _kind[i] != _kind[i - 1]] + [len(_rows)]
+                  or _kind[i] != _kind[i - 1]
+                  or _seal_between(_mds[i - 1], _mds[i])] + [len(_rows)]
     layers = []
     for a, b in zip(_brk[:-1], _brk[1:]):
         _seg = _rows[a:b]
@@ -18986,6 +19024,218 @@ def layered_interpretation_by_cutoff(data, min_thick=0.4, thin_absorb=0.6,
             L['lab'], chg)
     logger.info('按层解释: 共 %d 层, 改写 %d 点', len(layers), n_chg)
     return out, n_chg
+
+# 大层/盖层口径【2026-10-30 R57 用户要求】=================================
+# 盖层（盐岩/硬石膏/石膏）= 大层边界；大层按上覆盖层命名
+# （盐岩下大层/硬石膏下大层…），与 rejudge_hc_below_seal 的盖层集合一致。
+_SEAL_LITHS = ('halite', 'salt', 'anhydrite', 'gypsum',
+               '盐岩', '硬石膏', '石膏')
+_SEAL_CN = {'halite': '盐岩', 'salt': '盐岩', '盐岩': '盐岩',
+            'anhydrite': '硬石膏', '硬石膏': '硬石膏',
+            'gypsum': '石膏', '石膏': '石膏'}
+
+
+def build_interpretation_layer_table(data, well_name, output_dir,
+                                     gap_break=0.5,
+                                     min_group_seal_thick=0.5):
+    """盐岩/硬石膏下大层划分 + 分层解释统一归集层表【2026-10-30 R57】。
+
+    用户要求："按解释逻辑总纲的要求，按截止值0.06能分开层的一定要
+    分开层，单独解释，统一归集"。
+
+    大层 = 盖层(盐岩/硬石膏/石膏)厚段(>=min_group_seal_thick)分隔开的
+    储层段，大层名按上覆盖层命名（盐岩下大层/硬石膏下大层/石膏下大层），
+    顶段（其上无盖层）命名"<首盖层>上大层"。
+    小层 = 大层内按孔隙度截止值(0.06)分出的解释层
+    （layered_interpretation_by_cutoff 已逐点定案：POR>=0.06 有效储层
+    油气水层 / >=0.06 无油气水=DRY 干层 / <0.06 不解释留空），
+    盖层/深度间断/干层-有效储层性质转折处必切层——能分开层的一定分开，
+    单独解释后统一归集本表。盖层切层有孔隙度前提（R57b 用户拍板）：
+    只归集达到孔隙度截止值的解释层，盖层之下无达标层则该大层不立
+    （不凭盖层强制开层）。
+
+    输出 <井名>_interpretation_layers.csv（utf-8-sig；LAYER_ID 全井连续，
+    兼容 syt5945 报告模块；GROUP_ID/GROUP_NAME 为大层归集列；盖层行
+    INTERPRETATION=NonReservoir、PHI/SW=0，与总纲 §7.2 非储层强制一致）。
+    返回层表 DataFrame（无解释结论点时返回 None）。
+    """
+    import bisect as _bs
+    if data is None or len(data) == 0 \
+            or 'INTERPRETATION' not in data.columns or 'MD' not in data.columns:
+        return None
+    _mdv = pd.to_numeric(data['MD'], errors='coerce').values.astype(float)
+    _itp = data['INTERPRETATION'].fillna('').astype(str) \
+        .str.strip().str.upper()
+    _lv = _itp.values
+    _valid = ~np.isin(_lv, ('NONRESERVOIR', 'UNDEFINED', 'TIGHT',
+                            'NAN', 'NONE', ''))
+    _rows = np.where(_valid)[0]
+    if len(_rows) == 0:
+        logger.info('解释层表: 无解释结论点, 跳过')
+        return None
+    _lith = data['LITHOLOGY'].fillna('').astype(str).str.lower().str.strip() \
+        if 'LITHOLOGY' in data.columns else None
+
+    # ---- 盖层游程（大层边界, 厚度>=min_group_seal_thick）----
+    _seal_runs = []
+    if _lith is not None:
+        _is_seal = _lith.isin(_SEAL_LITHS).values
+        i = 0
+        n = len(_is_seal)
+        while i < n:
+            if not _is_seal[i] or not np.isfinite(_mdv[i]):
+                i += 1
+                continue
+            j = i
+            while j + 1 < n and _is_seal[j + 1] and np.isfinite(_mdv[j + 1]):
+                j += 1
+            _thick = float(_mdv[j] - _mdv[i])
+            if _thick >= min_group_seal_thick:
+                _dom = pd.Series(_lith.values[i:j + 1]).mode().iloc[0]
+                _seal_runs.append({'top': float(_mdv[i]),
+                                   'bot': float(_mdv[j]),
+                                   'thick': _thick, 'lith': str(_dom)})
+            i = j + 1
+
+    # ---- 大层划分（盖层之间的段, 按上覆盖层命名）----
+    _groups = []
+    _prev_bot = None
+    _prev_lith = None
+    for _sr in _seal_runs:
+        if _prev_bot is None:
+            _groups.append({'top': None, 'bot': _sr['top'],
+                            'name': '%s上大层'
+                                    % _SEAL_CN.get(_sr['lith'], '盖层')})
+        else:
+            _groups.append({'top': _prev_bot, 'bot': _sr['top'],
+                            'name': '%s下大层'
+                                    % _SEAL_CN.get(_prev_lith, '盖层')})
+        _prev_bot = _sr['bot']
+        _prev_lith = _sr['lith']
+    _groups.append({'top': _prev_bot, 'bot': None,
+                    'name': ('%s下大层' % _SEAL_CN.get(_prev_lith, '盖层'))
+                            if _prev_lith else '主要层段大层'})
+
+    def _group_of(_m):
+        for _gi, _g in enumerate(_groups):
+            _t = _g['top'] if _g['top'] is not None else -np.inf
+            _b = _g['bot'] if _g['bot'] is not None else np.inf
+            if _t <= _m < _b:
+                return _gi
+        return len(_groups) - 1 if _groups else None
+
+    # ---- 小层切分（与 layered_interpretation_by_cutoff 同口径）----
+    _rmd = _mdv[_rows]
+    _kinds = np.array(['DRY' if _lv[r] == 'DRY' else 'EFF' for r in _rows])
+    if _lith is not None:
+        _sm = _mdv[_lith.isin(_SEAL_LITHS).values]
+        _seal_md = np.sort(_sm[np.isfinite(_sm)])
+    else:
+        _seal_md = np.array([])
+
+    def _seal_between(_a, _b):
+        if len(_seal_md) == 0:
+            return False
+        return (_bs.bisect_left(_seal_md, _b)
+                > _bs.bisect_right(_seal_md, _a))
+
+    _brk = [0] + [i for i in range(1, len(_rows))
+                  if _rmd[i] - _rmd[i - 1] > gap_break
+                  or _kinds[i] != _kinds[i - 1]
+                  or str(_lv[_rows[i]]) != str(_lv[_rows[i - 1]])
+                  or _seal_between(_rmd[i - 1], _rmd[i])] + [len(_rows)]
+    _layers = []
+    for _a, _b in zip(_brk[:-1], _brk[1:]):
+        _seg = _rows[_a:_b]
+        _gi = _group_of(float(_mdv[_seg[0]]))
+        if _gi is None:
+            continue
+        _labs = _lv[_seg]
+        _lab = str(pd.Series(_labs).mode().iloc[0])
+        _lith_dom = ''
+        if _lith is not None:
+            _lv_seg = _lith.values[_seg]
+            _lv_seg = _lv_seg[_lv_seg != '']
+            if len(_lv_seg):
+                _lith_dom = str(pd.Series(_lv_seg).mode().iloc[0])
+
+        def _med(_col):
+            if _col in data.columns:
+                _v = pd.to_numeric(data.iloc[_seg][_col],
+                                   errors='coerce').dropna()
+                if len(_v):
+                    return float(_v.median())
+            return 0.0
+        _phi = _med('POR') if 'POR' in data.columns else _med('PHI')
+        _layers.append({'gi': _gi, 'top': float(_mdv[_seg[0]]),
+                        'bot': float(_mdv[_seg[-1]]),
+                        'lith': _lith_dom, 'lab': _lab, 'n': len(_seg),
+                        'phi': _phi, 'rt': _med('RT'),
+                        'sw': _med('Sw') if 'Sw' in data.columns else 0.0})
+    # 组内按深度排序
+    for _g in _groups:
+        pass
+    _layers.sort(key=lambda _L: (_L['gi'], _L['top']))
+
+    # ---- 归集输出（盖层行插在大层之前, 全井连续编号）----
+    recs = []
+    _lid = 0
+    _have = {_L['gi'] for _L in _layers}
+    _seal_iter = list(_seal_runs)
+    for _gi, _g in enumerate(_groups):
+        # 该组的上覆盖层行（组 0 无）
+        _grp_has = _gi in _have
+        if _gi > 0 and _grp_has:
+            _sr = _seal_iter[_gi - 1]
+            _lid += 1
+            recs.append({'LAYER_ID': _lid, 'GROUP_ID': _gi + 1,
+                         'GROUP_NAME': _g['name'],
+                         'TOP_MD': round(_sr['top'], 2),
+                         'BASE_MD': round(_sr['bot'], 2),
+                         'THICKNESS': round(_sr['thick'], 2),
+                         'LITHOLOGY': _sr['lith'],
+                         'INTERPRETATION': 'NonReservoir',
+                         'POINTS': 0, 'PHI_MEAN': 0.0,
+                         'RT_MEAN': 0.0, 'SW_MEAN': 0.0})
+        for _L in [x for x in _layers if x['gi'] == _gi]:
+            _lid += 1
+            recs.append({'LAYER_ID': _lid, 'GROUP_ID': _gi + 1,
+                         'GROUP_NAME': _g['name'],
+                         'TOP_MD': round(_L['top'], 2),
+                         'BASE_MD': round(_L['bot'], 2),
+                         'THICKNESS': round(_L['bot'] - _L['top'], 2),
+                         'LITHOLOGY': _L['lith'],
+                         'INTERPRETATION': _L['lab'],
+                         'POINTS': _L['n'],
+                         'PHI_MEAN': round(_L['phi'], 4),
+                         'RT_MEAN': round(_L['rt'], 2),
+                         'SW_MEAN': round(_L['sw'], 3)})
+    if not recs:
+        logger.info('解释层表: 无可归集层, 跳过')
+        return None
+    tdf = pd.DataFrame(recs)
+    _out = str(output_dir) if output_dir is not None else 'output'
+    import os as _os57
+    _os57.makedirs(_out, exist_ok=True)
+    _path = _os57.path.join(_out, '%s_interpretation_layers.csv' % well_name)
+    tdf.to_csv(_path, index=False, encoding='utf-8-sig')
+    # 大层汇总留痕
+    for _gi, _g in enumerate(_groups):
+        _n = sum(1 for x in _layers if x['gi'] == _gi)
+        if _n:
+            _ls = [x for x in _layers if x['gi'] == _gi]
+            logger.info('解释层表 大层%02d %s: %d 层 (%.1f-%.1fm)，'
+                        '结论分布 %s',
+                        _gi + 1, _g['name'], _n,
+                        min(x['top'] for x in _ls),
+                        max(x['bot'] for x in _ls),
+                        dict(pd.Series([x['lab'] for x in _ls])
+                             .value_counts()))
+    logger.info('解释层表已归集: %s（%d 大层 / %d 行）',
+                _path, len([g for gi, g in enumerate(_groups)
+                            if gi in _have]), len(recs))
+    return tdf
+
 
 def rejudge_hc_below_seal(data, gas_data=None, por_hc=None):
     """【2026-10-26 R24 用户要求】盖层(盐岩/硬石膏)下气测异常储层水层→油气补偿。
