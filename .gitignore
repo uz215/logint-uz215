@@ -225,3 +225,8 @@ quicklook_config.json
 gas_test.csv
 *.bat
 !run_gui.bat
+
+# ===== logsys 新代码包（必须入库；上面的 _*.py / config/ 规则会误伤 __init__.py 与 config 目录） =====
+!logsys/gasplate/config/
+!logsys/gasplate/config/*.json
+!logsys/**/__init__.py

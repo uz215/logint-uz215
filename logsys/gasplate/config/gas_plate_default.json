@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "version": "1.0.1",
+    "created": "2026-10-30",
+    "status": "pixler + 轻重烃比值 + 乙烷甲烷比值 已按图版录入；triangle/3h/gas_eval 待试油井标定后启用",
+    "source": [
+      "D:\\360\\地质\\气测录井\\Flair气测资料处理\\气测解释图版.xls",
+      "D:\\360\\地质\\气测录井\\Flair气测资料处理\\烃比值图版.xls",
+      "D:\\360\\src\\Gas.py TraditionalInterpretationModule（参考实现）"
+    ],
+    "corrections": [
+      "图版标签 C1/∑C 实际计算为 C1/(C2+C3+C4+C5)：以样品 C1=74.65,C2=14.14… 反算得 2.98，故按轻重烃比实现"
+    ]
+  },
+  "required": ["C1", "C2", "C3"],
+  "pixler": {
+    "oil": {"C1/C2": [2, 10], "C1/C3": [2, 14], "C1/C4": [2, 21]},
+    "gas": {"C1/C2": [10, 35], "C1/C3": [14, 82], "C1/C4": [21, 200]},
+    "dry_outside": true,
+    "policy": "majority",
+    "closed_right": {"C1/C2": false, "C1/C3": false, "C1/C4": false},
+    "policy_note": "strict=三项全落同一区；majority=≥2 项落区（置信度降低）。边界值归气区。"
+  },
+  "ratio_c1_heavy": {
+    "enabled": true,
+    "formula": "C1/(C2+C3+C4+C5)",
+    "bands": [
+      [null, 5, "与油有关的天然气"],
+      [5, 10, "油层气→凝析气"],
+      [10, 15, "凝析气→干气"],
+      [15, 25, "干气"],
+      [25, null, "甚干气"]
+    ]
+  },
+  "ratio_c2c3": {
+    "enabled": true,
+    "scale": 10,
+    "formula": "C2/C3*10",
+    "bands": [
+      [null, 20, "伴生气→油"],
+      [20, 30, "湿气→凝析气"],
+      [30, 40, "凝析气→干气"],
+      [40, 50, "干气→甚干气"],
+      [50, null, "甚干气"]
+    ]
+  },
+  "three_h": {
+    "enabled": false,
+    "K": 100,
+    "formula": "WH=(C2+C3+IC4+NC4+IC5+NC5)*K/(C1+..+C5); BH=(C1+C2)/(C3+C4+C5); CH=(C4+C5)/C3",
+    "oil": {"WH": [0.0, 0.0], "CH_min": 0.0, "BH_max_ratio": 0.0},
+    "gas": {"WH": [0.0, 0.0]},
+    "note": "Excel 仅给公式与 K=100，未给分带上下限；需用有试油结论的井标定后再启用。"
+  },
+  "gas_eval": {
+    "enabled": false,
+    "zones": {
+      "A": {"name": "溶解于水中的干气", "c1c2": [1, 60], "c1c3": [1, 900]},
+      "B": {"name": "天然气凝析气", "c1c2": [1, 40], "c1c3": [1, 800]},
+      "C": {"name": "伴生气/油", "c1c2": [1, 200], "c1c3": [1, 2000]},
+      "D": {"name": "向氧化油过渡", "c1c2": null, "c1c3": null}
+    },
+    "note": "Excel 版式含 A/B/C/D 区名，阈值行含义需人工确认后启用。"
+  },
+  "mapping": {
+    "plate_gas": "GAS",
+    "plate_oil": "OIL",
+    "plate_dry": "KEEP",
+    "plate_undefined": "KEEP",
+    "note": "KEEP=保留测井规则结论并标 REVIEW；图版只回答气/油，不负责水层与储层性。"
+  },
+  "review": {
+    "min_methods_for_confident": 2,
+    "no_gas_data_flag": "NO_GAS_DATA",
+    "conflict_flag": "GAS_PLATE_CONFLICT"
+  }
+}
