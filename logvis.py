@@ -1322,6 +1322,10 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
             # 间距放大（XIMENIA-5 厚泥岩段横线周期 8pt vs 互层段 4pt，
             # 用户反馈"1807m/1997m 以下泥岩符号明显不一样"）。内存防护
             # 由下方按行分块渲染承担。
+            # 【2026-10-30 R57d 修订】薄层不再纵向压缩：保持全局网格
+            # 正常 dy（行距与厚层恒定一致，铁律 #3/#7），可见性交给
+            # clip_path 裁到薄层顶底（不变量 #4）——薄层内显示被边界自然
+            # 裁切的完整砖行纹理，绝不压缩行距。
             dy = _th * abs(scale[1])
         else:
             dx = x0d / 12.0
@@ -1444,6 +1448,35 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
                           clip_on=True, zorder=zorder)
         return
     _plot_lith_points(ax, kind, xs, ys, zorder=zorder)
+
+
+def _draw_pattern_seg(ax, lname, kind, z0, z1_full, z1_clip, x0, x1, dy,
+                      tile_anchor, clip_patch):
+    """矿物带/余量带子段纹理绘制（R57d 薄层完整纹理 + R56 逐点化资格）。
+
+    - kind=='ref'（白云岩/灰岩参考图墨迹）：薄层不再只留底色——保持全局
+      网格（正常 dy，行距与厚层**恒定一致**，铁律 #3/#7），以 clip 裁到
+      薄层顶底，薄层内显示被边界自然裁切的**完整砖行纹理**，绝不纵向压缩
+      （不变量 #4：extent 覆盖完整格行、可见性交给 clip_path）。只要子段
+      有正深度即绘制。
+    - kind!='ref'（brick/slant_brick 矢量）：维持原 0.8*dy 口径
+      （薄层仍只留底色），不改动既有图面。
+    返回 bool 是否绘制（不影响调用方游标推进）。
+    """
+    if kind == 'ref':
+        if z1_clip - z0 > 0:
+            draw_lithology_pattern(ax, lname, z0, z1_full, x0=x0, x1=x1,
+                                   fill_bg=False, zorder=10,
+                                   tile_origin=tile_anchor,
+                                   clip_patch=clip_patch)
+            return True
+        return False
+    if z1_full - z0 >= 0.8 * dy:
+        draw_lithology_pattern(ax, lname, z0, z1_full, x0=x0, x1=x1,
+                               fill_bg=False, zorder=10,
+                               tile_origin=tile_anchor, clip_patch=clip_patch)
+        return True
+    return False
 
 
 def _place_legend_tile(fig, big, x0, y0, w, h, zorder):
@@ -7061,16 +7094,15 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                                                              - md[_jb - 1])
                         else:
                             seg_z1 = float(md[_jb]) + dy / 2.0
-                        if seg_z1 - float(md[_ja]) >= 0.8 * dy:
-                            draw_lithology_pattern(
-                                ax, lname, float(md[_ja]), seg_z1,
-                                x0=float(np.min(xl[_ja:_jb + 1])),
-                                x1=float(np.max(xr[_ja:_jb + 1])),
-                                fill_bg=False, zorder=10,
-                                tile_origin=_tile_anchor,
-                                clip_patch=_lith_clip_path(
-                                    md[_ja:_jb + 1], xl[_ja:_jb + 1],
-                                    xr[_ja:_jb + 1], ax))
+                        _draw_pattern_seg(
+                            ax, lname, kind, float(md[_ja]), seg_z1,
+                            float(md[_jb]),
+                            float(np.min(xl[_ja:_jb + 1])),
+                            float(np.max(xr[_ja:_jb + 1])), dy,
+                            _tile_anchor,
+                            _lith_clip_path(md[_ja:_jb + 1],
+                                            xl[_ja:_jb + 1],
+                                            xr[_ja:_jb + 1], ax))
                         j0 = j1 + 1
                 i0 = i1 + 1
             continue
@@ -7142,28 +7174,28 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                         seg_z1 = float(md[_jb]) + float(md[_jb] - md[_jb - 1])
                     else:
                         seg_z1 = float(md[_jb]) + dy_r / 2.0
-                    if seg_z1 - float(md[_ja]) >= 0.8 * dy_r:
-                        draw_lithology_pattern(
-                            ax, li, float(md[_ja]), seg_z1,
-                            x0=float(np.min(xLr[_ja:_jb + 1])),
-                            x1=float(np.max(xRr[_ja:_jb + 1])), fill_bg=False,
-                            zorder=10, tile_origin=_tile_anchor,
-                            clip_patch=_lith_clip_path(
-                                md[_ja:_jb + 1], xLr[_ja:_jb + 1],
-                                xRr[_ja:_jb + 1], ax))
+                    _draw_pattern_seg(
+                        ax, li, kind_r, float(md[_ja]), seg_z1,
+                        float(md[_jb]),
+                        float(np.min(xLr[_ja:_jb + 1])),
+                        float(np.max(xRr[_ja:_jb + 1])), dy_r,
+                        _tile_anchor,
+                        _lith_clip_path(md[_ja:_jb + 1],
+                                        xLr[_ja:_jb + 1],
+                                        xRr[_ja:_jb + 1], ax))
                     j0 = j1 + 1
             elif kind_r in ('brick', 'slant_brick', 'ref'):
                 # 无法换算像素宽（_trk_px_r 为 None）：退回整段绘制旧口径
                 seg_z1 = float(md[i1]) + (float(md[i1] - md[i1 - 1])
                                           if i1 > i0 else dy_r / 2.0)
-                if seg_z1 - float(md[i0]) >= 0.8 * dy_r:
-                    draw_lithology_pattern(
-                        ax, li, float(md[i0]), seg_z1,
-                        x0=float(np.min(xLr[i0:i1 + 1])),
-                        x1=float(np.max(xRr[i0:i1 + 1])), fill_bg=False,
-                        zorder=10, tile_origin=_tile_anchor,
-                        clip_patch=_lith_clip_path(
-                            md[i0:i1 + 1], xLr[i0:i1 + 1], xRr[i0:i1 + 1], ax))
+                _draw_pattern_seg(
+                    ax, li, kind_r, float(md[i0]), seg_z1,
+                    float(md[i1]),
+                    float(np.min(xLr[i0:i1 + 1])),
+                    float(np.max(xRr[i0:i1 + 1])), dy_r,
+                    _tile_anchor,
+                    _lith_clip_path(md[i0:i1 + 1], xLr[i0:i1 + 1],
+                                    xRr[i0:i1 + 1], ax))
             i0 = i1 + 1
         # 符号：逐行带（点/横线/人字/倒L/图片类），边缘按深度插值
         for dd in np.arange(md.min() + dy_r / 2.0, md.max(), dy_r):
