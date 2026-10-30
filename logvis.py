@@ -3783,6 +3783,176 @@ def fill_gas_effect(ax, md, nphi, den,
     return _nfill
 
 
+
+def ensure_render_gate():
+    """【2026-10-30 R52】渲染门禁自动触发：logvis.py 或门禁脚本比上次门禁
+    通过时间戳（_gate_pass.stamp）新 → 先跑 _test_symbol_texture.py，
+    FAIL 即抛异常中止出图；门禁脚本缺失的部署环境跳过并记日志。
+    背景（用户 2026-10-30 定案）：可视化问题已多次反复（R48 底色/R49 断行/
+    R50 密疏），检测必须焊进出图流程——不依赖任何人记得手动跑门禁。"""
+    import subprocess
+    _here = Path(__file__).resolve().parent
+    _gate = _here / '_test_symbol_texture.py'
+    if not _gate.exists():
+        logger.debug('渲染门禁脚本缺失，跳过自动门禁: %s', _gate)
+        return
+    _stamp = _here / '_gate_pass.stamp'
+    _src = Path(__file__).resolve()
+    _key = max(_src.stat().st_mtime, _gate.stat().st_mtime)
+    if _stamp.exists() and _stamp.stat().st_mtime >= _key:
+        return
+    logger.info('渲染门禁触发（logvis/门禁脚本有更新），运行 _test_symbol_texture.py ...')
+    try:
+        _r = subprocess.run([sys.executable, str(_gate)], cwd=str(_here),
+                            capture_output=True, text=True, timeout=600)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError('渲染门禁超时(600s)，禁止出图')
+    _tail = '\n'.join((_r.stdout or '').splitlines()[-10:])
+    if _r.returncode != 0:
+        logger.error('渲染门禁 FAIL（exit %d）——出图中止。门禁输出尾部:\n%s',
+                     _r.returncode, _tail)
+        raise RuntimeError('渲染门禁 _test_symbol_texture.py 未通过（exit %d），'
+                           '禁止出图，详见运行日志' % _r.returncode)
+    _stamp.write_text(str(datetime.datetime.now()))
+    logger.info('渲染门禁 PASS（自动触发），时间戳已更新。\n%s', _tail)
+
+
+# 图面 QC 跳过行距断言的岩性（符号本身天然不规则/随机虚线）：
+# 火成岩人字纹/杂斑、蒸发岩 dash 类
+_QC_SKIP_LITH_PREFIX = ('basalt', 'ign', 'volcanic', 'andesite', 'rhyolite',
+                        'granite', 'diorite', 'porphyry', 'spilit',
+                        'halite', 'anhy')
+
+
+def _qc_window_skip(data, d0, d1):
+    """窗口内主岩性属天然不规则类，或主 VALID_CURVES_COUNT<3（岩性道合法
+    留空，R33）→ 跳过行距/空白断言。"""
+    try:
+        if data is None or 'LITHOLOGY' not in getattr(data, 'columns', []):
+            return True
+        md = data['MD'] if 'MD' in data.columns else data.index
+        mask = (md >= min(d0, d1)) & (md <= max(d0, d1))
+        if not bool(mask.any()):
+            return True
+        _v = str(data.loc[mask, 'LITHOLOGY'].mode().iloc[0]).lower()
+        if any(_v.startswith(_p) for _p in _QC_SKIP_LITH_PREFIX):
+            return True
+        if 'VALID_CURVES_COUNT' in data.columns:
+            _vc = data.loc[mask, 'VALID_CURVES_COUNT'].mode()
+            if len(_vc) and int(_vc.iloc[0]) < 3:
+                return True
+        return False
+    except Exception:
+        return True
+
+
+def figure_texture_qc(fig, well_name='', data=None):
+    """【2026-10-30 R52/R52b】出图前图面纹理 QC（报告不阻断，logger.warning 留痕）：
+    对打 _lith_qc 标记的符号道（岩性道=整宽 3%-97%、PROFILE 道=矿物带左缘
+    2%-20% 窄条），按**岩性游程**（_contiguous_lith_runs 唯一分段源）逐段做
+    整段墨迹检查（两道）+ 行距均匀性（**仅岩性道**），兜底抓渲染门禁盲区/
+    GUI 路径回归。
+    【R52b】分段必须用岩性游程而非固定窗口——不同岩性符号天然行距不同
+    （砖纹/点阵/横线混在一个 1400px 窗里 CV 必然虚高，111D 实测假阳性 9 窗）。
+    【R52c】行距断言仅限岩性道：PROFILE 道是矿物比例**堆叠带**，各矿物子带
+    宽度随深度变化，任何固定窄条都会横穿移动的子带边界混入不同符号行距
+    （111D 实测 4 条灰岩游程假阳性，rowcheck 证伪）——PROFILE 带行距由渲染
+    门禁的合成矿物抖动场景把关，QC 侧只查空白/墨迹。
+    阈值比门禁宽（CV>0.5、空缺>3×中位行距）——本 QC 无逐段符号类别信息，
+    只报"肉眼可见"级异常；精细判定仍以 _test_symbol_texture.py 为准。
+    返回问题列表（写入 results['render_qc_warnings']）。"""
+    problems = []
+    arr = np.asarray(fig.canvas.buffer_rgba())[:, :, :3]
+    H, W = arr.shape[:2]
+    # 岩性游程（两道唯一分段源），[(i0, i1, lith)] 索引闭区间
+    runs = []
+    _md = None
+    if data is not None and 'LITHOLOGY' in getattr(data, 'columns', []):
+        _md = (data['MD'] if 'MD' in data.columns else data.index)
+        _liths = data['LITHOLOGY'].astype(str).str.lower().tolist()
+        _valid = None
+        if 'VALID_CURVES_COUNT' in data.columns:
+            _valid = (data['VALID_CURVES_COUNT'] >= 3).tolist()
+        runs = _contiguous_lith_runs(_liths, _valid)
+    for ax in fig.axes:
+        _tag = getattr(ax, '_lith_qc', None)
+        if not _tag:
+            continue
+        xa0, xa1 = ax.get_xlim()
+        ya0, ya1 = ax.get_ylim()
+        d_top, d_bot = min(ya0, ya1), max(ya0, ya1)
+        fx0, fx1 = ((0.03, 0.97) if _tag == 'lith' else (0.02, 0.20))
+        x_l = xa0 + (xa1 - xa0) * min(fx0, fx1)
+        x_r = xa0 + (xa1 - xa0) * max(fx0, fx1)
+        _pa = ax.transData.transform((x_l, d_bot))
+        _pb = ax.transData.transform((x_r, d_top))
+        r_top = max(0, int(min(H - _pa[1], H - _pb[1])) + 1)
+        r_bot = min(H, int(max(H - _pa[1], H - _pb[1])) - 1)
+        c0 = max(0, int(min(_pa[0], _pb[0])) + 2)
+        c1 = min(W, int(max(_pa[0], _pb[0])) - 2)
+        if r_bot - r_top < 200 or c1 - c0 < 8:
+            continue
+
+        def _row_of(_d):
+            _f = (_d - d_top) / max(d_bot - d_top, 1e-9)
+            return int(r_top + _f * (r_bot - r_top))
+
+        for (i0, i1, lith) in runs:
+            if _md is None:
+                break
+            d0 = float(_md.iloc[i0])
+            d1 = float(_md.iloc[i1])
+            if any(lith.startswith(_p) for _p in _QC_SKIP_LITH_PREFIX):
+                continue    # 火成岩人字纹/蒸发岩 dash 类符号天然不规则
+            if _tag != 'lith':
+                pass        # 【R52c】PROFILE 堆叠带不做行距断言（见 docstring）
+            ra, rb = _row_of(d0), _row_of(d1)
+            ra2, rb2 = max(ra, r_top), min(rb, r_bot)
+            if rb2 - ra2 < 180:
+                continue    # 段高不足（<~5m）不做行距断言，薄段由相邻段接续
+            reg = arr[ra2:rb2, c0:c1].astype(int)
+            med = np.median(reg, axis=1, keepdims=True)
+            ink = (np.abs(reg - med).sum(axis=2) > 120)
+            tot = float(ink.mean())
+            if tot < 0.004:
+                problems.append('%s %.0f-%.0fm %s: 整段墨迹率 %.4f——疑似纯底色无符号'
+                                % (well_name, d0, d1, lith, tot))
+                continue
+            rowd = ink.sum(axis=1).astype(float)
+            if rowd.max() <= 0:
+                continue
+            thr = rowd.max() * 0.5
+            peaks, i, n = [], 0, len(rowd)
+            while i < n:
+                if rowd[i] > thr:
+                    j = i
+                    while j < n and rowd[j] > thr:
+                        j += 1
+                    peaks.append((i + j) / 2.0)
+                    i = j
+                else:
+                    i += 1
+            dd = np.diff(peaks)
+            dd = dd[(dd > 4) & (dd < 400)]
+            if len(dd) < 10:
+                continue
+            if _tag != 'lith':
+                continue    # 【R52c】PROFILE 堆叠带只查空白，不做行距断言
+            pitch = float(np.median(dd))
+            cv = float(dd.std() / pitch)
+            gaps = int((dd > 3.0 * pitch).sum())
+            if cv > 0.5 or gaps:
+                problems.append(
+                    '%s %.0f-%.0fm %s: 行距 CV=%.2f 空缺=%d (pitch=%.1fpx)'
+                    '——疑似间隔不一致/稀疏' % (well_name, d0, d1, lith, cv, gaps, pitch))
+    for _p in problems:
+        logger.warning('图面纹理QC: %s', _p)
+    if not problems:
+        logger.info('图面纹理QC: 通过（符号道行距/墨迹无异常段）')
+    return problems
+
+
+
 def visualize_composite_log(data, results, gas_data=None, quicklook_config=None):
     """综合图绘制流程入口（用户2026-10-15"综合图走可视化综合图的绘制流程，
     快速解释走可视化快速解释的绘制流程，前期处理流程一样"）。
@@ -3830,6 +4000,9 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
     """
     # 【2026-10-10 图版化】读取图版：quicklook→qlpt.json，综合图→cmpt.json；
     # 显式传入 quicklook_config（旧式配置）时以其覆盖图版同名字段，向后兼容。
+    # 【2026-10-30 R52】渲染门禁自动触发（可视化问题多次反复，检测必须
+    # 焊进出图流程）：logvis/门禁脚本有更新 → 先跑合成井纹理门禁，FAIL 中止
+    ensure_render_gate()
     _tpl = {}
     if quicklook_config and isinstance(quicklook_config, dict):
         _tpl = dict(quicklook_config)
@@ -5837,7 +6010,15 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
     
         # 必须先绘制一次才能确保布局正确
         fig.canvas.draw()
-        
+        # 【2026-10-30 R52】出图前图面纹理 QC（报告不阻断）：兜底抓门禁盲区/
+        # GUI 路径回归，异常窗写 warning 日志并记入 results
+        try:
+            _qc_problems = figure_texture_qc(fig, well_name=well_name, data=data)
+            if _qc_problems:
+                results['render_qc_warnings'] = _qc_problems
+        except Exception as _qce:
+            logger.warning('图面纹理 QC 执行失败(跳过): %s', _qce)
+
         # 保存文件
         if 'output_dir' in results:
             well_output_dir = Path(results['output_dir'])
@@ -6400,6 +6581,7 @@ def _setup_lithology_track(ax, data, depth, depth_min, depth_max, curve_height_r
     # 矩形(0→0.8)绕过 axes 裁剪 → 岩性符号越界 60% 道宽压到沉积相道上
     ax.set_xlim(0, SYMBOL_X_EXTENT)
     ax.set_ylim(depth_max, depth_min)
+    ax._lith_qc = 'lith'   # 【R52】图面纹理 QC 标记
     # 【2026-10-30 R49 防复发】全图统一瓦片锚：两道所有
     # draw_lithology_pattern 调用传同一锚点，行线跨道对齐；
     # image/vector 类不再按段顶重启相位
@@ -6651,6 +6833,7 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
     # 并存即分叉隐患；图例统一走 draw_lithology_pattern_fig（同一几何核心）。
     ax.set_xlim(0, 1)
     ax.set_ylim(depth_max, depth_min)
+    ax._lith_qc = 'profile'   # 【R52】图面纹理 QC 标记
     ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
     ax.tick_params(axis='y', which='both', left=False, right=False,
                    labelleft=False, labelright=False)
