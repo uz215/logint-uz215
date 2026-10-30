@@ -134,7 +134,9 @@ def build_layers(data: pd.DataFrame, min_thick: float = 0.4,
         out.append({
             'LAYER_ID': i,
             'TOP_MD': round(r['top'], 3),
-            'BASE_MD': round(r['base'], 3),
+            # BASE 为"排他下界"（top+thickness），保证单点层也有可查询区间；
+            # 原实现 BASE=最后一个点深度，单点层 TOP==BASE，下游按 [TOP,BASE) 取数会取不到。
+            'BASE_MD': round(r['top'] + r['thick'], 3),
             'THICKNESS': round(r['thick'], 3),
             'LITHOLOGY': lith_lab,
             'INTERPRETATION': lab,

@@ -114,21 +114,36 @@ def evaluate_layers(gas_df: pd.DataFrame, layers, cfg: dict, depth_col: str = 'M
         for c in methods.HYDROCARBONS:
             row[f'MEDIAN_{c}'] = _median_curve(sub, c)
 
-        med = pd.DataFrame({c: [row[f'MEDIAN_{c}']] for c in methods.HYDROCARBONS})
-        pt = evaluate_points(med, cfg, depth_col=depth_col)
-        label = str(pt['PLATE_FLUID'].iloc[0]) if len(pt) else 'UNDEFINED'
-        conf = float(pt['PLATE_CONF'].iloc[0]) if len(pt) else 0.0
-
+        # 逐点判别 + 层内多数票（优先）；层中位数只在逐点无法判别时兜底。
+        # 原因（真实数据验证 2026-10-30）：中位数的比值 ≠ 比值的中位数
+        # （如 C3 中位=0 会使 C1/C3 除零），直接用层中位数会把整层判成 UNDEFINED。
         sub_pt = evaluate_points(sub, cfg, depth_col=depth_col) if len(sub) else pd.DataFrame()
+        label, conf = 'UNDEFINED', 0.0
         if len(sub_pt):
-            valid = sub_pt['PLATE_FLUID'] != 'UNDEFINED'
-            if valid.any():
-                agree = float((sub_pt.loc[valid, 'PLATE_FLUID'] == label).mean())
-                row['POINT_AGREE'] = round(agree, 3)
-                conf = round(conf * (0.5 + 0.5 * agree), 3)
+            valid = sub_pt['PLATE_FLUID'].isin(['GAS', 'OIL', 'DRY'])
+            n_valid = int(valid.sum())
+            if n_valid >= 3:
+                vc = sub_pt.loc[valid, 'PLATE_FLUID'].value_counts()
+                label = str(vc.idxmax())
+                share = float(vc.max()) / n_valid
+                _c = pd.to_numeric(sub_pt.loc[valid, 'PLATE_CONF'], errors='coerce').mean()
+                _c = float(_c) if np.isfinite(_c) else 0.6
+                conf = round(_c * (0.5 + 0.5 * share), 3)
+                row['POINT_AGREE'] = round(share, 3)
+            elif n_valid > 0:
+                vc = sub_pt.loc[valid, 'PLATE_FLUID'].value_counts()
+                label = str(vc.idxmax())
+                conf = 0.3
             for k, lab in (('VOTE_GAS', 'GAS'), ('VOTE_OIL', 'OIL'),
                            ('VOTE_DRY', 'DRY'), ('VOTE_UNDEF', 'UNDEFINED')):
                 row[k] = int((sub_pt['PLATE_FLUID'] == lab).sum())
+        if label == 'UNDEFINED':
+            # 兜底：层中位数判别（逐点全部无重烃/无数据时）
+            med = pd.DataFrame({c: [row[f'MEDIAN_{c}']] for c in methods.HYDROCARBONS})
+            pt = evaluate_points(med, cfg, depth_col=depth_col)
+            if len(pt):
+                label = str(pt['PLATE_FLUID'].iloc[0])
+                conf = float(pt['PLATE_CONF'].iloc[0])
         row['PLATE_FLUID'] = label
         row['PLATE_CONF'] = conf
         row['REVIEW'] = bool(label == 'UNDEFINED' or conf < 0.5)
