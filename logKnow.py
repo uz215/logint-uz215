@@ -8401,8 +8401,10 @@ import sqlite3
 from pathlib import Path
 from collections import defaultdict
 
-GRAPH_DB = Path(r'F:\360\src\graph\graph.db')
-WIKI_DIR = Path(r'F:\360\src\graph\wiki')
+# 【2026-10-30 P0-8】原路径硬编码 F 盘（已不存在）；改为相对本文件，迁移/换盘不再失效
+_BASE_DIR = Path(__file__).resolve().parent
+GRAPH_DB = _BASE_DIR / 'graph' / 'graph.db'
+WIKI_DIR = _BASE_DIR / 'graph' / 'wiki'
 
 # 国家关键词映射（用于从井名推断国家）
 COUNTRY_KEYWORDS = {
