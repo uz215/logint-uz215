@@ -95,7 +95,8 @@ def main():
     f2 = engine.fuse_with_log('GAS', 'OIL', cfg)
     f3 = engine.fuse_with_log('UNDEFINED', 'GAS', cfg)
     f4 = engine.fuse_with_log('DRY', 'GAS', cfg)
-    check('图版 OIL 可将 GAS 降为 OIL', f1['final'] == 'OIL' and f1['action'] == 'demote_to_oil', str(f1))
+    check('图版 OIL 不再降级（保留 GAS + 冲突标记）',
+          f1['final'] == 'GAS' and f1['flag'] == 'PLATE_OIL_CONFLICT', str(f1))
     check('图版 GAS 可提升 OIL→GAS', f2['final'] == 'GAS' and f2['action'] == 'promote_gas', str(f2))
     check('图版无依据：保留 GAS 且标 NO_GAS_DATA（不强制降油）',
           f3['final'] == 'GAS' and f3['flag'] == 'NO_GAS_DATA', str(f3))

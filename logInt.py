@@ -18324,12 +18324,10 @@ def rejudge_gas_by_reg_below_seal(data):
         _lab, _pconf, _pdetail = _gas_plate_verdict(out, _seg)
         _reg = _gas_reg_brief(out, _seg)
         if _lab == 'OIL':
-            out.iloc[_seg, _col_itp] = 'OIL'
-            if _col_itp2 is not None:
-                out.iloc[_seg, _col_itp2] = 'OIL'
-            out.iloc[_seg, _col_rev] = 'GAS_PLATE_OIL'
-            n_demoted += len(_seg)
-            _verdict = '按图版降为OIL'
+            # 用户 2026-10-30：不限定图版 → 图版仅作证据，不单独把 GAS 降级；
+            # 保留 GAS 并标冲突，交复核（最终由标定规则 + 多证据一致率决定）。
+            out.iloc[_seg, _col_rev] = 'PLATE_OIL_CONFLICT'
+            _verdict = '维持GAS(图版OIL冲突,待复核)'
         elif _lab == 'GAS':
             out.iloc[_seg, _col_rev] = ''
             _verdict = '维持GAS(图版GAS)'
@@ -19050,12 +19048,10 @@ def rejudge_gas_by_reg_whole(data):
         _lab, _pconf, _pdetail = _gas_plate_verdict(out, _seg)
         _reg = _gas_reg_brief(out, _seg)
         if _lab == 'OIL':
-            out.iloc[_seg, _col_itp] = 'OIL'
-            if _col_itp2 is not None:
-                out.iloc[_seg, _col_itp2] = 'OIL'
-            out.iloc[_seg, _col_rev] = 'GAS_PLATE_OIL'
-            n_demoted += len(_seg)
-            _verdict = '按图版降为OIL'
+            # 用户 2026-10-30：不限定图版 → 图版仅作证据，不单独把 GAS 降级；
+            # 保留 GAS 并标冲突，交复核（最终由标定规则 + 多证据一致率决定）。
+            out.iloc[_seg, _col_rev] = 'PLATE_OIL_CONFLICT'
+            _verdict = '维持GAS(图版OIL冲突,待复核)'
         elif _lab == 'GAS':
             out.iloc[_seg, _col_rev] = ''
             _verdict = '维持GAS(图版GAS)'

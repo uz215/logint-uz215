@@ -46,6 +46,7 @@ def evaluate_points(gas_df: pd.DataFrame, cfg: dict, depth_col: str = 'MD') -> p
     if depth_col in df.columns:
         out[depth_col] = pd.to_numeric(df[depth_col], errors='coerce')
     out['PLATE_PIXLER'] = p['PIXLER']
+    out['PLATE_METHOD'] = p.get('PIXLER_METHOD', '')
     out['PLATE_CONF'] = p['PIXLER_CONF']
     out['PLATE_WHY'] = p['PIXLER_WHY']
     out['PLATE_VALID_RATIOS'] = p['PIXLER_VALID']
@@ -171,8 +172,9 @@ def fuse_with_log(plate_label: str, log_label: str, cfg: dict) -> dict:
         return {'final': 'GAS', 'action': 'promote_gas',
                 'flag': rv.get('conflict_flag', 'GAS_PLATE_CONFLICT'), 'conf': 0.60}
     if plate_label == 'OIL':
+        # 用户 2026-10-30：不限定图版 → 图版仅作证据，不单独把 GAS 降级
         if log_label in ('GAS', 'GAS_POSSIBLE'):
-            return {'final': 'OIL', 'action': 'demote_to_oil', 'flag': '', 'conf': 0.85}
+            return {'final': log_label, 'action': 'keep', 'flag': 'PLATE_OIL_CONFLICT', 'conf': 0.50}
         if log_label in ('OIL', 'OIL_POSSIBLE'):
             return {'final': 'OIL', 'action': 'keep', 'flag': '', 'conf': 0.85}
         return {'final': log_label or 'OIL', 'action': 'keep',

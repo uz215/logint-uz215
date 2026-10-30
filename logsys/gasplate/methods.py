@@ -81,7 +81,8 @@ def pixler_classify(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
 
     label = pd.Series('UNDEFINED', index=df.index, dtype=object)
     conf = pd.Series(0.0, index=df.index)
-    enough = n_valid >= 2
+    method = pd.Series('', index=df.index, dtype=object)
+    enough = n_valid >= 1
 
     if policy == 'strict':
         gas_ok = enough & (gas_hits == n_valid)
@@ -104,6 +105,17 @@ def pixler_classify(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         dry = enough & ~gas_ok & ~oil_ok
         label[dry] = 'DRY'
         conf[dry] = 0.4
+        method[enough] = 'pixler3'
+        method[enough & (n_valid == 2)] = 'pixler2'
+
+    # ---- 单比值判别（0 组分=未检出导致只有 1 个比值可用时）----
+    single = (n_valid == 1) & (label == 'UNDEFINED')
+    if single.any():
+        label[single & (gas_hits >= 1)] = 'GAS'
+        label[single & (oil_hits >= 1)] = 'OIL'
+        label[single & (gas_hits == 0) & (oil_hits == 0)] = 'DRY'
+        conf[single] = 0.40
+        method[single] = 'pixler1'
 
     why = (r['C1/C2'].round(2).astype(str) + ' / ' + r['C1/C3'].round(2).astype(str)
            + ' / ' + r['C1/C4'].round(2).astype(str))
@@ -111,6 +123,7 @@ def pixler_classify(df: pd.DataFrame, cfg: dict) -> pd.DataFrame:
         'PIXLER': label, 'PIXLER_CONF': conf,
         'PIXLER_HITS': gas_hits - oil_hits,
         'PIXLER_VALID': n_valid, 'PIXLER_WHY': why,
+        'PIXLER_METHOD': method,
     }, index=df.index)
 
 
