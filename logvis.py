@@ -519,6 +519,11 @@ _LITH_REF_MAX_PIX = 4_000_000
 _SYMBOL_REF_UNIT = {
     'Shale.png': (13, 53, 73, 128, 10, 18),
     'Sandstone.png': (10, 15, 96, 96, 36, 36),
+    # 【2026-10-30 R54】basalt 原生 motif 单元：96px 参考图含 2×2 个 Γ
+    # （单元 48px）——旧链路整图压进 28px 瓦片 → Γ 间距仅 14px（0.49m），
+    # 用户反馈"6914m 火成岩纹理较密呈现明显的深色"。裁 1 个 Γ 单元缩到
+    # 28px ⇒ Γ 间距=28px（=2026-10-20 确认格距的本意：一个 Γ 一个单元）。
+    'basalt.png': (0, 0, 48, 48, 28, 28),
 }
 
 
@@ -7017,13 +7022,18 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                 if _trk_px is None or _w_px >= 0.6 * pitch:
                     seg_z1 = float(md[i1]) + (float(md[i1] - md[i1 - 1])
                                               if i1 > i0 else dy / 2.0)
-                    draw_lithology_pattern(
-                        ax, lname, float(md[i0]), seg_z1,
-                        x0=float(np.min(xl[i0:i1 + 1])),
-                        x1=float(np.max(xr[i0:i1 + 1])), fill_bg=False,
-                        zorder=10, tile_origin=_tile_anchor,
-                        clip_patch=_lith_clip_path(
-                            md[i0:i1 + 1], xl[i0:i1 + 1], xr[i0:i1 + 1], ax))
+                    # 【2026-10-30 R54】孤立窄舌（深度延伸<1 瓦片单元）只画
+                    # 底色：薄舌的瓦片相位切片只剩黑杠碎片（白云岩舌实测
+                    # 111D 6619/6635/6797"灰岩段局部深/暗、间距不一致"），
+                    # 底色仍在（无空白），≥1 单元的连续段保持完整纹理
+                    if seg_z1 - float(md[i0]) >= 0.8 * dy:
+                        draw_lithology_pattern(
+                            ax, lname, float(md[i0]), seg_z1,
+                            x0=float(np.min(xl[i0:i1 + 1])),
+                            x1=float(np.max(xr[i0:i1 + 1])), fill_bg=False,
+                            zorder=10, tile_origin=_tile_anchor,
+                            clip_patch=_lith_clip_path(
+                                md[i0:i1 + 1], xl[i0:i1 + 1], xr[i0:i1 + 1], ax))
                 i0 = i1 + 1
             continue
         for dd in np.arange(md.min() + dy / 2.0, md.max(), dy):
@@ -7078,15 +7088,17 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                          or _w_px_r >= 0.6 * _lith_pitch_px(kind_r))):
                 seg_z1 = float(md[i1]) + (float(md[i1] - md[i1 - 1])
                                           if i1 > i0 else dy_r / 2.0)
-                # 【2026-10-30 R50】同矿物带：整段一次调用+逐点边界 clip
-                # 多边形（锯齿边界保留、不越入孔隙度留白、块数最少）
-                draw_lithology_pattern(
-                    ax, li, float(md[i0]), seg_z1,
-                    x0=float(np.min(xLr[i0:i1 + 1])),
-                    x1=float(np.max(xRr[i0:i1 + 1])), fill_bg=False,
-                    zorder=10, tile_origin=_tile_anchor,
-                    clip_patch=_lith_clip_path(
-                        md[i0:i1 + 1], xLr[i0:i1 + 1], xRr[i0:i1 + 1], ax))
+                # 【2026-10-30 R54】同矿物带：孤立窄舌（<1 瓦片单元）只画底色
+                if seg_z1 - float(md[i0]) >= 0.8 * dy_r:
+                    # 【2026-10-30 R50】同矿物带：整段一次调用+逐点边界 clip
+                    # 多边形（锯齿边界保留、不越入孔隙度留白、块数最少）
+                    draw_lithology_pattern(
+                        ax, li, float(md[i0]), seg_z1,
+                        x0=float(np.min(xLr[i0:i1 + 1])),
+                        x1=float(np.max(xRr[i0:i1 + 1])), fill_bg=False,
+                        zorder=10, tile_origin=_tile_anchor,
+                        clip_patch=_lith_clip_path(
+                            md[i0:i1 + 1], xLr[i0:i1 + 1], xRr[i0:i1 + 1], ax))
             i0 = i1 + 1
         # 符号：逐行带（点/横线/人字/倒L/图片类），边缘按深度插值
         for dd in np.arange(md.min() + dy_r / 2.0, md.max(), dy_r):
