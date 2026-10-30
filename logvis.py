@@ -7723,6 +7723,11 @@ def _fuse_fluid_segments_by_reservoir_unit(segments, data):
       ④ 段内无任何流体结论 → 不产出（保持留白）；
       ⑤ 相邻段若流体标签相同则再合并一次（消除段边界处 1 个采样点的碎框）。
 
+    【2026-10-30 R57c 用户定案】框逐簇化：严格跟随孔隙度截止值——相邻结论
+    点之间夹"留空点"（POR<截止值不解释）即断簇，同标签簇间隔<=0.5m（与层表
+    gap_break 同口径）才合并；簇顶底=结论点首末深度（不再 PHI_DISP>0 外扩）。
+    图面框与解释层表严格同源：层表怎么分层，图上就怎么画框。
+
     返回: 归并后的段列表（NonReservoir 段被丢弃 —— 它们只是分隔屏障，不绘框）。
     """
     if not segments or data is None or 'MD' not in data.columns:
@@ -7771,28 +7776,51 @@ def _fuse_fluid_segments_by_reservoir_unit(segments, data):
                 'OIL_PROBABLE': 2, 'GAS_PROBABLE': 2, 'CONDENSATE': 2,
                 'WATER': 1}
 
+    # 【2026-10-30 R57c 用户定案】解释框逐簇化——严格跟随孔隙度截止值：
+    #   ① 簇 = 单元内连续的"结论点"（_FLUID_TAGS ∪ DRY，逐点阶段已达分井
+    #      截止值，POR<截止值的点在逐点解释阶段已留空）；
+    #   ② 相邻结论点之间只要夹有"留空点"（_itp==''）即断簇——截止值能分开
+    #      的一定要分开，留空段不得被框进油气层（R18 旧版框取 PHI_DISP>0
+    #      首末深度，曾把 111D 盐岩下 6489.9-6496.7 的 6.8m 低孔段整段框进
+    #      1 号油层）；NonReservoir 逐点噪声不打断（R18 兼容，真隔层由岩性
+    #      单元边界与 _merge_same_body_fluid 屏障负责）；
+    #   ③ 同标签簇间隔 <= gap_break(0.5m，与 logInt 按层解释/层表 gap_break
+    #      同口径) 再合并——图面框与解释层表严格同源（层表怎么分层图怎么画）；
+    #   ④ 簇顶底 = 簇内结论点首末深度（不再 PHI_DISP>0 外扩覆盖低孔段）；
+    #   ⑤ 簇标签 = 簇内流体结论多数票（油气优先于水），与层表多数票同口径。
+    _gap_break57c = 0.5
+    _concl57c = set(_FLUID_TAGS) | {'DRY'}
+    _itp_arr57c = _itp.to_numpy()
     out = []
     for (_a, _b) in _units:
-        _cnt = {}
-        for _t in _itp.iloc[_a:_b + 1]:
-            if _t in _FLUID_TAGS:
-                _cnt[_t] = _cnt.get(_t, 0) + 1
-        if not _cnt:
-            continue    # 段内无流体结论 → 不绘框
-        _lab = max(_cnt.items(), key=lambda kv: (kv[1], _HC_RANK.get(kv[0], 0)))[0]
-        _sub_phi = _phi[_a:_b + 1]
-        _ok = np.where(_sub_phi > 0)[0]
-        if _ok.size:
-            _top = _md[_a + _ok[0]]
-            _bot = _md[_a + _ok[-1]]
-        else:
-            _top, _bot = _md[_a], _md[_b]
-        if _bot <= _top:
+        _pos57c = [k for k in range(_a, _b + 1) if _itp_arr57c[k] in _concl57c]
+        if not _pos57c:
             continue
-        if out and out[-1][2] == _lab and _top - out[-1][1] <= 2.0:
-            out[-1] = (out[-1][0], float(_bot), _lab)
-        else:
-            out.append((float(_top), float(_bot), _lab))
+        _clusters57c = [[_pos57c[0], _pos57c[0]]]
+        for _k in _pos57c[1:]:
+            _between = _itp_arr57c[_clusters57c[-1][1] + 1:_k]
+            if (_between == '').any():
+                _clusters57c.append([_k, _k])       # 夹留空点 → 断簇
+            else:
+                _clusters57c[-1][1] = _k
+        for _ca, _cb in _clusters57c:
+            _cnt = {}
+            for _k in range(_ca, _cb + 1):
+                _t = _itp_arr57c[_k]
+                if _t in _FLUID_TAGS:
+                    _cnt[_t] = _cnt.get(_t, 0) + 1
+            if not _cnt:
+                continue    # 簇内只有 DRY → 干层不绘框
+            _lab = max(_cnt.items(),
+                       key=lambda kv: (kv[1], _HC_RANK.get(kv[0], 0)))[0]
+            _top, _bot = float(_md[_ca]), float(_md[_cb])
+            if _bot <= _top:
+                continue
+            if out and out[-1][2] == _lab \
+                    and _top - out[-1][1] <= _gap_break57c:
+                out[-1] = (out[-1][0], _bot, _lab)
+            else:
+                out.append((_top, _bot, _lab))
     return out if out else segments
 
 
