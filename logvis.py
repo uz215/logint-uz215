@@ -1258,6 +1258,17 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         z0（与旧行为一致）；ref 类 None 时锚定绝对深度 0（行线跨段全局对齐，
         2026-10-20 行相位规则）；剖面道逐行带调用时传全局锚点，使相邻行带
         接续同一瓦片网格，图案连续不重复。
+
+    【2026-10-30 R49 防复发不变量】（违反任何一条都会复活 R48 类"大面积
+    只有底色/一行有一行没有"的斑驳，改动渲染链路后必须先过
+    _test_symbol_texture.py 门禁再出图）：
+      1) ref/brick/slant_brick 类一律整段一次调用（允许任意切分——相位由
+         全局网格 g0 保证），**严禁**在渲染内部按段边界裁剪瓦片 extent
+         （R48 根因）；
+      2) 全图所有调用统一传 tile_origin=图幅 depth_min（两道的
+         _tile_anchor），行线跨道对齐，image/vector 类不按段顶重启相位；
+      3) 分段唯一源 _contiguous_lith_runs（岩性道与 PROFILE 道共用）；
+      4) 符号行间距均匀性由 _test_symbol_texture.py 像素级自动检测。
     """
     if x1 is None:
         x1 = SYMBOL_X_EXTENT
@@ -1631,11 +1642,44 @@ def draw_lithology_pattern_fig(fig, lith_name, x0, y0, w, h,
                               transform=fig.transFigure, zorder=zorder))
 
 
+def _contiguous_lith_runs(lith_seq, valid_seq=None):
+    """【2026-10-30 R49 防复发】连续同岩性游程——**两道唯一分段源**。
+
+    岩性道分段与 PROFILE 道特殊岩性整带共用本函数，保证两道段界一致，
+    消除多处手写 while 游程循环的分叉隐患（R48 相位 bug 的教训：绘制
+    链路调用面越碎，几何改动越容易漏掉某一调用模式）。
+
+    参数
+    ----
+    lith_seq : 岩性字符串序列（调用方先统一 lower()）
+    valid_seq : 有效性序列（None=全部有效）；无效点作为分段隔断
+    返回 [(i0, i1, lith)] 闭区间游程（跳过空/ nan/none/ mixed/ casing）
+    """
+    runs = []
+    n = len(lith_seq)
+    i = 0
+    while i < n:
+        li = str(lith_seq[i])
+        ok = True if valid_seq is None else bool(valid_seq[i])
+        if (not ok or not li
+                or li in ('nan', 'None', 'none', 'mixed', 'casing')):
+            i += 1
+            continue
+        j = i + 1
+        while j < n and str(lith_seq[j]) == li and (
+                valid_seq is None or bool(valid_seq[j])):
+            j += 1
+        runs.append((i, j - 1, li))
+        i = j
+    return runs
+
+
 # 兼容旧接口：统一走 draw_lithology_pattern
-def _draw_lithology_tiles(ax, lith_name, seg_start_md, seg_end_md):
+def _draw_lithology_tiles(ax, lith_name, seg_start_md, seg_end_md,
+                          tile_origin=None):
     """岩性道：统一符号（水平范围 0~SYMBOL_X_EXTENT）"""
     draw_lithology_pattern(ax, lith_name, seg_start_md, seg_end_md,
-                           0.0, SYMBOL_X_EXTENT)
+                           0.0, SYMBOL_X_EXTENT, tile_origin=tile_origin)
 
 
 def _draw_lithology_tiles_profile(ax, lith_name, seg_start_md, seg_end_md):
@@ -6325,6 +6369,10 @@ def _setup_lithology_track(ax, data, depth, depth_min, depth_max, curve_height_r
     # 矩形(0→0.8)绕过 axes 裁剪 → 岩性符号越界 60% 道宽压到沉积相道上
     ax.set_xlim(0, SYMBOL_X_EXTENT)
     ax.set_ylim(depth_max, depth_min)
+    # 【2026-10-30 R49 防复发】全图统一瓦片锚：两道所有
+    # draw_lithology_pattern 调用传同一锚点，行线跨道对齐；
+    # image/vector 类不再按段顶重启相位
+    _tile_anchor = float(depth_min)
     ax.tick_params(axis='x', which='both', bottom=False, top=False, labelbottom=False)
     
     # 隐藏所有spine
@@ -6371,48 +6419,26 @@ def _setup_lithology_track(ax, data, depth, depth_min, depth_max, curve_height_r
         lithology_symbol_map = {k.lower(): k for k in lith_types}
         
         # 分组：连续相同岩性的深度段
-        # 第一步：逐段分组收集所有岩性段
-        i = 0
+        # 【2026-10-30 R49 防复发】游程分段收敛到唯一分段源
+        # _contiguous_lith_runs（与 PROFILE 道特殊岩性整带共用），
+        # 消除两道各自手写 while 游程的分叉隐患
         n = len(data)
+        _valid = ((data['VALID_CURVES_COUNT'] >= 3).tolist()
+                  if 'VALID_CURVES_COUNT' in data.columns else None)
         raw_segments = []  # [(start_md, end_md, lith_key), ...]
-        while i < n - 1:
-            valid_count = data.iloc[i].get('VALID_CURVES_COUNT', 0)
-            if valid_count < 3:
-                i += 1
-                continue
-            
-            lithology = data.iloc[i]['LITHOLOGY']
-            lith_key = str(lithology).lower()
-            
-            # 跳过空字符串的岩性（有效曲线不足3条时不解释）
-            # 跳过'mixed'（混合剖面类型，不是具体岩性，图例中已排除）
-            # 【2026-10-08 用户要求】跳过'casing'：套管段不绘制不用符号，整段留白
-            if (not lith_key or lith_key == 'nan' or lith_key == 'none'
-                    or lith_key == 'mixed' or lith_key == 'casing'):
-                i += 1
-                continue
-                
-            seg_start_md = data.iloc[i]['MD']
-            
-            j = i + 1
-            while j < n:
-                vc = data.iloc[j].get('VALID_CURVES_COUNT', 0)
-                if vc < 3:
-                    break
-                if str(data.iloc[j]['LITHOLOGY']).lower() != lith_key:
-                    break
-                j += 1
-            
-            seg_end_md = data.iloc[min(j, n - 1)]['MD']
-            raw_segments.append((seg_start_md, seg_end_md, lith_key))
-            i = j
+        for _a, _b, _li in _contiguous_lith_runs(
+                [str(v).lower() for v in data['LITHOLOGY']], _valid):
+            raw_segments.append((float(data.iloc[_a]['MD']),
+                                 float(data.iloc[min(_b + 1, n - 1)]['MD']),
+                                 _li))
         
         # 第二步：合并薄层到相邻大层
         merged_segments = _merge_thin_layers(raw_segments)
         
         # 第三步：绘制合并后的段
         for seg_start_md, seg_end_md, lith_key in merged_segments:
-            _draw_lithology_tiles(ax, lith_key, seg_start_md, seg_end_md)
+            _draw_lithology_tiles(ax, lith_key, seg_start_md, seg_end_md,
+                                  tile_origin=_tile_anchor)
 
 
 def _setup_facies_track(ax, data, depth, depth_min, depth_max, curve_height_ratio, header_bottom_y, header_top_y, has_enough_curves):
@@ -6602,6 +6628,8 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
     fig = ax.figure
     pos = ax.get_position()
     logger.info(f"PROFILE道位置: x0={pos.x0:.4f} x1={pos.x1:.4f} y0={pos.y0:.4f} y1={pos.y1:.4f}")
+    # 【2026-10-30 R49 防复发】全图统一瓦片锚（与岩性道同一 _tile_anchor 语义）
+    _tile_anchor = float(depth_min)
     _draw_border(fig, pos.x0, pos.x1, header_top_y, header_bottom_y)
 
     # ---------- 收集数据 ----------
@@ -6778,7 +6806,7 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                         ax, lname, float(md[i0]), seg_z1,
                         x0=float(np.max(xl[i0:i1 + 1])),
                         x1=float(np.min(xr[i0:i1 + 1])), fill_bg=False,
-                        zorder=10, tile_origin=float(md.min()))
+                        zorder=10, tile_origin=_tile_anchor)
                 i0 = i1 + 1
             continue
         for dd in np.arange(md.min() + dy / 2.0, md.max(), dy):
@@ -6790,7 +6818,7 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                 continue
             draw_lithology_pattern(ax, lname, dd - dy / 2.0, dd + dy / 2.0,
                                    x0=xll, x1=xrr, fill_bg=False, zorder=10,
-                                   tile_origin=float(md.min()))
+                                   tile_origin=_tile_anchor)
 
     # ---------- 余量带【2026-10-19 用户规格】：矿物之外剩余按岩性定名填充 ----------
     # bounds[:,k]→bounds[:,k+1]；孔隙度区（bounds[:,k+1]→1）留白不填。
@@ -6839,7 +6867,7 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                     ax, li, float(md[i0]), seg_z1,
                     x0=float(np.max(xLr[i0:i1 + 1])),
                     x1=float(np.min(xRr[i0:i1 + 1])), fill_bg=False,
-                    zorder=10, tile_origin=float(md.min()))
+                    zorder=10, tile_origin=_tile_anchor)
             i0 = i1 + 1
         # 符号：逐行带（点/横线/人字/倒L/图片类），边缘按深度插值
         for dd in np.arange(md.min() + dy_r / 2.0, md.max(), dy_r):
@@ -6855,7 +6883,7 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
             draw_lithology_pattern(ax, str(liths[ii]), dd - dy_r / 2.0,
                                    dd + dy_r / 2.0, x0=xll, x1=xrr,
                                    fill_bg=False, zorder=10,
-                                   tile_origin=float(md.min()))
+                                   tile_origin=_tile_anchor)
 
     # ---------- 特殊岩性非储层点：整带统一符号（与岩性道同一套数据/符号） ----------
     # 【2026-10-08】煤/碳质泥岩等不在4矿物表内的岩性，此前走 argmax(mv)
@@ -6873,25 +6901,21 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
         # k2 != 'image' 守卫整类跳过，profile道只剩灰底无符号，与岩性道
         # 的PNG符号不一致。套管段不在 spec_present，整段自然留白。
         n_pts = len(md)
-        i0 = 0
-        while i0 < n_pts:
-            li = str(liths[i0])
+        # 【2026-10-30 R49 防复发】特殊岩性整带分段收敛到唯一分段源
+        # _contiguous_lith_runs（与岩性道共用同一游程逻辑）
+        for _a, _b, li in _contiguous_lith_runs([str(v) for v in liths]):
             if li not in spec_present:
-                i0 += 1
                 continue
-            i1 = i0
-            while i1 + 1 < n_pts and str(liths[i1 + 1]) == li:
-                i1 += 1
             # 段末取下一点MD（与岩性道 seg_end_md 同口径），单点段也有厚度
             # 【2026-10-20】段内若 PHI_DISP>0（与第5道同源），整带右端收缩
             # 出孔隙度留白（特殊岩性现口径 PHI_DISP=0，此为守卫）
-            _p_seg = float(np.max(phi[i0:i1 + 1])) if len(phi) else 0.0
-            draw_lithology_pattern(ax, li, float(md[i0]),
-                                   float(md[min(i1 + 1, n_pts - 1)]),
+            _p_seg = float(np.max(phi[_a:_b + 1])) if len(phi) else 0.0
+            draw_lithology_pattern(ax, li, float(md[_a]),
+                                   float(md[min(_b + 1, n_pts - 1)]),
                                    0.0, 1.0 - min(max(_p_seg, 0.0), 0.9),
                                    fill_bg=True,
-                                   bg_color=_lith_bg_color(li), zorder=10)
-            i0 = i1 + 1
+                                   bg_color=_lith_bg_color(li), zorder=10,
+                                   tile_origin=_tile_anchor)
 
     ax.plot([0, 0, 1, 1, 0],
             [md.min(), md.max(), md.max(), md.min(), md.min()],
