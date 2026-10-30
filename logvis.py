@@ -1243,7 +1243,8 @@ def _plot_lith_points(ax, kind, xs, ys, zorder=10):
 
 
 def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
-                           fill_bg=True, bg_color=None, zorder=10, tile_origin=None):
+                           fill_bg=True, bg_color=None, zorder=10,
+                           tile_origin=None, clip_patch=None):
     """**统一**岩性符号绘制入口：岩性道、profile道、图例方框都调用本函数。
 
     参数
@@ -1258,6 +1259,10 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         z0（与旧行为一致）；ref 类 None 时锚定绝对深度 0（行线跨段全局对齐，
         2026-10-20 行相位规则）；剖面道逐行带调用时传全局锚点，使相邻行带
         接续同一瓦片网格，图案连续不重复。
+    clip_patch : matplotlib PathPatch（data 坐标），可选
+        【2026-10-30 R50】显式可见区域多边形：矿物带/余量带整段绘制时传
+        逐点 bounds 线性多边形（_lith_clip_path），锯齿边界保留且符号不越
+        界。None=默认矩形 [x0,x1]×[z0,z1]。
 
     【2026-10-30 R49 防复发不变量】（违反任何一条都会复活 R48 类"大面积
     只有底色/一行有一行没有"的斑驳，改动渲染链路后必须先过
@@ -1360,7 +1365,10 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
         # 恒定不变；块间共享全局网格（g0 行相位锚定 + gx0 列锚）→ 跨块
         # 图案无缝接续。精确裁剪仍以 gx0 为基准（R22），clip_path 限定段区。
         from matplotlib.patches import Rectangle as _Rect
-        _clip = _Rect((x0, z0), x1 - x0, z1 - z0, transform=ax.transData)
+        # 【2026-10-30 R50】clip_patch：调用方传逐点边界多边形时直接使用
+        # （矿物带/余量带整段绘制，可见性精确到锯齿边界）；默认矩形段。
+        _clip = (clip_patch if clip_patch is not None else
+                 _Rect((x0, z0), x1 - x0, z1 - z0, transform=ax.transData))
         _cap_rows = max(16, int(_LITH_REF_MAX_PIX /
                                 max(1, n_cols * max(1, _tpx) * max(1, _tpx))))
         _k_a = max(0, int(math.floor((z0 - g0) / dy - 1e-9)))
@@ -1672,6 +1680,29 @@ def _contiguous_lith_runs(lith_seq, valid_seq=None):
         runs.append((i, j - 1, li))
         i = j
     return runs
+
+
+def _lith_clip_path(md_seg, xl_seg, xr_seg, ax):
+    """【2026-10-30 R50】逐点边界线性多边形 clip（data 坐标 PathPatch）。
+
+    PROFILE 道矿物带/余量带符号**整段**绘制时用本多边形限定可见区域：
+    锯齿状逐点边界保留、符号不越入孔隙度留白/邻带，同时把 imshow 块数
+    压到最少（用户定案：绘制总体规划，纵横向一致间距，不加密不空白）。
+    """
+    from matplotlib.path import Path as _MPath
+    from matplotlib.patches import PathPatch as _PathPatch
+    _m = np.asarray(md_seg, dtype=float)
+    _l = np.asarray(xl_seg, dtype=float)
+    _r = np.asarray(xr_seg, dtype=float)
+    n = len(_m)
+    verts = np.empty((2 * n, 2), dtype=float)
+    verts[:n, 0] = _l
+    verts[:n, 1] = _m
+    verts[n:, 0] = _r[::-1]
+    verts[n:, 1] = _m[::-1]
+    codes = [_MPath.MOVETO] + [_MPath.LINETO] * (2 * n - 1)
+    return _PathPatch(_MPath(verts, codes), transform=ax.transData,
+                      facecolor='none', edgecolor='none')
 
 
 # 兼容旧接口：统一走 draw_lithology_pattern
@@ -6779,10 +6810,14 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
             # 竖缝截在半行内、斜线漂浮，profile道图案断裂。
             # 【2026-10-20】ref（参考图墨迹）同走整段：瓦片网格全局锚定，
             # 整段一次 imshow 优于逐行带多次 imshow（相位连续且更快）
-            # 【2026-10-20 过界/蒙皮修复】①段内 bounds 漂移>0.02 即切分子段
-            # （符号 x0/x1 取子段首行 bounds——整段只取首行会把符号画进
-            # 孔隙度留白区或缩在填充区内）；②带宽不足 0.6×pitch 的窄带只画
-            # 底色不画符号（瓦片被压扁成"蒙皮"状伪迹）
+            # 【2026-10-30 R50 用户定案：绘制总体规划，解耦逐点切分】旧逻辑
+            # 按 bounds 漂移>0.02 切 0.3-0.7m 子段逐块 imshow——每块独立
+            # 光栅化的亚像素映射相位逐块重置，跨块点间距忽大忽小（111D
+            # 6493/6534/6629/6725 密集成黑、6598/6602/6779 间隔变大实测）。
+            # 改为：仅按套管/窄带游程分段，每游程**整段一次**调用；可见性
+            # clip 到逐点 bounds 线性多边形（锯齿边界保留、符号绝不越入
+            # 孔隙度留白），瓦片相位由全局网格保证，纵横间距一致不加密。
+            # 带宽不足 0.6×pitch 的窄带仍只画底色不画符号（防蒙皮伪迹）。
             _trk_px = _axes_px_width(ax)
             n_pts = len(md)
             i0 = 0
@@ -6792,21 +6827,20 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                     continue
                 i1 = i0
                 while (i1 + 1 < n_pts and not _nodraw[i1 + 1]
-                       and xr[i1 + 1] - xl[i1 + 1] >= 0.012
-                       and abs(xr[i1 + 1] - xr[i0]) <= 0.02
-                       and abs(xl[i1 + 1] - xl[i0]) <= 0.02):
+                       and xr[i1 + 1] - xl[i1 + 1] >= 0.012):
                     i1 += 1
-                _w_px = ((xr[i0] - xl[i0]) * _trk_px) if _trk_px else 1e9
+                _wmax = float(np.max(xr[i0:i1 + 1] - xl[i0:i1 + 1]))
+                _w_px = (_wmax * _trk_px) if _trk_px else 1e9
                 if _trk_px is None or _w_px >= 0.6 * pitch:
                     seg_z1 = float(md[i1]) + (float(md[i1] - md[i1 - 1])
                                               if i1 > i0 else dy / 2.0)
-                    # x0/x1 取子段内**最窄**范围：保证符号绝不越入孔隙度
-                    # 留白区（ PHI_DISP 随深度增大时首行边界会滞后）
                     draw_lithology_pattern(
                         ax, lname, float(md[i0]), seg_z1,
-                        x0=float(np.max(xl[i0:i1 + 1])),
-                        x1=float(np.min(xr[i0:i1 + 1])), fill_bg=False,
-                        zorder=10, tile_origin=_tile_anchor)
+                        x0=float(np.min(xl[i0:i1 + 1])),
+                        x1=float(np.max(xr[i0:i1 + 1])), fill_bg=False,
+                        zorder=10, tile_origin=_tile_anchor,
+                        clip_patch=_lith_clip_path(
+                            md[i0:i1 + 1], xl[i0:i1 + 1], xr[i0:i1 + 1], ax))
                 i0 = i1 + 1
             continue
         for dd in np.arange(md.min() + dy / 2.0, md.max(), dy):
@@ -6848,26 +6882,28 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
             i1 = i0
             while (i1 + 1 < n_pts and not _nodraw[i1 + 1]
                    and str(liths[i1 + 1]) == li
-                   and xRr[i1 + 1] - xLr[i1 + 1] >= 0.012
-                   and abs(xRr[i1 + 1] - xRr[i0]) <= 0.02
-                   and abs(xLr[i1 + 1] - xLr[i0]) <= 0.02):
+                   and xRr[i1 + 1] - xLr[i1 + 1] >= 0.012):
                 i1 += 1
             ax.fill_betweenx(md[i0:i1 + 1], xLr[i0:i1 + 1], xRr[i0:i1 + 1],
                              color=_lith_bg_color(li), alpha=1.0, lw=0,
                              zorder=8)
             kind_r = _lith_pattern_kind(li)
-            _w_px_r = ((xRr[i0] - xLr[i0]) * _trk_px_r) if _trk_px_r else 1e9
+            _wmax_r = float(np.max(xRr[i0:i1 + 1] - xLr[i0:i1 + 1]))
+            _w_px_r = (_wmax_r * _trk_px_r) if _trk_px_r else 1e9
             if (kind_r in ('brick', 'slant_brick', 'ref')
                     and (_trk_px_r is None
                          or _w_px_r >= 0.6 * _lith_pitch_px(kind_r))):
                 seg_z1 = float(md[i1]) + (float(md[i1] - md[i1 - 1])
                                           if i1 > i0 else dy_r / 2.0)
-                # 同矿物带：子段内取最窄范围，符号不越入孔隙度留白
+                # 【2026-10-30 R50】同矿物带：整段一次调用+逐点边界 clip
+                # 多边形（锯齿边界保留、不越入孔隙度留白、块数最少）
                 draw_lithology_pattern(
                     ax, li, float(md[i0]), seg_z1,
-                    x0=float(np.max(xLr[i0:i1 + 1])),
-                    x1=float(np.min(xRr[i0:i1 + 1])), fill_bg=False,
-                    zorder=10, tile_origin=_tile_anchor)
+                    x0=float(np.min(xLr[i0:i1 + 1])),
+                    x1=float(np.max(xRr[i0:i1 + 1])), fill_bg=False,
+                    zorder=10, tile_origin=_tile_anchor,
+                    clip_patch=_lith_clip_path(
+                        md[i0:i1 + 1], xLr[i0:i1 + 1], xRr[i0:i1 + 1], ax))
             i0 = i1 + 1
         # 符号：逐行带（点/横线/人字/倒L/图片类），边缘按深度插值
         for dd in np.arange(md.min() + dy_r / 2.0, md.max(), dy_r):
