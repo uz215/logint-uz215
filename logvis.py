@@ -1361,14 +1361,20 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
                 _z0c = g0 + _ka * dy
                 _nr = _kb - _ka
                 big = np.tile(_tile, (_nr, n_cols, 1))
-                _rpx = min(big.shape[0], max(1, int(round(
-                    (min(_z0c + _nr * dy, z1) - max(_z0c, z0)) / dy * _vpx))))
                 _cpx = min(big.shape[1], max(1, int(round(
                     (x1 - gx0) / dx * _hpx))))
-                big = big[:_rpx, :_cpx]
+                big = big[:, :_cpx]
+                # 【2026-10-30 R48 相位修复】extent 必须**原样覆盖完整格行**
+                # [_z0c, _z0c+_nr*dy]，可见性交给 clip_path——旧逻辑把 extent
+                # 按 z0/z1 裁剪（_rpx），瓦片阵列第0行（瓦片顶砖行）被锚到
+                # 段边界 z1 而非全局网格边界：段高<1 个瓦片格（灰岩≈1.3m/
+                # 白云岩≈2m）时每个薄片段都显示"瓦片顶部同一砖行"或空切片
+                # ⇒ PROFILE 道矿物带（漂移切分子段）与岩性道薄互层（交界处）
+                # 呈"大多只有底色、砖纹成孤立条纹"的斑驳（111D 用户反馈）。
+                # 相位由全局网格 g0/_k_a 保证，段内可见部分落在正确瓦片行。
                 im = ax.imshow(big,
                                extent=[gx0, gx0 + _cpx / float(_hpx) * dx,
-                                       _z0c + _rpx / float(_vpx) * dy, _z0c],
+                                       _z0c + _nr * dy, _z0c],
                                aspect='auto', interpolation=_im_interp,
                                zorder=zorder, snap=False)
                 im.set_clip_path(_clip)
@@ -6794,6 +6800,10 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
     if (xRr - xLr).max() > 1e-4:
         scale = _axes_data_per_px(ax)
         _trk_px_r = _axes_px_width(ax)
+        # 【2026-10-30 R48】dy_r 兜底初始化：全部点被跳过（套管/特殊岩性/
+        # 余量带<0.012）时下方逐行带循环不再 UnboundLocalError 崩溃
+        # （111D 纯灰岩+盐膏窗口复现实测，正式井靠特殊段侥幸避开）
+        dy_r = max((md.max() - md.min()) / 200.0, 1e-6)
         # 背景：按岩性定名连续段填充（同段同色；brick/slant 段整段画符号）
         n_pts = len(md)
         i0 = 0
