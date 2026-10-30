@@ -4607,8 +4607,14 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             label_offset = header_height_fig * offset_ratio
             
             # 确保标签不会超出图头区上边界和下边界
-            max_y_for_label = header_top_y - header_height_fig * 0.05  # 顶部留5%余量
-            min_y_for_label = header_bottom_y + header_height_fig * 0.05  # 底部留5%余量
+            # 【2026-10-30 R55 用户反馈】原 5% 比例余量在图头较高时（12 槽 ×1.7cm
+            # ≈20.9cm → 5%≈1.05cm）超过边缘槽位到边界的空间（0.8cm）：顶部槽位
+            # （TL）文字被压到刻度线下方、底部槽位（BS/AT10/PE/TG）文字被抬离
+            # 刻度线约 0.25cm，与其它行"贴线 0.05cm"不一致。改固定 0.1cm 余量：
+            # 标签 va='bottom' 向上生长，正常永不触界，仅作兜底保护。
+            _edge_ratio = 0.1 / HEADER_HEIGHT_CM_ADJUSTED  # 固定 0.1cm
+            max_y_for_label = header_top_y - header_height_fig * _edge_ratio
+            min_y_for_label = header_bottom_y + header_height_fig * _edge_ratio
             actual_y_pos = max(min(y_pos + label_offset, max_y_for_label), min_y_for_label)
             
             # 确保首尾数值在图头区内，向内偏移更多
