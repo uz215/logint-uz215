@@ -78,7 +78,9 @@ def build_layers(data: pd.DataFrame, min_thick: float = 0.4,
     # 2) 切段：深度间断 / 非储层点 / 流体族变化 → 断点
     fam = itp.map(lambda x: FLUID_FAMILY.get(x.upper(), 'OTHER'))
     brk = res.ne(res.shift(fill_value=False))
-    brk |= (md.diff() > gap_break)
+    # 浮点容差：ft 井 0.5m≈1.6404199ft 与 gap_break 换算值可能因舍入相差 ~1e-15
+    # 而被误判为深度间断（曾把 3 层切成 27 层），故用相对+绝对容差。
+    brk |= (md.diff() > gap_break * (1 + 1e-6) + 1e-9)
     brk |= (fam.ne(fam.shift()) & res & res.shift(fill_value=False))
     seg_id = brk.cumsum()
 
@@ -105,7 +107,7 @@ def build_layers(data: pd.DataFrame, min_thick: float = 0.4,
         r['family'] = FLUID_FAMILY.get(r['label'].upper(), 'OTHER')
         if merged:
             prev = merged[-1]
-            adjacent = (r['top'] - prev['base']) <= gap_break
+            adjacent = (r['top'] - prev['base']) <= gap_break * (1 + 1e-6) + 1e-9
             if r['thick'] < thin_absorb and adjacent and r['family'] == prev['family']:
                 prev['idx'] += r['idx']
                 prev['base'] = max(prev['base'], r['base'])

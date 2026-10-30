@@ -13721,6 +13721,75 @@ class SpringSegmentCorrector:
             return None
 
 # --- 测井资料处理主类 ---
+def build_layer_table(processed_data, gas_data=None, depth_unit='m',
+                      min_thick_m=0.4, thin_absorb_m=0.6, gap_break_m=0.5):
+    """【2026-10-30 P0-3】层表生成（唯一成层入口）。
+
+    逐点解释 → logsys.layers 层段 → 与气测图版逐层融合（fuse_with_log）→ 层表。
+    不修改输入数据；失败返回空表（调用方记日志，不阻断主流程）。
+    厚度阈值以"米"为单位传入，按 depth_unit 自动换算（ft 井 ×3.28084）。
+    """
+    import pandas as pd
+    if processed_data is None or len(processed_data) == 0:
+        return pd.DataFrame()
+    try:
+        from logsys.layers import build_layers
+    except Exception as _e:
+        logger.error('层表模块 logsys.layers 不可用: %s', _e)
+        return pd.DataFrame()
+    _ft = str(depth_unit).strip().lower().startswith('f')
+    _k = 3.280839895 if _ft else 1.0
+    try:
+        layers = build_layers(processed_data,
+                              min_thick=min_thick_m * _k,
+                              thin_absorb=thin_absorb_m * _k,
+                              gap_break=gap_break_m * _k)
+    except Exception as _e:
+        logger.error('层表构建失败: %s', _e)
+        return pd.DataFrame()
+    if layers is None or len(layers) == 0:
+        return pd.DataFrame()
+
+    # 与气测图版按层融合：图版决定气/油；无依据时保留测井结论并标 REVIEW
+    try:
+        from logsys.gasplate import load_config, evaluate_layers, fuse_with_log
+        if gas_data is not None and len(gas_data) > 0 and 'MD' in gas_data.columns:
+            _cfg = load_config()
+            _lay = layers.rename(columns={'TOP_MD': 'TOP', 'BASE_MD': 'BASE'})
+            plate = evaluate_layers(gas_data, _lay, _cfg)
+            if plate is not None and len(plate) == len(layers):
+                layers = layers.copy()
+                layers['PLATE_FLUID'] = plate['PLATE_FLUID'].values
+                layers['PLATE_CONF'] = plate['PLATE_CONF'].values
+                _fin, _act, _flg, _cf = [], [], [], []
+                for _i in range(len(layers)):
+                    _f = fuse_with_log(str(layers['PLATE_FLUID'].iloc[_i]),
+                                       str(layers['INTERPRETATION'].iloc[_i]), _cfg)
+                    _fin.append(_f['final'])
+                    _act.append(_f['action'])
+                    _flg.append(_f['flag'])
+                    _cf.append(_f['conf'])
+                layers['FLUID_FINAL'] = _fin
+                layers['FLUID_ACTION'] = _act
+                layers['GAS_REVIEW'] = _flg
+                layers['FLUID_CONF'] = _cf
+                layers['INTERPRETATION'] = _fin
+            else:
+                layers = layers.copy()
+                layers['PLATE_FLUID'] = 'UNDEFINED'
+                layers['GAS_REVIEW'] = 'NO_GAS_DATA'
+        else:
+            layers = layers.copy()
+            layers['PLATE_FLUID'] = 'UNDEFINED'
+            layers['GAS_REVIEW'] = 'NO_GAS_DATA'
+    except Exception as _e:
+        logger.warning('层表图版融合失败（保留测井结论）: %s', _e)
+        layers = layers.copy()
+        layers['PLATE_FLUID'] = 'UNDEFINED'
+        layers['GAS_REVIEW'] = 'NO_GAS_DATA'
+    return layers
+
+
 class WellLogProcessor:
     """测井资料处理主类"""
     
@@ -15230,6 +15299,35 @@ class WellLogProcessor:
                 logger.warning("按层解释整合失败（不影响主流程）: %s", _ly)
                 logger.warning('按层解释 traceback:\n%s',
                                __import__('traceback').format_exc())
+
+            # 【2026-10-30 P0-3】层表生成（唯一成层入口：logsys.layers + gasplate）
+            # 放在按层解释整合之后、CSV/LAS 导出之前：与点列同源，禁止层表独立再判。
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    _du_ly = (
+                        getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
+                        or (self.results.get('las_info') or {}).get('depth_unit')
+                        or (self.config.get('depth_unit', 'm')
+                            if isinstance(getattr(self, 'config', None), dict) else 'm'))
+                    _gas_ly = self.results.get('gas_data')
+                    if _gas_ly is None:
+                        _gas_ly = gas_data
+                    _layers_df = build_layer_table(
+                        self.results['processed_data'],
+                        gas_data=_gas_ly, depth_unit=_du_ly)
+                    if _layers_df is not None and len(_layers_df):
+                        _lp = well_output_dir / f"{well_name}_interpretation_layers.csv"
+                        _layers_df.to_csv(_lp, index=False, encoding='utf-8-sig')
+                        self.results['layers'] = _layers_df
+                        self.results['layers_path'] = str(_lp)
+                        logger.info('层表已生成: %s (%d 层)', _lp, len(_layers_df))
+                        print(f"层表已生成: {_lp} ({len(_layers_df)} 层)")
+                    else:
+                        logger.warning('层表为空（无有效储层点），未生成 layers.csv')
+            except Exception as _ly2:
+                logger.error('层表生成失败: %s', _ly2)
+                self.results['layers_error'] = str(_ly2)
 
             # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
             # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
