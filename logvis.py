@@ -7023,23 +7023,55 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                 while (i1 + 1 < n_pts and not _nodraw[i1 + 1]
                        and xr[i1 + 1] - xl[i1 + 1] >= 0.012):
                     i1 += 1
-                _wmax = float(np.max(xr[i0:i1 + 1] - xl[i0:i1 + 1]))
-                _w_px = (_wmax * _trk_px) if _trk_px else 1e9
-                if _trk_px is None or _w_px >= 0.6 * pitch:
+                # 【2026-10-30 R56 用户反馈】纹理资格**逐点化**：R54 按
+                # "游程深度延伸"判断，但楔形渐变区（白云岩子带宽度在 0.8×dy
+                # 上下渐变，111D 6631-6632 实测"有底色只有部分纹理"）同游程
+                # 内薄处仍走纹理路径，clip 出半残瓦片行。改为：逐点宽度
+                # ≥0.6×pitch 的**连续子段**且子段深度延伸≥0.8×dy 才画纹理
+                # （整段一次调用+clip 多边形）；宽度/深度不足处只剩底色
+                # （底色已在上方画好，无空白）——纹理要么完整要么纯底色，
+                # 不再出现半截纹理。
+                if _trk_px is None:
                     seg_z1 = float(md[i1]) + (float(md[i1] - md[i1 - 1])
                                               if i1 > i0 else dy / 2.0)
-                    # 【2026-10-30 R54】孤立窄舌（深度延伸<1 瓦片单元）只画
-                    # 底色：薄舌的瓦片相位切片只剩黑杠碎片（白云岩舌实测
-                    # 111D 6619/6635/6797"灰岩段局部深/暗、间距不一致"），
-                    # 底色仍在（无空白），≥1 单元的连续段保持完整纹理
-                    if seg_z1 - float(md[i0]) >= 0.8 * dy:
-                        draw_lithology_pattern(
-                            ax, lname, float(md[i0]), seg_z1,
-                            x0=float(np.min(xl[i0:i1 + 1])),
-                            x1=float(np.max(xr[i0:i1 + 1])), fill_bg=False,
-                            zorder=10, tile_origin=_tile_anchor,
-                            clip_patch=_lith_clip_path(
-                                md[i0:i1 + 1], xl[i0:i1 + 1], xr[i0:i1 + 1], ax))
+                    draw_lithology_pattern(
+                        ax, lname, float(md[i0]), seg_z1,
+                        x0=float(np.min(xl[i0:i1 + 1])),
+                        x1=float(np.max(xr[i0:i1 + 1])), fill_bg=False,
+                        zorder=10, tile_origin=_tile_anchor,
+                        clip_patch=_lith_clip_path(
+                            md[i0:i1 + 1], xl[i0:i1 + 1], xr[i0:i1 + 1], ax))
+                else:
+                    _wq = (((xr[i0:i1 + 1] - xl[i0:i1 + 1]) * _trk_px)
+                           >= 0.6 * pitch)
+                    _m = i1 - i0 + 1
+                    j0 = 0
+                    while j0 < _m:
+                        if not _wq[j0]:
+                            j0 += 1
+                            continue
+                        j1 = j0
+                        while j1 + 1 < _m and _wq[j1 + 1]:
+                            j1 += 1
+                        _ja, _jb = i0 + j0, i0 + j1
+                        if _jb + 1 <= i1:
+                            seg_z1 = float(md[_jb + 1])
+                        elif _jb > _ja:
+                            seg_z1 = float(md[_jb]) + float(md[_jb]
+                                                             - md[_jb - 1])
+                        else:
+                            seg_z1 = float(md[_jb]) + dy / 2.0
+                        if seg_z1 - float(md[_ja]) >= 0.8 * dy:
+                            draw_lithology_pattern(
+                                ax, lname, float(md[_ja]), seg_z1,
+                                x0=float(np.min(xl[_ja:_jb + 1])),
+                                x1=float(np.max(xr[_ja:_jb + 1])),
+                                fill_bg=False, zorder=10,
+                                tile_origin=_tile_anchor,
+                                clip_patch=_lith_clip_path(
+                                    md[_ja:_jb + 1], xl[_ja:_jb + 1],
+                                    xr[_ja:_jb + 1], ax))
+                        j0 = j1 + 1
                 i0 = i1 + 1
             continue
         for dd in np.arange(md.min() + dy / 2.0, md.max(), dy):
@@ -7087,17 +7119,44 @@ def _setup_profile_track(ax, data, depth, depth_min, depth_max, curve_height_rat
                              color=_lith_bg_color(li), alpha=1.0, lw=0,
                              zorder=8)
             kind_r = _lith_pattern_kind(li)
-            _wmax_r = float(np.max(xRr[i0:i1 + 1] - xLr[i0:i1 + 1]))
-            _w_px_r = (_wmax_r * _trk_px_r) if _trk_px_r else 1e9
+            # 【2026-10-30 R56】同矿物带：纹理资格逐点化（连续宽度合格子段
+            # 且子段深度延伸≥0.8×dy_r 才画纹理，其余只剩底色——防楔形过渡
+            # 区半残纹理）
             if (kind_r in ('brick', 'slant_brick', 'ref')
-                    and (_trk_px_r is None
-                         or _w_px_r >= 0.6 * _lith_pitch_px(kind_r))):
+                    and _trk_px_r is not None):
+                _wq_r = (((xRr[i0:i1 + 1] - xLr[i0:i1 + 1]) * _trk_px_r)
+                         >= 0.6 * _lith_pitch_px(kind_r))
+                _m = i1 - i0 + 1
+                j0 = 0
+                while j0 < _m:
+                    if not _wq_r[j0]:
+                        j0 += 1
+                        continue
+                    j1 = j0
+                    while j1 + 1 < _m and _wq_r[j1 + 1]:
+                        j1 += 1
+                    _ja, _jb = i0 + j0, i0 + j1
+                    if _jb + 1 <= i1:
+                        seg_z1 = float(md[_jb + 1])
+                    elif _jb > _ja:
+                        seg_z1 = float(md[_jb]) + float(md[_jb] - md[_jb - 1])
+                    else:
+                        seg_z1 = float(md[_jb]) + dy_r / 2.0
+                    if seg_z1 - float(md[_ja]) >= 0.8 * dy_r:
+                        draw_lithology_pattern(
+                            ax, li, float(md[_ja]), seg_z1,
+                            x0=float(np.min(xLr[_ja:_jb + 1])),
+                            x1=float(np.max(xRr[_ja:_jb + 1])), fill_bg=False,
+                            zorder=10, tile_origin=_tile_anchor,
+                            clip_patch=_lith_clip_path(
+                                md[_ja:_jb + 1], xLr[_ja:_jb + 1],
+                                xRr[_ja:_jb + 1], ax))
+                    j0 = j1 + 1
+            elif kind_r in ('brick', 'slant_brick', 'ref'):
+                # 无法换算像素宽（_trk_px_r 为 None）：退回整段绘制旧口径
                 seg_z1 = float(md[i1]) + (float(md[i1] - md[i1 - 1])
                                           if i1 > i0 else dy_r / 2.0)
-                # 【2026-10-30 R54】同矿物带：孤立窄舌（<1 瓦片单元）只画底色
                 if seg_z1 - float(md[i0]) >= 0.8 * dy_r:
-                    # 【2026-10-30 R50】同矿物带：整段一次调用+逐点边界 clip
-                    # 多边形（锯齿边界保留、不越入孔隙度留白、块数最少）
                     draw_lithology_pattern(
                         ax, li, float(md[i0]), seg_z1,
                         x0=float(np.min(xLr[i0:i1 + 1])),
