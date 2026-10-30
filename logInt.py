@@ -9774,28 +9774,43 @@ def _merge_casing_segs(segs, gap_ft=10.0):
             out.append([a, b])
     return [(a, b) for a, b in out]
 
+_MASTERLOG_CASING_CACHE = {}
+
+
+def _pdf_words_fast(pdf_path, max_pages=3):
+    """用 PyMuPDF 提取字词坐标（比 pdfplumber 快 1–2 个数量级）。
+
+    返回 [[(top, x0, text), ...], ...]（每页一组）；PyMuPDF 不可用/失败返回 None。
+    """
+    try:
+        import fitz
+    except Exception:
+        return None
+    out = []
+    try:
+        with fitz.open(str(pdf_path)) as doc:
+            for pno in range(min(int(max_pages), doc.page_count)):
+                ws = doc[pno].get_text('words') or []
+                out.append([(float(w[1]), float(w[0]), str(w[4])) for w in ws])
+    except Exception as e:
+        logger.info('PyMuPDF 取词失败，回退 pdfplumber: %s', e)
+        return None
+    return out
+
+
 def _casing_shoe_from_masterlog(data, well_name='Unknown'):
     """从 masterlog/录井 PDF 井身结构取套管/尾管鞋深记录（用户定案权威来源）。
 
-    背景（2026-10-15，3-SPS-111D）
-    ------------------------------
-    LAS 头段多层套管记录（CS1-4/CBL1-4/CBD1-4）相互混杂，单一 CDF/CADT 只是
-    "当前钻进井段"的套管，不代表套管程序。用户明确：**以 masterlog 图上
-    well architecture 为准**——最后一层 10-3/4" 尾管下深 6425m，即 6425m
-    以上全是套管（与裸眼测井曲线对应）。PDF 文本层该行词元为
-        "LINER | 10 | 3/4\": | 6425 | m"
-    尺寸与深度分属不同词元，需按行聚类后配对；只认含 CASING/LINER/CSG
-    标注的行（12-1/4" 等钻头井段行无此标注，自动跳过——防止把井眼TD
-    当套管鞋）。BET-1 类"CASING DATA"表格行无逐行 CASING 字样，解析为空
-    时自然回退头段/曲线反演，不影响老井。
+    【2026-10-30 P0-9b】性能修复：
+      - 取词改用 PyMuPDF（原 pdfplumber 逐词解析扫描版 masterlog 实测 308s/井）；
+      - 结果按 (pdf路径, 大小, mtime) 缓存，同井后续调用零成本；
+      - PyMuPDF 不可用时回退 pdfplumber（保持兼容）。
 
-    返回 (鞋深, 尺寸文本, [(鞋深, 尺寸文本), ...])；解析失败返回 (None, None, [])
+    解析规则不变：按行聚类（容差 9pt）→ 只认含 CASING/LINER/CSG 标注的行 →
+    配尺寸词元与深度数字（支持 "10-3/4\"" 与整数+分数分词元两种写法）。
+    返回 (鞋深, 尺寸文本, [(鞋深, 尺寸文本), ...])；解析失败返回 (None, None, [])。
     """
     import re
-    try:
-        import pdfplumber
-    except Exception:
-        return None, None, []
     src = None
     try:
         src = data.attrs.get('source_file')
@@ -9811,75 +9826,112 @@ def _casing_shoe_from_masterlog(data, well_name='Unknown'):
     if not pdf_path:
         return None, None, []
 
-    # pdfplumber/pdfminer DEBUG 日志抑制（同 parse_casing_from_mudlog，防日志膨胀）
-    _restore = {}
-    for _lg in ('pdfminer', 'pdfplumber', 'pdfminer.pdfinterp', 'pdfminer.pdfpage',
-                'pdfminer.converter', 'pdfminer.layout', 'pdfminer.psparser',
-                'pdfminer.pdfdocument', 'pdfminer.utils'):
-        _lg_obj = logging.getLogger(_lg)
-        _restore[_lg] = _lg_obj.level
-        _lg_obj.setLevel(logging.WARNING)
+    # ---- 缓存：同 PDF（路径+大小+mtime）只解析一次 ----
+    try:
+        st = os.stat(str(pdf_path))
+        _ck = (str(pdf_path), int(st.st_size), round(float(st.st_mtime), 3))
+    except Exception:
+        _ck = (str(pdf_path), 0, 0)
+    if _ck in _MASTERLOG_CASING_CACHE:
+        return _MASTERLOG_CASING_CACHE[_ck]
 
     # 尺寸词元："10-3/4"" / "10 3/4":" / "13.625"" / "22":"
     size_pat = re.compile(r'^(?:(\d{1,2})[-\s](\d)/(\d)|(\d{1,2}(?:\.\d+)?))["”]?:?$')
     frac_pat = re.compile(r'^(\d)/(\d)["”]?:?$')
     num_pat = re.compile(r'^(\d{2,5}(?:\.\d+)?)(?:\s*(?:m|ft))?$', re.I)
+
+    pages = _pdf_words_fast(pdf_path, max_pages=3)
+    if pages is None:
+        try:
+            import pdfplumber
+            with pdfplumber.open(str(pdf_path)) as pdf:
+                pages = []
+                for page in pdf.pages[:3]:
+                    ws = page.extract_words(use_text_flow=False)
+                    pages.append([(float(w['top']), float(w['x0']), str(w['text']))
+                                  for w in ws])
+        except Exception as e:
+            logger.warning('[%s] masterlog 打开失败: %s', well_name, e)
+            pages = []
+
     out = []
     try:
-        with pdfplumber.open(str(pdf_path)) as pdf:
-            for page in pdf.pages[:3]:
-                words = page.extract_words(use_text_flow=False)
-                if not words:
+        for toks in pages:
+            if not toks:
+                continue
+            toks = sorted(toks)
+            # 按 top 坐标聚类成行（容差9pt：masterlog实测CASING标注与
+            # 尺寸/深度词元间最大8pt差，6pt会把同行拆散漏配），行内按 x 排序
+            rows = []
+            for y, x, t in toks:
+                if rows and abs(y - rows[-1][0][0]) <= 9:
+                    rows[-1].append((y, x, t))
+                else:
+                    rows.append([(y, x, t)])
+            for row in rows:
+                row.sort(key=lambda z: z[1])
+                labels = [t for _y, _x, t in row]
+                rowtext = ' '.join(labels).upper()
+                if not re.search(r'\b(CASING|LINER|CSG)\b', rowtext):
                     continue
-                # 按 top 坐标聚类成行（容差9pt：masterlog实测CASING标注与
-                # 尺寸/深度词元间最大8pt差，6pt会把同行拆散漏配），行内按 x 排序
-                toks = sorted([(float(w['top']), float(w['x0']), str(w['text']))
-                               for w in words])
-                rows = []
-                for y, x, t in toks:
-                    if rows and abs(y - rows[-1][0][0]) <= 9:
-                        rows[-1].append((y, x, t))
-                    else:
-                        rows.append([(y, x, t)])
-                for row in rows:
-                    row.sort(key=lambda z: z[1])
-                    labels = [t for _y, _x, t in row]
-                    rowtext = ' '.join(labels).upper()
-                    if not re.search(r'\b(CASING|LINER|CSG)\b', rowtext):
-                        continue
-                    i = 0
-                    while i < len(labels):
-                        m = size_pat.match(labels[i].strip())
-                        if m:
-                            if m.group(1):
-                                size_txt = '%s-%s/%s' % (m.group(1), m.group(2), m.group(3))
-                            else:
-                                size_txt = m.group(4)
-                                # 整数+分数分属两个词元（"10" + "3/4\":"）
-                                if i + 1 < len(labels):
-                                    fm = frac_pat.match(labels[i + 1].strip())
-                                    if fm:
-                                        size_txt = '%s-%s/%s' % (size_txt, fm.group(1), fm.group(2))
-                                        i += 1
-                            for j in range(i + 1, len(labels)):
-                                nm = num_pat.match(labels[j].strip())
-                                if nm:
-                                    out.append((float(nm.group(1)), size_txt))
-                                    break
-                        i += 1
-        if out:
-            out.sort()
-            logger.info('[%s] masterlog(%s) 井身结构套管/尾管记录: %s',
-                        well_name, os.path.basename(str(pdf_path)),
-                        ', '.join('%s"@%.0f' % (s, d) for d, s in out[:8]))
-            return out[-1][0], out[-1][1], out
-        return None, None, []
+                i = 0
+                while i < len(labels):
+                    m = size_pat.match(labels[i].strip())
+                    if m:
+                        if m.group(1):
+                            size_txt = '%s-%s/%s' % (m.group(1), m.group(2), m.group(3))
+                        else:
+                            size_txt = m.group(4)
+                            # 整数+分数分属两个词元（"10" + "3/4\":"）
+                            if i + 1 < len(labels):
+                                fm = frac_pat.match(labels[i + 1].strip())
+                                if fm:
+                                    size_txt = '%s-%s/%s' % (size_txt, fm.group(1), fm.group(2))
+                                    i += 1
+                        for j in range(i + 1, len(labels)):
+                            nm = num_pat.match(labels[j].strip())
+                            if nm:
+                                out.append((float(nm.group(1)), size_txt))
+                                break
+                    i += 1
     except Exception as e:
         logger.warning('[%s] masterlog 套管解析失败: %s', well_name, e)
-        return None, None, []
-    finally:
-        for _lg, _lv in _restore.items():
-            logging.getLogger(_lg).setLevel(_lv)
+
+    # 【2026-10-30】合理性过滤：尺寸 4–36 in、深度 0<d<=MDmax、至少 2 条记录。
+    # 防止把 masterlog 的"井眼/钻头尺寸表"误读成套管鞋（曾解析出 0.01"@100 之类）。
+    def _size_inch(txt):
+        m = re.match(r'^(\d+)-(\d+)/(\d+)$', str(txt).strip())
+        if m:
+            return float(m.group(1)) + float(m.group(2)) / float(m.group(3))
+        try:
+            return float(txt)
+        except Exception:
+            return float('nan')
+    try:
+        _mdmax = float(pd.to_numeric(data['MD'], errors='coerce').max())
+    except Exception:
+        _mdmax = None
+    _clean = []
+    for _d, _s in out:
+        _sv = _size_inch(_s)
+        if (4.0 <= _sv <= 36.0) and (_d > 0) and (_mdmax is None or _d <= _mdmax + 1):
+            _clean.append((_d, _s))
+        else:
+            logger.info('masterlog 记录剔除(不合理): %s"@%s', _s, _d)
+    if len(_clean) < 2:
+        _clean = []
+    out = _clean
+
+    res = (None, None, [])
+    if out:
+        out.sort()
+        logger.info('[%s] masterlog(%s) 井身结构套管/尾管记录: %s',
+                    well_name, os.path.basename(str(pdf_path)),
+                    ', '.join('%s"@%.0f' % (s, d) for d, s in out[:8]))
+        res = (out[-1][0], out[-1][1], out)
+    _MASTERLOG_CASING_CACHE[_ck] = res
+    return res
+
 
 def _casing_layers_from_header(data):
     """解析 LAS 头段编号套管记录，返回全部层位 [(鞋深, 尺寸), ...]（升序）。
