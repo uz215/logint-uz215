@@ -14096,9 +14096,25 @@ class WellLogProcessor:
             # 【2026-10-27 R28 用户定案】解释截止值分井配置：0.06 等默认值是
             # 巴西海上深水经验知识，不作所有井统一要求——每口井可在
             # <井名>info.json「解释截止值」组覆盖（人工填非空值即生效）。
+            # 【2026-10-30 修复】分井配置（解释截止值/区域知识）从【源井目录】读，
+            # 输出目录兜底——人工维护的 <井>info.json 在源井资料目录，原实现只读
+            # output/<井>，导致"写了不生效"（BET-1 标定值被忽略）。
+            _wd_src = ''
             try:
-                cutoffs = load_interpretation_cutoffs(
-                    str(well_output_dir), str(getattr(self, 'well_name', '')))
+                _lfp = getattr(self.data_loader, 'last_file_path', None)
+                if _lfp:
+                    _wd_src = str(Path(_lfp).resolve().parent)
+            except Exception:
+                _wd_src = ''
+            _cfg_dirs = [_wd_src, str(well_output_dir)] if _wd_src else [str(well_output_dir)]
+            cutoffs = dict(DEFAULT_CUTOFFS)
+            try:
+                for _d in _cfg_dirs:
+                    _c = load_interpretation_cutoffs(
+                        _d, str(getattr(self, 'well_name', '')))
+                    if any(v is not None for v in _c.values()):
+                        cutoffs = _c
+                        break
             except Exception as _ce:
                 logger.warning("解释截止值加载回退默认: %s", _ce)
                 cutoffs = dict(DEFAULT_CUTOFFS)
@@ -14108,8 +14124,13 @@ class WellLogProcessor:
             # 认识走 <井名>info.json「区域知识」组（空=不约束），结构化
             # 承接——以前只能口头纠正的知识现在每次处理自动生效
             try:
-                _regional = load_regional_knowledge(
-                    str(well_output_dir), str(getattr(self, 'well_name', '')))
+                _regional = {}
+                for _d in _cfg_dirs:
+                    _rg = load_regional_knowledge(
+                        _d, str(getattr(self, 'well_name', '')))
+                    if _rg:
+                        _regional = _rg
+                        break
             except Exception as _rge:
                 logger.warning("区域知识加载失败（不约束）: %s", _rge)
                 _regional = {}
