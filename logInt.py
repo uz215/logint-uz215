@@ -15133,6 +15133,21 @@ class WellLogProcessor:
             # 【2026-10-08】矿物体积计算已移至 CSV 保存前（一处一功能），
             # CSV/LAS/绘图共用同一份矿物列，此处不再重复计算。
 
+            # 【2026-10-30 P0-4a】气测解释图版判别：气/油由 PIXLER 等图版决定，
+            # REG 仅作辅助证据（用户决策）。图版无依据时保留结论并标 GAS_REVIEW。
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    _pd_pl, _n_pl = attach_gas_plate(
+                        self.results['processed_data'], gas_data)
+                    if _n_pl:
+                        self.results['processed_data'] = _pd_pl
+                        logger.info('气测解释图版: %d 点已判别(PLATE_FLUID)', _n_pl)
+                    else:
+                        logger.info('气测解释图版: 无有效判别点(缺 C1/C2/C3 或气测未加载)')
+            except Exception as _pl:
+                logger.warning('气测解释图版判别失败（不影响主流程）: %s', _pl)
+
             # 【2026-10-21】REG 法综合气层指示：RTI+NDI+GSI→CGI
             try:
                 if 'processed_data' in self.results and self.results['processed_data'] is not None:
@@ -18070,21 +18085,101 @@ def calculate_reg_indicators(data, gas_data=None):
     logger.info("REG CGI: 综合完成, CGI>=0.6 层数=%d", n_gas)
     return out
 
+def _gas_plate_verdict(out, seg):
+    """按层汇总气测图版结论：返回 (标签, 置信度, 说明)。
+
+    标签 ∈ GAS/OIL/DRY/UNDEFINED；UNDEFINED 表示图版无依据（缺重烃/缺气测），
+    此时**不得**据此把 GAS 改 OIL（2026-10-30 用户决策）。
+    """
+    import numpy as np
+    import pandas as pd
+    if 'PLATE_FLUID' not in out.columns or len(seg) == 0:
+        return 'UNDEFINED', 0.0, '缺图版列(未执行图版判别)'
+    s = out.iloc[seg]['PLATE_FLUID'].astype(str).str.upper()
+    valid = s.isin(['GAS', 'OIL', 'DRY'])
+    if not valid.any():
+        return 'UNDEFINED', 0.0, '图版无有效判别(缺重烃/缺气测)'
+    vc = s[valid].value_counts()
+    lab = str(vc.idxmax())
+    share = float(vc.max()) / max(1, len(s))
+    conf = 0.0
+    if 'PLATE_CONF' in out.columns:
+        c = pd.to_numeric(out.iloc[seg]['PLATE_CONF'], errors='coerce').mean()
+        conf = float(c) if np.isfinite(c) else 0.0
+    return lab, round(conf, 2), '%s %d/%d share=%.2f' % (lab, int(vc.max()), len(s), share)
+
+
+def _gas_reg_brief(out, seg):
+    """REG 证据摘要（只记录，不参与改判）。"""
+    import numpy as np
+    import pandas as pd
+    parts = []
+    for col in ('CGI', 'RTI', 'NDI', 'GSI'):
+        if col in out.columns:
+            v = pd.to_numeric(out.iloc[seg][col], errors='coerce').median()
+            parts.append('%s=%.2f' % (col, float(v) if np.isfinite(v) else -9.0))
+    return ' '.join(parts) if parts else 'REG缺列'
+
+
+def attach_gas_plate(data, gas_data, tolerance=1.0):
+    """把气测解释图版（logsys.gasplate）逐点判别并入 data。
+
+    返回 (data_with_plate, 有效判别点数)。模块缺失/缺 C1..C3 时原样返回（不阻断主流程）。
+    新增列：PLATE_FLUID / PLATE_CONF / PLATE_WHY / PLATE_VALID_RATIOS。
+    """
+    import numpy as np
+    import pandas as pd
+    if data is None or len(data) == 0 or gas_data is None or len(gas_data) == 0:
+        return data, 0
+    if 'MD' not in data.columns or 'MD' not in gas_data.columns:
+        return data, 0
+    try:
+        from logsys.gasplate import evaluate_points, load_config
+    except Exception as _e:
+        logger.info('气测图版模块不可用，跳过图版判别: %s', _e)
+        return data, 0
+    cols = [c for c in ('C1', 'C2', 'C3', 'IC4', 'NC4', 'IC5', 'NC5')
+            if c in gas_data.columns]
+    if not all(c in gas_data.columns for c in ('C1', 'C2', 'C3')):
+        logger.info('气测图版: 缺 C1/C2/C3（仅全烃），跳过图版判别')
+        return data, 0
+    out = data.copy()
+    g = gas_data[['MD'] + cols].copy()
+    g['MD'] = pd.to_numeric(g['MD'], errors='coerce')
+    g = g.dropna(subset=['MD']).sort_values('MD')
+    left = pd.DataFrame({'MD': pd.to_numeric(out['MD'], errors='coerce').values,
+                         '_ord': np.arange(len(out))}).sort_values('MD')
+    try:
+        merged = pd.merge_asof(left, g, on='MD', direction='nearest',
+                               tolerance=float(tolerance))
+        res = evaluate_points(merged, load_config(), depth_col='MD')
+    except Exception as _e:
+        logger.warning('气测图版判别失败（不影响主流程）: %s', _e)
+        return data, 0
+    if res is None or len(res) == 0:
+        return data, 0
+    res = res.set_index(merged['_ord'].values).sort_index()
+    for c in ('PLATE_FLUID', 'PLATE_CONF', 'PLATE_WHY', 'PLATE_VALID_RATIOS'):
+        if c in res.columns:
+            out[c] = res[c].reindex(np.arange(len(out))).values
+    n = int(out['PLATE_FLUID'].astype(str).str.upper().isin(
+        ['GAS', 'OIL', 'DRY']).sum()) if 'PLATE_FLUID' in out.columns else 0
+    return out, n
+
+
 def rejudge_gas_by_reg_below_seal(data):
-    """【2026-10-27 R26 用户定案】盐下气层 REG 证据复核（按层）。
+    """【2026-10-30 改版】盐下 GAS 复核：气测解释图版决定气/油，REG 仅作辅助证据。
 
-    背景：INTERPRETATION_RULES 的 GAS 规则只看 Sw<0.5+POR>=0.06+RT>50，
-    蒸发岩盖层（盐岩/硬石膏）下大量储层因 RT 高被逐点判成 GAS，但 REG 法
-    （RTI/NDI/GSI/CGI，calculate_reg_indicators）无气层异常特征——
-    用户："盐岩下解释成气层没有依据，REG 方法没有明显异常特征，解释还是
-    应该按 logInt 流程按层解释。"
+    背景：原 R26 实现用 REG（CGI/RTI/NDI/GSI）缺证据即整段降 OIL；但 REG 的 RTI
+    公式对气层符号为负（DT 降、R 升两项皆负），会系统性误杀气层。
+    2026-10-30 用户决策：气/油判定由气测解释图版决定，REG 不再单独改判。
 
-    规则（按层，非逐点）：盖层（halite/anhydrite/gypsum/盐/膏）顶之下的
-    GAS 点按连续段分层（间隔>1.5m 断层），逐层核算 REG 证据：
-      层内 CGI 中位数 >= 0.6，或 RTI/NDI/GSI 三项中至少两项达阈值
-      （RTI>=0.20 / NDI>=0.05 / GSI>=0.5）
-    → 维持 GAS；否则整层降为 OIL（保留 Sw/POR/RT 的含油气证据，只撤
-    无依据的"气"字）。逐层打印证据表，供交会图/综合图核对。
+    按层规则（盖层顶以下 GAS 连续段）：
+      - 图版 OIL  → 整层降 OIL（图版权威）
+      - 图版 GAS  → 维持 GAS
+      - 图版 DRY  → 维持 GAS，GAS_REVIEW=NO_GAS_SHOW（无气显示≠无油）
+      - 图版无依据 → 维持 GAS，GAS_REVIEW=NO_GAS_DATA（**禁止强制降油**）
+    返回 (data, 降为 OIL 的点数)。
     """
     import numpy as np
     import pandas as pd
@@ -18103,9 +18198,12 @@ def rejudge_gas_by_reg_below_seal(data):
     _gas = _gas.fillna(False)
     n_gas = int(_gas.sum())
     if n_gas == 0:
-        logger.info('盐下气层REG复核: 盖层顶 %.1fm 之下无 GAS 点', _seal_top)
+        logger.info('盐下气层复核: 盖层顶 %.1fm 之下无 GAS 点', _seal_top)
         return data, 0
     out = data.copy()
+    if 'GAS_REVIEW' not in out.columns:
+        out['GAS_REVIEW'] = ''
+    _col_rev = out.columns.get_loc('GAS_REVIEW')
     _rows = np.where(_gas.values)[0]
     _mds = _md.values[_rows]
     _order = np.argsort(_mds)
@@ -18118,32 +18216,29 @@ def rejudge_gas_by_reg_below_seal(data):
     n_demoted = 0
     for a, b in zip(_brk[:-1], _brk[1:]):
         _seg = _rows[a:b]
-
-        def _med(col):
-            if col in out.columns:
-                return float(pd.to_numeric(
-                    out.iloc[_seg][col], errors='coerce').median())
-            return float('nan')
-
-        _cgi, _rti, _ndi, _gsi = _med('CGI'), _med('RTI'), _med('NDI'), _med('GSI')
-        _hits = sum(1 for v, t in ((_rti, 0.20), (_ndi, 0.05), (_gsi, 0.5))
-                    if np.isfinite(v) and v >= t)
-        _ok = (np.isfinite(_cgi) and _cgi >= 0.6) or _hits >= 2
-        if not _ok:
+        _lab, _pconf, _pdetail = _gas_plate_verdict(out, _seg)
+        _reg = _gas_reg_brief(out, _seg)
+        if _lab == 'OIL':
             out.iloc[_seg, _col_itp] = 'OIL'
             if _col_itp2 is not None:
                 out.iloc[_seg, _col_itp2] = 'OIL'
+            out.iloc[_seg, _col_rev] = 'GAS_PLATE_OIL'
             n_demoted += len(_seg)
+            _verdict = '按图版降为OIL'
+        elif _lab == 'GAS':
+            out.iloc[_seg, _col_rev] = ''
+            _verdict = '维持GAS(图版GAS)'
+        elif _lab == 'DRY':
+            out.iloc[_seg, _col_rev] = 'NO_GAS_SHOW'
+            _verdict = '维持GAS(图版无气显示,待复核)'
+        else:
+            out.iloc[_seg, _col_rev] = 'NO_GAS_DATA'
+            _verdict = '维持GAS(图版无依据,待复核)'
         logger.info(
-            '盐下气层REG复核 %.1f-%.1fm n=%d: CGI=%.2f RTI=%.2f NDI=%.3f '
-            'GSI=%.2f 达标项=%d → %s',
-            float(_mds[a]), float(_mds[b - 1]), len(_seg),
-            _cgi if np.isfinite(_cgi) else -9.0,
-            _rti if np.isfinite(_rti) else -9.0,
-            _ndi if np.isfinite(_ndi) else -9.0,
-            _gsi if np.isfinite(_gsi) else -9.0,
-            _hits, '维持GAS' if _ok else '降为OIL(无REG气层证据)')
-    logger.info('盐下气层REG复核: GAS %d 点中 %d 点降为 OIL', n_gas, n_demoted)
+            '盐下气层复核 %.1f-%.1fm n=%d: 图版=%s(conf=%.2f,%s) REG[%s] → %s',
+            float(_mds[a]), float(_mds[b - 1]), len(_seg), _lab, _pconf, _pdetail,
+            _reg, _verdict)
+    logger.info('盐下气层复核: GAS %d 点中 %d 点按图版降为 OIL', n_gas, n_demoted)
     return out, n_demoted
 
 
@@ -18811,16 +18906,13 @@ def _apply_regional_lith_knowledge(data):
 
 
 def rejudge_gas_by_reg_whole(data):
-    """【2026-10-27 R33 用户定案】全井 GAS 证据复核（按层）。
+    """【2026-10-30 改版】全井 GAS 复核：气测解释图版决定气/油，REG 仅作辅助证据。
 
-    用户（XIMENIA-5）："本井主要是油层，为什么解释了很多气层"——
-    GAS 规则（Sw<0.5+POR>=0.06+RT>50）没有气层专有证据；本井无气测
-    资料、REG（RTI/NDI/GSI/CGI）无气层异常（GAS 点 RTI 中位 -1.05、
-    CGI 全缺）。逐层复核口径与盐下复核（rejudge_gas_by_reg_below_seal）
-    一致：层内 CGI 中位>=0.6，或 RTI/NDI/GSI 至少两项达阈值
-    （RTI>=0.20 / NDI>=0.05 / GSI>=0.5）→ 维持 GAS；否则整层降 OIL
-    （保留含油气证据，只撤无依据的"气"字）。逐层证据表落日志。
-    有气测且 CGI 达标的井不受影响。
+    原 R33 实现：无气测/REG 无异常即整段降 OIL。2026-10-30 用户决策改为图版裁决：
+      - 图版 OIL → 降 OIL；图版 GAS → 维持；
+      - 图版 DRY → 维持 GAS + GAS_REVIEW=NO_GAS_SHOW；
+      - 图版无依据 → 维持 GAS + GAS_REVIEW=NO_GAS_DATA（禁止强制降油）。
+    返回 (data, 降为 OIL 的点数)。
     """
     import numpy as np
     import pandas as pd
@@ -18832,9 +18924,12 @@ def rejudge_gas_by_reg_whole(data):
     _gas = _gas.fillna(False)
     n_gas = int(_gas.sum())
     if n_gas == 0:
-        logger.info('全井气层REG复核: 无 GAS 点')
+        logger.info('全井气层复核: 无 GAS 点')
         return data, 0
     out = data.copy()
+    if 'GAS_REVIEW' not in out.columns:
+        out['GAS_REVIEW'] = ''
+    _col_rev = out.columns.get_loc('GAS_REVIEW')
     _rows = np.where(_gas.values)[0]
     _mds = _md.values[_rows]
     _order = np.argsort(_mds)
@@ -18847,33 +18942,29 @@ def rejudge_gas_by_reg_whole(data):
     n_demoted = 0
     for a, b in zip(_brk[:-1], _brk[1:]):
         _seg = _rows[a:b]
-
-        def _med(col):
-            if col in out.columns:
-                return float(pd.to_numeric(
-                    out.iloc[_seg][col], errors='coerce').median())
-            return float('nan')
-
-        _cgi, _rti, _ndi, _gsi = (_med('CGI'), _med('RTI'),
-                                  _med('NDI'), _med('GSI'))
-        _hits = sum(1 for v, t in ((_rti, 0.20), (_ndi, 0.05), (_gsi, 0.5))
-                    if np.isfinite(v) and v >= t)
-        _ok = (np.isfinite(_cgi) and _cgi >= 0.6) or _hits >= 2
-        if not _ok:
+        _lab, _pconf, _pdetail = _gas_plate_verdict(out, _seg)
+        _reg = _gas_reg_brief(out, _seg)
+        if _lab == 'OIL':
             out.iloc[_seg, _col_itp] = 'OIL'
             if _col_itp2 is not None:
                 out.iloc[_seg, _col_itp2] = 'OIL'
+            out.iloc[_seg, _col_rev] = 'GAS_PLATE_OIL'
             n_demoted += len(_seg)
+            _verdict = '按图版降为OIL'
+        elif _lab == 'GAS':
+            out.iloc[_seg, _col_rev] = ''
+            _verdict = '维持GAS(图版GAS)'
+        elif _lab == 'DRY':
+            out.iloc[_seg, _col_rev] = 'NO_GAS_SHOW'
+            _verdict = '维持GAS(图版无气显示,待复核)'
+        else:
+            out.iloc[_seg, _col_rev] = 'NO_GAS_DATA'
+            _verdict = '维持GAS(图版无依据,待复核)'
         logger.info(
-            '全井气层REG复核 %.1f-%.1fm n=%d: CGI=%.2f RTI=%.2f NDI=%.3f '
-            'GSI=%.2f 达标项=%d → %s',
-            float(_mds[a]), float(_mds[b - 1]), len(_seg),
-            _cgi if np.isfinite(_cgi) else -9.0,
-            _rti if np.isfinite(_rti) else -9.0,
-            _ndi if np.isfinite(_ndi) else -9.0,
-            _gsi if np.isfinite(_gsi) else -9.0,
-            _hits, '维持GAS' if _ok else '降为OIL(无气层专有证据)')
-    logger.info('全井气层REG复核: GAS %d 点中 %d 点降为 OIL', n_gas, n_demoted)
+            '全井气层复核 %.1f-%.1fm n=%d: 图版=%s(conf=%.2f,%s) REG[%s] → %s',
+            float(_mds[a]), float(_mds[b - 1]), len(_seg), _lab, _pconf, _pdetail,
+            _reg, _verdict)
+    logger.info('全井气层复核: GAS %d 点中 %d 点按图版降为 OIL', n_gas, n_demoted)
     return out, n_demoted
 
 
