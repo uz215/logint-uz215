@@ -230,3 +230,6 @@ gas_test.csv
 !logsys/gasplate/config/
 !logsys/gasplate/config/*.json
 !logsys/**/__init__.py
+
+# ===== 知识库构建主程序（需入库，原规则未覆盖） =====
+!knowledge_build.py

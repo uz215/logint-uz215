@@ -4407,8 +4407,12 @@ class DataVisualizer:
             return fixed_visualize(data, results, gas_data=gas_data,
                                    quicklook_config=quicklook_config)
         except ImportError as e:
-            logger.error(f"导入logvis模块失败: {e}")
-            # 降级使用内置简单可视化
+            # 【2026-10-30 P0-6】不再静默降级：错误必须可见，产物名标 DEGRADED
+            logger.error("正式出图模块 logvis 不可用，降级为 4 道简图(DEGRADED): %s", e)
+            if isinstance(results, dict):
+                results['visualization_degraded'] = True
+                results['visualization_error'] = str(e)
+            print(f"  ⚠ 出图降级: logvis 不可用，已生成 DEGRADED 简图（{e}）")
             return self._simple_visualize_composite_log(data, results)
     
     def _simple_visualize_composite_log(self, data, results):
@@ -4456,7 +4460,7 @@ class DataVisualizer:
             well_output_dir.mkdir(exist_ok=True, parents=True)
             
             timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-            output_path = well_output_dir / f'{well_name}_composite_log_{timestamp}.png'
+            output_path = well_output_dir / f'{well_name}_composite_log_DEGRADED_{timestamp}.png'
             
             plt.savefig(output_path, dpi=80, bbox_inches='tight',
                         metadata={'Software': None})
@@ -15257,8 +15261,11 @@ class WellLogProcessor:
                     well_output_dir / f"{well_name}_interpreted.LAS",
                     casing_info=self.results.get('casing_info', {}),
                     well_name=well_name,
-                    depth_unit=self.config.get('depth_unit', 'ft')
-                    if isinstance(getattr(self, 'config', None), dict) else 'ft')
+                    depth_unit=(
+                        getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
+                        or (self.results.get('las_info') or {}).get('depth_unit')
+                        or (self.config.get('depth_unit', 'ft')
+                            if isinstance(getattr(self, 'config', None), dict) else 'ft')))
                 if _las_ok:
                     logger.info('带套管头的 LAS 已导出: %s', _las_ok)
             except Exception as _le:
@@ -17271,12 +17278,18 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
             # 长图 PNG 均为临时产物不落盘），返回值即最终 PDF 路径
             print(f"  快速解释图: {_ql_plot}")
     except Exception as e:
-        logger.warning("quick look 专用出图失败（不影响主流程结果）: %s", e)
+        logger.error("quick look 出图失败: %s", e)
+        if isinstance(results, dict):
+            results['visualization_error'] = str(e)
+        print(f"  ✗ 快速解释图生成失败: {e}")
 
     # ---- 6. 交付 ----
     out_dir = results.get('output_dir') or str(Path('output') / well_name)
     print("\n" + "=" * 70)
-    print(f"  ✓ quick look 快速解释完成")
+    if isinstance(results, dict) and results.get('visualization_error'):
+        print("  ✗ quick look 已跑完，但出图失败（详见日志 visualization_error）")
+    else:
+        print("  ✓ quick look 快速解释完成")
     print(f"  输出目录: {out_dir}")
     print("=" * 70)
     return results
