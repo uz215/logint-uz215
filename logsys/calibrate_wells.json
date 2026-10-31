@@ -45,5 +45,14 @@
     "unit": "m",
     "country": "Brazil",
     "region": "Aram Block"
+  },
+  {
+    "well": "XIMENIA-5",
+    "proc": "D:/360/src/output/XIMENIA-5/XIMENIA-5_processed.csv",
+    "truth": "D:/360/Chad/Ximenia-5/XIMENIA-5_truth.csv",
+    "truth_kind": "generic_csv",
+    "unit": "m",
+    "country": "Chad",
+    "region": "Doba Basin"
   }
 ]

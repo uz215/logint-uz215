@@ -41,6 +41,96 @@
       "kind": "generic_csv",
       "unit": "m",
       "conf": 0.9
+    },
+    {
+      "well": "Kapok E-101",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Kapok E-101/KAPOK_E-101_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Kapok E-6",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Kapok E-6/KAPOK_E-6_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Kapok S-7",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Kapok S-7/KAPOK_S-7_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Kapok-15",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Kapok-15/KAPOK-15_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Kapok-16",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Kapok-16/KAPOK-16_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Kapok-5",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Kapok-5/KAPOK-5_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Ximenia 101",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Ximenia 101/XIMENIA_101_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Ximenia S-1",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Ximenia S-1/XIMENIA_S-1_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Ximenia-5",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Ximenia-5/XIMENIA-5_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "Ximenia-6",
+      "country": "Chad",
+      "region": "Doba Basin",
+      "truth": "D:/360/Chad/Ximenia-6/XIMENIA-6_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
     }
   ],
   "clauses": "D:/360/src/logsys/knowledge/clauses.json",
