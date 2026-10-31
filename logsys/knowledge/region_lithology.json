@@ -1,0 +1,66 @@
+{
+  "regions": {
+    "Indonesia/Jabung": {
+      "wells": ["BET-1"],
+      "dominant_lithology": ["sandstone", "shale"],
+      "allowed_classes": ["sandstone", "shale", "coal", "carbonaceous_shale", "limestone", "dolomite"],
+      "notable": ["煤层", "碳质泥岩", "少量钙质泥岩、灰岩"],
+      "lith_rules": [
+        "砂泥岩为主，含煤层与碳质泥岩；少量钙质泥岩/灰岩薄层",
+        "低GR+低密度+高中子/低PE 判煤层；碳质泥岩 GR 高、密度低、电阻率高",
+        "钙质泥岩：PE 偏高、密度偏高；灰岩：低GR、低中子、高密度、PE≈5"
+      ],
+      "fluid_notes": "BET-1 无本井试油；邻井试油均为浅层 TAF（≤6900ft），不能外推深部 LTAF",
+      "source": "用户口径 2026-10-31 + BET-1 资料"
+    },
+    "Bangladesh": {
+      "wells": ["RASHIDPUR_13"],
+      "dominant_lithology": ["sandstone", "shale"],
+      "allowed_classes": ["sandstone", "shale"],
+      "notable": ["砂泥岩互层"],
+      "lith_rules": [
+        "全井砂泥岩，无碳酸盐岩/膏盐/火成岩",
+        "砂岩以低GR、低VSH、中子-密度交会识别；泥岩高GR、高VSH"
+      ],
+      "fluid_notes": "RP-13 采用 RUSH 解释（参考级）；邻井 DST 见 GTO Table4（气/水/干）",
+      "source": "用户口径 2026-10-31 + GTO/RUSH 资料"
+    },
+    "Brasil": {
+      "wells": ["3-SPS-111D"],
+      "dominant_lithology": ["limestone", "dolomite", "halite", "anhydrite", "basalt"],
+      "allowed_classes": ["limestone", "dolomite", "halite", "anhydrite", "basalt", "sandstone", "shale"],
+      "notable": ["典型碳酸盐岩剖面", "岩盐", "硬石膏", "玄武岩火成岩"],
+      "lith_rules": [
+        "碳酸盐岩为主：方解石→灰岩、白云石→白云岩；盐岩/硬石膏为蒸发岩；玄武岩为火成岩",
+        "元素测井矿物含量可作真岩性（111D ECS 真值：90 层，灰岩/白云岩/玄武岩/盐/硬石膏）",
+        "高PE+高密度为碳酸盐岩；极低密度+高中子可能为盐岩；PE≈5 灰岩、PE≈3 白云岩"
+      ],
+      "fluid_notes": "111D 试油+MDT 真值；碳酸盐岩储层孔隙度下限 6%",
+      "source": "用户口径 2026-10-31 + 111D ECS/试油资料"
+    },
+    "Chad": {
+      "wells": ["XIMENIA-5", "XIMENIA S-1", "Kapok", "Ronier", "Mimosa", "Baobab"],
+      "dominant_lithology": ["sandstone", "shale"],
+      "allowed_classes": ["sandstone", "shale", "coal", "carbonaceous_shale", "limestone", "dolomite"],
+      "notable": ["砂泥岩", "有岩性分析数据", "多口井有试油数据"],
+      "lith_rules": [
+        "砂泥岩为主；有岩性分析（岩屑/岩心）数据可作真值",
+        "Doseo 试油 10 井 46 段、历史试油大表 71 井 265 段，可支撑区域标定"
+      ],
+      "fluid_notes": "凝析气层（XIMENIA S-1 Test-2/3）RT 40–47，气层 RT 下限需分井调整（rt_gas=35）",
+      "source": "用户口径 2026-10-31 + Doseo2023/历史试油表"
+    },
+    "Niger": {
+      "wells": ["TrakesKE-1"],
+      "dominant_lithology": ["sandstone", "shale"],
+      "allowed_classes": ["sandstone", "shale", "coal", "carbonaceous_shale"],
+      "notable": ["砂泥岩", "岩性解释剖面真值（240 层）", "重点井试油动态"],
+      "lith_rules": [
+        "砂泥岩互层为主；TrakesKE-1 有承包商岩性解释剖面可作真值/标定",
+        "低阻油层发育（区域研究专题）"
+      ],
+      "fluid_notes": "TrakesKE-1 成果表 36 层真值；尼日尔重点井试油动态 4 井 9 段",
+      "source": "用户口径 2026-10-31 + Trakes 剖面/成果表"
+    }
+  }
+}

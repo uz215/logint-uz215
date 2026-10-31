@@ -123,5 +123,108 @@
       ],
       "require_depth_check": true
     }
+  },
+  {
+    "std_no": "LITH-01",
+    "section": "区域岩性识别·印尼Jabung(BET-1)",
+    "text": "BET-1 为砂泥岩剖面，含煤层与碳质泥岩，少量钙质泥岩与灰岩薄层。识别：煤层低GR+低密度+高中子/低PE；碳质泥岩高GR+低密度+高电阻率；钙质泥岩PE/密度偏高；灰岩低GR+低中子+高密度+PE≈5。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Indonesia/Jabung",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale",
+        "coal",
+        "carbonaceous_shale",
+        "limestone",
+        "dolomite"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-02",
+    "section": "区域岩性识别·孟加拉",
+    "text": "孟加拉（RP-13 等 D:/360/Bangladesh 下各井）为砂泥岩互层，无碳酸盐岩/膏盐/火成岩；砂岩低GR低VSH，泥岩高GR高VSH。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Bangladesh",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-03",
+    "section": "区域岩性识别·巴西深水",
+    "text": "巴西 D:/360/Brasil 下各井（如 3-SPS-111D）为典型碳酸盐岩剖面，含岩盐、硬石膏与玄武岩火成岩。元素测井矿物含量（ECS）可作真岩性：方解石→灰岩、白云石→白云岩、硬石膏、盐岩、玄武岩按优势矿物归类；碳酸盐岩储层孔隙度下限6%。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Brasil",
+      "dominant": [
+        "limestone",
+        "dolomite",
+        "halite",
+        "anhydrite",
+        "basalt"
+      ],
+      "allowed": [
+        "limestone",
+        "dolomite",
+        "halite",
+        "anhydrite",
+        "basalt",
+        "sandstone",
+        "shale"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-04",
+    "section": "区域岩性识别·乍得",
+    "text": "乍得各井为砂泥岩剖面，有岩性分析数据与大量试油数据（Doseo2023 10井46段、历史试油大表71井265段），可支撑区域岩性/流体标定；凝析气层RT偏低(40-47)，气层RT下限需分井调整。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Chad",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale",
+        "coal",
+        "carbonaceous_shale",
+        "limestone",
+        "dolomite"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-05",
+    "section": "区域岩性识别·尼日尔",
+    "text": "尼日尔各井为砂泥岩剖面；TrakesKE-1 有承包商岩性解释剖面（240层）可作真值/井内标定；低阻油层发育。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Niger",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale",
+        "coal",
+        "carbonaceous_shale"
+      ]
+    }
   }
 ]

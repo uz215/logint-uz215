@@ -45,6 +45,13 @@ def apply_lith_ml(processed_data: pd.DataFrame, well_name: str,
         X = processed_data[feats].apply(pd.to_numeric, errors='coerce') \
             .fillna(pd.Series(med)).values
         pred = _smooth(np.asarray(clf.predict(X), dtype=object), win=11)
+        try:
+            from .region_lith import constrain, region_of_well
+            _reg = region_of_well(well_name)
+            if _reg:
+                pred = constrain(pred, _reg)
+        except Exception:
+            pass
         out = processed_data
         out['LITHOLOGY_ML'] = pred
         # 【2026-10-31】有元素测井矿物反演（VOL_CALCITE 等覆盖>50%）时，矿物岩性更可靠：

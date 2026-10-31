@@ -132,6 +132,16 @@ def apply_well(well: str, proc_csv: str, out_dir: str = OUT_DIR) -> dict:
     X = X[feats].fillna(pd.Series(med)).values
     pred = clf.predict(X)
     pred = _smooth(np.asarray(pred, dtype=object), win=11)
+    # 区域岩性约束（用户 2026-10-31）：不在区域允许集内的类别 → unknown
+    try:
+        from .region_lith import constrain, region_of_well
+        _reg = region_of_well(well)
+        if _reg:
+            _before = len(set(pred))
+            pred = constrain(pred, _reg)
+            print('  区域约束(%s): 类别 %d -> %d' % (_reg, _before, len(set(pred))), flush=True)
+    except Exception:
+        pass
     out = d.copy()
     out['LITHOLOGY_ML'] = pred
     os.makedirs(out_dir, exist_ok=True)
