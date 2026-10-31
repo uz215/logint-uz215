@@ -79,3 +79,48 @@ def import_cases(conn, case_specs: list) -> dict:
             total['errors'].append('%s: %s' % (well, e))
             print('  案例 %-14s FAILED %s: %s' % (well, type(e).__name__, e), flush=True)
     return total
+
+
+def dedupe_cases(conn, min_overlap_ratio: float = 0.5) -> int:
+    """跨来源案例去重：同井 + 井段重叠 ≥ min_overlap_ratio×较短段 + 同流体 → 保留高置信/长段一条。
+
+    不同流体（如一处判油、一处判水）**保留两条**，避免抹掉真实不确定性。
+    返回删除条数。
+    """
+    rows = conn.execute('SELECT id, well_id, top_m, base_m, fluid, conf, source_doc '
+                        'FROM case_layer').fetchall()
+    by_well = {}
+    for r in rows:
+        try:
+            by_well.setdefault(str(r[1]).upper(), []).append(
+                (r[0], float(r[2] or 0), float(r[3] or 0), str(r[4] or '').upper(), float(r[5] or 0.5)))
+        except Exception:
+            continue
+    drop = []
+    for well, segs in by_well.items():
+        segs.sort(key=lambda x: (x[1], x[2]))
+        for i in range(len(segs)):
+            if segs[i][0] in drop:
+                continue
+            for j in range(i + 1, len(segs)):
+                if segs[j][0] in drop:
+                    continue
+                a, b = segs[i], segs[j]
+                ov = min(a[2], b[2]) - max(a[1], b[1])
+                if ov <= 0:
+                    if b[1] > a[2]:
+                        break
+                    continue
+                shorter = min(a[2] - a[1], b[2] - b[1]) or 1e-9
+                if ov / shorter < min_overlap_ratio:
+                    continue
+                if a[3] != b[3]:
+                    continue  # 流体不一致：保留，交由证据栈表达冲突
+                # 保留置信高、段长者
+                key_a = (a[4], a[2] - a[1])
+                key_b = (b[4], b[2] - b[1])
+                drop.append(b[0] if key_a >= key_b else a[0])
+    if drop:
+        conn.executemany('DELETE FROM case_layer WHERE id=?', [(d,) for d in drop])
+        conn.commit()
+    return len(drop)

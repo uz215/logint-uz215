@@ -111,6 +111,14 @@ def main(argv=None):
                 print('条款入库失败: %s: %s' % (type(_cle).__name__, _cle), flush=True)
 
     try:
+        from .cases import dedupe_cases
+        _dcc = dedupe_cases(conn)
+        if _dcc:
+            print('案例跨源去重: 删除 %d 条' % _dcc, flush=True)
+    except Exception as _dce:
+        print('案例去重失败: %s' % _dce, flush=True)
+
+    try:
         _dd = dedupe_entities(conn)
         if _dd:
             print('实体去重: 删除 %d 条重复' % _dd, flush=True)
