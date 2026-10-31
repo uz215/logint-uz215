@@ -207,22 +207,30 @@ def compute_well(well: str, spec: dict) -> dict:
         d['fluid_agreement'] = round(good / total, 4) if total > 0 else None
         return d
 
-    rule = _metrics(rule_csv) if rule_csv else {}
+    # 候选层表（诊断用）与唯一 canonical 成果（裁决结果）
+    rules_cand = None
+    for d in spec['dirs']:
+        fs = sorted(glob.glob(os.path.join(d, '*_interpretation_layers_rules.csv')),
+                    key=os.path.getmtime)
+        if fs:
+            rules_cand = fs[-1]
+            break
+    rule = _metrics(rules_cand) if rules_cand else ( _metrics(rule_csv) if rule_csv else {} )
     ml = _metrics(ml_csv) if ml_csv else {}
     out['rule'] = rule
     out['ml'] = ml
-    # 按井选优：优先高流体一致率；并列/无规则时用 ML
-    def _ag(m):
-        v = m.get('fluid_agreement')
-        return -1.0 if v is None else float(v)
-    if ml and rule:
-        final, src = (ml, 'ML') if _ag(ml) >= _ag(rule) else (rule, 'rules')
-    elif ml:
-        final, src = ml, 'ML'
-    elif rule:
-        final, src = rule, 'rules'
-    else:
-        final, src = {}, 'none'
+    canonical = rule_csv  # find_layers 返回非 ML 的 *_interpretation_layers.csv（canonical）
+    final = _metrics(canonical) if canonical and os.path.exists(canonical) else (ml or rule)
+    src = 'rules'
+    try:
+        well_dir = os.path.dirname(canonical) if canonical else None
+        dp = os.path.join(well_dir, str(well) + '_interpretation_decision.json') if well_dir else None
+        if dp and os.path.exists(dp):
+            _dec = json.load(open(dp, encoding='utf-8'))
+            src = _dec.get('chosen') or 'rules'
+            out['decision'] = _dec
+    except Exception:
+        pass
     out.update({k: final.get(k) for k in ('layers', 'completeness', 'review_rate',
                                           'fluid_agreement', 'truth_overlap')})
     out['final_source'] = src

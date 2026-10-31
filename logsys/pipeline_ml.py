@@ -179,7 +179,9 @@ def apply_ml_fluid(processed_data: pd.DataFrame, well_name: str, output_dir: str
         logger.info('ML 流体: 已产出 %s（层数=%d，分布=%s）', lp, len(lay), dist)
         return {'available': True, 'model_path': model_path, 'layers_path': lp,
                 'layers': int(len(lay)), 'dist': {k: int(v) for k, v in dist.items()},
-                'conf_mean': round(float(np.mean(proba)), 3)}
+                'conf_mean': round(float(np.mean(proba)), 3),
+                # 点级最终标签（层标签口径），供裁决后同步 processed_data
+                'pred_labels': [str(CLASS_TO_LAYER.get(str(p2), '')) for p2 in pred]}
     except Exception as e:  # 零静默失败：记录但不中断主流程
         logger.warning('ML 流体接入失败（不影响规则法结果）: %s: %s', type(e).__name__, e)
         return {'available': False, 'error': '%s: %s' % (type(e).__name__, e)}

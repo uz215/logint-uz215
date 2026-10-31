@@ -91,6 +91,8 @@ def write_run_manifest(well_name: str, out_dir: str, results: dict,
             'versions': _versions(),
             'outputs': outs,
             'layers': layers,
+            'interp_decision': (results.get('interp_decision') or {}),
+            'kb_usage': (results.get('kb_usage') or {}),
         }
         p = os.path.join(out_dir, str(well_name) + '_run_manifest.json')
         json.dump(manifest, open(p, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)

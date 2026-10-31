@@ -15598,7 +15598,7 @@ class WellLogProcessor:
                         except Exception as _dce:
                             logger.warning('干层数量裁剪失败（忽略）: %s', _dce)
                     if _layers_df is not None and len(_layers_df):
-                        _lp = well_output_dir / f"{well_name}_interpretation_layers.csv"
+                        _lp = well_output_dir / f"{well_name}_interpretation_layers_rules.csv"
                         _layers_df.to_csv(_lp, index=False, encoding='utf-8-sig')
                         self.results['layers'] = _layers_df
                         self.results['layers_path'] = str(_lp)
@@ -15660,6 +15660,84 @@ class WellLogProcessor:
                         logger.info('知识证据跳过: %s', _evr.get('reason'))
             except Exception as _eve:
                 logger.warning('知识证据附加失败（忽略）: %s', _eve)
+
+            # ========== 解释结论单一裁决（2026-10-31 R52）==========
+            # 规则层表(rules)与 ML 层表(ML)只是候选；此处按 <井>info.json 的「解释来源」
+            # （rules/ML/auto，默认 auto）一次性裁决，写出唯一 canonical 层表与决策 JSON；
+            # 若裁决为 ML，则把点级 INTERPRETATION 同步为 ML 标签（出图/报告/CSV 同源）。
+            try:
+                from logsys.arbiter import choose, finalize
+                _rule_csv = str(self.results.get('layers_path') or '')
+                _ml_csv = str((self.results.get('ml_fluid') or {}).get('layers_path') or '')
+                _ml_ok = bool((self.results.get('ml_fluid') or {}).get('available')) and \
+                    Path(_ml_csv).exists()
+                # 「解释来源」一处确定：优先读井目录/输出目录的 <井>info.json（源井优先）
+                _info = {}
+                try:
+                    import glob as _glob
+                    import json as _json
+                    _cand_dirs = []
+                    _lp0 = (self.results.get('las_path')
+                            or (self.results.get('las_info') or {}).get('las_path')
+                            or getattr(getattr(self, 'data_loader', None), 'last_file_path', None))
+                    if _lp0:
+                        _cand_dirs.append(Path(_lp0).parent)
+                    _cand_dirs.append(Path(well_output_dir))
+                    for _d in _cand_dirs:
+                        for _f in _glob.glob(str(_d / '*info.json')):
+                            try:
+                                _info.update(_json.load(open(_f, encoding='utf-8')))
+                            except Exception:
+                                pass
+                except Exception:
+                    _info = {}
+                if not _info:
+                    _info = self.config if isinstance(getattr(self, 'config', None), dict) else {}
+                _dec = choose(str(well_name), str(well_output_dir), info=_info,
+                              ml_available=_ml_ok, ml_layers=_ml_csv or None)
+                _fin = finalize(str(well_output_dir), str(well_name),
+                                _rule_csv or None, _ml_csv or None, _dec)
+                self.results['interp_decision'] = _fin
+                self.results['final_interpretation_source'] = _fin.get('chosen')
+                if _fin.get('canonical'):
+                    self.results['layers_path'] = _fin['canonical']
+                    self.results['layers'] = _fin.get('canonical_rows')
+                    logger.info('解释裁决: %s（%s）；canonical=%s（%s 层）',
+                                _fin.get('chosen'), _fin.get('reason'),
+                                _fin.get('canonical'), _fin.get('canonical_rows'))
+                    print(f"解释裁决: {_fin.get('chosen')}（{_fin.get('reason')}）")
+                    # ML 为最终来源时，点数据同步为 ML 层标签（单一来源）
+                    if _fin.get('chosen') == 'ML':
+                        _pl = (self.results.get('ml_fluid') or {}).get('pred_labels')
+                        if _pl and len(_pl) == len(self.results['processed_data']):
+                            self.results['processed_data']['INTERPRETATION'] = np.array(
+                                _pl, dtype=object)
+                            logger.info('点数据 INTERPRETATION 已同步为 ML 标签（单一来源）')
+                    # 知识证据统一附加到 canonical（覆盖/刷新 EV_* 列）
+                    try:
+                        from logsys.evidence_stack import enrich_layers_file
+                        _du_ev2 = (
+                            getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
+                            or (self.results.get('las_info') or {}).get('depth_unit')
+                            or (self.config.get('depth_unit', 'm')
+                                if isinstance(getattr(self, 'config', None), dict) else 'm'))
+                        _kb_ev2 = str(getattr(self, 'kb_db_path', '') or '') or str(
+                            Path(__file__).resolve().parent / 'data' / 'kb' / 'kb.db')
+                        _evr2 = enrich_layers_file(_kb_ev2, str(well_name),
+                                                   _fin['canonical'], unit=_du_ev2)
+                        self.results['kb_usage'] = {
+                            'evidence': _evr2,
+                            'region_calib': bool(getattr(self, 'config', {}).get('region_calib')
+                                                 if isinstance(getattr(self, 'config', None), dict) else None),
+                            'region_lithology': True,
+                        }
+                        if _evr2.get('ok'):
+                            logger.info('知识证据(canonical): 案例 %s/%s 层',
+                                        _evr2.get('rows_with_cases'), _evr2.get('rows'))
+                    except Exception as _eve2:
+                        logger.warning('canonical 证据附加失败（忽略）: %s', _eve2)
+            except Exception as _ab:
+                logger.warning('解释裁决失败（保留规则层表）: %s', _ab)
 
             # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
             # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
