@@ -1,15 +1,17 @@
 # -*- coding: utf-8 -*-
-"""流体分带（浅层气/深层油）：按 <井>info.json「区域知识.流体分带」对点结论做分带整饰。
+"""流体分带扩展：支持多段式（如 111D：>6640 油、6640-6670 油水同层、<6670 水）。
 
-配置示例（BET-1info.json）：
-    "区域知识": {"流体分带": {"转换深度": 7677, "单位": "ft", "浅层": "GAS", "深层": "OIL",
-                            "_说明": "浅层气、深层油"}}
+配置两种写法：
+  A) 单界（浅层/深层）：
+     {"转换深度": 7677, "单位": "ft", "浅层": "GAS", "深层": "OIL"}
+  B) 多段（推荐）：
+     {"单位": "m", "分带": [
+        {"流体": "OIL", "上界": null, "下界": 6640},
+        {"流体": "OIL_WATER", "上界": 6640, "下界": 6670},
+        {"流体": "WATER", "上界": 6670, "下界": null}]}
 
-规则（仅当"转换深度"非空时生效）：
-  - MD < 转换深度（浅层）：OIL/GAS_OIL → GAS（记 ZONE_GAS）
-  - MD >= 转换深度（深层）：GAS/GAS_OIL → OIL（记 ZONE_OIL）
-说明：这是区域地质约束（用户 2026-10-31 口径），用于层表/点结论整饰；
-      置信度与复核仍由证据栈给出，改动会记录在 FLUID_ZONE 列便于追溯。
+只整饰"流体类"点（GAS/GAS_OIL/OIL/OIL_WATER/WATER），非储层/干层/致密不改；
+改动写入 FLUID_ZONE（段名）与 FLUID_ZONE_FROM（原结论），可追溯。
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ import numpy as np
 import pandas as pd
 
 FT_TO_M = 0.3048
+FLUID_LABELS = {'GAS', 'GAS_OIL', 'OIL', 'OIL_WATER', 'WATER'}
 
 
 def _to_unit(value: float, from_unit: str, to_unit: str) -> float:
@@ -35,50 +38,79 @@ def _to_unit(value: float, from_unit: str, to_unit: str) -> float:
 
 
 def apply_zonation(processed_data: pd.DataFrame, regional: dict, depth_unit: str = 'm') -> dict:
-    """就地修改 processed_data['INTERPRETATION']，返回统计（不可用/未配置则 applied=False）。"""
     cfg = (regional or {}).get('流体分带') or {}
-    boundary = cfg.get('转换深度')
-    if boundary is None or str(boundary).strip() == '':
-        return {'applied': False, 'reason': '未配置转换深度'}
-    try:
-        boundary = float(boundary)
-    except Exception:
-        return {'applied': False, 'reason': '转换深度非数值: %r' % boundary}
-    boundary = _to_unit(boundary, cfg.get('单位', 'm'), depth_unit)
+    if not cfg:
+        return {'applied': False, 'reason': '未配置流体分带'}
     if 'MD' not in processed_data.columns or 'INTERPRETATION' not in processed_data.columns:
         return {'applied': False, 'reason': 'processed_data 缺 MD/INTERPRETATION'}
     md = pd.to_numeric(processed_data['MD'], errors='coerce')
     itp = processed_data['INTERPRETATION'].astype(str).str.upper()
-    shallow = md < boundary
-    deep = md >= boundary
-    n_shallow = int(((itp.isin(['OIL', 'GAS_OIL'])) & shallow).sum())
-    n_deep = int(((itp.isin(['GAS', 'GAS_OIL'])) & deep).sum())
-    itp_new = itp.copy()
-    itp_new[(itp == 'OIL') & shallow] = 'GAS'
-    itp_new[(itp == 'GAS_OIL') & shallow] = 'GAS'
-    itp_new[(itp == 'GAS') & deep] = 'OIL'
-    itp_new[(itp == 'GAS_OIL') & deep] = 'OIL'
-    processed_data['INTERPRETATION'] = itp_new.where(itp != '', processed_data['INTERPRETATION'])
+    unit = cfg.get('单位', 'm')
+
+    bands = cfg.get('分带')
+    if isinstance(bands, list) and bands:
+        bands_c = []
+        for b in bands:
+            lo = b.get('上界')
+            hi = b.get('下界')
+            bands_c.append({
+                'fluid': str(b.get('流体') or '').upper(),
+                'lo': _to_unit(lo, unit, depth_unit) if lo not in (None, '') else None,
+                'hi': _to_unit(hi, unit, depth_unit) if hi not in (None, '') else None,
+            })
+    else:
+        boundary = cfg.get('转换深度')
+        if boundary is None or str(boundary).strip() == '':
+            return {'applied': False, 'reason': '未配置转换深度/分带'}
+        b = _to_unit(float(boundary), unit, depth_unit)
+        bands_c = [{'fluid': str(cfg.get('浅层', 'GAS')).upper(), 'lo': None, 'hi': b},
+                   {'fluid': str(cfg.get('深层', 'OIL')).upper(), 'lo': b, 'hi': None}]
+
+    new = itp.copy()
     zone = pd.Series('', index=processed_data.index)
-    zone[shallow] = 'GAS'
-    zone[deep] = 'OIL'
+    counts = {}
+    for bc in bands_c:
+        if not bc['fluid']:
+            continue
+        m = md.notna()
+        if bc['lo'] is not None:
+            m = m & (md >= bc['lo'])
+        if bc['hi'] is not None:
+            m = m & (md < bc['hi'])
+        m = m & itp.isin(list(FLUID_LABELS))
+        n = int(m.sum())
+        if n:
+            new[m] = bc['fluid']
+            counts[bc['fluid']] = counts.get(bc['fluid'], 0) + n
+        zone[m] = bc['fluid']
+
+    changed = int(((new != itp) & itp.isin(list(FLUID_LABELS))).sum())
     processed_data['FLUID_ZONE'] = zone
-    return {'applied': True, 'boundary': round(boundary, 3), 'unit': depth_unit,
-            'shallow_to_gas': n_shallow, 'deep_to_oil': n_deep,
-            'shallow_label': cfg.get('浅层', 'GAS'), 'deep_label': cfg.get('深层', 'OIL')}
+    processed_data['FLUID_ZONE_FROM'] = itp.where(itp.isin(list(FLUID_LABELS)), '')
+    processed_data['INTERPRETATION'] = new
+    return {'applied': True, 'unit': depth_unit, 'bands': [
+        {'fluid': b['fluid'], 'lo': b['lo'], 'hi': b['hi']} for b in bands_c],
+        'counts': counts, 'changed': changed}
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description='流体分带整饰（浅层气/深层油）')
-    ap.add_argument('--csv', required=True, help='processed.csv')
-    ap.add_argument('--boundary', type=float, required=True)
+    ap = argparse.ArgumentParser(description='流体分带整饰（多段/单界）')
+    ap.add_argument('--csv', required=True)
+    ap.add_argument('--band', action='append', default=None,
+                    help='格式 fluid:lo:hi（lo/hi 空=开区间），可多次')
     ap.add_argument('--unit', default='m')
-    ap.add_argument('--boundary-unit', default='m')
+    ap.add_argument('--unit-out', default='m')
     ap.add_argument('--out', default=None)
     args = ap.parse_args(argv)
+    bands = []
+    for spec in (args.band or []):
+        parts = spec.split(':')
+        fl = parts[0]
+        lo = parts[1] if len(parts) > 1 and parts[1] else None
+        hi = parts[2] if len(parts) > 2 and parts[2] else None
+        bands.append({'流体': fl, '上界': lo, '下界': hi})
     d = pd.read_csv(args.csv, low_memory=False)
-    regional = {'流体分带': {'转换深度': args.boundary, '单位': args.boundary_unit}}
-    r = apply_zonation(d, regional, args.unit)
+    r = apply_zonation(d, {'流体分带': {'单位': args.unit, '分带': bands}}, args.unit_out)
     print(r)
     if args.out:
         d.to_csv(args.out, index=False, encoding='utf-8')
