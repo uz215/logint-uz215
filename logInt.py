@@ -15962,6 +15962,37 @@ class WellLogProcessor:
                 if report_path:
                     self.results['report_path'] = report_path
             
+            # 【2026-10-31 R55】知识驱动决策记录 + 成果报告（结论/准确率/指标/图）
+            try:
+                from logsys.kb_decide import build as build_decision_report
+                _info_kd = {}
+                try:
+                    import glob as _g2, json as _j2
+                    _lp_kd = (self.results.get('las_path')
+                              or (self.results.get('las_info') or {}).get('las_path')
+                              or getattr(getattr(self, 'data_loader', None), 'last_file_path', None))
+                    _dirs_kd = []
+                    if _lp_kd:
+                        _dirs_kd.append(Path(_lp_kd).parent)
+                    _dirs_kd.append(Path(well_output_dir))
+                    for _d0 in _dirs_kd:
+                        for _f0 in _g2.glob(str(_d0 / '*info.json')):
+                            try:
+                                _info_kd.update(_j2.load(open(_f0, encoding='utf-8')))
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                _kdr = build_decision_report(str(well_output_dir), str(well_name), _info_kd)
+                self.results['knowledge_decision'] = _kdr
+                if _kdr.get('ok'):
+                    logger.info('知识决策记录: %s', _kdr.get('record_path'))
+                    logger.info('决策报告: %s', _kdr.get('report_path'))
+                else:
+                    logger.warning('知识决策报告失败（忽略）: %s', _kdr.get('error'))
+            except Exception as _kde:
+                logger.warning('知识决策报告接入失败（忽略）: %s', _kde)
+
             # 数据清洗报告（可追溯）
             try:
                 _dl = getattr(self, 'data_loader', None)
@@ -15992,6 +16023,15 @@ class WellLogProcessor:
                         logger.warning('QC报告导出失败（忽略）: %s', _qpe)
             except Exception as _cre:
                 logger.warning('清洗报告写出失败（忽略）: %s', _cre)
+
+            try:
+                if self.results.get('knowledge_decision'):
+                    _kd2 = self.results['knowledge_decision']
+                    if _kd2.get('ok'):
+                        self.results.setdefault('kb_usage', {})['decision_record'] = _kd2.get('record_path')
+                        self.results.setdefault('kb_usage', {})['decision_report'] = _kd2.get('report_path')
+            except Exception:
+                pass
 
             # 【2026-10-31 R44】运行清单（全流程可追溯）：输入指纹/配置快照/版本/产物/层数
             try:
