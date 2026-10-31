@@ -15,6 +15,10 @@ import re
 import time
 
 from .db import connect
+try:
+    from .entities import (extract_entities, canon_well, canon_field, canon_formation)
+except Exception:
+    extract_entities = None
 
 try:
     import jieba
@@ -153,26 +157,62 @@ def ingest_markdown(conn, path: str, force: bool = False) -> str:
         conn.execute('INSERT INTO doc_fts(doc_id, title, body, region, well) VALUES(?,?,?,?,?)',
                      (doc_id, tokenize(title), tokenize(ch), region, well))
 
-    # 轻量实体/事实（先清掉本文档旧抽取结果，保证黑名单生效后不残留）
-    conn.execute("DELETE FROM entity WHERE source_doc=? AND kind='Well'", (doc_id,))
-    wells, countries = _find_entities(body, fm)
-    for w in list(wells)[:20]:
-        cn = canon_well(w)
-        eid = 'WELL:%s' % cn
-        conn.execute('INSERT OR REPLACE INTO entity(id, kind, name, canonical, region, props_json, '
-                     'source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
-                     (eid, 'Well', w, cn, region, '{}', doc_id, 0.6))
-        if country:
-            conn.execute('INSERT OR REPLACE INTO fact(id, subj, rel, obj, props_json, source_doc, '
-                         'source_loc, conf, extractor) VALUES(?,?,?,?,?,?,?,?,?)',
-                         ('FACT:%s:LOCATED_IN:%s' % (eid, _sha1(country)[:8]),
-                          eid, 'LOCATED_IN', 'COUNTRY:%s' % country, '{}',
-                          doc_id, 'frontmatter', 0.8, 'rule:frontmatter'))
-    for c in list(countries)[:5]:
-        cid = 'COUNTRY:%s' % c
-        conn.execute('INSERT OR REPLACE INTO entity(id, kind, name, canonical, region, props_json, '
-                     'source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
-                     (cid, 'Country', c, cid, c, '{}', doc_id, 0.7))
+    # 轻量实体/事实（Well/Field/Formation 归一化；先清本文档旧抽取结果）
+    conn.execute('DELETE FROM entity WHERE source_doc=?', (doc_id,))
+    conn.execute('DELETE FROM fact WHERE source_doc=?', (doc_id,))
+    if extract_entities is not None:
+        countries = {c for c in COUNTRIES if c in body[:5000]}
+        if fm.get('country'):
+            countries.add(str(fm['country']).strip())
+        ents = extract_entities(body, fm)
+        primary_field = next(iter(ents['Field']), '')
+        _fm_well = canon_well(str(fm.get('well_name') or ''))
+        for kind, items in ents.items():
+            for canon, info in list(items.items())[:30]:
+                pref = {'Well': 'WELL', 'Field': 'FIELD', 'Formation': 'FRM'}[kind]
+                eid = '%s:%s' % (pref, canon)
+                conn.execute('INSERT OR REPLACE INTO entity(id, kind, name, canonical, region, '
+                             'props_json, source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
+                             (eid, kind, info['name'], canon, region,
+                              json.dumps({'aliases': sorted(info['aliases'])}, ensure_ascii=False),
+                              doc_id, float(info['conf'])))
+                if kind == 'Well':
+                    if country:
+                        conn.execute('INSERT OR REPLACE INTO fact(id, subj, rel, obj, props_json, '
+                                     'source_doc, source_loc, conf, extractor) VALUES(?,?,?,?,?,?,?,?,?)',
+                                     ('FACT:%s:LOCATED_IN:%s' % (eid, _sha1(country)[:8]),
+                                      eid, 'LOCATED_IN', 'COUNTRY:%s' % country, '{}',
+                                      doc_id, 'frontmatter', 0.8, 'rule:frontmatter'))
+                    _single_well = (len(ents['Well']) == 1) or bool(str(fm.get('well_name') or '').strip())
+                    _assign_field = bool(primary_field) and _single_well and \
+                        (len(ents['Well']) == 1 or canon == _fm_well)
+                    if _assign_field:
+                        conn.execute('INSERT OR REPLACE INTO fact(id, subj, rel, obj, props_json, '
+                                     'source_doc, source_loc, conf, extractor) VALUES(?,?,?,?,?,?,?,?,?)',
+                                     ('FACT:%s:IN_FIELD:%s' % (eid, _sha1(primary_field)[:8]),
+                                      eid, 'IN_FIELD', 'FIELD:%s' % primary_field, '{}',
+                                      doc_id, 'entity', 0.7, 'rule:entity'))
+                if kind == 'Field' and country:
+                    conn.execute('INSERT OR REPLACE INTO fact(id, subj, rel, obj, props_json, '
+                                 'source_doc, source_loc, conf, extractor) VALUES(?,?,?,?,?,?,?,?,?)',
+                                 ('FACT:%s:LOCATED_IN:%s' % (eid, _sha1(country)[:8]),
+                                  eid, 'LOCATED_IN', 'COUNTRY:%s' % country, '{}',
+                                  doc_id, 'entity', 0.7, 'rule:entity'))
+        # 国家实体保留
+        for c in list(countries)[:5]:
+            cid = 'COUNTRY:%s' % c
+            conn.execute('INSERT OR REPLACE INTO entity(id, kind, name, canonical, region, props_json, '
+                         'source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
+                         (cid, 'Country', c, cid, c, '{}', doc_id, 0.7))
+    else:
+        # 兜底：旧逻辑
+        wells, countries = _find_entities(body, fm)
+        for w in list(wells)[:20]:
+            cn = canon_well(w)
+            eid = 'WELL:%s' % cn
+            conn.execute('INSERT OR REPLACE INTO entity(id, kind, name, canonical, region, props_json, '
+                         'source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
+                         (eid, 'Well', w, cn, region, '{}', doc_id, 0.6))
     conn.commit()
     return doc_id
 
