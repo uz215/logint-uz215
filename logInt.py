@@ -15676,6 +15676,17 @@ class WellLogProcessor:
                 if report_path:
                     self.results['report_path'] = report_path
             
+            # 【2026-10-31 R44】运行清单（全流程可追溯）：输入指纹/配置快照/版本/产物/层数
+            try:
+                from logsys.run_manifest import write_run_manifest
+                _mf = write_run_manifest(str(self.well_name or ''), str(well_output_dir),
+                                         self.results, getattr(self, 'config', None))
+                if _mf:
+                    logger.info('运行清单: %s', _mf)
+                    self.results['run_manifest'] = _mf
+            except Exception as _mfe:
+                logger.warning('运行清单写入失败（忽略）: %s', _mfe)
+
             logger.info("测井资料处理工作流完成")
             return self.results
             

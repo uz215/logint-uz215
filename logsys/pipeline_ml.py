@@ -136,17 +136,44 @@ def apply_ml_fluid(processed_data: pd.DataFrame, well_name: str, output_dir: str
         valid = (ph.notna() | sw.notna()).values
         pred = np.where(valid, pred, 'UNKNOWN')
 
-        # 层表（与规则层表相同的聚合器）
+        # 层表（与规则层表相同的聚合器；带 LITHOLOGY/PHI/Sw/RT 以满足层表契约）
         from .layers import build_layers
         itp = np.array([CLASS_TO_LAYER.get(p, '') for p in pred], dtype=object)
-        lay = build_layers(pd.DataFrame({'MD': pd.to_numeric(d['MD'], errors='coerce'),
-                                         'INTERPRETATION': itp}),
+        _lay_in = pd.DataFrame({'MD': pd.to_numeric(d['MD'], errors='coerce'),
+                                'INTERPRETATION': itp})
+        for _c, _src in (('LITHOLOGY', 'LITHOLOGY'), ('PHI', 'PHI'), ('PHI', 'POR'),
+                         ('Sw', 'Sw'), ('RT', 'RT')):
+            if _c == 'PHI' and 'PHI' in _lay_in.columns:
+                continue
+            if _src in d.columns and _c not in _lay_in.columns:
+                _lay_in[_c] = pd.to_numeric(d[_src], errors='coerce') if _c != 'LITHOLOGY' else d[_src]
+        lay = build_layers(_lay_in,
                            min_thick=0.4 if unit == 'm' else 1.3,
                            thin_absorb=0.6 if unit == 'm' else 2.0,
                            gap_break=0.5 if unit == 'm' else 1.6)
+        # 低置信层标记（ML 层表契约：REVIEW_FLAG 必须有值/空串）
+        if len(lay):
+            try:
+                if 'FLUID_ML_CONF' in out.columns:
+                    _conf_by_row = out['FLUID_ML_CONF'].values
+                    _flags = []
+                    for _, _r in lay.iterrows():
+                        m = (pd.to_numeric(d['MD'], errors='coerce') >= _r['TOP_MD']) & \
+                            (pd.to_numeric(d['MD'], errors='coerce') < _r['BASE_MD'])
+                        c = float(np.nanmean(_conf_by_row[m.values])) if m.any() else 1.0
+                        _flags.append((_r.get('REVIEW_FLAG') or '') + (';LOW_CONF' if c < 0.60 else ''))
+                    lay['REVIEW_FLAG'] = [s2.strip(';') for s2 in _flags]
+            except Exception:
+                if 'REVIEW_FLAG' not in lay.columns:
+                    lay['REVIEW_FLAG'] = ''
         os.makedirs(output_dir, exist_ok=True)
         lp = os.path.join(output_dir, str(well_name) + '_interpretation_layers_ML.csv')
         if len(lay):
+            # 层表契约：LITHOLOGY/REVIEW_FLAG 不允许 NaN
+            if 'LITHOLOGY' in lay.columns:
+                lay['LITHOLOGY'] = lay['LITHOLOGY'].fillna('unknown').replace('', 'unknown')
+            if 'REVIEW_FLAG' in lay.columns:
+                lay['REVIEW_FLAG'] = lay['REVIEW_FLAG'].fillna('')
             lay.to_csv(lp, index=False, encoding='utf-8-sig')
         dist = pd.Series(pred).value_counts().to_dict()
         logger.info('ML 流体: 已产出 %s（层数=%d，分布=%s）', lp, len(lay), dist)

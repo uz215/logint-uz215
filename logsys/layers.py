@@ -155,7 +155,8 @@ def build_layers(data: pd.DataFrame, min_thick: float = 0.4,
 
 def _majority(s: pd.Series) -> tuple:
     """返回 (多数标签, {'tie':bool,'counts':dict})；平票按 TIE_PRIORITY 取。"""
-    vals = [v for v in s.astype(str) if v and v != 'nan']
+    _bad = {'', 'nan', 'none', '<na>', 'nat'}
+    vals = [v for v in s.fillna('').astype(str) if v.strip() and v.strip().lower() not in _bad]
     if not vals:
         return '', {'tie': False, 'counts': {}}
     vc = pd.Series(vals).value_counts()
