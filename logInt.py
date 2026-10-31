@@ -15395,6 +15395,29 @@ class WellLogProcessor:
                 logger.error('层表生成失败: %s', _ly2)
                 self.results['layers_error'] = str(_ly2)
 
+            # 【2026-10-31 R37】ML 流体结论接入：若该井有标定模型
+            # (data/calibration/models/<井>.joblib)，自动产出并列的 ML 层表；
+            # 不覆盖规则法层表、不改 INTERPRETATION，异常仅记日志（零静默失败）。
+            try:
+                from logsys.pipeline_ml import apply_ml_fluid
+                _du_ml = (
+                    getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
+                    or (self.results.get('las_info') or {}).get('depth_unit')
+                    or (self.config.get('depth_unit', 'm')
+                        if isinstance(getattr(self, 'config', None), dict) else 'm'))
+                _ml = apply_ml_fluid(
+                    self.results['processed_data'], str(well_name),
+                    str(well_output_dir), unit=_du_ml)
+                self.results['ml_fluid'] = _ml
+                if _ml.get('available'):
+                    logger.info('ML 流体层表已生成: %s (%s 层)',
+                                _ml.get('layers_path'), _ml.get('layers'))
+                    print(f"ML 流体层表: {_ml.get('layers_path')} ({_ml.get('layers')} 层)")
+                elif _ml.get('error'):
+                    logger.warning('ML 流体接入失败（规则法结果不受影响）: %s', _ml['error'])
+            except Exception as _mle:
+                logger.warning('ML 流体接入异常（忽略）: %s', _mle)
+
             # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
             # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
             # 导致 CSV 缺 REG 列且 354 点 WATER→OIL 改判不落盘

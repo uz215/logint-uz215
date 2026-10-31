@@ -29,7 +29,8 @@ from sklearn.tree import DecisionTreeClassifier, export_text
 from .calibrate import load_truths
 from .layers import build_layers
 
-FEATS = ['GR', 'PHI', 'SW_COMP', 'SW_LOG', 'LOG_RT', 'VSH']
+CAND_FEATS = ['GR', 'PHI', 'SW_COMP', 'SW_LOG', 'LOG_RT', 'VSH', 'LOG_TG', 'PLATE_NUM']
+FEATS = ['GR', 'PHI', 'SW_COMP', 'SW_LOG', 'LOG_RT', 'VSH']  # 兼容旧模型
 LABELS = ['GAS', 'OIL', 'WATER', 'TIGHT']
 CLASS_TO_LAYER = {'GAS': 'GAS', 'OIL': 'OIL', 'WATER': 'WATER', 'TIGHT': 'NonReservoir'}
 MODEL_DIR = os.path.join(r'D:\360\src', 'data', 'calibration', 'models')
@@ -63,7 +64,48 @@ def load_all_points(csv_path: str) -> pd.DataFrame:
         'LITHOLOGY': d['LITHOLOGY'].astype(str) if 'LITHOLOGY' in d.columns else '',
     })
     out['LOG_RT'] = np.log10(out['RT'].clip(lower=1e-3))
+    # 气测 TG（可来自成果 CSV 或 registry 指定气测文件）
+    tg = None
+    if 'TG' in d.columns:
+        tg = pd.to_numeric(d['TG'], errors='coerce')
+    out['LOG_TG'] = np.log10(pd.Series(tg, index=d.index).clip(lower=1.0)) if tg is not None else np.nan
+    # 图版证据（PLATE_FLUID → 数值）
+    if 'PLATE_FLUID' in d.columns:
+        pmap = {'GAS': 2.0, 'OIL': 1.0, 'DRY': 0.0}
+        out['PLATE_NUM'] = d['PLATE_FLUID'].astype(str).str.upper().map(pmap)
+    else:
+        out['PLATE_NUM'] = np.nan
     out['_ROW'] = np.arange(len(out))
+    return out
+
+
+def attach_gas_tg(pts: pd.DataFrame, gas_file: str) -> pd.DataFrame:
+    """按 MD 最近邻把气测 TG 合并到逐点表（仅当 CSV 无 TG 时使用）。"""
+    try:
+        g = pd.read_csv(gas_file, sep='\t', header=0, low_memory=False)
+    except Exception:
+        try:
+            g = pd.read_csv(gas_file, sep=r'\s+', header=0, low_memory=False)
+        except Exception:
+            return pts
+    cols = {str(c).strip().upper(): c for c in g.columns}
+    md_c = next((cols[k] for k in cols if k.startswith('MD') or 'DEPTH' in k), None)
+    tg_c = next((cols[k] for k in cols if k.startswith('TG')), None)
+    if tg_c is None:
+        tg_c = next((cols[k] for k in cols if k == 'C1'), None)
+    if not md_c or not tg_c:
+        return pts
+    g = pd.DataFrame({'MD': pd.to_numeric(g[md_c], errors='coerce').astype(float),
+                      'TG': pd.to_numeric(g[tg_c], errors='coerce')}).dropna(subset=['MD']).sort_values('MD')
+    left = pts[['MD']].copy()
+    left['_i'] = np.arange(len(left))
+    left['MD'] = pd.to_numeric(left['MD'], errors='coerce').astype(float)
+    left = left.dropna(subset=['MD']).sort_values('MD')
+    merged = pd.merge_asof(left, g, on='MD', direction='nearest', tolerance=1.0)
+    out = pts.copy()
+    out['LOG_TG'] = np.nan
+    idx = merged['_i'].values
+    out.loc[idx, 'LOG_TG'] = np.log10(merged['TG'].clip(lower=1.0).values)
     return out
 
 
@@ -88,13 +130,27 @@ def _impute(df: pd.DataFrame, medians: dict) -> pd.DataFrame:
 # --------------------------------------------------------------------- #
 def fit_well(spec: dict) -> dict:
     pts = load_all_points(spec['proc'])
+    if spec.get('gas_file') and pts['LOG_TG'].notna().sum() < 10:
+        pts = attach_gas_tg(pts, spec['gas_file'])
     truth = load_truths(spec['truth'], spec['truth_kind'])
     pts['TRUTH'] = label_by_truth(pts, truth)
     train = pts[(pts['TRUTH'] != 'NONE') & (pts['TRUTH'] != 'MIXED')].copy()
     if len(train) < 30:
         raise RuntimeError('样本太少: %d' % len(train))
-    medians = {c: float(train[c].median()) if np.isfinite(train[c].median()) else 0.0 for c in FEATS}
-    X = _impute(train, medians)
+    # 动态特征选择：覆盖率 >=30% 且非常数
+    feats = []
+    for c in CAND_FEATS:
+        if c not in train.columns:
+            continue
+        cov = float(train[c].notna().mean())
+        if cov >= 0.30 and float(train[c].std(skipna=True) or 0.0) > 1e-9:
+            feats.append(c)
+    if 'GR' not in feats:
+        feats.insert(0, 'GR')
+    print('  特征:', feats, flush=True)
+    medians = {c: float(train[c].median()) if np.isfinite(train[c].median()) else 0.0 for c in feats}
+    X = _impute(train[feats].assign(**{c: train[c] for c in feats if c not in train.columns}), medians) \
+        if False else train[feats].fillna(pd.Series(medians))
     y = train['TRUTH'].values
     n = len(train)
 
@@ -122,15 +178,15 @@ def fit_well(spec: dict) -> dict:
     dt = DecisionTreeClassifier(max_depth=6, min_samples_leaf=25,
                                 class_weight='balanced', random_state=0)
     dt.fit(X, y)
-    rules = export_text(dt, feature_names=FEATS, decimals=3)
+    rules = export_text(dt, feature_names=feats, decimals=3)
 
     os.makedirs(MODEL_DIR, exist_ok=True)
     import joblib
     model_path = os.path.join(MODEL_DIR, spec['well'] + '.joblib')
     oof_map = {int(train['_ROW'].iloc[i]): str(oof[i]) for i in range(n)}
-    joblib.dump({'model': model, 'features': FEATS, 'medians': medians,
+    joblib.dump({'model': model, 'features': feats, 'medians': medians,
                  'oof': oof_map}, model_path)
-    meta = {'well': spec['well'], 'n_train': int(n), 'features': FEATS, 'medians': medians,
+    meta = {'well': spec['well'], 'n_train': int(n), 'features': feats, 'medians': medians,
             'cv5': {'acc_all': round(float(acc_all), 4), 'acc_hc': round(float(acc_hc), 4),
                     'confusion': cm, 'labels': LABELS},
             'rules_dt': rules, 'model_path': model_path}
@@ -166,7 +222,8 @@ def apply_well(spec: dict, out_dir: str, use_oof: bool = False) -> dict:
     model, medians = pack['model'], pack['medians']
 
     pts = load_all_points(spec['proc'])
-    X = _impute(pts, medians)
+    feats = pack.get('features') or FEATS
+    X = pts[feats].fillna(pd.Series(medians))
     pred = model.predict(X)
     if use_oof:
         oof = pack.get('oof', {})
