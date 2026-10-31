@@ -341,7 +341,23 @@ def render_html(rec: dict, out_dir: str) -> str:
         html.append('<tr><th>气测异常/油气显示</th><td>%s 条（%s）</td></tr>' % (
             _ml.get('gas_events'), _ml.get('gas_types')))
         html.append('<tr><th>岩性深度范围</th><td>%s</td></tr>' % (_ml.get('depth_range'),))
+        html.append('<tr><th>气测异常井段</th><td>%s 段，总厚 %.1f m，范围 %s</td></tr>' % (
+            _ml.get('gas_zones'), _ml.get('gas_zone_total_m') or 0, _ml.get('gas_zone_range')))
         html.append('</table>')
+        # 气测异常井段明细
+        _zf = os.path.join(d, '%s_masterlog_gas_zones.csv' % well)
+        if os.path.exists(_zf):
+            try:
+                _z = pd.read_csv(_zf)
+                html.append('<table><tr><th>气测异常井段顶(m)</th><th>底(m)</th>'
+                            '<th>厚度(m)</th><th>事件数</th></tr>')
+                for _, _r in _z.head(40).iterrows():
+                    html.append('<tr><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%d</td></tr>' % (
+                        float(_r['MD_START']), float(_r['MD_END']),
+                        float(_r.get('THICK_M') or 0), int(_r.get('EVENTS') or 0)))
+                html.append('</table>')
+            except Exception:
+                pass
         rec.setdefault('metrics', {})['masterlog'] = {
             'lith_layers': _ml.get('lith_layers'), 'gas_events': _ml.get('gas_events'),
             'lith_dist': _ml.get('lith_dist'), 'gas_types': _ml.get('gas_types')}

@@ -218,6 +218,22 @@ def extract_masterlog(pdf_path: str, lith_out: str | None = None,
     gas = pd.DataFrame(gas_rows)
     if len(gas):
         gas = gas.drop_duplicates(subset=['MD_START', 'MD_END', 'TYPE']).sort_values('MD_START')
+    # ---- 气测异常井段：区间事件按间隔≤1m 合并为井段；点事件仅作提示 ----
+    zones = pd.DataFrame()
+    if len(gas):
+        _iv = gas[(gas['MD_END'] > gas['MD_START']) &
+                  gas['TYPE'].isin(['GAS_SHOW', 'FLUORESCENCE'])].sort_values('MD_START')
+        _zz = []
+        for _, r in _iv.iterrows():
+            if _zz and r['MD_START'] - _zz[-1]['MD_END'] <= 1.0:
+                _zz[-1]['MD_END'] = max(_zz[-1]['MD_END'], r['MD_END'])
+                _zz[-1]['EVENTS'] += 1
+            else:
+                _zz.append({'MD_START': float(r['MD_START']), 'MD_END': float(r['MD_END']),
+                            'EVENTS': 1, 'TYPE': 'GAS_ZONE'})
+        zones = pd.DataFrame(_zz)
+        if len(zones):
+            zones['THICK_M'] = (zones['MD_END'] - zones['MD_START']).round(2)
     # 输出
     out_dir = os.path.dirname(pdf_path)
     well = os.path.splitext(os.path.basename(pdf_path))[0].split('_')[0]
@@ -229,6 +245,11 @@ def extract_masterlog(pdf_path: str, lith_out: str | None = None,
         lith.to_csv(lith_out, index=False, encoding='utf-8-sig')
     if len(gas):
         gas.to_csv(gas_out, index=False, encoding='utf-8-sig')
+    # zones 与 gas/lith 输出同目录（调用方可能指定输出目录而非 PDF 目录）
+    _zdir = os.path.dirname(gas_out) if gas_out else (os.path.dirname(lith_out) if lith_out else out_dir)
+    zones_out = os.path.join(_zdir, '%s_masterlog_gas_zones.csv' % well)
+    if len(zones):
+        zones.to_csv(zones_out, index=False, encoding='utf-8-sig')
     res.update({'lith_layers': int(len(lith)), 'gas_events': int(len(gas)),
                 'lith_file': lith_out if len(lith) else None,
                 'gas_file': gas_out if len(gas) else None,
@@ -236,6 +257,11 @@ def extract_masterlog(pdf_path: str, lith_out: str | None = None,
                               lith['LITH'].value_counts().items()} if len(lith) else {},
                 'gas_types': {str(k): int(v) for k, v in
                               gas['TYPE'].value_counts().items()} if len(gas) else {},
+                'gas_zones': int(len(zones)),
+                'gas_zone_total_m': round(float(zones['THICK_M'].sum()), 1) if len(zones) else 0.0,
+                'gas_zones_file': zones_out if len(zones) else None,
+                'gas_zone_range': [round(float(zones['MD_START'].min()), 1),
+                                   round(float(zones['MD_END'].max()), 1)] if len(zones) else None,
                 'depth_range': [round(float(lith['TOP_MD'].min()), 1),
                                 round(float(lith['BASE_MD'].max()), 1)] if len(lith) else None})
     jp = os.path.join(out_dir, '%s_masterlog_extract.json' % well)
