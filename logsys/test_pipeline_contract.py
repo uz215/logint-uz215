@@ -55,9 +55,18 @@ def check(well: str, d: str) -> list:
     if os.path.exists(canon) and dec.get('canonical'):
         add('canonical_rows 与文件一致',
             int(dec.get('canonical_rows') or 0) == len(pd.read_csv(canon)))
-        chosen = ml if dec.get('chosen') == 'ML' else rules
-        add('canonical=chosen 候选副本', bool(chosen) and os.path.exists(chosen)
-            and _sha(chosen) == _sha(canon))
+        # 有"裁决后处理"（解释井段裁剪/气田先验等）时 canonical 允许与候选不同，
+        # 但仍必须与决策记录的行数一致（单一成果，过程可追溯）。
+        _post = bool(dec.get('interval')) or bool(dec.get('gas_field_prior')) or bool(dec.get('postprocess'))
+        if _post:
+            add('canonical 经后处理(井段/气田先验)且行数一致',
+                len(pd.read_csv(canon)) == int(dec.get('canonical_rows') or 0),
+                {'postprocess': True, 'rows': len(pd.read_csv(canon)),
+                 'dec': dec.get('canonical_rows')})
+        else:
+            chosen = ml if dec.get('chosen') == 'ML' else rules
+            add('canonical=chosen 候选副本', bool(chosen) and os.path.exists(chosen)
+                and _sha(chosen) == _sha(canon))
     if os.path.exists(canon):
         lay = pd.read_csv(canon)
         add('层表必需列完整', all(c in lay.columns for c in REQ_COLS),
