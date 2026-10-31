@@ -245,9 +245,14 @@ def extract_masterlog(pdf_path: str, lith_out: str | None = None,
         lith.to_csv(lith_out, index=False, encoding='utf-8-sig')
     if len(gas):
         gas.to_csv(gas_out, index=False, encoding='utf-8-sig')
-    # zones 与 gas/lith 输出同目录（调用方可能指定输出目录而非 PDF 目录）
+    # zones 与 gas/lith 输出同目录、同名井前缀（调用方指定输出路径时以输出文件名为准）
     _zdir = os.path.dirname(gas_out) if gas_out else (os.path.dirname(lith_out) if lith_out else out_dir)
-    zones_out = os.path.join(_zdir, '%s_masterlog_gas_zones.csv' % well)
+    _zw = well
+    if gas_out:
+        _zw = os.path.basename(gas_out).replace('_masterlog_gas.csv', '')
+    elif lith_out:
+        _zw = os.path.basename(lith_out).replace('_masterlog_lith.csv', '')
+    zones_out = os.path.join(_zdir, '%s_masterlog_gas_zones.csv' % _zw)
     if len(zones):
         zones.to_csv(zones_out, index=False, encoding='utf-8-sig')
     res.update({'lith_layers': int(len(lith)), 'gas_events': int(len(gas)),
