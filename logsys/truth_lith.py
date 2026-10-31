@@ -29,6 +29,9 @@ SOURCE_SPECS = {
                     'thin_reliable': True},
     'masterlog': {'label': '录井图 Masterlog', 'conf': 0.80, 'tol': 5.0, 'max_tol': 10.0,
                   'thin_reliable': False},
+    # PDF 自动解析结果（程序 masterlog.py 提取；证据置信度略低）
+    'masterlog_pdf': {'label': '录井图 Masterlog(PDF解析)', 'conf': 0.75, 'tol': 5.0,
+                      'max_tol': 10.0, 'thin_reliable': False},
 }
 
 # 剖面类型判定（按真岩性厚度占比）
@@ -152,12 +155,21 @@ def evaluate_by_thickness(pred_lith: np.ndarray, log_md: np.ndarray, truth: pd.D
 
 
 def summarize_well(profile_path: str, source: str | None = None) -> dict:
-    """汇总真岩性来源信息（概率/容差/剖面类型/推荐矿物）。"""
+    """汇总真岩性来源信息（概率/容差/剖面类型/推荐矿物）。支持 masterlog PDF。"""
     if source is None:
         low = str(profile_path).lower()
         source = ('element_log' if 'mineral' in low else
                   'core_analysis' if any(k in low for k in ('core', 'ct', 'thin')) else
-                  'masterlog')
+                  'masterlog_pdf' if low.endswith('.pdf') else 'masterlog')
+    # PDF：先用 masterlog.py 解析出岩性 CSV
+    if str(profile_path).lower().endswith('.pdf'):
+        try:
+            from .masterlog import extract_masterlog
+            _r = extract_masterlog(str(profile_path), depth_max_hint=8000)
+            if _r.get('lith_file') and os.path.exists(_r['lith_file']):
+                profile_path = _r['lith_file']
+        except Exception:
+            pass
     truth = load_profile(profile_path)
     pt = profile_type(truth)
     meta = source_meta(source)
