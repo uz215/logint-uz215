@@ -31,6 +31,15 @@
       "kind": "rp13_rush",
       "unit": "m",
       "conf": 0.9
+    },
+    {
+      "well": "3-SPS-111D",
+      "country": "Brazil",
+      "region": "Aram Block",
+      "truth": "D:/360/Brasil/CuraCao-3/3-SPS-111D_20250425/3-SPS-111D_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.9
     }
   ],
   "clauses": "D:/360/src/logsys/knowledge/clauses.json"

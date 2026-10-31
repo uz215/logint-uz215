@@ -55,6 +55,21 @@ def load_truths(path: str, kind: str) -> pd.DataFrame:
                 continue
             if base > top:
                 rows.append((top, base, _map_fluid(str(r.iloc[16]))))
+    elif kind == 'generic_csv':
+        d = pd.read_csv(path, low_memory=False)
+        cols = {str(c).strip().upper(): c for c in d.columns}
+        top_c = cols.get('TOP_MD') or cols.get('TOP') or cols.get('顶深')
+        base_c = cols.get('BASE_MD') or cols.get('BASE') or cols.get('底深')
+        fl_c = cols.get('FLUID') or cols.get('流体')
+        if not (top_c and base_c and fl_c):
+            raise ValueError('generic_csv 缺列: 需要 TOP_MD/BASE_MD/FLUID')
+        for _, r in d.iterrows():
+            try:
+                top, base = float(r[top_c]), float(r[base_c])
+            except Exception:
+                continue
+            if base > top:
+                rows.append((top, base, _map_fluid(str(r[fl_c]))))
     elif kind == 'rp13_rush':
         d = pd.read_excel(path, sheet_name=0, header=0)
         for _, r in d.iterrows():
@@ -74,7 +89,9 @@ def _map_fluid(s: str) -> str:
     s = str(s).upper().replace(' ', '').replace('-', '_')
     if 'GAS&OIL' in s or 'GAS_OIL' in s or 'OIL_GAS' in s:
         return 'GAS_OIL'
-    if 'GAS_WATER' in s or 'WATER_GAS' in s or 'GAS_WATER' in s:
+    if 'GAS_WATER' in s or 'WATER_GAS' in s:
+        return 'MIXED'
+    if 'OIL_WATER' in s or 'OIL-WATER' in s or 'OILWATER' in s:
         return 'MIXED'
     if 'GAS' in s:
         return 'GAS'

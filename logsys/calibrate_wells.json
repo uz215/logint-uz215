@@ -21,5 +21,12 @@
     "truth": "D:/360/Bangladesh/RP-13/RP-13_RESULT_RUSH INTERPRETATION_20261019.xls",
     "truth_kind": "rp13_rush",
     "unit": "m"
+  },
+  {
+    "well": "3-SPS-111D",
+    "proc": "D:/360/src/output/3-SPS-111D/3-SPS-111D_processed.csv",
+    "truth": "D:/360/Brasil/CuraCao-3/3-SPS-111D_20250425/3-SPS-111D_truth.csv",
+    "truth_kind": "generic_csv",
+    "unit": "m"
   }
 ]
