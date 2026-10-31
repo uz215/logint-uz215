@@ -29,8 +29,24 @@ BASE = r'D:\360\src'
 MODEL_DIR = os.path.join(BASE, 'data', 'calibration', 'lith_models')
 OUT_DIR = os.path.join(BASE, 'data', 'calibration', 'lith_out')
 
-FEATS = ['GR', 'VSH', 'VSH_GR', 'RHOB', 'CNL', 'PE', 'DT', 'SP', 'CAL', 'PHI', 'POR',
-         'PERM', 'SW', 'SGR', 'CGR', 'THOR', 'URAN', 'POTA', 'LITH_MC_CONF']
+BASE_FEATS = ['GR', 'VSH', 'VSH_GR', 'RHOB', 'CNL', 'PE', 'DT', 'SP', 'CAL', 'PHI', 'POR',
+             'PERM', 'SW', 'SGR', 'CGR', 'THOR', 'URAN', 'POTA', 'LITH_MC_CONF']
+# 滚动窗口（±5 点均值/标准差、±15 点均值）——2026-10-31 验证点级 CV +0.5pp
+ROLL_BASE = ('GR', 'VSH', 'RHOB', 'CNL', 'PE', 'DT')
+
+
+def _features(d: pd.DataFrame) -> tuple:
+    """构造特征矩阵：基础曲线 + 滚动窗口统计，返回 (X, 列名)。"""
+    feats = [c for c in BASE_FEATS if c in d.columns]
+    X = d[feats].apply(pd.to_numeric, errors='coerce').copy()
+    for c in ROLL_BASE:
+        if c not in X.columns:
+            continue
+        s = X[c]
+        X[c + '_M11'] = s.rolling(11, center=True, min_periods=3).mean()
+        X[c + '_S11'] = s.rolling(11, center=True, min_periods=3).std()
+        X[c + '_M31'] = s.rolling(31, center=True, min_periods=5).mean()
+    return X, list(X.columns)
 MERGE = MERGE_LITH
 
 
@@ -43,8 +59,7 @@ def _load_data(proc_csv: str, prof_xlsx: str):
         m = (md >= r['TOP']) & (md < r['BASE'])
         truth[m.values] = r['LITH']
     y = np.array([MERGE.get(t, t) if t else '' for t in truth], dtype=object)
-    feats = [c for c in FEATS if c in d.columns]
-    X = d[feats].apply(pd.to_numeric, errors='coerce')
+    X, feats = _features(d)
     valid = (y != '') & (np.char.str_len(y.astype(str)) > 0)
     Xv = X[valid].fillna(X[valid].median()).values
     return d, md, y, Xv, feats, valid
@@ -59,7 +74,7 @@ def fit_well(well: str, prof_xlsx: str, proc_csv: str) -> dict:
     for i in range(5):
         te = folds[i]
         tr = np.concatenate([folds[j] for j in range(5) if j != i])
-        clf = ExtraTreesClassifier(n_estimators=400, max_depth=14, min_samples_leaf=4,
+        clf = ExtraTreesClassifier(n_estimators=500, max_depth=None, min_samples_leaf=2,
                                    class_weight='balanced', random_state=0, n_jobs=-1)
         clf.fit(X[tr], yv[tr])
         oof[te] = clf.predict(X[te])
@@ -67,7 +82,7 @@ def fit_well(well: str, prof_xlsx: str, proc_csv: str) -> dict:
     labels = sorted(set(yv))
     cm = confusion_matrix(yv, oof, labels=labels).tolist()
     # 全量训练最终模型
-    clf = ExtraTreesClassifier(n_estimators=400, max_depth=14, min_samples_leaf=4,
+    clf = ExtraTreesClassifier(n_estimators=500, max_depth=None, min_samples_leaf=2,
                                class_weight='balanced', random_state=0, n_jobs=-1)
     clf.fit(X, yv)
     os.makedirs(MODEL_DIR, exist_ok=True)
@@ -113,7 +128,8 @@ def apply_well(well: str, proc_csv: str, out_dir: str = OUT_DIR) -> dict:
     pack = joblib.load(mp)
     clf, feats, med = pack['model'], pack['features'], pack['medians']
     d = pd.read_csv(proc_csv, low_memory=False)
-    X = d[feats].apply(pd.to_numeric, errors='coerce').fillna(pd.Series(med)).values
+    X, _ = _features(d)
+    X = X[feats].fillna(pd.Series(med)).values
     pred = clf.predict(X)
     pred = _smooth(np.asarray(pred, dtype=object), win=11)
     out = d.copy()
