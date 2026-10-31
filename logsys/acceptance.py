@@ -51,6 +51,12 @@ WELLS = {
         'truth': r'D:\360\Niger\Trakes KE-1\Trakes KE-1 result table.xlsx',
         'truth_kind': 'trakes_result', 'accept': True,
         'proc': os.path.join(WS, 'output', 'TrakesKE-1', 'TrakesKE-1_processed.csv')},
+    'XIMENIA S-1': {
+        'dirs': [os.path.join(WS, 'output', 'XIMENIA_S-1'),
+                 os.path.join(BASE, 'output', 'XIMENIA_S-1')],
+        'truth': r'D:\360\Chad\Ximenia S-1\XIMENIA_S-1_truth.csv',
+        'truth_kind': 'generic_csv', 'accept': True,
+        'proc': os.path.join(WS, 'output', 'XIMENIA_S-1', 'XIMENIA_S-1_processed.csv')},
     'BET-1': {
         'dirs': [os.path.join(WS, 'output', 'BET-1')],
         'truth': r'D:\360\Indonesia\BET-1\BET-1_8.5IN_SLAM_Res_Table_20261003.xls',
@@ -278,8 +284,8 @@ def main(argv=None):
         avg = float(np.mean([r['fluid_agreement'] for r in acc]))
         rev = float(np.mean([r['review_rate'] for r in acc]))
         comp = float(np.mean([r['completeness'] for r in acc]))
-        md.append('| 流体层一致率（3 井平均） | ≥90%% | %.1f%% | %s |' % (
-            100 * avg, 'PASS' if avg >= 0.90 else 'FAIL'))
+        md.append('| 流体层一致率（%d 井平均） | ≥90%% | %.1f%% | %s |' % (
+            len(acc), 100 * avg, 'PASS' if avg >= 0.90 else 'FAIL'))
         md.append('| 层表完整性 | 100%% | %.1f%% | %s |' % (
             100 * comp, 'PASS' if comp >= 0.999 else 'FAIL'))
         md.append('| 人工复核率 | ≤20%% | %.1f%% | %s |' % (

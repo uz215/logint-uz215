@@ -2910,7 +2910,7 @@ CURVE_NAME_ALIASES = {
     'RT':  ['P40H_UNC', 'P40H', 'P22H_UNC', 'P22H', 'LLD', 'RLLD', 'RD', 'RDEEP',
             'RILD', 'ILD', 'AT90', 'M2RX', 'R90', 'RAL1', 'RES_DEEP', 'LLD_RT',
             'AT60', 'RAL2'],
-    'CAL': ['CALX', 'CALI', 'HCAL'],
+    'CAL': ['CALX', 'CALS', 'CALI', 'HCAL', 'C1A'],
     'PE':  ['PEF', 'PEFZ', 'PEFL'],
     'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP'],
 }
@@ -10530,13 +10530,25 @@ def detect_casing_interval(data, well_name='Unknown',
         _md_all = pd.to_numeric(data['MD'], errors='coerce').values
         _mb = np.asarray(mask, dtype=bool)
         _bot = float(np.nanmax(_md_all[_mb]))
-        _ext = (_md_all <= _bot) & ~_mb
-        if _ext.any():
-            _top_new = float(np.nanmin(_md_all[_ext | _mb]))
-            extra_parts.append('套管顶以上扩展%d点(自%.0fft)并入套管段——程序仅解释裸眼段'
-                               % (int(_ext.sum()), _top_new))
-            mask = _mb | _ext
-            ratio = float(mask.mean())
+        _md_lo, _md_hi = float(np.nanmin(_md_all)), float(np.nanmax(_md_all))
+        _span = max(_md_hi - _md_lo, 1e-9)
+        _bot_pos = (_bot - _md_lo) / _span
+        # 【2026-10-31 修复 XIMENIA_S-1】只在上部/中部检出套管底时才把上方并入套管：
+        # 若"套管底"已位于井段下部（>60%），且非 LAS 头段工程记录，多半是水泥/井底污染
+        # 造成的假套管鞋（XIMENIA_S-1 假鞋 2974/3000m 曾把全井 99% 误判为套管）。
+        _hdr_casing = bool((data.attrs or {}).get('casing_header'))
+        if _bot_pos <= 0.60 or _hdr_casing:
+            _ext = (_md_all <= _bot) & ~_mb
+            if _ext.any():
+                _top_new = float(np.nanmin(_md_all[_ext | _mb]))
+                extra_parts.append('套管顶以上扩展%d点(自%.0fft)并入套管段——程序仅解释裸眼段'
+                                   % (int(_ext.sum()), _top_new))
+                mask = _mb | _ext
+                ratio = float(mask.mean())
+        else:
+            logger.warning('[%s] 跳过套管顶以上扩展：检出套管底 %.1f 位于井段下部(%.0f%%)，'
+                           '疑为水泥/井底污染假鞋（仅保留响应证据段）',
+                           well_name, _bot, 100 * _bot_pos)
             segs = _merge_casing_segs(segs + [(_top_new, _bot)])
 
     # 【2026-10-15】汇总在并集/整体化完成后组装 —— 套管段列表与占全井
