@@ -1,0 +1,58 @@
+[
+  {
+    "std_no": "QL-STD-01",
+    "section": "层表",
+    "text": "每个解释层必须包含 TOP/BASE/THICKNESS/LITHOLOGY/INTERPRETATION；缺任一字段时该层标记 REVIEW，不得静默省略。",
+    "rule_type": "layer_table_required",
+    "rule_json": {"required_fields": ["TOP_MD", "BASE_MD", "THICKNESS", "LITHOLOGY", "INTERPRETATION"], "on_missing": "REVIEW"}
+  },
+  {
+    "std_no": "FLUID-01",
+    "section": "流体判据-气层",
+    "text": "气层：气测图版判 GAS，或 TG 显著高于水层背景；测井侧 Sw<sw_hc 且 RT>rt_gas。无气测时保留原结论并标 NO_GAS_DATA，不强制改判。",
+    "rule_type": "fluid_gas",
+    "rule_json": {"plate": ["GAS"], "log": {"sw_lt": "sw_hc", "rt_gt": "rt_gas"}, "no_gas_data_flag": "NO_GAS_DATA"}
+  },
+  {
+    "std_no": "FLUID-02",
+    "section": "流体判据-油层",
+    "text": "油层：Sw<sw_hc 且 RT>rt_oil；气测图版 OIL 仅作辅助证据，不单独降级 GAS。",
+    "rule_type": "fluid_oil",
+    "rule_json": {"log": {"sw_lt": "sw_hc", "rt_gt": "rt_oil"}, "plate": "evidence_only"}
+  },
+  {
+    "std_no": "FLUID-03",
+    "section": "流体判据-水层",
+    "text": "水层：Sw≥sw_cut 且气测低背景（TG 低于区块阈值）；图版不单独否定水层结论，冲突时标 REVIEW。",
+    "rule_type": "fluid_water",
+    "rule_json": {"log": {"sw_ge": "sw_cut"}, "conflict_flag": "REVIEW"}
+  },
+  {
+    "std_no": "FLUID-04",
+    "section": "流体判据-干层/致密",
+    "text": "干层/致密层：POR<por_hc 或 VSH>0.60 且无有效烃显示；不得因高阻误判油气层。",
+    "rule_type": "fluid_tight",
+    "rule_json": {"log": {"por_lt": "por_hc", "vsh_gt": 0.60}}
+  },
+  {
+    "std_no": "FLUID-05",
+    "section": "流体判据-混合层",
+    "text": "气测与测井证据冲突且 TG 高时，输出 GAS_OIL 混合类并标记 REVIEW，不强行二分。",
+    "rule_type": "fluid_mixed",
+    "rule_json": {"output": "GAS_OIL", "flag": "REVIEW"}
+  },
+  {
+    "std_no": "CAL-01",
+    "section": "标定",
+    "text": "每口井应使用该井试油/分层成果标定解释截止值或流体模型；标定来源、样本数与验证精度必须记录，未标定井使用区块默认值并标注。",
+    "rule_type": "calibration_required",
+    "rule_json": {"require_source": true, "require_metrics": true}
+  },
+  {
+    "std_no": "QC-01",
+    "section": "质量控制",
+    "text": "关键曲线缺失或关键特征（PHI/Sw/RT）大段缺失时，不得外推解释；缺失段标 UNKNOWN 并计入复核率。",
+    "rule_type": "missing_data_no_extrapolation",
+    "rule_json": {"missing_label": "UNKNOWN"}
+  }
+]

@@ -18,7 +18,7 @@ import os
 import sys
 import time
 
-from .db import connect, stats
+from .db import connect, stats, dedupe_entities
 from .ingest import ingest_directory
 from .query import search
 from .cases import import_cases
@@ -80,6 +80,23 @@ def main(argv=None):
             total['errors'] += rc['errors']
         else:
             print('kb_sources.json 无 cases 配置')
+
+    if not args.no_cases:
+        cl = cfg.get('clauses')
+        if cl:
+            try:
+                from .clauses import import_clauses
+                _n = import_clauses(conn, cl)
+                print('标准条款入库: %d 条' % _n, flush=True)
+            except Exception as _cle:
+                print('条款入库失败: %s: %s' % (type(_cle).__name__, _cle), flush=True)
+
+    try:
+        _dd = dedupe_entities(conn)
+        if _dd:
+            print('实体去重: 删除 %d 条重复' % _dd, flush=True)
+    except Exception as _de:
+        print('实体去重失败: %s' % _de, flush=True)
 
     print('耗时 %.1fs; 累计 ok=%d fail=%d' % (time.time() - t0, total['ok'], total['fail']))
     print(json.dumps(stats(conn), ensure_ascii=False, indent=2))

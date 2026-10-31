@@ -45,7 +45,9 @@ def upsert_well_cases(conn, well_id: str, truth_file: str, kind: str, unit: str 
         except Exception:
             continue
     # 井实体 + 国家事实（可追溯）
-    eid = 'ent_well_' + _sha1(well_id)[:12]
+    import re as _re
+    _canon = _re.sub(r'[\s_]+', '-', str(well_id).strip()).upper()
+    eid = 'WELL:' + _canon
     conn.execute('INSERT OR REPLACE INTO entity(id, kind, name, canonical, region, props_json,'
                  ' source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
                  (eid, 'Well', well_id, well_id, region or country,

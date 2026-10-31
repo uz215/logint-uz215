@@ -32,5 +32,6 @@
       "unit": "m",
       "conf": 0.9
     }
-  ]
+  ],
+  "clauses": "D:/360/src/logsys/knowledge/clauses.json"
 }

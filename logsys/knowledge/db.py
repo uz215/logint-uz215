@@ -141,3 +141,21 @@ def stats(conn: sqlite3.Connection) -> dict:
 
 def set_meta(conn, key, value):
     conn.execute('INSERT OR REPLACE INTO meta(k, v) VALUES(?, ?)', (key, json.dumps(value, ensure_ascii=False)))
+
+
+def dedupe_entities(conn) -> int:
+    """按 canonical 合并重复实体（保留 conf 最高者）。返回删除条数。"""
+    rows = conn.execute('SELECT id, canonical, conf FROM entity ORDER BY conf DESC').fetchall()
+    seen = set()
+    deleted = 0
+    for eid, canon, conf in rows:
+        key = str(canon or '').strip().upper()
+        if not key:
+            continue
+        if key in seen:
+            conn.execute('DELETE FROM entity WHERE id=?', (eid,))
+            deleted += 1
+        else:
+            seen.add(key)
+    conn.commit()
+    return deleted

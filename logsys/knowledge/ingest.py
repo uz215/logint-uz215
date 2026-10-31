@@ -69,11 +69,54 @@ def _chunks(text: str):
     return out
 
 
+WELL_NOISE_PREFIX = ('layer', 'step', 'swab', 'section', 'table', 'figure', 'fig', 'eq',
+                      'well', 'no.', 'test', 'sample', 'zone', 'unit', 'block', 'page',
+                      'phase', 'stage', 'case', 'run', 'point', 'interval', 'depth',
+                      'ltaf', 'taf', 'utaf', 'gumai', 'sokor', 'baturaja', 'talang',
+                      'e1-', 'e2-', 'e3-', 'e5-', 'rop', 'tg', 'gr', 'rt', 'sw', 'por',
+                      'perm', 'p10', 'p50', 'p90', 'wob', 'rpm', 'trpm', 'yp', 'pv')
+
+
+WELL_WHITELIST = set()
+try:
+    import json as _json
+    _wl = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'well_whitelist.json')
+    if os.path.exists(_wl):
+        WELL_WHITELIST = {re.sub(r'[\s_]+', '-', str(x)).upper()
+                          for x in _json.load(open(_wl, encoding='utf-8'))}
+except Exception:
+    WELL_WHITELIST = set()
+
+STRICT_WELL_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9]*?(?:-[A-Za-z0-9]+)*-\d{1,3}[A-Za-z]?$')
+STRICT_WELL_RE2 = re.compile(r'^[A-Za-z0-9]+-[A-Za-z0-9]+-\d{1,3}[A-Za-z]?$')
+
+
+def valid_well_name(name: str) -> bool:
+    """井名校验：白名单优先，或严格"字母-NN"格式；拒绝 Layer 3/GR 156/SW 100 等噪声。"""
+    n = str(name or '').strip()
+    if not (3 <= len(n) <= 25):
+        return False
+    low = n.lower()
+    if any(low.startswith(p) for p in WELL_NOISE_PREFIX):
+        return False
+    if not re.search(r'\d', n):
+        return False
+    if canon_well(n) in WELL_WHITELIST:
+        return True
+    return bool(STRICT_WELL_RE.match(n) or STRICT_WELL_RE2.match(n))
+
+
+def canon_well(name: str) -> str:
+    return re.sub(r'[\s_]+', '-', str(name or '').strip()).upper()
+
+
 def _find_entities(text: str, fm: dict):
     wells = set()
     for m in WELL_RE.finditer(text[:20000]):
-        wells.add(m.group(1).strip())
-    if fm.get('well_name'):
+        w = m.group(1).strip()
+        if valid_well_name(w):
+            wells.add(w)
+    if fm.get('well_name') and valid_well_name(str(fm['well_name'])):
         wells.add(str(fm['well_name']).strip())
     countries = {c for c in COUNTRIES if c in text[:5000]}
     if fm.get('country'):
@@ -110,13 +153,15 @@ def ingest_markdown(conn, path: str, force: bool = False) -> str:
         conn.execute('INSERT INTO doc_fts(doc_id, title, body, region, well) VALUES(?,?,?,?,?)',
                      (doc_id, tokenize(title), tokenize(ch), region, well))
 
-    # 轻量实体/事实
+    # 轻量实体/事实（先清掉本文档旧抽取结果，保证黑名单生效后不残留）
+    conn.execute("DELETE FROM entity WHERE source_doc=? AND kind='Well'", (doc_id,))
     wells, countries = _find_entities(body, fm)
     for w in list(wells)[:20]:
-        eid = 'WELL:%s' % w.upper().replace(' ', '_')
+        cn = canon_well(w)
+        eid = 'WELL:%s' % cn
         conn.execute('INSERT OR REPLACE INTO entity(id, kind, name, canonical, region, props_json, '
                      'source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
-                     (eid, 'Well', w, eid, region, '{}', doc_id, 0.6))
+                     (eid, 'Well', w, cn, region, '{}', doc_id, 0.6))
         if country:
             conn.execute('INSERT OR REPLACE INTO fact(id, subj, rel, obj, props_json, source_doc, '
                          'source_loc, conf, extractor) VALUES(?,?,?,?,?,?,?,?,?)',
