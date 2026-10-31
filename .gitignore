@@ -233,3 +233,6 @@ gas_test.csv
 
 # ===== 知识库构建主程序（需入库，原规则未覆盖） =====
 !knowledge_build.py
+
+# run_manifest 需入库（run_*.py 规则会误伤）
+!logsys/run_manifest.py
