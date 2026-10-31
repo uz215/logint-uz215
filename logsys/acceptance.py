@@ -213,8 +213,14 @@ def compute_well(well: str, spec: dict) -> dict:
         try:
             from logsys.lith_validate import load_profile, evaluate
             proc = spec.get('proc')
-            if proc and os.path.exists(proc):
-                res = evaluate(proc, load_profile(prof))
+            # 优先用岩性标定结果（LITHOLOGY_ML），否则用 pipeline 的 LITHOLOGY
+            _ml_lith = os.path.join(BASE, 'data', 'calibration', 'lith_out',
+                                    str(well) + '_processed_lithML.csv')
+            _use, _col = (proc, 'LITHOLOGY')
+            if os.path.exists(_ml_lith):
+                _use, _col = _ml_lith, 'LITHOLOGY_ML'
+            if _use and os.path.exists(_use):
+                res = evaluate(_use, load_profile(prof), col=_col)
                 out['lith_accuracy'] = res.get('lith_accuracy')
                 out['lith_overlap_m'] = res.get('overlap_len_m')
         except Exception as _le:

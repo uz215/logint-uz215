@@ -31,6 +31,9 @@ WELL_PROFILES = {
     },
 }
 
+# 类别归并（砾岩并入砂岩、碳质页岩并入泥岩；岩性标定 lithcal 也用它）
+MERGE_LITH = {'conglomerate': 'sandstone', 'carbonaceous_shale': 'shale'}
+
 # 中文岩性 → 程序标准类别（与 layers/LITHOLOGY 英文口径对齐）
 def norm_lith(s: str) -> str:
     s = str(s or '').strip()
@@ -81,11 +84,14 @@ def load_profile(xlsx: str) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
-def evaluate(proc_csv: str, truth: pd.DataFrame) -> dict:
+def evaluate(proc_csv: str, truth: pd.DataFrame, col: str = 'LITHOLOGY') -> dict:
+    truth = truth.copy()
+    truth['LITH'] = truth['LITH'].map(lambda x: MERGE_LITH.get(x, x))
     d = pd.read_csv(proc_csv, low_memory=False)
     md = pd.to_numeric(d['MD'], errors='coerce')
-    our = d['LITHOLOGY'].astype(str).str.lower().str.strip() if 'LITHOLOGY' in d.columns \
+    our = d[col].astype(str).str.lower().str.strip() if col in d.columns \
         else pd.Series([''] * len(d))
+    our = our.map(lambda x: MERGE_LITH.get(x, x))
     step = float(np.nanmedian(np.diff(np.unique(md.dropna().values)))) if md.notna().sum() > 1 else 1.0
     labels = sorted({str(x) for x in set(truth['LITH']) | set(our.astype(str).unique())})
     cm = {t: {p: 0.0 for p in labels} for t in labels}
@@ -124,19 +130,20 @@ def main(argv=None):
     ap.add_argument('--profile', default=None)
     ap.add_argument('--proc', default=None)
     ap.add_argument('--out', default=os.path.join(BASE, 'data', 'acceptance'))
+    ap.add_argument('--col', default='LITHOLOGY', help='LITHOLOGY 或 LITHOLOGY_ML')
     args = ap.parse_args(argv)
     if args.well:
         spec = WELL_PROFILES.get(args.well)
         if not spec:
             print('未知井:', args.well); return 1
         prof = spec['profile']
-        proc = next((p for p in spec['proc'] if os.path.exists(p)), None)
+        proc = args.proc or next((p for p in spec['proc'] if os.path.exists(p)), None)
     else:
         prof, proc = args.profile, args.proc
     if not prof or not proc or not os.path.exists(prof) or not os.path.exists(proc):
         print('缺文件: profile=%s proc=%s' % (prof, proc)); return 1
     truth = load_profile(prof)
-    res = evaluate(proc, truth)
+    res = evaluate(proc, truth, col=args.col)
     res['well'] = args.well or os.path.basename(prof)
     print(json.dumps({k: v for k, v in res.items() if k != 'confusion'}, ensure_ascii=False, indent=2))
     os.makedirs(args.out, exist_ok=True)
