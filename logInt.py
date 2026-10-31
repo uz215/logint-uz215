@@ -15367,6 +15367,29 @@ class WellLogProcessor:
                                __import__('traceback').format_exc())
 
             # 【2026-10-30 P0-3】层表生成（唯一成层入口：logsys.layers + gasplate）
+            # 【2026-10-31 R39】流体分带整饰（区域知识.流体分带：浅层气/深层油）
+            # 用户口径：BET-1 浅层是气、深层是油；填了"转换深度"才生效，改动记 FLUID_ZONE 列。
+            try:
+                from logsys.zonation import apply_zonation
+                _du_zn = (
+                    getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
+                    or (self.results.get('las_info') or {}).get('depth_unit')
+                    or (self.config.get('depth_unit', 'm')
+                        if isinstance(getattr(self, 'config', None), dict) else 'm'))
+                _zn = apply_zonation(self.results['processed_data'],
+                                     get_active_regional(), depth_unit=_du_zn)
+                self.results['fluid_zonation'] = _zn
+                if _zn.get('applied'):
+                    logger.info('流体分带: 浅层→%s %d 点, 深层→%s %d 点 (转换深度 %.1f %s)',
+                                _zn.get('shallow_label'), _zn.get('shallow_to_gas'),
+                                _zn.get('deep_label'), _zn.get('deep_to_oil'),
+                                _zn.get('boundary'), _zn.get('unit'))
+                    print(f"流体分带: 转换深度 {_zn.get('boundary')} {_zn.get('unit')} "
+                          f"(浅层→{_zn.get('shallow_label')} {_zn.get('shallow_to_gas')} 点, "
+                          f"深层→{_zn.get('deep_label')} {_zn.get('deep_to_oil')} 点)")
+            except Exception as _zne:
+                logger.warning('流体分带整饰失败（忽略）: %s', _zne)
+
             # 放在按层解释整合之后、CSV/LAS 导出之前：与点列同源，禁止层表独立再判。
             try:
                 if 'processed_data' in self.results \

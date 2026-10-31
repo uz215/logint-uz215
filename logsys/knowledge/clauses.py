@@ -27,6 +27,7 @@ def import_clauses(conn, src) -> int:
         text = str(it.get('text') or '')
         if not std_no or not text:
             continue
+        conn.execute('DELETE FROM clause WHERE std_no=?', (std_no,))
         cid = 'CLAUSE:' + _sha1(std_no + '|' + text)
         conn.execute(
             'INSERT OR REPLACE INTO clause(id, std_no, section, text, rule_type, rule_json, source_doc)'

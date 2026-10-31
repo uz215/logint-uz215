@@ -20,7 +20,10 @@
     "proc": "D:/360/src/output/RASHIDPUR_13/RASHIDPUR_13_processed.csv",
     "truth": "D:/360/Bangladesh/RP-13/RP-13_RESULT_RUSH INTERPRETATION_20261019.xls",
     "truth_kind": "rp13_rush",
-    "unit": "m"
+    "unit": "m",
+    "reference": true,
+    "conf": 0.5,
+    "note": "RUSH 解释仅作参考，非最终试油结论（用户 2026-10-31）；不纳入验收统计"
   },
   {
     "well": "3-SPS-111D",
