@@ -31,8 +31,8 @@ from .layers import build_layers
 
 CAND_FEATS = ['GR', 'PHI', 'SW_COMP', 'SW_LOG', 'LOG_RT', 'VSH', 'LOG_TG', 'PLATE_NUM']
 FEATS = ['GR', 'PHI', 'SW_COMP', 'SW_LOG', 'LOG_RT', 'VSH']  # 兼容旧模型
-LABELS = ['GAS', 'OIL', 'WATER', 'TIGHT']
-CLASS_TO_LAYER = {'GAS': 'GAS', 'OIL': 'OIL', 'WATER': 'WATER', 'TIGHT': 'NonReservoir'}
+LABELS = ['GAS', 'GAS_OIL', 'OIL', 'WATER', 'TIGHT']
+CLASS_TO_LAYER = {'GAS': 'GAS', 'GAS_OIL': 'GAS_OIL', 'OIL': 'OIL', 'WATER': 'WATER', 'TIGHT': 'NonReservoir'}
 
 
 def postprocess(pred: np.ndarray, raw: pd.DataFrame, proba=None) -> np.ndarray:
@@ -53,8 +53,11 @@ def postprocess(pred: np.ndarray, raw: pd.DataFrame, proba=None) -> np.ndarray:
     water = is_oil_like & (sw_log >= 0.85) & (tg >= 0) & (tg < 5000)
     # 气层：图版判 GAS（PLATE_NUM=2）
     gas = is_oil_like & (plate == 2.0)
+    # 图版判 GAS 而模型判 OIL → 证据冲突，按用户口径归"油气同层 GAS_OIL"
+    mixed = is_oil_like & (plate == 2.0)
     out[water] = 'WATER'
     out[gas] = 'GAS'
+    out[mixed] = 'GAS_OIL'
     return out
 MODEL_DIR = os.path.join(r'D:\360\src', 'data', 'calibration', 'models')
 
@@ -158,7 +161,7 @@ def fit_well(spec: dict) -> dict:
     truth = load_truths(spec['truth'], spec['truth_kind'])
     pts['TRUTH'] = label_by_truth(pts, truth)
     mixed_as = str(spec.get('mixed_as') or '').upper()
-    if mixed_as in ('GAS', 'OIL', 'WATER'):
+    if mixed_as in ('GAS', 'OIL', 'WATER', 'GAS_OIL'):
         pts.loc[pts['TRUTH'] == 'MIXED', 'TRUTH'] = mixed_as
     train = pts[(pts['TRUTH'] != 'NONE') & (pts['TRUTH'] != 'MIXED')].copy()
     if len(train) < 30:

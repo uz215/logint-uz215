@@ -22,12 +22,13 @@ import pandas as pd
 # 流体族：薄层合并只在同族内允许（油/气不再互吞）
 FLUID_FAMILY = {
     'GAS': 'HC_GAS', 'GAS_POSSIBLE': 'HC_GAS',
+    'GAS_OIL': 'HC_GAS_OIL', 'OIL_GAS': 'HC_GAS_OIL',
     'OIL': 'HC_OIL', 'OIL_POSSIBLE': 'HC_OIL',
     'WATER': 'WATER', 'DRY': 'DRY', 'TIGHT': 'DRY',
     'NONRESERVOIR': 'NONRES', 'CASING': 'NONRES', '': 'NONRES',
 }
 # 平票时的确定性优先序（仅决定标签，不改点数据；并标 REVIEW）
-TIE_PRIORITY = ['GAS', 'OIL', 'WATER', 'DRY', 'TIGHT', 'NonReservoir']
+TIE_PRIORITY = ['GAS', 'GAS_OIL', 'OIL', 'WATER', 'DRY', 'TIGHT', 'NonReservoir']
 NONRES_LABELS = {'', 'NONRESERVOIR', 'CASING', 'NONE', 'NAN', '数据不足'}
 
 

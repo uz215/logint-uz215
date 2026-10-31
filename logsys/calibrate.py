@@ -72,7 +72,9 @@ def load_truths(path: str, kind: str) -> pd.DataFrame:
 
 def _map_fluid(s: str) -> str:
     s = str(s).upper().replace(' ', '').replace('-', '_')
-    if 'GAS&OIL' in s or 'GAS_OIL' in s or 'GAS_WATER' in s or 'WATER_GAS' in s:
+    if 'GAS&OIL' in s or 'GAS_OIL' in s or 'OIL_GAS' in s:
+        return 'GAS_OIL'
+    if 'GAS_WATER' in s or 'WATER_GAS' in s or 'GAS_WATER' in s:
         return 'MIXED'
     if 'GAS' in s:
         return 'GAS'
@@ -136,7 +138,7 @@ def score_arr(a: dict, cut: dict, use_plate=False) -> dict:
                     np.where(water, 'WATER', 'TIGHT'))))
     main = truth != 'MIXED'
     acc_all = float((pred[main] == truth[main]).mean())
-    hc = np.isin(truth, ['GAS', 'OIL', 'WATER']) & main
+    hc = np.isin(truth, ['GAS', 'GAS_OIL', 'OIL', 'WATER']) & main
     acc_hc = float((pred[hc] == truth[hc]).mean()) if hc.any() else 0.0
     return {'acc_all': acc_all, 'acc_hc': acc_hc,
             'objective': 0.5 * acc_all + 0.5 * acc_hc,

@@ -66,7 +66,8 @@ def _smooth(pred: np.ndarray, win: int = 5) -> np.ndarray:
     return np.array([classes[i] for i in out], dtype=object)
 
 
-CLASS_TO_LAYER = {'GAS': 'GAS', 'OIL': 'OIL', 'WATER': 'WATER', 'TIGHT': 'NonReservoir'}
+CLASS_TO_LAYER = {'GAS': 'GAS', 'GAS_OIL': 'GAS_OIL', 'OIL': 'OIL',
+                  'WATER': 'WATER', 'TIGHT': 'NonReservoir'}
 
 
 def apply_ml_fluid(processed_data: pd.DataFrame, well_name: str, output_dir: str,
@@ -87,8 +88,16 @@ def apply_ml_fluid(processed_data: pd.DataFrame, well_name: str, output_dir: str
         if 'MD' not in d.columns:
             return {'available': False, 'error': 'processed data 无 MD 列'}
         X = _feature_frame(d, feats).fillna(pd.Series(medians))
-        pred = model.predict(X)
+        pred = np.asarray(model.predict(X), dtype=object)
         proba = model.predict_proba(X).max(axis=1) if hasattr(model, 'predict_proba') else np.ones(len(X))
+        # 与 wellcal 后处理同一口径：图版判 GAS 而模型判 OIL → 油气同层 GAS_OIL（用户 2026-10-31 口径）
+        try:
+            plate_num = pd.to_numeric(d.get('PLATE_FLUID', pd.Series('', index=d.index))
+                                      .astype(str).str.upper().map({'GAS': 2.0, 'OIL': 1.0, 'DRY': 0.0}),
+                                      errors='coerce').values
+            pred = np.where((pred == 'OIL') & (plate_num == 2.0), 'GAS_OIL', pred)
+        except Exception:
+            pass
         pred = _smooth(np.asarray(pred, dtype=object), win=5)
 
         # 关键特征缺失点不外推

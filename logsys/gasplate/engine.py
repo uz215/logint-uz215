@@ -167,14 +167,19 @@ def fuse_with_log(plate_label: str, log_label: str, cfg: dict) -> dict:
     plate_label = (plate_label or 'UNDEFINED').upper()
 
     if plate_label == 'GAS':
-        if log_label in ('GAS', 'OIL', 'OIL_POSSIBLE', 'GAS_POSSIBLE'):
+        if log_label in ('OIL', 'OIL_POSSIBLE'):
+            # 用户 2026-10-31：图版判气但测井判油 → 油气同层（不强行二选一）
+            return {'final': 'GAS_OIL', 'action': 'mixed_gas_oil', 'flag': '', 'conf': 0.65}
+        if log_label in ('GAS', 'GAS_POSSIBLE'):
             return {'final': 'GAS', 'action': 'promote_gas', 'flag': '', 'conf': 0.90}
         return {'final': 'GAS', 'action': 'promote_gas',
                 'flag': rv.get('conflict_flag', 'GAS_PLATE_CONFLICT'), 'conf': 0.60}
     if plate_label == 'OIL':
-        # 用户 2026-10-30：不限定图版 → 图版仅作证据，不单独把 GAS 降级
+        # 用户 2026-10-30：不限定图版 → 图版仅作证据，不单独把 GAS 降级；
+        # 2026-10-31：图版油 + 测井气 → 油气同层（保留冲突标记便于复核）
         if log_label in ('GAS', 'GAS_POSSIBLE'):
-            return {'final': log_label, 'action': 'keep', 'flag': 'PLATE_OIL_CONFLICT', 'conf': 0.50}
+            return {'final': 'GAS_OIL', 'action': 'mixed_gas_oil',
+                    'flag': 'PLATE_OIL_CONFLICT', 'conf': 0.55}
         if log_label in ('OIL', 'OIL_POSSIBLE'):
             return {'final': 'OIL', 'action': 'keep', 'flag': '', 'conf': 0.85}
         return {'final': log_label or 'OIL', 'action': 'keep',
