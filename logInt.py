@@ -2589,6 +2589,12 @@ class DataLoader:
         # 用户在数据选择界面显式选定的气测文件优先级最高；
         # 文件不存在或加载失败则回退到按井名自动发现。
         _picked = str(getattr(self, 'gas_file_selected', '') or '').strip()
+        # 【2026-10-31 R43】显式跳过气测（该类井无气测数据/气测不可用）：
+        # gas_file='none'|'skip' 时直接返回 None，不弹对话框（无人值守批处理）。
+        if _picked.lower() in ('none', 'skip', 'no', '__none__'):
+            logger.info('气测: 按调用参数跳过（该井无可用气测数据）')
+            print('★ 气测: 按参数跳过（无可用气测数据）')
+            return None
         if _picked:
             if Path(_picked).exists():
                 try:
