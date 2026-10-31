@@ -37,29 +37,38 @@ WELLS = {
                  os.path.join(BASE, 'output', '3-SPS-111D'),
                  os.path.join(WS, 'output', '3-SPS-111D')],
         'truth': r'D:\360\Brasil\CuraCao-3\3-SPS-111D_20250425\3-SPS-111D_truth.csv',
-        'truth_kind': 'generic_csv', 'accept': True},
+        'truth_kind': 'generic_csv', 'accept': True,
+        'proc': os.path.join(BASE, 'output', '3-SPS-111D', '3-SPS-111D_processed.csv')},
     'XIMENIA-5': {
         'dirs': [os.path.join(BASE, 'output', 'XIMENIA-5'),
                  os.path.join(WS, 'output', 'XIMENIA-5')],
         'truth': r'D:\360\Chad\Ximenia-5\XIMENIA-5_truth.csv',
-        'truth_kind': 'generic_csv', 'accept': True},
+        'truth_kind': 'generic_csv', 'accept': True,
+        'proc': os.path.join(BASE, 'output', 'XIMENIA-5', 'XIMENIA-5_processed.csv')},
     'TrakesKE-1': {
         'dirs': [os.path.join(WS, 'output', 'TrakesKE-1'),
                  os.path.join(BASE, 'output', 'TrakesKE-1')],
         'truth': r'D:\360\Niger\Trakes KE-1\Trakes KE-1 result table.xlsx',
-        'truth_kind': 'trakes_result', 'accept': True},
+        'truth_kind': 'trakes_result', 'accept': True,
+        'proc': os.path.join(WS, 'output', 'TrakesKE-1', 'TrakesKE-1_processed.csv')},
     'BET-1': {
         'dirs': [os.path.join(WS, 'output', 'BET-1')],
         'truth': r'D:\360\Indonesia\BET-1\BET-1_8.5IN_SLAM_Res_Table_20261003.xls',
-        'truth_kind': 'bet1_slam', 'accept': False},
+        'truth_kind': 'bet1_slam', 'accept': False,
+        'proc': os.path.join(WS, 'output', 'BET-1', 'BET-1_processed.csv')},
     'RASHIDPUR_13': {
         'dirs': [os.path.join(WS, 'output', 'RASHIDPUR_13'),
                  os.path.join(BASE, 'output', 'RASHIDPUR_13')],
         'truth': r'D:\360\Bangladesh\RP-13\RP-13_RESULT_RUSH INTERPRETATION_20261019.xls',
-        'truth_kind': 'rp13_rush', 'accept': False},
+        'truth_kind': 'rp13_rush', 'accept': False,
+        'proc': os.path.join(WS, 'output', 'RASHIDPUR_13', 'RASHIDPUR_13_processed.csv')},
 }
 
 MIXED_LABELS = {'GAS_OIL', 'OIL_GAS', 'OIL_WATER', 'MIXED'}
+# 岩性剖面真值（承包商岩性解释剖面 xlsx）——用于岩性一致率（验收目标 ≥90%）
+LITH_PROFILES = {
+    'TrakesKE-1': r'D:\360\Niger\Trakes KE-1\Trakes KE-1 岩性解释剖面.xlsx',
+}
 
 
 def _norm(s):
@@ -198,6 +207,18 @@ def compute_well(well: str, spec: dict) -> dict:
                                           'fluid_agreement', 'truth_overlap')})
     out['final_source'] = 'ML' if ml else ('rules' if rule else 'none')
     out['status'] = 'OK' if (rule or ml) else 'NO_DATA'
+    # 4) 岩性一致率（有岩性剖面真值的井）
+    prof = LITH_PROFILES.get(well)
+    if prof and os.path.exists(prof):
+        try:
+            from logsys.lith_validate import load_profile, evaluate
+            proc = spec.get('proc')
+            if proc and os.path.exists(proc):
+                res = evaluate(proc, load_profile(prof))
+                out['lith_accuracy'] = res.get('lith_accuracy')
+                out['lith_overlap_m'] = res.get('overlap_len_m')
+        except Exception as _le:
+            out['lith_error'] = '%s: %s' % (type(_le).__name__, _le)
     return out
 
 
@@ -215,13 +236,14 @@ def main(argv=None):
     # Markdown 矩阵
     md = ['# 验收矩阵（自动生成 %s）' % ts, '',
           '> 只有"试油真值"井计入验收；BET-1/RASHIDPUR_13 为解释参考，仅展示。', '',
-          '| 井 | 真值级 | 层数 | 流体层一致率 | 层表完整性 | 复核率 | 状态 |',
-          '|---|---|---|---|---|---|---|']
+          '| 井 | 真值级 | 层数 | 流体层一致率 | 岩性一致率 | 层表完整性 | 复核率 | 状态 |',
+          '|---|---|---|---|---|---|---|---|']
     for r in rows:
-        md.append('| %s | %s | %s | %s | %s | %s | %s |' % (
+        md.append('| %s | %s | %s | %s | %s | %s | %s | %s |' % (
             r['well'], '试油' if r['accept'] else '参考',
             r.get('layers', '-'),
             ('%.1f%%' % (100 * r['fluid_agreement'])) if r.get('fluid_agreement') is not None else '-',
+            ('%.1f%%' % (100 * r['lith_accuracy'])) if r.get('lith_accuracy') is not None else '-',
             ('%.1f%%' % (100 * r['completeness'])) if r.get('completeness') is not None else '-',
             ('%.1f%%' % (100 * r['review_rate'])) if r.get('review_rate') is not None else '-',
             r['status']))
@@ -238,6 +260,11 @@ def main(argv=None):
             100 * comp, 'PASS' if comp >= 0.999 else 'FAIL'))
         md.append('| 人工复核率 | ≤20%% | %.1f%% | %s |' % (
             100 * rev, 'PASS' if rev <= 0.20 else 'FAIL'))
+        _lith = [r['lith_accuracy'] for r in acc if r.get('lith_accuracy') is not None]
+        if _lith:
+            _la = float(np.mean(_lith))
+            md.append('| 岩性一致率（有剖面真值的井） | ≥90%% | %.1f%% | %s |' % (
+                100 * _la, 'PASS' if _la >= 0.90 else 'FAIL'))
     path = os.path.join(args.out, 'acceptance_%s.md' % ts)
     open(path, 'w', encoding='utf-8').write('\n'.join(md) + '\n')
     print('\n'.join(md))
