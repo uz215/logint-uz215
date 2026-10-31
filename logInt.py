@@ -2895,7 +2895,9 @@ CURVE_NAME_ALIASES = {
     'DEN': ['ZDEN', 'RHOZ', 'DENB', 'DENX', 'RHO', 'BUPD', 'RHO8'],
     'CNL': ['CNCF', 'CNC', 'CN', 'TNPH', 'NPHI', 'PHIN'],
     'DT':  ['DTC', 'DTCO', 'DT4P', 'AC', 'SONIC', 'SON'],
-    'RT':  ['RD', 'RDEEP', 'RILD'],
+    # 2026-10-31：3-SPS-111D LWD 阵列方位电阻率(P40H 40in 深、P22H 22in 浅)归一为 RT；
+    # LWD 无 RHOB/CNL，孔隙度走声波(DTCO→DT)或 NMR
+    'RT':  ['P40H_UNC', 'P40H', 'P22H_UNC', 'P22H', 'RD', 'RDEEP', 'RILD'],
     'CAL': ['CALX', 'CALI', 'HCAL'],
     'PE':  ['PEF', 'PEFZ', 'PEFL'],
     'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP'],
@@ -3231,6 +3233,11 @@ def load_regional_knowledge(well_dir, well_name=''):
                                    k, v, '/'.join(allowed))
                     continue
                 reg[k] = v
+            # 【2026-10-31】流体分带（dict 结构透传，供 zonation 使用）：
+            # {"单位":"m","分带":[{"流体":"OIL","上界":null,"下界":6640}, ...]}
+            _fz = sec.get('流体分带')
+            if isinstance(_fz, dict) and (_fz.get('分带') or _fz.get('转换深度') is not None):
+                reg['流体分带'] = _fz
             _ov = {k: v for k, v in reg.items() if v}
             if _ov:
                 print('  区域知识: %s → %s' % (p.name, _ov))
@@ -15597,40 +15604,80 @@ def _is_gas_file(p):
 def _find_main_las(well_dir):
     """在井文件夹中寻找主测井 LAS 文件。
 
-    策略: 根目录下的 .LAS 优先（邻井 LAS 通常位于 supportdata/help/LAS_邻井曲线
-    子目录中，根目录是主井资料）; 若根目录没有 LAS，退化为全文件夹最大 .LAS。
-    【2026-10-15】排除气测/录井 LAS（如 *_DDP_GasAv-prof.las）——此前按文件
-    最大选取，3-SPS-111D 井气测 LAS 更大被误选为主文件，导致快速图只有
-    SPP+气测曲线（无 GR/电阻率/密度，电阻率道与岩性道全空）。
+    【2026-10-31 R40】3-SPS-111D 误选 _DDP_ParamPerf-prof.las（5.3MB）导致"数据为空"：
+    - 按文件名排除非主测井 LAS（参数/方向/气测/气测换算/XRD/XRF/PWD/钙质/录井/DGR/Masterlog）；
+    - 用 LAS 头校验：必须有 GR 类 + 电阻率类曲线，且深度跨度 > 50（单位任意）；
+    - 根目录优先，其次全文件夹；候选按"名字含 LWD/GR-RES/NMR/SON/MAIN/主测井"加分、再按大小降序。
     """
     from pathlib import Path as _P
     well_dir = _P(well_dir)
 
-    # 【2026-10-15】气测 LAS 按文件名关键词排除（_is_gas_file 后缀白名单不含
-    # .las，无法识别 *_DDP_GasAv-prof.las 这类气测 LAS）——3-SPS-111D 井气测
-    # LAS 更大被误选为主文件，导致快速图只有 SPP+气测曲线（无 GR/电阻率）
     _gas_name_kw = ('gas', 'tgas', 'gastotal', '气测', '录井气')
+    _nonlog_kw = ('paramperf', 'param', 'dadosdirecionais', 'directional', 'calcimetria',
+                  'pwd', 'xrd', 'xrf', 'dgr', 'masterlog', 'gasconv', 'gasav',
+                  'perf', 'tiro', 'canhoneio', '_ce.las', '_eec')
 
     def _not_gas(p):
-        if any(k in p.name.lower() for k in _gas_name_kw):
+        n = p.name.lower()
+        if any(k in n for k in _gas_name_kw) or any(k in n for k in _nonlog_kw):
             return False
         try:
             return not _is_gas_file(p)
         except Exception:
             return True
 
+    def _score(p):
+        n = p.name.lower()
+        sc = 0.0
+        for kw in ('lwd', 'gr-res', 'gr_res', 'nmr', 'son', 'main', 'campo', 'wireline', 'res'):
+            if kw in n:
+                sc += 3
+        if 'gr' in n:
+            sc += 2
+        if p.parent == well_dir:
+            sc += 1
+        sc += min(p.stat().st_size / 5e6, 2.0)
+        return sc
+
+    def _header_ok(p):
+        """读 LAS 头：曲线数/是否含 GR+电阻率/深度跨度。"""
+        try:
+            with open(p, 'r', encoding='utf-8', errors='ignore') as f:
+                head = f.read(8000)
+        except Exception:
+            return False
+        hu = head.upper()
+        if '~C' not in hu:
+            return False
+        mnems = re.findall(r'^\s*([A-Z][A-Z0-9_]{0,8})\s*\.', hu, re.M)
+        mnems = [m.strip().upper() for m in mnems]
+        has_gr = any(m.startswith(('GR', 'CGR', 'SGR')) for m in mnems)
+        has_res = any(m.startswith(('RT', 'RD', 'RS', 'LLD', 'LLS', 'ILD', 'RES', 'MSFL', 'RMSL', 'RAL'))
+                      for m in mnems)
+        if not (has_gr and has_res):
+            return False
+        def _num(key):
+            m = re.search(r'\b' + key + r'\s*\.\s*([-+0-9.eE]+)', hu)
+            return float(m.group(1)) if m else None
+        strt, stop = _num('STRT'), _num('STOP')
+        if strt is not None and stop is not None and abs(stop - strt) < 50:
+            return False
+        return True
+
     root_las = [p for p in well_dir.glob('*.[lL][aA][sS]') if _not_gas(p)]
-    if root_las:
-        root_las.sort(key=lambda x: x.stat().st_size, reverse=True)
-        return root_las[0]
-    all_las = [p for p in well_dir.rglob('*.[lL][aA][sS]') if _not_gas(p)]
-    if not all_las:
-        # 全部被判定为气测 → 退回不过滤，避免无主文件可用
-        all_las = list(well_dir.rglob('*.[lL][aA][sS]'))
-    if not all_las:
+    cand = root_las or [p for p in well_dir.rglob('*.[lL][aA][sS]') if _not_gas(p)]
+    if not cand:
+        cand = list(well_dir.rglob('*.[lL][aA][sS]'))
+    if not cand:
         return None
-    all_las.sort(key=lambda x: x.stat().st_size, reverse=True)
-    return all_las[0]
+    cand.sort(key=_score, reverse=True)
+    for p in cand:
+        if _header_ok(p):
+            return p
+    # 全都不满足头校验：退回最大的、非气测文件（保持旧行为，避免无文件可用）
+    cand.sort(key=lambda x: x.stat().st_size, reverse=True)
+    return cand[0]
+
 
 def _extract_md_knowledge(md_files, limit_chars=6000):
     """从井文件夹中的 .md 知识文件提取结构化知识（BET-1 模式下这些是
