@@ -3120,6 +3120,7 @@ DEFAULT_CUTOFFS = {
     'rt_gas': None,       # 气层 RT 下限（默认 50 ohm·m）
     'rt_oil': None,       # 油层 RT 下限（默认 30）
     'rt_water': None,     # 水层 RT 上限（默认 20）
+    'por_gas_min': None,  # 气/油层孔隙度下限（默认=por_hc；分井细调干层用）
 }
 
 # 【R31 用户要求】每个截止值参数的中文说明——写入 <井名>info.json
@@ -3139,6 +3140,8 @@ _CUTOFF_PARAM_DOCS = {
               '默认 50',
     'rt_oil': '油层电阻率 RT 下限(ohm·m)；默认 30',
     'rt_water': '水层电阻率 RT 上限(ohm·m)；默认 20',
+    'por_gas_min': '气/油层孔隙度下限(小数)。默认=por_hc；分井细调干层时设更高值'
+                   '(如干层 PHI≈0.105 的井设 0.11，低孔段交干层判据)',
 }
 
 # 当前井生效的解释截止值（run_workflow 读取 info.json 后设置；
@@ -3324,6 +3327,19 @@ def build_interpretation_rules(cut=None):
             r[sec] = [tuple(c[:2]) + (_vmap[c[2]],) + tuple(c[3:])
                       if len(c) > 2 and c[2] in _vmap else tuple(c)
                       for c in r[sec]]
+    # 【2026-10-31 分井参数】por_gas_min：气/油层孔隙度下限（默认=por_hc）。
+    # 例：XIMENIA S-1 干层 PHI≈0.105，若气层下限仍 0.06 会优先判气；设 0.11 后
+    # 低孔段交给 DRY 判据，仅本井生效。
+    _pgm = cut.get('por_gas_min') if isinstance(cut, dict) else None
+    if _pgm is not None:
+        try:
+            _pgm = float(_pgm)
+            for r in rules:
+                if r.get('key') in ('GAS', 'OIL'):
+                    r['must'] = [(c, o, (_pgm if c == 'POR' else t)) for c, o, t in r['must']]
+                    r['deny'] = [(c, o, (_pgm if c == 'POR' else t)) for c, o, t in r['deny']]
+        except Exception:
+            pass
     return rules
 
 
