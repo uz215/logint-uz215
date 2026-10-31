@@ -23,9 +23,13 @@ MAX_PAGES = 40
 MAX_CHARS = 300_000
 
 
+def _path_doc_id(path: str) -> str:
+    return 'DOC:' + hashlib.sha1(path.encode('utf-8', 'replace')).hexdigest()[:16]
+
+
 def _store(conn, path: str, title: str, body: str, ext: str) -> str:
     sha1 = hashlib.sha1(body.encode('utf-8', 'replace')).hexdigest()
-    doc_id = 'DOC:' + hashlib.sha1(path.encode('utf-8', 'replace')).hexdigest()[:16]
+    doc_id = _path_doc_id(path)
     mtime = os.path.getmtime(path) if os.path.exists(path) else 0
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
@@ -92,6 +96,8 @@ def extract_pptx(path: str) -> str:
 
 
 def ingest_rich_file(conn, path: str) -> str:
+    if conn.execute('SELECT 1 FROM doc WHERE id=?', (_path_doc_id(path),)).fetchone():
+        return 'SKIP_EXISTING'
     ext = os.path.splitext(path)[1].lower()
     if os.path.getsize(path) > MAX_FILE_MB * 1024 * 1024:
         return 'SKIP_TOO_LARGE'
@@ -109,6 +115,7 @@ def ingest_rich_file(conn, path: str) -> str:
 
 def ingest_rich_directory(conn, root: str, limit: int | None = None,
                           pattern=('.pdf', '.pptx')) -> dict:
+    """入库目录下 PDF/PPTX；已入库文件跳过（可续跑），limit 只计**新增**文档数。"""
     res = {'ok': 0, 'skip': 0, 'fail': 0, 'errors': [], 'files': []}
     for dirpath, _dirs, files in os.walk(root):
         for fn in files:
@@ -125,6 +132,6 @@ def ingest_rich_directory(conn, root: str, limit: int | None = None,
             except Exception as e:
                 res['fail'] += 1
                 res['errors'].append('%s: %s' % (fn, e))
-            if limit and (res['ok'] + res['skip'] + res['fail']) >= limit:
+            if limit and res['ok'] >= limit:
                 return res
     return res
