@@ -3292,6 +3292,38 @@ def get_active_regional():
     return dict(_ACTIVE_REGIONAL)
 
 
+def auto_interpret_interval(processed_data, min_valid_curves: int = 2):
+    """自动解释井段：裸眼段（非套管）内、有电测数据覆盖的连续范围。
+
+    用户口径（2026-10-31）："按电测数据进入裸眼段开始，没有电测数据也没法解释"。
+    返回 {'top','bottom','unit','note'} 或 None。
+    """
+    if processed_data is None or 'MD' not in processed_data.columns:
+        return None
+    import numpy as _np2
+    md = pd.to_numeric(processed_data['MD'], errors='coerce')
+    casing = processed_data.get('IS_CASING')
+    if casing is not None:
+        casing = pd.Series(casing).fillna(False).astype(bool).values
+    else:
+        casing = _np2.zeros(len(processed_data), dtype=bool)
+    core = []
+    for c in ('GR', 'RT', 'DEN', 'CNL', 'DT', 'RAL5', 'RAL1'):
+        if c in processed_data.columns:
+            core.append(pd.to_numeric(processed_data[c], errors='coerce').notna().values)
+    if not core:
+        return None
+    valid = _np2.vstack(core).sum(axis=0) >= int(min_valid_curves)
+    ok = valid & (~casing) & md.notna().values
+    if not ok.any():
+        return None
+    mdv = md.values
+    top = float(mdv[ok].min())
+    bot = float(mdv[ok].max())
+    return {'top': top, 'bottom': bot, 'unit': 'm', 'auto': True,
+            'note': '自动：裸眼段+有电测数据范围（无电测段不解释）'}
+
+
 def load_interpret_interval(well_dir, well_name=''):
     """读取「解释井段」：{"顶深":x,"底深":y,"单位":"m","说明":...}。
 
@@ -3321,6 +3353,11 @@ def load_interpret_interval(well_dir, well_name=''):
         if isinstance(itv, (list, tuple)) and len(itv) >= 2:
             itv = {'顶深': itv[0], '底深': itv[1], '单位': (itv[2] if len(itv) > 2 else 'm')}
         if isinstance(itv, dict):
+            if itv.get('自动') or str(itv.get('顶深', '')).strip().lower() in ('auto', '自动'):
+                return {'auto': True,
+                        'unit': str(itv.get('单位') or 'm'),
+                        'note': str(itv.get('说明') or '自动：裸眼段且有电测数据范围'),
+                        'path': str(p)}
             try:
                 top = float(itv.get('顶深', itv.get('top')))
                 bot = float(itv.get('底深', itv.get('bottom')))
@@ -15777,10 +15814,17 @@ class WellLogProcessor:
                     if _lp0:
                         _cand_dirs.append(Path(_lp0).parent)
                     _cand_dirs.append(Path(well_output_dir))
+                    # 输出目录先读、源井目录后读（源井人工配置优先，逐键深合并）
+                    _cand_dirs = list(reversed(_cand_dirs))
                     for _d in _cand_dirs:
                         for _f in _glob.glob(str(_d / '*info.json')):
                             try:
-                                _info.update(_json.load(open(_f, encoding='utf-8')))
+                                _nv = _json.load(open(_f, encoding='utf-8'))
+                                for _k, _v in _nv.items():
+                                    if isinstance(_v, dict) and isinstance(_info.get(_k), dict):
+                                        _info[_k].update(_v)
+                                    else:
+                                        _info[_k] = _v
                             except Exception:
                                 pass
                 except Exception:
@@ -15797,6 +15841,15 @@ class WellLogProcessor:
                     # 解释井段限制：段外点结论清空、canonical 层表裁剪到目标井段
                     try:
                         _itv = self.results.get('interpret_interval')
+                        if _itv and _itv.get('auto'):
+                            _auto = auto_interpret_interval(
+                                self.results['processed_data'])
+                            if _auto:
+                                _auto['note'] = (_itv.get('note') or '') + '；' + _auto['note']
+                                _itv = _auto
+                                self.results['interpret_interval'] = _auto
+                                logger.info('自动解释井段: %.1f–%.1f m',
+                                            _auto['top'], _auto['bottom'])
                         if _itv:
                             _du_iv = (
                                 getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
@@ -15823,10 +15876,10 @@ class WellLogProcessor:
                                 _lay_iv = _lay_iv.loc[_keep].reset_index(drop=True)
                                 _lay_iv.to_csv(_cp_iv, index=False, encoding='utf-8-sig')
                                 _fin['canonical_rows'] = int(len(_lay_iv))
+                                _fin['interval'] = _itv            # 供后续（气田先验）重写时保留
+                                _fin['interval_units'] = _du_iv
                                 import json as _js
-                                _js.dump({**_fin, 'interval': _itv,
-                                          'interval_units': _du_iv},
-                                         open(_fin['decision_path'], 'w', encoding='utf-8'),
+                                _js.dump(_fin, open(_fin['decision_path'], 'w', encoding='utf-8'),
                                          ensure_ascii=False, indent=2)
                                 logger.info('解释井段限制: 段外点 %d，层表裁剪 %d 层', _n_out, _n_drop)
                     except Exception as _ive2:
@@ -15844,6 +15897,34 @@ class WellLogProcessor:
                             self.results['processed_data']['INTERPRETATION'] = np.array(
                                 _pl, dtype=object)
                             logger.info('点数据 INTERPRETATION 已同步为 ML 标签（单一来源）')
+                    # 气田先验（地区经验：邻井试油均气井/含GWC）→ 段内 OIL/GAS_OIL→GAS
+                    try:
+                        _rk = (_info.get('区域知识') or {}) if isinstance(_info, dict) else {}
+                        _gasfield = bool(_rk.get('气田') or _rk.get('all_gas'))
+                        logger.info('气田先验检查: 区域知识键=%s 气田=%s',
+                                    list(_rk.keys())[:8], _rk.get('气田'))
+                        if _gasfield:
+                            _cp_g = _fin['canonical']
+                            _lay_g = pd.read_csv(_cp_g)
+                            _m_g = _lay_g['INTERPRETATION'].astype(str).str.upper().isin(
+                                ['OIL', 'GAS_OIL', 'OIL_GAS'])
+                            _n_g = int(_m_g.sum())
+                            if _n_g:
+                                _lay_g.loc[_m_g, 'INTERPRETATION'] = 'GAS'
+                                # 全列构造后再赋值（避免 pandas3 子集 StringArray 赋值报错）
+                                _col_rv = _lay_g['REVIEW_FLAG'].fillna('').astype(str)
+                                _col_rv = _col_rv.where(~_m_g, _col_rv + ';气田先验(邻井试油气井)')
+                                _lay_g['REVIEW_FLAG'] = _col_rv
+                                _lay_g.to_csv(_cp_g, index=False, encoding='utf-8-sig')
+                                _fin['gas_field_prior'] = True
+                                _fin['gas_field_relabeled'] = _n_g
+                                import json as _js2
+                                _js2.dump({**_fin, 'note': '气田先验：OIL/GAS_OIL→GAS'},
+                                          open(_fin['decision_path'], 'w', encoding='utf-8'),
+                                          ensure_ascii=False, indent=2)
+                                logger.info('气田先验: %d 个油/混层改判为 GAS', _n_g)
+                    except Exception as _gfe:
+                        logger.warning('气田先验应用失败（忽略）: %s', _gfe)
                     # 知识证据统一附加到 canonical（覆盖/刷新 EV_* 列）
                     try:
                         from logsys.evidence_stack import enrich_layers_file

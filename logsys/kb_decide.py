@@ -39,6 +39,36 @@ def _read_csv(p, **kw):
         return pd.DataFrame()
 
 
+def _img_data_uri(p: str) -> str:
+    try:
+        import base64
+        if p and os.path.exists(p):
+            b = base64.b64encode(open(p, 'rb').read()).decode('ascii')
+            return 'data:image/png;base64,' + b
+    except Exception:
+        pass
+    return ''
+
+
+def _html_to_pdf(html_text: str, pdf_path: str) -> str | None:
+    try:
+        import fitz
+        story = fitz.Story(html=html_text)
+        writer = fitz.DocumentWriter(pdf_path)
+        mediabox = fitz.paper_rect('a4')
+        where = mediabox + (36, 36, -36, -36)
+        more = True
+        while more:
+            dev = writer.begin_page(mediabox)
+            more, _ = story.place(where)
+            story.draw(dev)
+            writer.end_page()
+        writer.close()
+        return pdf_path
+    except Exception:
+        return None
+
+
 def _fmt_pct(v):
     return ('%.1f%%' % (100 * v)) if isinstance(v, (int, float)) and v == v else '-'
 
@@ -276,9 +306,13 @@ def render_html(rec: dict, out_dir: str) -> str:
     html.append('<p>点流体：%s</p>' % cd.get('point_fluid_dist'))
     html.append('<p>层流体：%s</p>' % cd.get('fluid_dist'))
     if figs.get('lith'):
-        html.append('<img src="%s">' % os.path.basename(figs['lith']))
+        _u = _img_data_uri(figs.get('lith'))
+        if _u:
+            html.append('<img src="%s" width="640">' % _u)
     if figs.get('fluid'):
-        html.append('<img src="%s">' % os.path.basename(figs['fluid']))
+        _u = _img_data_uri(figs.get('fluid'))
+        if _u:
+            html.append('<img src="%s" width="560">' % _u)
     # 指标
     html.append('<h2>5. 准确率与指标</h2><table>')
     if fluid_m:
@@ -314,7 +348,15 @@ def render_html(rec: dict, out_dir: str) -> str:
         html.append('</ul>')
     html.append('</body></html>')
     p = os.path.join(d, '%s_decision_report.html' % well)
-    open(p, 'w', encoding='utf-8').write('\n'.join(html))
+    _txt = '\n'.join(html)
+    open(p, 'w', encoding='utf-8').write(_txt)
+    # PDF 版（HTML→PDF；失败不影响主流程）
+    try:
+        _pdf = os.path.join(d, '%s_decision_report.pdf' % well)
+        if _html_to_pdf(_txt, _pdf):
+            pass
+    except Exception:
+        pass
     return p
 
 
@@ -324,7 +366,9 @@ def build(out_dir: str, well: str, info: dict | None = None) -> dict:
         rec = collect(out_dir, well, info)
         rp = write_record(rec, out_dir)
         hp = render_html(rec, out_dir)
-        return {'ok': True, 'record_path': rp, 'report_path': hp}
+        _pf = os.path.join(str(out_dir), str(well) + '_decision_report.pdf')
+        return {'ok': True, 'record_path': rp, 'report_path': hp,
+                'report_pdf': (_pf if os.path.exists(_pf) else None)}
     except Exception as e:
         return {'ok': False, 'error': '%s: %s' % (type(e).__name__, e)}
 
