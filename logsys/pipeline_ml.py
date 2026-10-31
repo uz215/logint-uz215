@@ -71,7 +71,7 @@ CLASS_TO_LAYER = {'GAS': 'GAS', 'GAS_OIL': 'GAS_OIL', 'OIL': 'OIL',
 
 
 def apply_ml_fluid(processed_data: pd.DataFrame, well_name: str, output_dir: str,
-                   unit: str = 'm') -> dict:
+                   unit: str = 'm', regional: dict | None = None) -> dict:
     """对成果数据应用标定模型，产出 ML 层表。返回状态 dict（永不抛异常）。"""
     try:
         model_path = os.path.join(model_dir(), str(well_name) + '.joblib')
@@ -99,6 +99,19 @@ def apply_ml_fluid(processed_data: pd.DataFrame, well_name: str, output_dir: str
         except Exception:
             pass
         pred = _smooth(np.asarray(pred, dtype=object), win=5)
+
+        # 区域知识：流体分带（浅层气/深层油、油水同层等）先应用到 ML 预测，再拆气上油下
+        if regional:
+            try:
+                from .zonation import apply_zonation
+                _tmpz = pd.DataFrame({'MD': pd.to_numeric(d['MD'], errors='coerce'),
+                                      'INTERPRETATION': pd.Series(pred)})
+                _rz = apply_zonation(_tmpz, regional, depth_unit=unit)
+                if _rz.get('applied'):
+                    pred = _tmpz['INTERPRETATION'].astype(object).values
+                    logger.info('ML 流体分带: 改动 %s 点', _rz.get('changed'))
+            except Exception as _zle:
+                logger.warning('ML 流体分带失败（忽略）: %s', _zle)
 
         # 油气同层必须气上油下：把 ML 的 GAS_OIL 段按气测证据拆成 GAS(上)+OIL(下)
         try:

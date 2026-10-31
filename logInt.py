@@ -15411,13 +15411,20 @@ class WellLogProcessor:
                                      get_active_regional(), depth_unit=_du_zn)
                 self.results['fluid_zonation'] = _zn
                 if _zn.get('applied'):
-                    logger.info('流体分带: 浅层→%s %d 点, 深层→%s %d 点 (转换深度 %.1f %s)',
-                                _zn.get('shallow_label'), _zn.get('shallow_to_gas'),
-                                _zn.get('deep_label'), _zn.get('deep_to_oil'),
-                                _zn.get('boundary'), _zn.get('unit'))
-                    print(f"流体分带: 转换深度 {_zn.get('boundary')} {_zn.get('unit')} "
-                          f"(浅层→{_zn.get('shallow_label')} {_zn.get('shallow_to_gas')} 点, "
-                          f"深层→{_zn.get('deep_label')} {_zn.get('deep_to_oil')} 点)")
+                    if _zn.get('bands'):
+                        _bd = '; '.join('%s[%s,%s]' % (b.get('fluid'), b.get('lo'), b.get('hi'))
+                                        for b in _zn['bands'])
+                        logger.info('流体分带(多段): %s | 改动 %d 点 | 计数 %s',
+                                    _bd, _zn.get('changed'), _zn.get('counts'))
+                        print(f"流体分带(多段): {_bd} | 改动 {_zn.get('changed')} 点")
+                    else:
+                        logger.info('流体分带: 浅层→%s %d 点, 深层→%s %d 点 (转换深度 %.1f %s)',
+                                    _zn.get('shallow_label'), _zn.get('shallow_to_gas'),
+                                    _zn.get('deep_label'), _zn.get('deep_to_oil'),
+                                    _zn.get('boundary'), _zn.get('unit'))
+                        print(f"流体分带: 转换深度 {_zn.get('boundary')} {_zn.get('unit')} "
+                              f"(浅层→{_zn.get('shallow_label')} {_zn.get('shallow_to_gas')} 点, "
+                              f"深层→{_zn.get('deep_label')} {_zn.get('deep_to_oil')} 点)")
             except Exception as _zne:
                 logger.warning('流体分带整饰失败（忽略）: %s', _zne)
 
@@ -15477,7 +15484,8 @@ class WellLogProcessor:
                         if isinstance(getattr(self, 'config', None), dict) else 'm'))
                 _ml = apply_ml_fluid(
                     self.results['processed_data'], str(well_name),
-                    str(well_output_dir), unit=_du_ml)
+                    str(well_output_dir), unit=_du_ml,
+                    regional=get_active_regional())
                 self.results['ml_fluid'] = _ml
                 if _ml.get('available'):
                     logger.info('ML 流体层表已生成: %s (%s 层)',
