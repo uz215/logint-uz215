@@ -15418,6 +15418,33 @@ class WellLogProcessor:
             except Exception as _mle:
                 logger.warning('ML 流体接入异常（忽略）: %s', _mle)
 
+            # 【2026-10-31 R38】知识证据栈进层表：为每层附加相似案例(同流体)/标准条款/证据置信度，
+            # 只追加 EV_* 列，不改结论；kb.db 不存在或无案例时静默跳过（不中断主流程）。
+            try:
+                from logsys.evidence_stack import enrich_layers_file
+                _du_ev = (
+                    getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
+                    or (self.results.get('las_info') or {}).get('depth_unit')
+                    or (self.config.get('depth_unit', 'm')
+                        if isinstance(getattr(self, 'config', None), dict) else 'm'))
+                _kb_ev = str(getattr(self, 'kb_db_path', '') or '') or str(
+                    Path(__file__).resolve().parent / 'data' / 'kb' / 'kb.db')
+                _ev_targets = [self.results.get('layers_path'),
+                               (self.results.get('ml_fluid') or {}).get('layers_path')]
+                for _evp in _ev_targets:
+                    if not _evp or not Path(_evp).exists():
+                        continue
+                    _evr = enrich_layers_file(_kb_ev, str(well_name), str(_evp), unit=_du_ev)
+                    if _evr.get('ok'):
+                        logger.info('知识证据: %s 案例 %s/%s 层 (平均置信 %s)',
+                                    Path(_evp).name, _evr.get('rows_with_cases'),
+                                    _evr.get('rows'), _evr.get('avg_conf'))
+                        print(f"知识证据: {Path(_evp).name} 案例 {_evr.get('rows_with_cases')}/{_evr.get('rows')} 层")
+                    else:
+                        logger.info('知识证据跳过: %s', _evr.get('reason'))
+            except Exception as _eve:
+                logger.warning('知识证据附加失败（忽略）: %s', _eve)
+
             # 【2026-10-26 R25】CSV/LAS 导出移到 REG 与盖层下油气补偿改判之后：
             # 此前 CSV 在 Step 4 保存、REG 列与 rejudge 改判发生在其后，
             # 导致 CSV 缺 REG 列且 354 点 WATER→OIL 改判不落盘
