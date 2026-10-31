@@ -15493,17 +15493,27 @@ class WellLogProcessor:
                 main_data = self.results['processed_data']
                 if 'MD' in main_data.columns:
                     # 确保MD列类型一致（merge_asof要求相同dtype）
-                    gas_sorted = gas_data.sort_values('MD')
-                    gas_sorted['MD'] = gas_sorted['MD'].astype(float)
-                    main_sorted = main_data[['MD']].sort_values('MD')
-                    main_sorted['MD'] = main_sorted['MD'].astype(float)
+                    # 【2026-10-31 R57】merge_asof 不允许深度键含 NaN：
+                    # 主数据/气测深度 NaN 先行剔除，再按原行序还原（长度与主数据一致），
+                    # 避免个别坏深度点导致整个气测接入失败。
+                    gas_sorted = gas_data.copy()
+                    gas_sorted['MD'] = pd.to_numeric(gas_sorted['MD'], errors='coerce').astype(float)
+                    gas_sorted = gas_sorted.dropna(subset=['MD']).sort_values('MD')
+                    main_all = main_data[['MD']].copy()
+                    main_all['_row'] = np.arange(len(main_all))
+                    main_keys = main_all.copy()
+                    main_keys['MD'] = pd.to_numeric(main_keys['MD'], errors='coerce').astype(float)
+                    main_keys = main_keys.dropna(subset=['MD']).sort_values('MD')
+                    if len(main_keys) == 0 or len(gas_sorted) == 0:
+                        raise ValueError('气测/主数据无有效深度')
                     gas_aligned = pd.merge_asof(
-                        main_sorted, gas_sorted, on='MD', direction='nearest', tolerance=1.0
+                        main_keys, gas_sorted, on='MD', direction='nearest', tolerance=1.0
                     )
-                    gas_data = gas_aligned.drop(columns=['MD'])
-                    # 重建带深度列的气测DataFrame
-                    gas_data.insert(0, 'MD', main_sorted['MD'].values)
-                    gas_data = gas_data.sort_values('MD').reset_index(drop=True)
+                    gas_aligned = gas_aligned.set_index('_row').reindex(range(len(main_all)))
+                    gas_data = gas_aligned.drop(columns=['MD']).reset_index(drop=True)
+                    # 重建带深度列的气测DataFrame（与主数据逐行对齐）
+                    gas_data.insert(0, 'MD', pd.to_numeric(
+                        main_all['MD'], errors='coerce').values)
                     # 【2026-10-08】气测曲线平滑（用户要求：全烃曲线有台阶，
                     # 平滑成正常连续曲线）。气测采样远稀于测井网格(0.25ft)，
                     # nearest 对齐后同一样本被重复赋给多个测井点 → 阶梯状。
@@ -15512,8 +15522,8 @@ class WellLogProcessor:
                     # 平滑发生在全部解释步骤之后、仅供建模绘制使用，
                     # 不会反哺任何解释判断。
                     try:
-                        _mstep = float(np.median(np.diff(main_sorted['MD'].values))) \
-                            if len(main_sorted) > 1 else 0.25
+                        _mstep = float(np.median(np.diff(main_keys['MD'].values))) \
+                            if len(main_keys) > 1 else 0.25
                         _gstep = float(np.median(np.diff(
                             gas_sorted['MD'].dropna().values))) \
                             if len(gas_sorted) > 1 else _mstep
@@ -18951,12 +18961,38 @@ def attach_gas_plate(data, gas_data, tolerance=1.0):
     g = gas_data[['MD'] + cols].copy()
     g['MD'] = pd.to_numeric(g['MD'], errors='coerce')
     g = g.dropna(subset=['MD']).sort_values('MD')
-    left = pd.DataFrame({'MD': pd.to_numeric(out['MD'], errors='coerce').values,
-                         '_ord': np.arange(len(out))}).sort_values('MD')
+    # 【2026-10-31 R57】主数据深度可能存在个别 NaN：merge_asof 不接受空键，
+    # 先取有效深度的行参与对齐，再按原行序还原（其余点 NaN）。
+    left_all = pd.DataFrame({'MD': pd.to_numeric(out['MD'], errors='coerce').values,
+                             '_ord': np.arange(len(out))})
+    left = left_all.dropna(subset=['MD']).sort_values('MD')
     try:
         merged = pd.merge_asof(left, g, on='MD', direction='nearest',
                                tolerance=float(tolerance))
         res = evaluate_points(merged, load_config(), depth_col='MD')
+        # 【2026-10-31 R57】干气补充：Pixler 比值区间(油气 2–35)不含干气(C1/C2>50)，
+        # 本区气田为干气，高 C1/C2、低 C2/C3、C2 极小 → 干气判 GAS（避免误落 DRY）
+        try:
+            import numpy as _np3
+            _c1 = pd.to_numeric(merged.get('C1'), errors='coerce')
+            _c2 = pd.to_numeric(merged.get('C2'), errors='coerce')
+            _c3 = pd.to_numeric(merged.get('C3'), errors='coerce')
+            _r12 = _c1 / _c2.replace(0, _np3.nan)
+            _r23 = _c2 / _c3.replace(0, _np3.nan)
+            # C3=0（干气无丙烷）也视为干气；C2/C3<1 或 C3 缺失/为0
+            _r23_ok = (_r23 < 1.0) | _c3.fillna(0).le(0)
+            _dry = (_c1.notna() & (_c1 > 1000) & (_r12 > 50) & _r23_ok)
+            if _dry.any() and 'PLATE_FLUID' in res.columns:
+                _idx = _dry.values & res['PLATE_FLUID'].astype(str).eq('DRY').values
+                if _idx.any():
+                    res.loc[_idx, 'PLATE_FLUID'] = 'GAS'
+                    if 'PLATE_CONF' in res.columns:
+                        res.loc[_idx, 'PLATE_CONF'] = 0.55
+                    if 'PLATE_WHY' in res.columns:
+                        res.loc[_idx, 'PLATE_WHY'] = '干气(高C1/C2,低C2/C3)'
+                    logger.info('气测干气补充: %d 点 DRY→GAS（高C1/C2）', int(_idx.sum()))
+        except Exception as _dge:
+            logger.warning('干气补充失败（忽略）: %s', _dge)
     except Exception as _e:
         logger.warning('气测图版判别失败（不影响主流程）: %s', _e)
         return data, 0
