@@ -290,8 +290,11 @@ def apply_well(spec: dict, out_dir: str, use_oof: bool = False) -> dict:
     out['FLUID_ML_CONF'] = np.round(proba, 3)
     out['INTERPRETATION_ML'] = [CLASS_TO_LAYER.get(p, '') for p in pred]
 
-    # ---- 层表 ----
+    # ---- 层表（带 LITHOLOGY/PHI/Sw/RT 满足契约）----
     lay_input = out[['MD', 'INTERPRETATION_ML']].rename(columns={'INTERPRETATION_ML': 'INTERPRETATION'})
+    for _c in ('LITHOLOGY', 'PHI', 'Sw', 'RT'):
+        if _c in out.columns and _c not in lay_input.columns:
+            lay_input[_c] = out[_c]
     layers = build_layers(lay_input, min_thick=0.4 if spec.get('unit', 'm') == 'm' else 1.3,
                           thin_absorb=0.6 if spec.get('unit', 'm') == 'm' else 2.0,
                           gap_break=0.5 if spec.get('unit', 'm') == 'm' else 1.6)
