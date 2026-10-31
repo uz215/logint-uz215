@@ -3288,6 +3288,48 @@ def get_active_regional():
     return dict(_ACTIVE_REGIONAL)
 
 
+def load_interpret_interval(well_dir, well_name=''):
+    """读取「解释井段」：{"顶深":x,"底深":y,"单位":"m","说明":...}。
+
+    用于加深井/侧钻井只关注目标井眼段（如 RP-13 8.5in 井眼 2900-4200m）。
+    候选位置同 load_interpretation_cutoffs：源井目录/输出目录的 <井>info.json。
+    """
+    if not well_dir:
+        return None
+    wd = Path(well_dir)
+    cands = []
+    try:
+        cands += sorted(wd.glob('*info.json'))
+    except Exception:
+        pass
+    try:
+        if wd.parent:
+            cands += sorted(wd.parent.glob('*info.json'))
+    except Exception:
+        pass
+    import json as _json
+    for p in cands:
+        try:
+            d = _json.load(open(p, encoding='utf-8'))
+        except Exception:
+            continue
+        itv = d.get('解释井段')
+        if isinstance(itv, (list, tuple)) and len(itv) >= 2:
+            itv = {'顶深': itv[0], '底深': itv[1], '单位': (itv[2] if len(itv) > 2 else 'm')}
+        if isinstance(itv, dict):
+            try:
+                top = float(itv.get('顶深', itv.get('top')))
+                bot = float(itv.get('底深', itv.get('bottom')))
+                if bot > top:
+                    return {'top': top, 'bottom': bot,
+                            'unit': str(itv.get('单位') or itv.get('unit') or 'm'),
+                            'note': str(itv.get('说明') or itv.get('note') or ''),
+                            'path': str(p)}
+            except Exception:
+                continue
+    return None
+
+
 def load_regional_knowledge(well_dir, well_name=''):
     """读 <井名>info.json「区域知识」组 → dict（无文件/无组/空值=不约束）。
 
@@ -12454,11 +12496,33 @@ class LithologyRecognizer:
         return rng
 
     # ------------------------------------------------------------------
+    def _evidence_fallback(self, i):
+        """证据不足时的兜底：仅凭 GR/VSH 的强证据给砂/泥，否则 unknown。
+
+        用户口径（2026-10-31）：岩性不能默认泥岩；只有明确高 GR/高 VSH 才判泥岩，
+        明确低 GR/低 VSH 才判砂岩，其余保持 unknown（交层表按 unknown 处理）。
+        """
+        gr = self._val(i, 'GR')
+        vsh = self._val(i, 'VSH')
+        if gr is not None and np.isfinite(gr):
+            if gr >= 110.0:
+                return ('shale', '证据兜底: GR=%.0f≥110 → 泥岩' % gr, 1.0)
+            if gr <= 75.0:
+                return ('sandstone', '证据兜底: GR=%.0f≤75 → 砂岩' % gr, 1.0)
+        if vsh is not None and np.isfinite(vsh):
+            if vsh >= 0.55:
+                return ('shale', '证据兜底: VSH=%.2f≥0.55 → 泥岩' % vsh, 1.0)
+            if vsh <= 0.20:
+                return ('sandstone', '证据兜底: VSH=%.2f≤0.20 → 砂岩' % vsh, 1.0)
+        return None
+
+    # ------------------------------------------------------------------
     def recognize(self, depth_min=None, depth_max=None):
         """执行识别，返回长度与 data 相同的岩性名数组（小写英文）。"""
         md = pd.to_numeric(self.raw['MD'], errors='coerce').values
         n = len(md)
-        lith = np.array(['shale'] * n, dtype=object)
+        # 【2026-10-31 R53】不再默认泥岩：无证据点标 unknown（用户口径：岩性不能默认泥岩）
+        lith = np.array(['unknown'] * n, dtype=object)
         conf = np.zeros(n, dtype=float)
         rup = np.array([''] * n, dtype=object)
         why = np.array([''] * n, dtype=object)
@@ -12517,12 +12581,22 @@ class LithologyRecognizer:
                     cands.append((s, rule.get('priority', 0), rule['key'],
                                   '; '.join(reasons)))
             if not cands:
-                # 无任何岩性通过多判据检验 → 保持默认泥岩（兜底）
+                # 无任何岩性通过多判据检验 → 证据兜底（GR/VSH），无证据才 unknown
+                _fb = self._evidence_fallback(i)
+                if _fb:
+                    lith[i], why[i], conf[i] = _fb
+                else:
+                    why[i] = '多判据未通过且无 GR/VSH 证据 → unknown'
                 continue
             # 排序：先按加权总分，同分再按优先级（煤/碳质泥岩优先于砂泥岩）
             cands.sort(key=lambda x: (x[0], x[1]), reverse=True)
             best_s, _pri, best_key, best_why = cands[0]
             if best_s < self._min_score(best_key):
+                _fb = self._evidence_fallback(i)
+                if _fb:
+                    lith[i], why[i], conf[i] = _fb
+                else:
+                    why[i] = '规则得分%.1f不足且无证据 → unknown' % best_s
                 continue
             lith[i] = best_key
             conf[i] = best_s
@@ -12537,7 +12611,7 @@ class LithologyRecognizer:
         try:
             _n_fill = 0
             for _i in range(n):
-                if lith[_i] != 'shale' or conf[_i] != 0.0:
+                if lith[_i] != 'unknown' or conf[_i] != 0.0:
                     continue
                 if self.n_casing and bool(self.casing_mask[_i]):
                     continue
@@ -14257,6 +14331,18 @@ class WellLogProcessor:
             except Exception as _rce:
                 logger.warning('区域标定回退失败（忽略）: %s', _rce)
             set_active_cutoffs(cutoffs)
+            # 【2026-10-31 R53】解释井段（加深井只解释目标井眼段）
+            try:
+                _itv = load_interpret_interval(
+                    str(_wd_src) if _wd_src else str(well_output_dir),
+                    str(getattr(self, 'well_name', '')))
+                if _itv:
+                    self.results['interpret_interval'] = _itv
+                    logger.info('解释井段: %.1f–%.1f %s（%s）', _itv['top'], _itv['bottom'],
+                                _itv['unit'], _itv.get('note', ''))
+                    print(f"解释井段: {_itv['top']:.1f}–{_itv['bottom']:.1f} {_itv['unit']}")
+            except Exception as _ive:
+                logger.warning('解释井段加载失败（忽略）: %s', _ive)
             _rules_well = build_interpretation_rules(cutoffs)
             # 【R36 用户定案】区域知识同样关键：剖面类型/有无煤层等区域级
             # 认识走 <井名>info.json「区域知识」组（空=不约束），结构化
@@ -15226,6 +15312,10 @@ class WellLogProcessor:
                 # 保证两条岩性链路（LITHOLOGY / LITHOLOGY_MC）口径一致，
                 # 且下游绘图能正确显示"套管"图例。
                 _cmask = pd_data.get('IS_CASING')
+                if _cmask is not None:
+                    # 【2026-10-31 R53】IS_CASING 可能含 NaN（不同 LAS/反演路径），
+                    # 直接作为布尔索引会报错；统一 NaN→False 再使用。
+                    _cmask = pd.Series(_cmask).fillna(False).astype(bool).values
                 if _cmask is not None and _cmask.any():
                     _n_cs = int(pd.Series(_cmask).sum())
                     _both = ['LITHOLOGY', 'LITHOLOGY_MC']
@@ -15700,6 +15790,43 @@ class WellLogProcessor:
                 self.results['interp_decision'] = _fin
                 self.results['final_interpretation_source'] = _fin.get('chosen')
                 if _fin.get('canonical'):
+                    # 解释井段限制：段外点结论清空、canonical 层表裁剪到目标井段
+                    try:
+                        _itv = self.results.get('interpret_interval')
+                        if _itv:
+                            _du_iv = (
+                                getattr(getattr(self, 'data_loader', None), 'depth_unit', None)
+                                or (self.results.get('las_info') or {}).get('depth_unit')
+                                or 'm')
+                            _iv_top, _iv_bot = float(_itv['top']), float(_itv['bottom'])
+                            _iv_unit = str(_itv.get('unit') or 'm')
+                            if _iv_unit.startswith('m') and str(_du_iv).startswith('ft'):
+                                _iv_top, _iv_bot = _iv_top * 3.28084, _iv_bot * 3.28084
+                            elif _iv_unit.startswith('ft') and str(_du_iv).startswith('m'):
+                                _iv_top, _iv_bot = _iv_top / 3.28084, _iv_bot / 3.28084
+                            _pd_iv = self.results['processed_data']
+                            _mdv = pd.to_numeric(_pd_iv['MD'], errors='coerce')
+                            _outside = (~((_mdv >= _iv_top) & (_mdv <= _iv_bot))).values
+                            _n_out = int(_outside.sum())
+                            if _n_out and 'INTERPRETATION' in _pd_iv.columns:
+                                _pd_iv.loc[_outside, 'INTERPRETATION'] = None
+                            _cp_iv = _fin['canonical']
+                            if Path(_cp_iv).exists():
+                                _lay_iv = pd.read_csv(_cp_iv)
+                                _keep = ((_lay_iv['BASE_MD'] > _iv_top) &
+                                         (_lay_iv['TOP_MD'] < _iv_bot)).values
+                                _n_drop = int((~_keep).sum())
+                                _lay_iv = _lay_iv.loc[_keep].reset_index(drop=True)
+                                _lay_iv.to_csv(_cp_iv, index=False, encoding='utf-8-sig')
+                                _fin['canonical_rows'] = int(len(_lay_iv))
+                                import json as _js
+                                _js.dump({**_fin, 'interval': _itv,
+                                          'interval_units': _du_iv},
+                                         open(_fin['decision_path'], 'w', encoding='utf-8'),
+                                         ensure_ascii=False, indent=2)
+                                logger.info('解释井段限制: 段外点 %d，层表裁剪 %d 层', _n_out, _n_drop)
+                    except Exception as _ive2:
+                        logger.warning('解释井段应用失败（忽略）: %s', _ive2)
                     self.results['layers_path'] = _fin['canonical']
                     self.results['layers'] = _fin.get('canonical_rows')
                     logger.info('解释裁决: %s（%s）；canonical=%s（%s 层）',
@@ -19328,10 +19455,16 @@ def _iterative_lith_review(data, profile_type='mixed'):
                              if ('GR' in _series and _ctx.size) else np.array([]))
                     _gr_c = _gr_c[np.isfinite(_gr_c)]
                     if _gr_s.size >= 3 and _gr_c.size >= 5:
-                        _tgt = ('shale' if float(np.median(_gr_s))
-                                >= float(np.median(_gr_c)) else 'sandstone')
+                        _gs = float(np.median(_gr_s)); _gc = float(np.median(_gr_c))
+                        # 绝对阈值约束：高 GR 才降级泥岩；低 GR 才降级砂岩；中间保持原判
+                        if _gs >= max(110.0, _gc + 10.0):
+                            _tgt = 'shale'
+                        elif _gs <= min(75.0, _gc - 10.0):
+                            _tgt = 'sandstone'
+                        else:
+                            _tgt = str(_lith_i)
                     else:
-                        _tgt = 'shale'
+                        _tgt = str(_lith_i)
                     _n_dem += 1
                     _tag = '少数派岩性参数对比否决降级→%s(%.0f分:%s)' % (
                         _tgt, _score, ','.join(_det) if _det else '无明细')
