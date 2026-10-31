@@ -33,6 +33,29 @@ CAND_FEATS = ['GR', 'PHI', 'SW_COMP', 'SW_LOG', 'LOG_RT', 'VSH', 'LOG_TG', 'PLAT
 FEATS = ['GR', 'PHI', 'SW_COMP', 'SW_LOG', 'LOG_RT', 'VSH']  # 兼容旧模型
 LABELS = ['GAS', 'OIL', 'WATER', 'TIGHT']
 CLASS_TO_LAYER = {'GAS': 'GAS', 'OIL': 'OIL', 'WATER': 'WATER', 'TIGHT': 'NonReservoir'}
+
+
+def postprocess(pred: np.ndarray, raw: pd.DataFrame, proba=None) -> np.ndarray:
+    """证据后处理：把明显的水/气从"默认 OIL"中纠出来。
+
+    raw 需含列：SW_LOG、LOG_TG、PLATE_NUM、PHI（可缺，缺则跳过对应规则）。
+    """
+    out = np.array(pred, dtype=object)
+    def col(name):
+        return raw[name].values if name in raw.columns else np.full(len(out), np.nan)
+    sw_log = col('SW_LOG'); log_tg = col('LOG_TG'); plate = col('PLATE_NUM'); phi = col('PHI')
+    sw_log = np.where(np.isnan(sw_log), 0.0, sw_log)
+    log_tg = np.where(np.isnan(log_tg), 0.0, log_tg)  # 0 = 无气测
+    has_tg = col('LOG_TG') == col('LOG_TG')
+    tg = np.where(has_tg, 10 ** np.nan_to_num(log_tg), -1.0)
+    is_oil_like = out == 'OIL'
+    # 水层：可动水饱和度高 + 气测很低（<5000ppm）
+    water = is_oil_like & (sw_log >= 0.85) & (tg >= 0) & (tg < 5000)
+    # 气层：图版判 GAS（PLATE_NUM=2）
+    gas = is_oil_like & (plate == 2.0)
+    out[water] = 'WATER'
+    out[gas] = 'GAS'
+    return out
 MODEL_DIR = os.path.join(r'D:\360\src', 'data', 'calibration', 'models')
 
 
@@ -134,9 +157,25 @@ def fit_well(spec: dict) -> dict:
         pts = attach_gas_tg(pts, spec['gas_file'])
     truth = load_truths(spec['truth'], spec['truth_kind'])
     pts['TRUTH'] = label_by_truth(pts, truth)
+    mixed_as = str(spec.get('mixed_as') or '').upper()
+    if mixed_as in ('GAS', 'OIL', 'WATER'):
+        pts.loc[pts['TRUTH'] == 'MIXED', 'TRUTH'] = mixed_as
     train = pts[(pts['TRUTH'] != 'NONE') & (pts['TRUTH'] != 'MIXED')].copy()
     if len(train) < 30:
         raise RuntimeError('样本太少: %d' % len(train))
+    # 类权重：balanced × 指定倍数（少数类补强）
+    boost = {str(k).upper(): float(v) for k, v in (spec.get('class_boost') or {}).items()}
+    counts = train['TRUTH'].value_counts().to_dict()
+    n_all = len(train); k_cls = max(len(counts), 1)
+    cap = float(spec.get('weight_cap', 2.0))
+    class_weight = {}
+    for c, cnt in counts.items():
+        w = (n_all / (k_cls * cnt)) * boost.get(c, 1.0)
+        if cnt < 20:          # 极小类不可靠，不加权
+            w = 1.0
+        class_weight[c] = min(w, cap * max(boost.get(c, 1.0), 1.0))
+    print('  类权重:', {k: round(v, 2) for k, v in class_weight.items()}, flush=True)
+
     # 动态特征选择：覆盖率 >=30% 且非常数
     feats = []
     for c in CAND_FEATS:
@@ -162,9 +201,10 @@ def fit_well(spec: dict) -> dict:
         te = folds[i]
         tr = np.concatenate([folds[j] for j in range(5) if j != i])
         m = RandomForestClassifier(n_estimators=200, max_depth=8, min_samples_leaf=20,
-                                   class_weight='balanced', random_state=0, n_jobs=-1)
+                                   class_weight=class_weight, random_state=0, n_jobs=-1)
         m.fit(X.iloc[tr], y[tr])
-        oof[te] = m.predict(X.iloc[te])
+        _raw_te = train.iloc[te][[c for c in ('SW_LOG', 'LOG_TG', 'PLATE_NUM', 'PHI') if c in train.columns]]
+        oof[te] = postprocess(m.predict(X.iloc[te]), _raw_te)
     mask = oof != ''
     acc_all = accuracy_score(y[mask], oof[mask])
     hc = np.isin(y, ['GAS', 'OIL', 'WATER'])
@@ -173,10 +213,10 @@ def fit_well(spec: dict) -> dict:
 
     # ---- 全量训练最终模型 ----
     model = RandomForestClassifier(n_estimators=300, max_depth=8, min_samples_leaf=20,
-                                   class_weight='balanced', random_state=0, n_jobs=-1)
+                                   class_weight=class_weight, random_state=0, n_jobs=-1)
     model.fit(X, y)
     dt = DecisionTreeClassifier(max_depth=6, min_samples_leaf=25,
-                                class_weight='balanced', random_state=0)
+                                class_weight=class_weight, random_state=0)
     dt.fit(X, y)
     rules = export_text(dt, feature_names=feats, decimals=3)
 
@@ -225,6 +265,8 @@ def apply_well(spec: dict, out_dir: str, use_oof: bool = False) -> dict:
     feats = pack.get('features') or FEATS
     X = pts[feats].fillna(pd.Series(medians))
     pred = model.predict(X)
+    raw_cols = [c for c in ('SW_LOG', 'LOG_TG', 'PLATE_NUM', 'PHI') if c in pts.columns]
+    pred = postprocess(pred, pts[raw_cols])
     if use_oof:
         oof = pack.get('oof', {})
         n_oof = 0

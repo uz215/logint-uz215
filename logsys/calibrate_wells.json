@@ -5,7 +5,8 @@
     "truth": "D:/360/Indonesia/BET-1/BET-1_8.5IN_SLAM_Res_Table_20261003.xls",
     "truth_kind": "bet1_slam",
     "unit": "ft",
-    "gas_file": "D:/360/Indonesia/BET-1/supportdata/ASCI GAS  dan ROP BET-001 _9032 ft.txt"
+    "gas_file": "D:/360/Indonesia/BET-1/supportdata/ASCI GAS  dan ROP BET-001 _9032 ft.txt",
+    "mixed_as": "GAS"
   },
   {
     "well": "TrakesKE-1",
