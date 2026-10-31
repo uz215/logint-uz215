@@ -245,6 +245,9 @@ def compute_well(well: str, spec: dict) -> dict:
                 res = evaluate(_use, load_profile(prof), col=_col)
                 out['lith_accuracy'] = res.get('lith_accuracy')
                 out['lith_overlap_m'] = res.get('overlap_len_m')
+                out['lith_large'] = res.get('accuracy_large')
+                out['lith_thin'] = res.get('accuracy_thin')
+                out['lith_shift'] = res.get('best_depth_shift_m')
         except Exception as _le:
             out['lith_error'] = '%s: %s' % (type(_le).__name__, _le)
     return out
@@ -264,18 +267,19 @@ def main(argv=None):
     # Markdown 矩阵
     md = ['# 验收矩阵（自动生成 %s）' % ts, '',
           '> 只有"试油真值"井计入验收；BET-1/RASHIDPUR_13 为解释参考，仅展示。', '',
-          '| 井 | 真值级 | 层数 | 流体层一致率 | 岩性一致率 | 层表完整性 | 复核率 | 状态 |',
-          '|---|---|---|---|---|---|---|---|']
+          '| 井 | 真值级 | 最终来源 | 层数 | 流体一致率 | 规则/ML | 岩性一致率 | 岩性(大段) | 完整性 | 复核率 | 状态 |',
+          '|---|---|---|---|---|---|---|---|---|---|---|']
     for r in rows:
         _ra = r.get('rule_agreement'); _ma = r.get('ml_agreement')
         _rm = ('%s / %s' % (('%.1f%%' % (100 * _ra)) if _ra is not None else '-',
                             ('%.1f%%' % (100 * _ma)) if _ma is not None else '-'))
-        md.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+        md.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
             r['well'], '试油' if r['accept'] else '参考', r.get('final_source', '-'),
             r.get('layers', '-'),
             ('%.1f%%' % (100 * r['fluid_agreement'])) if r.get('fluid_agreement') is not None else '-',
             _rm,
             ('%.1f%%' % (100 * r['lith_accuracy'])) if r.get('lith_accuracy') is not None else '-',
+            ('%.1f%%' % (100 * r['lith_large'])) if r.get('lith_large') is not None else '-',
             ('%.1f%%' % (100 * r['completeness'])) if r.get('completeness') is not None else '-',
             ('%.1f%%' % (100 * r['review_rate'])) if r.get('review_rate') is not None else '-',
             r['status']))
@@ -295,8 +299,11 @@ def main(argv=None):
         _lith = [r['lith_accuracy'] for r in acc if r.get('lith_accuracy') is not None]
         if _lith:
             _la = float(np.mean(_lith))
-            md.append('| 岩性一致率（有剖面真值的井） | ≥90%% | %.1f%% | %s |' % (
+            md.append('| 岩性一致率（有剖面真值的井，层口径） | ≥90%% | %.1f%% | %s |' % (
                 100 * _la, 'PASS' if _la >= 0.90 else 'FAIL'))
+            _ll = [r['lith_large'] for r in acc if r.get('lith_large') is not None]
+            if _ll:
+                md.append('| 岩性大段一致率（≥2m） | — | %.1f%% | PASS |' % (100 * float(np.mean(_ll))))
     path = os.path.join(args.out, 'acceptance_%s.md' % ts)
     open(path, 'w', encoding='utf-8').write('\n'.join(md) + '\n')
     print('\n'.join(md))

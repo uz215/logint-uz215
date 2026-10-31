@@ -94,6 +94,16 @@ def fit_well(well: str, prof_xlsx: str, proc_csv: str) -> dict:
             'cv5_acc': round(acc, 4), 'labels': labels,
             'confusion': cm, 'model_path': mp,
             'classes_found': {k: int(v) for k, v in pd.Series(yv).value_counts().items()}}
+    # 真岩性来源/剖面类型/推荐矿物（用户 2026-10-31 口径）
+    try:
+        from .truth_lith import summarize_well
+        _sum = summarize_well(prof_xlsx)
+        meta.update({k: _sum[k] for k in ('source', 'source_meta', 'profile_type',
+                                          'profile_label', 'minerals', 'classes')})
+        print('  真岩性: 来源=%s 剖面=%s 推荐矿物=%s' % (
+            _sum['source'], _sum['profile_label'], _sum['minerals']), flush=True)
+    except Exception:
+        pass
     json.dump(meta, open(os.path.join(MODEL_DIR, well + '.json'), 'w', encoding='utf-8'),
               ensure_ascii=False, indent=2)
     print('  %-12s 点=%d CV5岩性一致=%.1f%% -> %s' % (well, len(yv), 100 * acc, mp), flush=True)

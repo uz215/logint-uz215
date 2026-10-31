@@ -1226,6 +1226,26 @@
     {
       "root": "D:/360/CBM",
       "limit": 8
+    },
+    {
+      "root": "D:/360/Brasil/CuraCao-3",
+      "limit": 20
+    },
+    {
+      "root": "D:/360/Bangladesh/RP-13",
+      "limit": 30
+    },
+    {
+      "root": "D:/360/Niger/Trakes KE-1",
+      "limit": 10
+    },
+    {
+      "root": "D:/360/Chad/Ximenia-5",
+      "limit": 10
+    },
+    {
+      "root": "D:/360/Indonesia/BET-1",
+      "limit": 20
     }
   ]
 }

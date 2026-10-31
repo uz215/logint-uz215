@@ -149,11 +149,24 @@ def evaluate(proc_csv: str, truth: pd.DataFrame, col: str = 'LITHOLOGY') -> dict
         else:
             f1[t] = 0.0 if recall[t] is not None else None
     _valid = [v for v in f1.values() if v is not None]
-    return {'layers': int(len(truth)), 'overlap_len_m': round(total, 1),
-            'lith_accuracy': round(good / total, 4) if total else None,
-            'macro_f1': round(float(np.mean(_valid)), 4) if _valid else None,
-            'recall': recall, 'precision': prec, 'f1': f1,
-            'confusion': {k: {kk: round(vv, 1) for kk, vv in v.items() if vv} for k, v in cm.items()}}
+    out = {'layers': int(len(truth)), 'overlap_len_m': round(total, 1),
+           'lith_accuracy': round(good / total, 4) if total else None,
+           'macro_f1': round(float(np.mean(_valid)), 4) if _valid else None,
+           'recall': recall, 'precision': prec, 'f1': f1,
+           'confusion': {k: {kk: round(vv, 1) for kk, vv in v.items() if vv} for k, v in cm.items()}}
+    # 大段/薄层分解（用户口径：大段可靠、薄层不一定准）
+    try:
+        from .truth_lith import evaluate_by_thickness, align_depth
+        tk = evaluate_by_thickness(our.values, md.values, truth.rename(
+            columns={'TOP': 'TOP', 'BASE': 'BASE'}), large_min=2.0)
+        out.update({'accuracy_all': tk.get('all'), 'accuracy_large': tk.get('large'),
+                    'accuracy_thin': tk.get('thin'), 'large_frac': tk.get('large_frac')})
+        _al = align_depth(md.values, our.values, truth)
+        out['best_depth_shift_m'] = _al.get('shift')
+        out['accuracy_after_shift'] = _al.get('acc')
+    except Exception as _e:
+        out['thickness_eval_error'] = '%s: %s' % (type(_e).__name__, _e)
+    return out
 
 
 def main(argv=None):
@@ -163,6 +176,8 @@ def main(argv=None):
     ap.add_argument('--proc', default=None)
     ap.add_argument('--out', default=os.path.join(BASE, 'data', 'acceptance'))
     ap.add_argument('--col', default='LITHOLOGY', help='LITHOLOGY 或 LITHOLOGY_ML')
+    ap.add_argument('--source', default=None,
+                    help='真岩性来源: masterlog|element_log|core_analysis（缺省按路径推断）')
     args = ap.parse_args(argv)
     if args.well:
         spec = WELL_PROFILES.get(args.well)
@@ -177,6 +192,7 @@ def main(argv=None):
     truth = load_profile(prof)
     res = evaluate(proc, truth, col=args.col)
     res['well'] = args.well or os.path.basename(prof)
+    res['source'] = args.source or res.get('source')
     print(json.dumps({k: v for k, v in res.items() if k != 'confusion'}, ensure_ascii=False, indent=2))
     os.makedirs(args.out, exist_ok=True)
     path = os.path.join(args.out, 'lith_%s.json' % (args.well or 'well'))

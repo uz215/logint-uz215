@@ -246,5 +246,42 @@
       "module": "logsys/clean.py",
       "qc_item": "data_cleaning"
     }
+  },
+  {
+    "std_no": "LITH-08",
+    "section": "真岩性来源与深度容差",
+    "text": "真岩性来源优先级：岩石分析(CT/薄片/孔渗, conf0.95, ±1m) > 元素测井矿物(conf0.90, ±2m) > 录井图masterlog(conf0.80, 一般±3-5m、绝不超过10m一根单根；大段可靠、薄层不一定准)。真岩性必须标注来源与置信度；与测井深度对齐按±10m搜索最优偏移。程序：logsys/truth_lith.py。",
+    "rule_type": "lithology_truth",
+    "rule_json": {
+      "sources": [
+        "core_analysis",
+        "element_log",
+        "masterlog"
+      ],
+      "max_shift_m": 10
+    }
+  },
+  {
+    "std_no": "LITH-09",
+    "section": "剖面类型与最优矿物/大段评价",
+    "text": "按真岩性厚度占比判定剖面类型（砂泥岩/碳酸盐岩/蒸发岩-火成岩/混合），据此选择最优岩性计算矿物组合；评价按层厚分解为全体/大段(≥2m)/薄层(<2m)，验收以层口径为主、薄层单独统计。程序：logsys/truth_lith.py（profile_type/recommended_minerals/evaluate_by_thickness）。",
+    "rule_type": "lithology_method",
+    "rule_json": {
+      "large_min_m": 2.0
+    }
+  },
+  {
+    "std_no": "FLUID-06",
+    "section": "自动流体解释规范（试油依据）",
+    "text": "自动流体解释以试油数据为依据：真值分级（试油真值验收、解释参考仅参考）；标准=分井/区域截止值+气上油下+气测图版交叉验证；流程=清洗/QC→VSH/孔渗/Sw→图版→规则/井内ML→区域约束→层表→证据栈→验收；指标=流体一致率≥90%、层表完整性100%、复核率≤20%。程序：calibrate/regions/wellcal/pipeline_ml/acceptance。",
+    "rule_type": "fluid_standard",
+    "rule_json": {
+      "truth": "试油数据",
+      "metrics": [
+        "fluid_agreement",
+        "completeness",
+        "review_rate"
+      ]
+    }
   }
 ]
