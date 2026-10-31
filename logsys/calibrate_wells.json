@@ -14,7 +14,11 @@
         0.1,
         0.3
       ]
-    }
+    },
+    "reference": true,
+    "conf": 0.5,
+    "note": "无试油结论；SLAM 65 层解释仅作参考，不纳入验收统计（用户 2026-10-31）",
+    "include_reference_in_region": true
   },
   {
     "well": "TrakesKE-1",
@@ -35,7 +39,8 @@
     "conf": 0.5,
     "note": "RUSH 解释仅作参考，非最终试油结论（用户 2026-10-31）；不纳入验收统计",
     "country": "Bangladesh",
-    "region": "Rashidpur"
+    "region": "Rashidpur",
+    "include_reference_in_region": false
   },
   {
     "well": "3-SPS-111D",

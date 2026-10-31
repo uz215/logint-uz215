@@ -41,7 +41,7 @@ def import_region_calib(conn, src_dir: str) -> int:
                          'default_all': d['default'].get('acc_all'),
                          'calibrated_all': d['calibrated'].get('acc_all')},
                         ensure_ascii=False),
-             fn, 0.8))
+             fn, float(d.get('conf', 0.8))))
         n += 1
     conn.commit()
     return n

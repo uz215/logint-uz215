@@ -12,7 +12,8 @@
       "truth": "D:/360/Indonesia/BET-1/BET-1_8.5IN_SLAM_Res_Table_20261003.xls",
       "kind": "bet1_slam",
       "unit": "ft",
-      "conf": 0.9
+      "conf": 0.5,
+      "note": "SLAM 解释参考（无试油结论）"
     },
     {
       "well": "TrakesKE-1",
@@ -31,7 +32,7 @@
       "kind": "rp13_rush",
       "unit": "m",
       "conf": 0.5,
-      "note": "RUSH 解释仅参考"
+      "note": "RUSH 解释参考（无最终试油结论）"
     },
     {
       "well": "3-SPS-111D",
