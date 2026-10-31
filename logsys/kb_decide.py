@@ -234,6 +234,117 @@ def write_record(rec: dict, out_dir: str) -> str:
     return p
 
 
+def _layer_details(pr: pd.DataFrame, lay: pd.DataFrame, gas_zones: pd.DataFrame | None,
+                   well: str, gas_events: pd.DataFrame | None = None) -> list:
+    """逐层解释依据：曲线统计 + 气测异常/显示 + 岩性 + 图版/证据。"""
+    rows = []
+    if len(lay) == 0 or len(pr) == 0 or 'MD' not in pr.columns:
+        return rows
+    md = pd.to_numeric(pr['MD'], errors='coerce')
+    def _med(c, m):
+        if c not in pr.columns:
+            return None
+        x = pd.to_numeric(pr.loc[m, c], errors='coerce')
+        return round(float(x.median()), 4) if x.notna().any() else None
+    for _, r in lay.iterrows():
+        try:
+            t0, t1 = float(r['TOP_MD']), float(r['BASE_MD'])
+        except Exception:
+            continue
+        m = (md >= t0) & (md < t1)
+        if not m.any():
+            continue
+        itp = str(r.get('INTERPRETATION') or '')
+        gz = ''
+        if gas_zones is not None and len(gas_zones):
+            _ov = ((gas_zones['MD_END'] > t0) & (gas_zones['MD_START'] < t1))
+            if _ov.any():
+                _z = gas_zones.loc[_ov]
+                gz = '%.1f–%.1f m（%d段）' % (float(_z['MD_START'].min()),
+                                              float(_z['MD_END'].max()), int(len(_z)))
+        # 气测异常点占比
+        mg = None
+        if 'MASTERLOG_GAS_SHOW' in pr.columns:
+            mg = round(float(pd.Series(pr.loc[m, 'MASTERLOG_GAS_SHOW']).fillna(0)
+                             .astype(bool).mean()), 2)
+        _oil = ''
+        if gas_events is not None and len(gas_events):
+            _oe = gas_events[gas_events['TYPE'].astype(str).isin(['OIL_SHOW', 'FLUORESCENCE'])]
+            if len(_oe):
+                _ov2 = ((_oe['MD_END'] > t0) & (_oe['MD_START'] < t1))
+                if _ov2.any():
+                    _oil = ';'.join(sorted(set(_oe.loc[_ov2, 'TYPE'].astype(str))))
+        plate = ''
+        if 'PLATE_FLUID' in pr.columns:
+            vc = pr.loc[m, 'PLATE_FLUID'].astype(str).value_counts()
+            plate = str(vc.index[0]) if len(vc) else ''
+        why = str(r.get('REVIEW_FLAG') or '')
+        ev = str(r.get('EV_SUMMARY') or '')[:80] if 'EV_SUMMARY' in lay.columns else ''
+        rows.append({
+            'TOP': round(t0, 1), 'BASE': round(t1, 1),
+            'TH': round(float(r.get('THICKNESS') or (t1 - t0)), 1),
+            'ITP': itp, 'LITH': str(r.get('LITHOLOGY') or ''),
+            'GR': _med('GR', m), 'VSH': _med('VSH', m),
+            'PHI': _med('PHI', m) if _med('PHI', m) is not None else _med('POR', m),
+            'SW': _med('Sw', m) if _med('Sw', m) is not None else _med('SW_COMP', m),
+            'RT': _med('RT', m),
+            'DEN': (_med('RHOB', m) if _med('RHOB', m) is not None else _med('DEN', m)),
+            'CNL': (_med('CNL', m) if _med('CNL', m) is not None else _med('NPHI', m)),
+            'DT': _med('DT', m),
+            'PLATE': plate, 'GAS_ZONE': gz, 'MGAS': mg, 'OIL': _oil,
+            'FLAG': why, 'EV': ev,
+        })
+    return rows
+
+
+def _crossplots(pr: pd.DataFrame, lay: pd.DataFrame, out_dir: str, well: str) -> dict:
+    """交汇图（按解释结论着色）：DEN-CNL、GR-RT、PHI-SW。返回 {name: path}。"""
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import numpy as _np
+    figs = {}
+    if len(pr) == 0:
+        return figs
+    def num(c):
+        return pd.to_numeric(pr[c], errors='coerce') if c in pr.columns else None
+    itp = pr['INTERPRETATION'].astype(str).str.upper() if 'INTERPRETATION' in pr else None
+    classes = ['GAS', 'OIL', 'GAS_OIL', 'OIL_WATER', 'WATER', 'DRY']
+    colors = {'GAS': '#d62728', 'OIL': '#2ca02c', 'GAS_OIL': '#ff7f0e',
+              'OIL_WATER': '#9467bd', 'WATER': '#1f77b4', 'DRY': '#7f7f7f'}
+    def scatter(x, y, fname, xlabel, ylabel, logx=False):
+        if x is None or y is None:
+            return
+        x = pd.to_numeric(x, errors='coerce')
+        y = pd.to_numeric(y, errors='coerce')
+        ok = x.notna() & y.notna()
+        if ok.sum() < 30:
+            return
+        idx = _np.where(ok.values)[0]
+        step = max(1, len(idx) // 4000)
+        idx = idx[::step]
+        fig, ax = plt.subplots(figsize=(5.6, 4.2))
+        if itp is not None:
+            for c in classes:
+                mm = (itp.values[idx] == c)
+                if mm.any():
+                    ax.scatter(x.values[idx][mm], y.values[idx][mm], s=6, alpha=0.65,
+                               c=colors.get(c, 'k'), label=c)
+            ax.legend(fontsize=7, markerscale=1.6, loc='best')
+        else:
+            ax.scatter(x.values[idx], y.values[idx], s=6, alpha=0.5)
+        if logx:
+            ax.set_xscale('log')
+        ax.set_xlabel(xlabel); ax.set_ylabel(ylabel); ax.grid(alpha=0.25)
+        fig.tight_layout()
+        fp = os.path.join(out_dir, '%s_xplot_%s.png' % (well, fname))
+        fig.savefig(fp, dpi=120); plt.close(fig)
+        figs[fname] = fp
+    _den = num('RHOB') if num('RHOB') is not None else num('DEN')
+    _cnl = num('CNL') if num('CNL') is not None else num('NPHI')
+    scatter(_den, _cnl, 'den_cnl', 'DEN/RHOB (g/cc)', 'CNL/NPHI (%)')
+    scatter(num('GR'), num('RT'), 'gr_rt', 'GR (API)', 'RT (ohm·m)', logx=True)
+    scatter(num('PHI'), num('SW'), 'phi_sw', 'PHI', 'Sw')
 def render_html(rec: dict, out_dir: str) -> str:
     """生成完整 HTML 报告（结论+准确率+指标+分布图）。"""
     import matplotlib
@@ -241,6 +352,22 @@ def render_html(rec: dict, out_dir: str) -> str:
     import matplotlib.pyplot as plt
     d = str(out_dir)
     well = rec.get('well', '')
+    # 读取成果数据（分层依据/交汇图）
+    _arts = rec.get('artifacts') or {}
+    pr = _read_csv(_arts.get('processed_csv')) if _arts.get('processed_csv') else pd.DataFrame()
+    lay = _read_csv(_arts.get('layers_canonical')) if _arts.get('layers_canonical') else pd.DataFrame()
+    _zf = os.path.join(d, '%s_masterlog_gas_zones.csv' % well)
+    _zones = _read_csv(_zf) if os.path.exists(_zf) else None
+    _gf = os.path.join(d, '%s_masterlog_gas.csv' % well)
+    _gev = _read_csv(_gf) if os.path.exists(_gf) else None
+    try:
+        _details = _layer_details(pr, lay, _zones, well, _gev)
+    except Exception:
+        _details = []
+    try:
+        _xfigs = _crossplots(pr, lay, d, well)
+    except Exception:
+        _xfigs = {}
     # 图：岩性/流体分布
     figs = {}
     try:
@@ -282,6 +409,30 @@ def render_html(rec: dict, out_dir: str) -> str:
             '.ok{color:#1a7f37}.warn{color:#b35900}</style><body>',
             '<h1>%s 知识驱动解释决策报告</h1>' % well,
             '<p>生成时间：%s</p>' % rec.get('created_at')]
+    # ---- 0. 基础数据 ----
+    _pr = pr
+    _nrow = int(len(_pr)) if len(_pr) else 0
+    _md = pd.to_numeric(_pr['MD'], errors='coerce') if 'MD' in _pr.columns else pd.Series(dtype=float)
+    _dmin = round(float(_md.min()), 1) if _md.notna().any() else None
+    _dmax = round(float(_md.max()), 1) if _md.notna().any() else None
+    _curves = [str(c) for c in _pr.columns if c not in ('MD',)][:40]
+    _curves_n = max(0, len(_pr.columns) - 1) if len(_pr.columns) else 0
+    html.append('<h2>0. 基础数据</h2><table>')
+    html.append('<tr><th>井名</th><td>%s</td></tr>' % well)
+    html.append('<tr><th>地区/区域</th><td>%s</td></tr>' % ((rec.get('knowledge') or {}).get('region') or '-'))
+    html.append('<tr><th>数据深度范围</th><td>%s–%s m（%d 点）</td></tr>' % (_dmin, _dmax, _nrow))
+    html.append('<tr><th>曲线数量</th><td>%d（%s）</td></tr>' % (_curves_n, '、'.join(_curves[:16])))
+    _mlr = (rec.get('knowledge') or {}).get('masterlog') or {}
+    if _mlr:
+        html.append('<tr><th>录井图 masterlog</th><td>岩性 %s 层；气测异常 %s 段/总厚 %s m；范围 %s</td></tr>' % (
+            _mlr.get('lith_layers'), _mlr.get('gas_zones'),
+            _mlr.get('gas_zone_total_m'), _mlr.get('gas_zone_range')))
+    _cl = (rec.get('metrics') or {}).get('data_cleaning') or {}
+    _qc = (rec.get('metrics') or {}).get('qc') or {}
+    html.append('<tr><th>数据清洗/QC</th><td>%s→%s 行；非法值 %s；QC %s（%s）</td></tr>' % (
+        _cl.get('rows_in'), _cl.get('rows_out'), _cl.get('value_total'),
+        _qc.get('quality_level'), _qc.get('overall_score')))
+    html.append('</table>')
     html.append('<h2>1. 决策结论（一处确定）</h2><table>')
     ic = rec.get('conclusion', {}).get('interpretation') or {}
     for k, v in (('解释来源', ic.get('chosen')), ('策略', ic.get('policy')), ('依据', ic.get('reason')),
@@ -317,6 +468,32 @@ def render_html(rec: dict, out_dir: str) -> str:
         _u = _img_data_uri(figs.get('fluid'))
         if _u:
             html.append('<img src="%s" width="560">' % _u)
+    # ---- 4.1 逐层解释依据 ----
+    if _details:
+        _sel = [x for x in _details if str(x.get('ITP', '')).upper() in
+                ('GAS', 'OIL', 'GAS_OIL', 'OIL_WATER', 'WATER', 'DRY')]
+        _sel = sorted(_sel, key=lambda x: -(x.get('TH') or 0))[:40]
+        html.append('<h2>4.1 逐层解释依据（主要层，按厚度前 %d）</h2>' % len(_sel))
+        html.append('<table><tr><th>顶(m)</th><th>底(m)</th><th>厚(m)</th><th>结论</th><th>岩性</th>'
+                    '<th>GR</th><th>VSH</th><th>PHI</th><th>Sw</th><th>RT</th>'
+                    '<th>气测异常井段</th><th>气测异常点</th><th>油/荧光显示</th>'
+                    '<th>图版</th><th>依据/标志</th></tr>')
+        for x in _sel:
+            html.append('<tr><td>%.1f</td><td>%.1f</td><td>%.1f</td><td><b>%s</b></td><td>%s</td>'
+                        '<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>'
+                        '<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (
+                            x['TOP'], x['BASE'], x['TH'], x['ITP'], x['LITH'],
+                            x['GR'], x['VSH'], x['PHI'], x['SW'], x['RT'],
+                            x['GAS_ZONE'] or '-', x['MGAS'] if x['MGAS'] is not None else '-',
+                            x.get('OIL') or '-', x['PLATE'] or '-', (x['FLAG'] or '')[:60]))
+        html.append('</table>')
+    # ---- 4.2 交汇图 ----
+    if _xfigs:
+        html.append('<h2>4.2 交汇图（按解释结论着色）</h2>')
+        for _k, _fp in _xfigs.items():
+            _u = _img_data_uri(_fp)
+            if _u:
+                html.append('<img src="%s" width="520">' % _u)
     # 指标
     html.append('<h2>5. 准确率与指标</h2><table>')
     if fluid_m:
