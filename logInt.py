@@ -15926,6 +15926,23 @@ class WellLogProcessor:
                                 _col_rv = _col_rv.where(~_m_g, _col_rv + ';气田先验(邻井试油气井)')
                                 _lay_g['REVIEW_FLAG'] = _col_rv
                                 _lay_g.to_csv(_cp_g, index=False, encoding='utf-8-sig')
+                                # 点级同步（一处确定）：段内 OIL/GAS_OIL → GAS
+                                try:
+                                    _pd_g = self.results.get('processed_data')
+                                    if _pd_g is not None and 'INTERPRETATION' in _pd_g.columns:
+                                        _md_g = pd.to_numeric(_pd_g['MD'], errors='coerce')
+                                        _m_p = _pd_g['INTERPRETATION'].astype(str).str.upper().isin(
+                                            ['OIL', 'GAS_OIL', 'OIL_GAS'])
+                                        _itv_g = self.results.get('interpret_interval') or {}
+                                        if _itv_g and not _itv_g.get('auto'):
+                                            _m_p = _m_p & (_md_g >= float(_itv_g['top'])) & \
+                                                   (_md_g <= float(_itv_g['bottom']))
+                                        _n_pg = int(_m_p.sum())
+                                        if _n_pg:
+                                            _pd_g.loc[_m_p, 'INTERPRETATION'] = 'GAS'
+                                            logger.info('气田先验(点级): %d 点 OIL/GAS_OIL→GAS', _n_pg)
+                                except Exception as _pg_e:
+                                    logger.warning('气田先验点级同步失败（忽略）: %s', _pg_e)
                                 _fin['gas_field_prior'] = True
                                 _fin['gas_field_relabeled'] = _n_g
                                 import json as _js2
