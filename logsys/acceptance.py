@@ -74,6 +74,8 @@ MIXED_LABELS = {'GAS_OIL', 'OIL_GAS', 'OIL_WATER', 'MIXED'}
 # 岩性剖面真值（承包商岩性解释剖面 xlsx）——用于岩性一致率（验收目标 ≥90%）
 LITH_PROFILES = {
     'TrakesKE-1': r'D:\360\Niger\Trakes KE-1\Trakes KE-1 岩性解释剖面.xlsx',
+    # 111D 元素测井矿物岩性真值（2026-10-31 用户口径）
+    '3-SPS-111D': r'D:\360\Brasil\CuraCao-3\knowledge\3-SPS-111D_mineral_lith_truth.csv',
 }
 
 

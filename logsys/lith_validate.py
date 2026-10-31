@@ -29,6 +29,12 @@ WELL_PROFILES = {
         'proc': [os.path.join(WS, 'output', 'TrakesKE-1', 'TrakesKE-1_processed.csv'),
                  os.path.join(BASE, 'output', 'TrakesKE-1', 'TrakesKE-1_processed.csv')],
     },
+    # 【2026-10-31 用户口径】111D 元素测井矿物含量 = 真岩性（巴西深水/碳酸盐岩库）
+    '3-SPS-111D': {
+        'profile': r'D:\360\Brasil\CuraCao-3\knowledge\3-SPS-111D_mineral_lith_truth.csv',
+        'proc': [os.path.join(BASE, 'output', '3-SPS-111D', '3-SPS-111D_processed.csv'),
+                 os.path.join(WS, 'output', '3-SPS-111D', '3-SPS-111D_processed.csv')],
+    },
 }
 
 # 类别归并（砾岩并入砂岩、碳质页岩并入泥岩；岩性标定 lithcal 也用它）
@@ -68,8 +74,21 @@ def norm_lith(s: str) -> str:
     return s
 
 
-def load_profile(xlsx: str) -> pd.DataFrame:
-    d = pd.read_excel(xlsx, sheet_name=0, header=None)
+def load_profile(path: str) -> pd.DataFrame:
+    if str(path).lower().endswith('.csv'):
+        d = pd.read_csv(path)
+        cols = {str(c).strip().upper(): c for c in d.columns}
+        tc = cols.get('TOP_MD') or cols.get('TOP') or cols.get('顶深')
+        bc = cols.get('BASE_MD') or cols.get('BASE') or cols.get('底深')
+        lc = cols.get('LITH') or cols.get('LITHOLOGY') or cols.get('岩性')
+        if not (tc and bc and lc):
+            raise ValueError('CSV 剖面缺列: 需要 TOP_MD/BASE_MD/LITH')
+        out = pd.DataFrame({'TOP': pd.to_numeric(d[tc], errors='coerce'),
+                            'BASE': pd.to_numeric(d[bc], errors='coerce'),
+                            'LITH_CN': d[lc].astype(str),
+                            'LITH': d[lc].astype(str).str.strip().str.lower()})
+        return out.dropna(subset=['TOP', 'BASE'])
+    d = pd.read_excel(path, sheet_name=0, header=None)
     rows = []
     for i in range(2, len(d)):
         try:
