@@ -2940,14 +2940,16 @@ RESISTIVITY_CANDIDATES = ['RT', 'RD', 'LLD', 'RDEEP', 'AT90', 'ILD', 'M2RX',
 CURVE_NAME_ALIASES = {
     'DEN': ['ZDEN', 'RHOZ', 'DENB', 'DENX', 'RHO', 'BUPD', 'RHO8'],
     'CNL': ['CNCF', 'CNC', 'CN', 'TNPH', 'NPHI', 'PHIN'],
-    'DT':  ['DTC', 'DTCO', 'DT4P', 'AC', 'SONIC', 'SON'],
+    'DT':  ['DTTC', 'DTC', 'DTCO', 'DT4P', 'AC', 'SONIC', 'SON'],
     # 2026-10-31：3-SPS-111D LWD 阵列方位电阻率(P40H 40in 深、P22H 22in 浅)归一为 RT；
     # LWD 无 RHOB/CNL，孔隙度走声波(DTCO→DT)或 NMR
     # 用户 2026-10-31：无 RT 时用深电阻率/最深阵列；本井（XIMENIA-5）以 LLD 作 RT
     'RT':  ['P40H_UNC', 'P40H', 'P22H_UNC', 'P22H', 'LLD', 'RLLD', 'RD', 'RDEEP',
-            'RILD', 'ILD', 'AT90', 'M2RX', 'R90', 'RAL1', 'RES_DEEP', 'LLD_RT',
-            'AT60', 'RAL2'],
-    'CAL': ['CALX', 'CALS', 'CALI', 'HCAL', 'C1A'],
+            'RILD', 'ILD', 'AT90', 'M2RX', 'R90',
+            # 阵列侧向 RAL1-5：按用户口径「取最深」，RAL5 最深优先
+            'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1', 'RES_DEEP', 'LLD_RT',
+            'AT60'],
+    'CAL': ['CALX', 'CALS', 'CALI', 'HCAL', 'C1A', 'CAL_AVERAGE'],
     'PE':  ['PEF', 'PEFZ', 'PEFL'],
     'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP'],
 }
@@ -2982,8 +2984,10 @@ def standardize_curve_names(data, context=""):
 # 无 RT 时依次取：LLD > RD > RDEEP > AT90(最深阵列) > M2RX > ILD > R90 > RAL1(最深阵列)
 # > RES_DEEP > P40H(40in) > P22H(22in) > AT60 > RAL2；浅电阻率(LLS/MSFL/RS)绝不替代 RT。
 RESISTIVITY_DEEP_PRIORITY = ['LLD', 'RLLD', 'RD', 'RDEEP', 'AT90', 'M2RX', 'ILD', 'R90',
-                             'RAL1', 'RES_DEEP', 'LLD_RT', 'P40H_UNC', 'P40H',
-                             'P22H_UNC', 'P22H', 'AT60', 'RAL2']
+                             # 阵列侧向 RAL1-5 取最深（RAL5 最深）
+                             'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1',
+                             'RES_DEEP', 'LLD_RT', 'P40H_UNC', 'P40H',
+                             'P22H_UNC', 'P22H', 'AT60']
 
 
 def ensure_rt_from_deep(data, context=""):

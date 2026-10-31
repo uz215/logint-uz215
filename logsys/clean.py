@@ -151,11 +151,56 @@ def clean_depth(data: pd.DataFrame, report: dict) -> pd.DataFrame:
     return data
 
 
+_VENDOR_RESULT_COLS = ('POR', 'PORA', 'PORD', 'PORT', 'PORF', 'PORW', 'PORN',
+                      'SW', 'SWIR', 'SH', 'SWT', 'SO')
+
+
+def quarantine_vendor_results(data: pd.DataFrame, report: dict) -> pd.DataFrame:
+    """隔离厂家"成果类"退化列：若 POR 中位≤0.02 或 SW 中位≥95（明显退化），
+    且存在可自算的原始曲线（DEN/CNL/DT 或 RT），把厂家列改名 *_VENDOR，
+    交由程序用原始曲线重算 PHI/Sw（用户 2026-10-31：RT 用最深阵列 RAL1）。
+    """
+    if data is None or len(data) == 0:
+        return data
+    rep = report.setdefault('vendor_quarantine', {})
+    def _cov(c):
+        return float(pd.to_numeric(data[c], errors='coerce').notna().mean()) if c in data.columns else 0.0
+    _raw_ok = (_cov('DEN') + _cov('CNL') + _cov('DT') + _cov('RT')) > 0.20
+    if not _raw_ok:
+        return data
+    deg = []
+    if 'POR' in data.columns:
+        v = pd.to_numeric(data['POR'], errors='coerce')
+        nv = int(v.notna().sum())
+        # 占比按**有效值**计算（全列含缺失会把占比稀释而漏判）
+        if nv >= 10 and float(v.median()) <= 0.02 and float((v <= 0.02).sum()) / nv >= 0.70:
+            deg.append('POR(中位%.3f)' % float(v.median()))
+    if 'SW' in data.columns:
+        v = pd.to_numeric(data['SW'], errors='coerce')
+        nv = int(v.notna().sum())
+        if nv >= 10 and float(v.median()) >= 95.0 and float((v >= 95).sum()) / nv >= 0.70:
+            deg.append('SW(中位%.0f)' % float(v.median()))
+    if not deg:
+        return data
+    data = data.copy()
+    renamed = []
+    for c in list(data.columns):
+        cu = str(c).upper()
+        if cu in _VENDOR_RESULT_COLS or (cu.startswith('POR') and cu not in ('POROSITY_VALID',)):
+            data = data.rename(columns={c: str(c) + '_VENDOR'})
+            renamed.append(str(c))
+    rep['degenerate'] = deg
+    rep['renamed'] = renamed
+    logger.info('厂家成果列隔离: %s；改名 %s → 程序用原始曲线重算', deg, renamed[:8])
+    return data
+
+
 def clean_well(data: pd.DataFrame, context: str = '') -> tuple:
     """清洗入口：返回 (cleaned_data, report)。异常不中断主流程。"""
     report = {'context': context, 'rows_in': int(len(data))}
     try:
         data = normalize_units(data, report)
+        data = quarantine_vendor_results(data, report)
         data = clean_values(data, report)
         data = clean_depth(data, report)
     except Exception as e:
