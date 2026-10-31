@@ -100,6 +100,23 @@ def apply_ml_fluid(processed_data: pd.DataFrame, well_name: str, output_dir: str
             pass
         pred = _smooth(np.asarray(pred, dtype=object), win=5)
 
+        # 油气同层必须气上油下：把 ML 的 GAS_OIL 段按气测证据拆成 GAS(上)+OIL(下)
+        try:
+            from .mixed_split import split_gas_oil
+            _tmp = pd.DataFrame({'MD': pd.to_numeric(d['MD'], errors='coerce'),
+                                 'INTERPRETATION': pd.Series(pred)})
+            if 'PLATE_FLUID' in d.columns:
+                _tmp['PLATE_FLUID'] = d['PLATE_FLUID'].astype(str).values
+            for _c in ('TG', 'C1'):
+                if _c in d.columns:
+                    _tmp[_c] = pd.to_numeric(d[_c], errors='coerce').values
+            _ms = split_gas_oil(_tmp)
+            if _ms.get('splits'):
+                pred = _tmp['INTERPRETATION'].astype(object).values
+                logger.info('ML 油气同层拆分: %d 段/%d 点', _ms['splits'], _ms['points'])
+        except Exception as _mse:
+            logger.warning('ML 油气同层拆分失败（忽略）: %s', _mse)
+
         # 关键特征缺失点不外推
         ph = pd.to_numeric(d.get('PHI', d.get('POR')), errors='coerce')
         sw = pd.to_numeric(d.get('Sw'), errors='coerce')

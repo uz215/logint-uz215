@@ -15415,6 +15415,22 @@ class WellLogProcessor:
             except Exception as _zne:
                 logger.warning('流体分带整饰失败（忽略）: %s', _zne)
 
+            # 【2026-10-31 R42】油气同层顺序整饰：GAS_OIL 必须气在上、油在下（重力分异）。
+            # 按气测证据找分界（PLATE_FLUID=GAS/TG 高值），上部→GAS、下部→OIL；
+            # 无梯度按中点拆并标 INFERRED；单点混合保留 GAS_OIL 并标 SINGLE_POINT。
+            try:
+                from logsys.mixed_split import split_gas_oil
+                _ms = split_gas_oil(self.results['processed_data'])
+                self.results['gas_oil_split'] = _ms
+                if _ms.get('splits'):
+                    logger.info('油气同层拆分: %d 段/%d 点（证据分界 %d、中点 %d）',
+                                _ms['splits'], _ms['points'], _ms.get('evidence', 0),
+                                _ms.get('inferred', 0))
+                    print(f"油气同层拆分: {_ms['splits']} 段/{_ms['points']} 点 "
+                          f"(气上油下; 证据分界 {_ms.get('evidence', 0)}, 中点 {_ms.get('inferred', 0)})")
+            except Exception as _mse:
+                logger.warning('油气同层拆分失败（忽略）: %s', _mse)
+
             # 放在按层解释整合之后、CSV/LAS 导出之前：与点列同源，禁止层表独立再判。
             try:
                 if 'processed_data' in self.results \

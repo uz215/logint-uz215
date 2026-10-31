@@ -75,10 +75,13 @@
   {
     "std_no": "FLUID-05",
     "section": "流体判据-混合层",
-    "text": "气测与测井证据冲突且 TG 高时输出 GAS_OIL 混合类并标 REVIEW，不强行二分；BET-1 等井允许油气同层（GAS_OIL/OIL_GAS）。",
+    "text": "油气同层必须\"气在上、油在下\"（重力分异决定），不存在油上气下；解释时统一输出 GAS_OIL 并按气测/测井证据把层拆为 GAS(上)+OIL(下)；证据无梯度时按中点拆分并标 INFERRED；单点混合保留 GAS_OIL 并标 SINGLE_POINT。",
     "rule_type": "fluid_mixed",
     "rule_json": {
       "output": "GAS_OIL",
+      "order": "GAS_ABOVE_OIL",
+      "forbid": "OIL_GAS",
+      "split": "GAS_TOP_OIL_BASE",
       "flag": "REVIEW"
     }
   },
