@@ -19,11 +19,12 @@ import sys
 BASE = r'D:\360\src'
 GOLD_DIR = os.path.join(BASE, 'tests', 'golden')
 GOLD_JSON = os.path.join(GOLD_DIR, 'qlpt_golden.json')
+GOLD_JSON_CMPT = os.path.join(GOLD_DIR, 'cmpt_golden.json')
 PROC = os.path.join(GOLD_DIR, 'SMOKE-2_processed.csv')
 INFO = os.path.join(GOLD_DIR, 'SMOKE-2info.json')
 
 
-def render(out_dir: str) -> str:
+def render(out_dir: str, kind: str = 'qlpt') -> str:
     import pandas as pd
     import logvis
 
@@ -38,7 +39,10 @@ def render(out_dir: str) -> str:
                               'country': 'Testland', 'field_name': 'TESTFIELD',
                               'depth_unit': 'm'}},
     }
-    pdf = logvis.visualize_quicklook_log(data, results, gas_data=None, quicklook_config=None)
+    if kind == 'cmpt':
+        pdf = logvis.visualize_composite_log(data, results, gas_data=None, quicklook_config=None)
+    else:
+        pdf = logvis.visualize_quicklook_log(data, results, gas_data=None, quicklook_config=None)
     return pdf
 
 
@@ -87,24 +91,26 @@ def main(argv=None):
     ap.add_argument('--update', action='store_true', help='更新基线')
     ap.add_argument('--check', action='store_true', help='检查回归')
     ap.add_argument('--out', default=os.path.join(BASE, 'data', 'golden_out'))
+    ap.add_argument('--kind', default='qlpt', choices=['qlpt', 'cmpt'])
     ap.add_argument('--tol', type=float, default=4.0, help='栅格均值容差')
     args = ap.parse_args(argv)
     if not (args.update or args.check):
         print('需 --update 或 --check')
         return 2
-    pdf = render(args.out)
+    pdf = render(args.out, kind=args.kind)
     cur = fingerprint(pdf)
     print('渲染: %s (%d 页, %.1f x %.1f pt, 文本 %d 字)' % (
         os.path.basename(pdf), cur['pages'], cur['width'], cur['height'], cur['text_chars']))
+    _gold_path = GOLD_JSON if args.kind == 'qlpt' else GOLD_JSON_CMPT
     if args.update:
         os.makedirs(GOLD_DIR, exist_ok=True)
-        json.dump(cur, open(GOLD_JSON, 'w', encoding='utf-8'), ensure_ascii=False)
-        print('基线已更新:', GOLD_JSON)
+        json.dump(cur, open(_gold_path, 'w', encoding='utf-8'), ensure_ascii=False)
+        print('基线已更新:', _gold_path)
         return 0
-    if not os.path.exists(GOLD_JSON):
+    if not os.path.exists(_gold_path):
         print('基线不存在，请先 --update')
         return 2
-    gold = json.load(open(GOLD_JSON, encoding='utf-8'))
+    gold = json.load(open(_gold_path, encoding='utf-8'))
     diffs = compare(cur, gold, args.tol)
     if diffs:
         print('黄金图回归: FAIL')

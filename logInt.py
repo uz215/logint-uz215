@@ -15440,6 +15440,18 @@ class WellLogProcessor:
                                __import__('traceback').format_exc())
 
             # 【2026-10-30 P0-3】层表生成（唯一成层入口：logsys.layers + gasplate）
+            # 【2026-10-31 R45】岩性 ML 标定接入：有 lithcal 模型时用标定岩性（替换规则岩性）
+            try:
+                from logsys.pipeline_lith import apply_lith_ml
+                _lm = apply_lith_ml(self.results['processed_data'], str(well_name),
+                                    str(well_output_dir))
+                self.results['lith_ml'] = _lm
+                if _lm.get('available'):
+                    logger.info('岩性ML层: %s', _lm.get('dist'))
+                    print(f"岩性ML: 已应用标定岩性（{_lm.get('dist')}）")
+            except Exception as _lme:
+                logger.warning('岩性ML接入失败（忽略）: %s', _lme)
+
             # 【2026-10-31 R39】流体分带整饰（区域知识.流体分带：浅层气/深层油）
             # 用户口径：BET-1 浅层是气、深层是油；填了"转换深度"才生效，改动记 FLUID_ZONE 列。
             try:
