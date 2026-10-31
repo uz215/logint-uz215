@@ -140,5 +140,15 @@
   "offset_tests": [
     "D:/360/Bangladesh/RP-13/knowledge/GTO_RP13_Table4_offset_DST.csv",
     "D:/360/Indonesia/BET-1/supportdata/邻井对比分析/offset_test_facts.csv"
+  ],
+  "rich_roots": [
+    {
+      "root": "D:/360/Bangladesh/PPT",
+      "limit": 12
+    },
+    {
+      "root": "D:/360/培训材料/仪器及测井方法",
+      "limit": 30
+    }
   ]
 }

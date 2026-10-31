@@ -71,6 +71,25 @@ def main(argv=None):
             total['fail'] += r.get('fail', 0)
             total['errors'] += r.get('errors', [])
 
+    # 富文本资料（PDF/PPTX）入库：kb_sources.json 的 rich_roots（可带 limit）
+    if not args.cases_only:
+        for spec in (cfg.get('rich_roots') or []):
+            if isinstance(spec, str):
+                spec = {'root': spec}
+            rr, rl = spec.get('root'), spec.get('limit')
+            if not rr or not os.path.isdir(rr):
+                continue
+            try:
+                from .ingest_rich import ingest_rich_directory
+                r = ingest_rich_directory(conn, rr, limit=rl)
+                print('富文本入库: %s -> ok=%d skip=%d fail=%d' % (
+                    rr, r.get('ok', 0), r.get('skip', 0), r.get('fail', 0)), flush=True)
+                total['ok'] += r.get('ok', 0)
+                total['fail'] += r.get('fail', 0)
+                total['errors'] += r.get('errors', [])
+            except Exception as _re:
+                print('富文本入库失败 %s: %s' % (rr, _re), flush=True)
+
     if not args.no_cases:
         specs = cfg.get('cases') or []
         if specs:

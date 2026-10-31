@@ -174,7 +174,8 @@ def compute_well(well: str, spec: dict) -> dict:
         # 复核层 = 有不确定标记（THIN/TIE/POSSIBLE/CONFLICT/LOW_CONF/单点混合），
         # 混合类结论（GAS_OIL/OIL_WATER）本身是有效结论，不计入复核率。
         review = pd.Series(False, index=lay.index)
-        _rv_tags = ('THIN', 'TIE', 'POSSIBLE', 'REVIEW', 'CONFLICT', 'LOW_CONF', '单点')
+        # 薄层(THIN/BELOW_MIN_THICK)不算"不确定"；复核只统计真正的疑问标记
+        _rv_tags = ('TIE', 'POSSIBLE', 'REVIEW', 'CONFLICT', 'LOW_CONF', '单点')
         if 'REVIEW_FLAG' in lay.columns:
             _rf = lay['REVIEW_FLAG'].fillna('').astype(str)
             review |= _rf.apply(lambda s2: any(t in s2.upper() for t in _rv_tags))
@@ -202,10 +203,23 @@ def compute_well(well: str, spec: dict) -> dict:
     ml = _metrics(ml_csv) if ml_csv else {}
     out['rule'] = rule
     out['ml'] = ml
-    final = ml if ml else rule
+    # 按井选优：优先高流体一致率；并列/无规则时用 ML
+    def _ag(m):
+        v = m.get('fluid_agreement')
+        return -1.0 if v is None else float(v)
+    if ml and rule:
+        final, src = (ml, 'ML') if _ag(ml) >= _ag(rule) else (rule, 'rules')
+    elif ml:
+        final, src = ml, 'ML'
+    elif rule:
+        final, src = rule, 'rules'
+    else:
+        final, src = {}, 'none'
     out.update({k: final.get(k) for k in ('layers', 'completeness', 'review_rate',
                                           'fluid_agreement', 'truth_overlap')})
-    out['final_source'] = 'ML' if ml else ('rules' if rule else 'none')
+    out['final_source'] = src
+    out['rule_agreement'] = rule.get('fluid_agreement')
+    out['ml_agreement'] = ml.get('fluid_agreement')
     out['status'] = 'OK' if (rule or ml) else 'NO_DATA'
     # 4) 岩性一致率（有岩性剖面真值的井）
     prof = LITH_PROFILES.get(well)
@@ -245,10 +259,14 @@ def main(argv=None):
           '| 井 | 真值级 | 层数 | 流体层一致率 | 岩性一致率 | 层表完整性 | 复核率 | 状态 |',
           '|---|---|---|---|---|---|---|---|']
     for r in rows:
-        md.append('| %s | %s | %s | %s | %s | %s | %s | %s |' % (
-            r['well'], '试油' if r['accept'] else '参考',
+        _ra = r.get('rule_agreement'); _ma = r.get('ml_agreement')
+        _rm = ('%s / %s' % (('%.1f%%' % (100 * _ra)) if _ra is not None else '-',
+                            ('%.1f%%' % (100 * _ma)) if _ma is not None else '-'))
+        md.append('| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |' % (
+            r['well'], '试油' if r['accept'] else '参考', r.get('final_source', '-'),
             r.get('layers', '-'),
             ('%.1f%%' % (100 * r['fluid_agreement'])) if r.get('fluid_agreement') is not None else '-',
+            _rm,
             ('%.1f%%' % (100 * r['lith_accuracy'])) if r.get('lith_accuracy') is not None else '-',
             ('%.1f%%' % (100 * r['completeness'])) if r.get('completeness') is not None else '-',
             ('%.1f%%' % (100 * r['review_rate'])) if r.get('review_rate') is not None else '-',
