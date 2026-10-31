@@ -6,14 +6,24 @@
     "truth_kind": "bet1_slam",
     "unit": "ft",
     "gas_file": "D:/360/Indonesia/BET-1/supportdata/ASCI GAS  dan ROP BET-001 _9032 ft.txt",
-    "mixed_as": "GAS_OIL"
+    "mixed_as": "GAS_OIL",
+    "country": "Indonesia",
+    "region": "Jabung Tengah Block",
+    "cutoff_bounds": {
+      "por_hc": [
+        0.1,
+        0.3
+      ]
+    }
   },
   {
     "well": "TrakesKE-1",
     "proc": "C:\\Users\\Administrator\\Documents\\deepseek-harness\\default-workspace\\output\\TrakesKE-1\\TrakesKE-1_processed.csv",
     "truth": "D:/360/Niger/Trakes KE-1/Trakes KE-1 result table.xlsx",
     "truth_kind": "trakes_result",
-    "unit": "m"
+    "unit": "m",
+    "country": "Niger",
+    "region": "Bilma Block"
   },
   {
     "well": "RASHIDPUR_13",
@@ -23,13 +33,17 @@
     "unit": "m",
     "reference": true,
     "conf": 0.5,
-    "note": "RUSH 解释仅作参考，非最终试油结论（用户 2026-10-31）；不纳入验收统计"
+    "note": "RUSH 解释仅作参考，非最终试油结论（用户 2026-10-31）；不纳入验收统计",
+    "country": "Bangladesh",
+    "region": "Rashidpur"
   },
   {
     "well": "3-SPS-111D",
     "proc": "D:/360/src/output/3-SPS-111D/3-SPS-111D_processed.csv",
     "truth": "D:/360/Brasil/CuraCao-3/3-SPS-111D_20250425/3-SPS-111D_truth.csv",
     "truth_kind": "generic_csv",
-    "unit": "m"
+    "unit": "m",
+    "country": "Brazil",
+    "region": "Aram Block"
   }
 ]

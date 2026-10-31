@@ -87,6 +87,20 @@ CREATE TABLE IF NOT EXISTS case_layer(
 );
 CREATE INDEX IF NOT EXISTS idx_case_well ON case_layer(well_id);
 
+CREATE TABLE IF NOT EXISTS region_calib(
+    id TEXT PRIMARY KEY,
+    country TEXT,
+    region TEXT,
+    wells TEXT,
+    n_wells INTEGER,
+    n_points INTEGER,
+    cutoffs_json TEXT,
+    metrics_json TEXT,
+    source_doc TEXT,
+    conf REAL
+);
+CREATE INDEX IF NOT EXISTS idx_rcal_region ON region_calib(region);
+
 CREATE TABLE IF NOT EXISTS clause(
     id TEXT PRIMARY KEY,
     std_no TEXT,

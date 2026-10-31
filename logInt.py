@@ -14125,6 +14125,24 @@ class WellLogProcessor:
             except Exception as _ce:
                 logger.warning("解释截止值加载回退默认: %s", _ce)
                 cutoffs = dict(DEFAULT_CUTOFFS)
+            # 【2026-10-31 R41】井级未配置 → 回退【区域标定矩阵】（kb.db region_calib）
+            # 用户口径：同一国家/油田/构造的井越多，区域标定越准；结果作为知识自动应用。
+            try:
+                if not any(v is not None for v in cutoffs.values()):
+                    from logsys.knowledge.calib_lookup import lookup_for_well
+                    _wi = (self.results.get('las_info') or {}).get('well') or {}
+                    _ctry = str(_wi.get('country') or '').strip()
+                    _fld = str(_wi.get('field_name') or _wi.get('field') or '').strip()
+                    _rc = lookup_for_well(_ctry, _fld)
+                    if _rc:
+                        cutoffs.update({k: v for k, v in _rc['cutoffs'].items() if v is not None})
+                        self.results['region_calib'] = _rc
+                        logger.info('解释截止值: 使用区域标定 %s/%s（井数=%s, 来源=kb region_calib）',
+                                    _rc.get('country'), _rc.get('region'), _rc.get('n_wells'))
+                        print(f"解释截止值: 区域标定 {_rc.get('country')}/{_rc.get('region')} "
+                              f"(井数 {_rc.get('n_wells')})")
+            except Exception as _rce:
+                logger.warning('区域标定回退失败（忽略）: %s', _rce)
             set_active_cutoffs(cutoffs)
             _rules_well = build_interpretation_rules(cutoffs)
             # 【R36 用户定案】区域知识同样关键：剖面类型/有无煤层等区域级

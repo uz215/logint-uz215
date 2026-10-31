@@ -43,5 +43,6 @@
       "conf": 0.9
     }
   ],
-  "clauses": "D:/360/src/logsys/knowledge/clauses.json"
+  "clauses": "D:/360/src/logsys/knowledge/clauses.json",
+  "region_calib_dir": "D:/360/src/data/calibration/regions"
 }

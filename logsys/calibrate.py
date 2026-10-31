@@ -162,8 +162,12 @@ def score_arr(a: dict, cut: dict, use_plate=False) -> dict:
             'n': int(main.sum())}
 
 
-def calibrate(a: dict, use_plate=False, grid=None):
+def calibrate(a: dict, use_plate=False, grid=None, bounds=None):
     grid = grid or GRID
+    if bounds:
+        grid = {k: [v for v in vals
+                    if not (bounds.get(k) and (v < bounds[k][0] or v > bounds[k][1]))]
+                for k, vals in grid.items()}
     best = None
     total = int(np.prod([len(v) for v in grid.values()]))
     for vals in itertools.product(*grid.values()):

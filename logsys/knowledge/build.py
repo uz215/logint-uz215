@@ -98,6 +98,15 @@ def main(argv=None):
     except Exception as _de:
         print('实体去重失败: %s' % _de, flush=True)
 
+    _rcd = cfg.get('region_calib_dir')
+    if _rcd and os.path.isdir(_rcd):
+        try:
+            from .calib import import_region_calib
+            _rn = import_region_calib(conn, _rcd)
+            print('区域标定矩阵入库: %d 条' % _rn, flush=True)
+        except Exception as _rce:
+            print('区域标定入库失败: %s' % _rce, flush=True)
+
     print('耗时 %.1fs; 累计 ok=%d fail=%d' % (time.time() - t0, total['ok'], total['fail']))
     print(json.dumps(stats(conn), ensure_ascii=False, indent=2))
     return 0
