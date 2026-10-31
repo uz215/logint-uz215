@@ -3091,16 +3091,19 @@ INTERPRETATION_RULES = [
         'core': [('RT', '>', 30.0, 2.0), ('RT', '>', 35.0, 1.0)],
         'deny': [('Sw', '>', 0.65), ('POR', '<', 0.06)],
     },
+    # 【2026-10-31 用户定案】水层 = 高 Sw（不要求 RT 低；高阻水层同样成立）
     {
         'key': 'WATER', 'core_min': 1,
-        'must': [('Sw', '>=', 0.5), ('POR', '>=', 0.10)],
-        'core': [('RT', '<', 20.0, 2.0), ('RT', '<', 25.0, 1.0)],
+        'must': [('Sw', '>=', 0.65), ('POR', '>=', 0.06)],
+        'core': [('Sw', '>=', 0.65, 1.0)],
         'deny': [],
     },
+    # 【2026-10-31 用户定案】干层 = 低孔/低渗储层（孔隙度≥截止值且低于水层孔渗下限），
+    # 非水（Sw<sw_deny）；**RT 不作为干层判据**（干层 RT 一般正常/偏高）。
     {
         'key': 'DRY', 'core_min': 1,
-        'must': [('POR', '>=', 0.06), ('POR', '<', 0.10)],
-        'core': [('Sw', '>=', 0.5, 1.0), ('Sw', '<', 0.5, 0.5)],
+        'must': [('POR', '>=', 0.06), ('POR', '<', 0.10), ('Sw', '<', 0.65)],
+        'core': [('Sw', '<', 0.65, 1.0)],
         'deny': [],
     },
 ]
@@ -15498,6 +15501,25 @@ class WellLogProcessor:
                     _layers_df = build_layer_table(
                         self.results['processed_data'],
                         gas_data=_gas_ly, depth_unit=_du_ly)
+                    # 【2026-10-31 用户定案】干层/疑问层不能太多：默认最多保留 6 层、
+                    # 且不超过总层数 25%（按厚度优先），多余干层从层表移除，
+                    # 避免干扰主要油气层判断。阈值可在 config 里覆盖。
+                    if _layers_df is not None and len(_layers_df):
+                        try:
+                            _max_dry = int(self.config.get('max_dry_layers', 6)) \
+                                if isinstance(getattr(self, 'config', None), dict) else 6
+                            _dry_ratio = float(self.config.get('max_dry_ratio', 0.25)) \
+                                if isinstance(getattr(self, 'config', None), dict) else 0.25
+                            _dry = _layers_df[_layers_df['INTERPRETATION'].astype(str).str.upper() == 'DRY']
+                            _limit = min(_max_dry, max(1, int(len(_layers_df) * _dry_ratio)))
+                            if len(_dry) > _limit:
+                                _drop = _dry.sort_values('THICKNESS').head(len(_dry) - _limit).index
+                                _layers_df = _layers_df.drop(index=_drop)
+                                logger.info('干层数量超限：%d → %d 层（总层数 %d）',
+                                            len(_dry), _limit, len(_layers_df))
+                                print(f"干层数量超限：{len(_dry)} → {_limit} 层")
+                        except Exception as _dce:
+                            logger.warning('干层数量裁剪失败（忽略）: %s', _dce)
                     if _layers_df is not None and len(_layers_df):
                         _lp = well_output_dir / f"{well_name}_interpretation_layers.csv"
                         _layers_df.to_csv(_lp, index=False, encoding='utf-8-sig')
