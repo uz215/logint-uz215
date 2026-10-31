@@ -98,6 +98,15 @@ def main(argv=None):
     except Exception as _de:
         print('实体去重失败: %s' % _de, flush=True)
 
+    _ot = cfg.get('offset_tests') or []
+    for _otp in _ot:
+        try:
+            from .offset_tests import import_offset_dst
+            _r = import_offset_dst(conn, _otp)
+            print('邻井试油结论入库: %s -> %d 条' % (os.path.basename(_otp), _r.get('ok', 0)), flush=True)
+        except Exception as _ote:
+            print('邻井试油入库失败 %s: %s' % (_otp, _ote), flush=True)
+
     _rcd = cfg.get('region_calib_dir')
     if _rcd and os.path.isdir(_rcd):
         try:

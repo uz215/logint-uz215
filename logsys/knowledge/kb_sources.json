@@ -2,7 +2,8 @@
   "roots": [
     "D:/360/src/docs",
     "D:/360/src/测井解释知识库",
-    "D:/360/Indonesia/BET-1"
+    "D:/360/Indonesia/BET-1",
+    "D:/360/Bangladesh/RP-13/knowledge"
   ],
   "cases": [
     {
@@ -135,5 +136,8 @@
     }
   ],
   "clauses": "D:/360/src/logsys/knowledge/clauses.json",
-  "region_calib_dir": "D:/360/src/data/calibration/regions"
+  "region_calib_dir": "D:/360/src/data/calibration/regions",
+  "offset_tests": [
+    "D:/360/Bangladesh/RP-13/knowledge/GTO_RP13_Table4_offset_DST.csv"
+  ]
 }
