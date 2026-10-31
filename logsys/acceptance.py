@@ -102,6 +102,12 @@ def _find(dirs: list, ml: bool) -> str | None:
 
 
 def find_layers(well: str, dirs: list) -> str | None:
+    # 优先：含 <井>_interpretation_decision.json 的目录（单一裁决成果）
+    for d in dirs:
+        dp = os.path.join(d, str(well) + '_interpretation_decision.json')
+        cp = os.path.join(d, str(well) + '_interpretation_layers.csv')
+        if os.path.exists(dp) and os.path.exists(cp):
+            return cp
     return _find(dirs, ml=False)
 
 
