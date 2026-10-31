@@ -138,6 +138,7 @@
   "clauses": "D:/360/src/logsys/knowledge/clauses.json",
   "region_calib_dir": "D:/360/src/data/calibration/regions",
   "offset_tests": [
-    "D:/360/Bangladesh/RP-13/knowledge/GTO_RP13_Table4_offset_DST.csv"
+    "D:/360/Bangladesh/RP-13/knowledge/GTO_RP13_Table4_offset_DST.csv",
+    "D:/360/Indonesia/BET-1/supportdata/邻井对比分析/offset_test_facts.csv"
   ]
 }
