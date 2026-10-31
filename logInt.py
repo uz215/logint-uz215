@@ -799,6 +799,19 @@ class DataLoader:
             # 泥质调和之前(净砂基线P25曾被-9999标记污染为-9999.0)。
             self.data = sanitize_null_markers(self.data)
 
+            # ========== 数据清洗（2026-10-31 R50）==========
+            # 单位归一（CAL/BS mm→in、NPHI 分数→百分、RHOB kg/m3→g/cc）、非法值清理、
+            # 深度去重/排序；报告写 <井>_data_clean_report.json 便于追溯。
+            try:
+                from logsys.clean import clean_well
+                self.data, _clean_rep = clean_well(
+                    self.data, context=os.path.basename(str(file_path)))
+                self.data.attrs['data_clean_report'] = _clean_rep
+                self.clean_report = _clean_rep
+                self._clean_report = _clean_rep
+            except Exception as _cle:
+                logger.warning('数据清洗接入失败（忽略）: %s', _cle)
+
             # ========== 泥质含量调和(2026-10-08, BET-1) ==========
             # 交付VSH在高孔纯砂岩段把孔隙响应误归泥质(GR最纯处VSH随孔隙度
             # 升高)，与GR自适应泥质取较低值 —— "伽马最低处是纯砂岩"。
@@ -1039,6 +1052,30 @@ class DataLoader:
         
         # 8. 综合质量评定
         qc_report = self._evaluate_overall_quality(qc_report)
+
+        # 8.1 数据清洗联动（2026-10-31）：清洗报告并入 QC 检查项（可追溯）
+        try:
+            _clean = getattr(self, '_clean_report', None) or (
+                self.data.attrs.get('data_clean_report')
+                if hasattr(getattr(self, 'data', None), 'attrs') else None)
+            if _clean:
+                _uf = _clean.get('unit_fixes') or {}
+                _msg = ('清洗 %d→%d 行；单位修正 %s；非法值 %d；深度修正 %s' % (
+                    _clean.get('rows_in', 0), _clean.get('rows_out', 0),
+                    list(_uf.keys())[:6], _clean.get('value_total', 0),
+                    {k: _clean[k] for k in ('depth_dup_dropped', 'depth_sorted',
+                                            'depth_nonpos_dropped', 'depth_nan_dropped')
+                     if k in _clean}))
+                qc_report['check_items']['data_cleaning'] = {
+                    'grade': '合格' if _clean.get('ok') else '可疑',
+                    'message': _msg, 'details': _clean}
+                qc_report['data_cleaning'] = _clean
+                # 同时持久化到加载器属性，供处理器在报告阶段写出
+                self.data_clean_report = _clean
+                self._clean_report = _clean
+                logger.info('QC-清洗联动: %s', _msg)
+        except Exception as _qce:
+            logger.warning('QC-清洗联动失败（忽略）: %s', _qce)
         
         # 输出质量报告
         self._print_qc_report(qc_report)
@@ -15716,6 +15753,37 @@ class WellLogProcessor:
                 if report_path:
                     self.results['report_path'] = report_path
             
+            # 数据清洗报告（可追溯）
+            try:
+                _dl = getattr(self, 'data_loader', None)
+                _cr = (self.results.get('data_clean_report')
+                       or getattr(self, '_clean_report', None)
+                       or getattr(_dl, '_clean_report', None)
+                       or getattr(_dl, 'data_clean_report', None)
+                       or (getattr(getattr(self, 'data', None), 'attrs', {}) or {}).get('data_clean_report'))
+                if _cr:
+                    self.results['data_clean_report'] = _cr
+                    from logsys.clean import dump_report
+                    _cp = dump_report(_cr, str(well_output_dir), str(well_name))
+                    if _cp:
+                        logger.info('数据清洗报告: %s', _cp)
+                        self.results['data_clean_report_path'] = _cp
+                    # QC 报告（含清洗联动）一并导出
+                    try:
+                        import json as _json
+                        _qp = os.path.join(str(well_output_dir), '%s_qc_report.json' % well_name)
+                        _qcr = getattr(self, 'qc_report', None) or getattr(_dl, 'qc_report', None)
+                        if not _qcr:
+                            raise RuntimeError('无 QC 报告')
+                        _json.dump(_qcr, open(_qp, 'w', encoding='utf-8'),
+                                   ensure_ascii=False, indent=2, default=str)
+                        logger.info('QC报告: %s', _qp)
+                        self.results['qc_report_path'] = _qp
+                    except Exception as _qpe:
+                        logger.warning('QC报告导出失败（忽略）: %s', _qpe)
+            except Exception as _cre:
+                logger.warning('清洗报告写出失败（忽略）: %s', _cre)
+
             # 【2026-10-31 R44】运行清单（全流程可追溯）：输入指纹/配置快照/版本/产物/层数
             try:
                 from logsys.run_manifest import write_run_manifest

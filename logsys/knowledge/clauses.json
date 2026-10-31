@@ -226,5 +226,25 @@
         "carbonaceous_shale"
       ]
     }
+  },
+  {
+    "std_no": "LITH-06",
+    "section": "岩性识别技术标准（总则）",
+    "text": "岩性识别执行《岩性识别技术标准 v1.0》：分类体系/区域规则/识别流程/判据表/质量要求见 docs/岩性识别技术标准.md；引用 SY/T 6451-2017 探井测井处理解释技术规范、SY/T 6546-2011 复杂岩性地层测井数据处理解释规范、SY/T 5360-2004 裸眼井单井测井数据处理流程、SY/T 5132-2012 测井原始资料质量要求等。程序实现映射：region_lithology.json/region_lith.py/lith_validate.py/lithcal.py。",
+    "rule_type": "standard",
+    "rule_json": {
+      "doc": "docs/岩性识别技术标准.md",
+      "version": "v1.0"
+    }
+  },
+  {
+    "std_no": "LITH-07",
+    "section": "数据清洗与QC联动",
+    "text": "数据清洗按 SY/T 5132-2012 原始资料质量要求执行：缺测标记、单位归一（CAL/BS mm→in、NPHI 分数→百分、RHOB kg/m3→g/cc、DT us/m→us/ft）、非法值清理、深度去重排序；清洗报告并入 QC 检查项 data_cleaning，导出 <井>_data_clean_report.json 与 <井>_qc_report.json，零静默修改。",
+    "rule_type": "standard",
+    "rule_json": {
+      "module": "logsys/clean.py",
+      "qc_item": "data_cleaning"
+    }
   }
 ]

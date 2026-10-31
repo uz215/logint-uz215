@@ -42,7 +42,13 @@ def apply_lith_ml(processed_data: pd.DataFrame, well_name: str,
         import joblib
         pack = joblib.load(mp)
         clf, feats, med = pack['model'], pack['features'], pack['medians']
-        X = processed_data[feats].apply(pd.to_numeric, errors='coerce') \
+        # 【2026-10-31 修复】滚动特征需由 lithcal._features 生成，不能直接取原列
+        from .lithcal import _features as _lith_features
+        _Xall, _ = _lith_features(processed_data)
+        _miss = [c for c in feats if c not in _Xall.columns]
+        if _miss:
+            raise KeyError('缺少模型特征: %s' % _miss[:8])
+        X = _Xall[feats].apply(pd.to_numeric, errors='coerce') \
             .fillna(pd.Series(med)).values
         pred = _smooth(np.asarray(clf.predict(X), dtype=object), win=11)
         try:
@@ -56,7 +62,8 @@ def apply_lith_ml(processed_data: pd.DataFrame, well_name: str,
         out['LITHOLOGY_ML'] = pred
         # 【2026-10-31】有元素测井矿物反演（VOL_CALCITE 等覆盖>50%）时，矿物岩性更可靠：
         # 只输出 LITHOLOGY_ML，不替换 LITHOLOGY（保留矿物真岩性）
-        _min_cols = [c for c in ('VOL_CALCITE', 'VOL_DOLOM', 'VQuartz', 'VOL_ILLITE')
+        _min_cols = [c for c in ('VOL_CALCITE', 'VOL_DOLOM', 'VOL_ANHY',
+                                 'VOL_BASALT', 'VOL_SALT', 'VOL_ILLITE')
                      if c in out.columns]
         _has_mineral = False
         if _min_cols:
