@@ -789,6 +789,9 @@ class DataLoader:
             # 绘图/解释全流程共用统一口径。须在大写化之后执行(别名表全大写)。
             self.data = standardize_curve_names(
                 self.data, context=os.path.basename(str(file_path)))
+            # 无 RT → 深电阻率/最深阵列派生 RT（用户 2026-10-31）
+            self.data = ensure_rt_from_deep(
+                self.data, context=os.path.basename(str(file_path)))
 
             # ========== 全局缺测标记清洗(2026-10-15) ==========
             # -999/-999.25/-9999等负大值是缺测标记不是有效值，置NaN后方可
@@ -2903,7 +2906,10 @@ CURVE_NAME_ALIASES = {
     'DT':  ['DTC', 'DTCO', 'DT4P', 'AC', 'SONIC', 'SON'],
     # 2026-10-31：3-SPS-111D LWD 阵列方位电阻率(P40H 40in 深、P22H 22in 浅)归一为 RT；
     # LWD 无 RHOB/CNL，孔隙度走声波(DTCO→DT)或 NMR
-    'RT':  ['P40H_UNC', 'P40H', 'P22H_UNC', 'P22H', 'RD', 'RDEEP', 'RILD'],
+    # 用户 2026-10-31：无 RT 时用深电阻率/最深阵列；本井（XIMENIA-5）以 LLD 作 RT
+    'RT':  ['P40H_UNC', 'P40H', 'P22H_UNC', 'P22H', 'LLD', 'RLLD', 'RD', 'RDEEP',
+            'RILD', 'ILD', 'AT90', 'M2RX', 'R90', 'RAL1', 'RES_DEEP', 'LLD_RT',
+            'AT60', 'RAL2'],
     'CAL': ['CALX', 'CALI', 'HCAL'],
     'PE':  ['PEF', 'PEFZ', 'PEFL'],
     'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP'],
@@ -2934,6 +2940,38 @@ def standardize_curve_names(data, context=""):
     print(f"★ 曲线名统一: {renamed}"
           f"{(' [' + context + ']') if context else ''} —— QC/解释/绘图共用标准名")
     return data
+
+# 深电阻率/最深阵列优先级（用户 2026-10-31 口径）：
+# 无 RT 时依次取：LLD > RD > RDEEP > AT90(最深阵列) > M2RX > ILD > R90 > RAL1(最深阵列)
+# > RES_DEEP > P40H(40in) > P22H(22in) > AT60 > RAL2；浅电阻率(LLS/MSFL/RS)绝不替代 RT。
+RESISTIVITY_DEEP_PRIORITY = ['LLD', 'RLLD', 'RD', 'RDEEP', 'AT90', 'M2RX', 'ILD', 'R90',
+                             'RAL1', 'RES_DEEP', 'LLD_RT', 'P40H_UNC', 'P40H',
+                             'P22H_UNC', 'P22H', 'AT60', 'RAL2']
+
+
+def ensure_rt_from_deep(data, context=""):
+    """无 RT 列时，用深电阻率/最深阵列派生 RT（用户 2026-10-31 口径）。
+
+    规则：按 RESISTIVITY_DEEP_PRIORITY 选第一个有效深电阻率列（有效值占比>10%），
+    复制为 RT（不改原列）；浅电阻率(LLS/MSFL/RS/RMSL)不参与，避免 Sw 失真。
+    """
+    if data is None or len(data.columns) == 0 or 'RT' in data.columns:
+        return data
+    for cand in RESISTIVITY_DEEP_PRIORITY:
+        if cand not in data.columns:
+            continue
+        s = pd.to_numeric(data[cand], errors='coerce')
+        valid = float((s > 0).sum()) / max(len(s), 1)
+        if valid > 0.10:
+            data = data.copy()
+            data['RT'] = s
+            logger.info('无 RT 列: 使用深电阻率 %s 作为 RT（%s，有效占比 %.0f%%）',
+                        cand, context or '', 100 * valid)
+            print(f"★ 无 RT: 使用深电阻率 {cand} 作为 RT（{context}）")
+            return data
+    logger.warning('无 RT 且无可用深电阻率列（候选 %s），Sw 计算将退化', RESISTIVITY_DEEP_PRIORITY[:6])
+    return data
+
 
 def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):
     """按优先级选择第一个含有效正值数据的电阻率列。
@@ -4028,6 +4066,7 @@ class DataProcessor:
         """设置数据"""
         # 曲线名统一归一化兜底(2026-10-08): 外部注入数据同样走标准名口径
         self.data = standardize_curve_names(data, context="set_data注入")
+        self.data = ensure_rt_from_deep(self.data, context="set_data注入")
         # 全局缺测标记清洗兜底：与 load_data 同一口径（幂等）
         self.data = sanitize_null_markers(self.data)
         # 泥质含量调和兜底：与 load_data 同一口径（幂等，重复调用结果不变）
