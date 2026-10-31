@@ -47,7 +47,18 @@ def apply_lith_ml(processed_data: pd.DataFrame, well_name: str,
         pred = _smooth(np.asarray(clf.predict(X), dtype=object), win=11)
         out = processed_data
         out['LITHOLOGY_ML'] = pred
-        if replace_rules:
+        # 【2026-10-31】有元素测井矿物反演（VOL_CALCITE 等覆盖>50%）时，矿物岩性更可靠：
+        # 只输出 LITHOLOGY_ML，不替换 LITHOLOGY（保留矿物真岩性）
+        _min_cols = [c for c in ('VOL_CALCITE', 'VOL_DOLOM', 'VQuartz', 'VOL_ILLITE')
+                     if c in out.columns]
+        _has_mineral = False
+        if _min_cols:
+            try:
+                _cov = float(out[_min_cols].notna().any(axis=1).mean())
+                _has_mineral = _cov > 0.50
+            except Exception:
+                _has_mineral = False
+        if replace_rules and not _has_mineral:
             if 'LITHOLOGY' in out.columns:
                 out['LITHOLOGY_RULE'] = out['LITHOLOGY']
             out['LITHOLOGY'] = pred
