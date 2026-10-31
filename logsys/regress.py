@@ -26,6 +26,8 @@ BASE = r'D:\360\src'
 DEFAULT_ROOTS = [r'C:\Users\Administrator\Documents\deepseek-harness\default-workspace\output',
                  os.path.join(BASE, 'output')]
 REQUIRED_COLS = ['LAYER_ID', 'TOP_MD', 'BASE_MD', 'THICKNESS', 'LITHOLOGY', 'INTERPRETATION']
+# 井名别名（LAS 头井名 vs 项目井名）
+WELL_ALIASES = {'3-SPS-111D': ['3-BRSA-1396D-SPS', '3-SPS-111D']}
 
 
 def check_well(root: str, well: str, out: dict) -> dict:
@@ -115,8 +117,13 @@ def main(argv=None):
     for w in wells:
         got = None
         for root in roots:
-            if os.path.isdir(os.path.join(root, w)):
-                got = check_well(root, w, report)
+            for _alias in WELL_ALIASES.get(w, [w]):
+                if os.path.isdir(os.path.join(root, _alias)):
+                    got = check_well(root, _alias, report)
+                    if got.get('well'):
+                        got['well'] = w
+                    break
+            if got is not None:
                 break
         if got is None:
             got = {'well': w, 'status': 'FAIL', 'checks': [{'name': 'find', 'status': 'FAIL',
