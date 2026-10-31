@@ -85,6 +85,10 @@ def collect() -> dict:
         conn = connect(os.path.join(BASE, 'data', 'kb', 'kb.db'))
         out['kb'] = stats(conn)
         out['kb']['region_calib'] = conn.execute('SELECT COUNT(*) FROM region_calib').fetchone()[0]
+        _tp = os.path.join(BASE, 'data', 'kb', 'topics')
+        if os.path.isdir(_tp):
+            _files = [f for f in glob.glob(os.path.join(_tp, '*.md')) if os.path.basename(f) != 'index.md']
+            out['kb']['topics'] = len(_files)
     except Exception as e:
         out['kb'] = {'error': str(e)}
     return out
@@ -127,6 +131,8 @@ def render_md(s: dict) -> str:
         md.append('- 文档 %s / 块 %s / 实体 %s / 事实 %s / 案例 %s / 条款 %s / 区域标定 %s' % (
             kb.get('docs'), kb.get('chunks'), kb.get('entities'), kb.get('facts'),
             kb.get('cases'), kb.get('clauses'), kb.get('region_calib')))
+        if kb.get('topics'):
+            md.append('- 知识库专题报告：%d 个（data/kb/topics/index.md）' % kb['topics'])
     md += ['', '## 产物路径', '',
            '- 验收：`%s`' % a.get('path', '-'),
            '- 回归：`%s`' % r.get('path', '-'),

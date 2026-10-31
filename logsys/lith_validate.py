@@ -118,9 +118,22 @@ def evaluate(proc_csv: str, truth: pd.DataFrame, col: str = 'LITHOLOGY') -> dict
     for t in truth['LITH'].unique():
         tot = sum(cm.get(t, {}).values())
         recall[t] = round(cm[t].get(t, 0.0) / tot, 4) if tot else None
+    # 宏平均 F1（按类等权，避免泥岩优势掩盖砂岩）
+    prec = {}
+    for t in recall:
+        pred_tot = sum(cm.get(s2, {}).get(t, 0.0) for s2 in cm)
+        prec[t] = round(cm[t].get(t, 0.0) / pred_tot, 4) if pred_tot else None
+    f1 = {}
+    for t in recall:
+        if recall[t] and prec[t]:
+            f1[t] = round(2 * recall[t] * prec[t] / (recall[t] + prec[t]), 4)
+        else:
+            f1[t] = 0.0 if recall[t] is not None else None
+    _valid = [v for v in f1.values() if v is not None]
     return {'layers': int(len(truth)), 'overlap_len_m': round(total, 1),
             'lith_accuracy': round(good / total, 4) if total else None,
-            'recall': recall,
+            'macro_f1': round(float(np.mean(_valid)), 4) if _valid else None,
+            'recall': recall, 'precision': prec, 'f1': f1,
             'confusion': {k: {kk: round(vv, 1) for kk, vv in v.items() if vv} for k, v in cm.items()}}
 
 
