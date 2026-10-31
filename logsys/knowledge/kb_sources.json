@@ -1,0 +1,36 @@
+{
+  "roots": [
+    "D:/360/src/docs",
+    "D:/360/src/测井解释知识库",
+    "D:/360/Indonesia/BET-1"
+  ],
+  "cases": [
+    {
+      "well": "BET-1",
+      "country": "Indonesia",
+      "region": "Jabung Tengah Block",
+      "truth": "D:/360/Indonesia/BET-1/BET-1_8.5IN_SLAM_Res_Table_20261003.xls",
+      "kind": "bet1_slam",
+      "unit": "ft",
+      "conf": 0.9
+    },
+    {
+      "well": "TrakesKE-1",
+      "country": "Niger",
+      "region": "Bilma Block",
+      "truth": "D:/360/Niger/Trakes KE-1/Trakes KE-1 result table.xlsx",
+      "kind": "trakes_result",
+      "unit": "m",
+      "conf": 0.9
+    },
+    {
+      "well": "RASHIDPUR_13",
+      "country": "Bangladesh",
+      "region": "Rashidpur",
+      "truth": "D:/360/Bangladesh/RP-13/RP-13_RESULT_RUSH INTERPRETATION_20261019.xls",
+      "kind": "rp13_rush",
+      "unit": "m",
+      "conf": 0.9
+    }
+  ]
+}

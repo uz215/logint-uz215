@@ -1,0 +1,138 @@
+{
+  "_meta": {
+    "说明": "井信息文件（<井名>info.json）：快速解释/综合图/交汇图所有文字信息由 logInt 井信息收集模块从 LAS/录井图/地质设计等基础资料自动收集生成，人工可修改；处理与出图时本文件非空值优先直接调用，空值回退自动提取，无值留空白。",
+    "well": "SMOKE-2",
+    "updated": "2026-10-30",
+    "sources": []
+  },
+  "解释截止值": {
+    "_说明": "解释截止值分井配置：默认=巴西海上深水经验值（por_hc 0.06、por_dry_max 0.10、sw_hc 0.5、sw_deny 0.65、rt_gas 50、rt_oil 30、rt_water 20），每个区块每口井可能不同——人工填写非空数值即覆盖本井解释（孔隙度/饱和度填小数，RT 单位 ohm·m），留空用默认；储层岩性但孔隙度低于 por_hc 的点不解释（结论留空、不成层、无图例）",
+    "_参数说明": {
+      "por_hc": "油气层孔隙度下限(小数)。储层岩性但孔隙度低于此值=不解释(结论留空,不成层,无图例)；默认 0.06(巴西海上深水经验值,碳酸盐岩；其它岩性默认 0.08)",
+      "por_dry_max": "干层孔隙度上限=水层孔隙度下限(小数)。孔隙度≥por_hc 但低于此值且出不来油气也不是水层=干层DRY(独立成层)；默认 0.10",
+      "sw_hc": "油气层含水饱和度上限(小数)。Sw 低于此值才可能解释为油气层；默认 0.5",
+      "sw_deny": "Sw 否决线(小数)。Sw 高于此值否决油气层结论；默认 0.65",
+      "rt_gas": "气层电阻率 RT 下限(ohm·m)。RT 高于此值才可能解释为气层；默认 50",
+      "rt_oil": "油层电阻率 RT 下限(ohm·m)；默认 30",
+      "rt_water": "水层电阻率 RT 上限(ohm·m)；默认 20"
+    },
+    "por_hc": "",
+    "por_dry_max": "",
+    "sw_hc": "",
+    "sw_deny": "",
+    "rt_gas": "",
+    "rt_oil": "",
+    "rt_water": ""
+  },
+  "井信息": {
+    "_说明": "业主公司/井名/区块/区域/井别（LAS头 COMPANY/FLD/AREA、录井图、地质设计）；服务公司/州省/永久基准面取 LAS 头（SVSC/PROV/PDAT），缺留空人工填",
+    "company": "TESTCO",
+    "well_name": "SMOKE-2",
+    "field_name": "TESTFIELD",
+    "area": "",
+    "country": "",
+    "classification": "",
+    "service_company_name": "",
+    "state_or_province": "",
+    "permanent_datum": ""
+  },
+  "日期": {
+    "_说明": "开钻/完钻日期取录井图 Spud Date/TD Date；测井日期 log_date 取 LAS DATE；处理日期默认出图当日（可改）",
+    "spud_date": "",
+    "td_date": "",
+    "log_date": "2026-10-30",
+    "process_date": "2026-10-30"
+  },
+  "坐标": {
+    "_说明": "经纬度取录井图 Lat/Long（LAS LATI=纬度/LONG=经度 备用）；UTM XY 取录井图 Coordinates X/Y（地质设计、LAS LOC 备用）",
+    "latitude": "",
+    "longitude": "",
+    "x_coordinate": "",
+    "y_coordinate": ""
+  },
+  "海拔": {
+    "_说明": "地面海拔GL←录井图 RKB-GL（LAS EGL 备用）；补心海拔KB←录井图 RKB-MSL（RKB=补心转盘,井深起算点, LAS EKB 备用）；DF钻台海拔取 LAS EDF",
+    "elevation_gl": "",
+    "elevation_kb": "",
+    "elevation_df": ""
+  },
+  "钻机": {
+    "_说明": "钻机名取录井图 Rig Name/Type；测井单位取录井图 Logging Unit；设备号备用",
+    "rig_name": "",
+    "logging_unit": "",
+    "equipment_no": ""
+  },
+  "人员": {
+    "_说明": "测井工程师 Field Recorded By 取 LAS ENGI；解释工程师 Processed By/校正工程师 Corrected By/测井监督 Field Witnessed By 人工填写，留空则表1留白",
+    "processed_by": "",
+    "corrected_by": "",
+    "field_recorded_by": "",
+    "field_witnessed_by": ""
+  },
+  "井深": {
+    "_说明": "测井起止深度与井深（LAS 头 STRT/STOP 及钻达/测井井深）；综合图/快速图深度范围信息，缺留空人工填",
+    "start_depth": "1000.0",
+    "stop_depth": "1149.5",
+    "total_depth_driller": "",
+    "total_depth_logger": ""
+  },
+  "地质设计": {
+    "_说明": "目的层/井型/设计井深/构造位置（钻探程序地质章节、Drilling Program/DWOP）",
+    "target_formation": "",
+    "well_type": "",
+    "designed_td": "",
+    "structure": ""
+  },
+  "泥浆信息": {
+    "_说明": "泥浆类型/密度/粘度/酸碱度·失水与泥浆·滤液·泥饼电阻率（LAS ~P 参数与知识文件提取；收集不到留空白）",
+    "drilling_fluid_type": "",
+    "drilling_fluid_density": "",
+    "drilling_fluid_viscosity": "",
+    "drilling_fluid_ph": "",
+    "drilling_fluid_loss": "",
+    "rm_meas_temp": "",
+    "rmf_meas_temp": "",
+    "rmc_meas_temp": "",
+    "rm_bht": ""
+  },
+  "测量记录": {
+    "_说明": "表2 钻头尺寸/循环时间/最高记录温度/套管·井眼记录（LAS ~P 参数与知识文件提取；收集不到留空白）",
+    "bit_size": "",
+    "time_since_circulation": "",
+    "max_record_temp": "",
+    "casing_record": "",
+    "borehole_record": ""
+  },
+  "图表标题": {
+    "_说明": "各图标题文字；空=程序默认（ql_title=快速解释图名, cmpt_title=综合图图名, xplot_title=交汇图标题, footer_text=页脚）",
+    "ql_title": "",
+    "cmpt_title": "",
+    "xplot_title": "",
+    "footer_text": ""
+  },
+  "免责声明": {
+    "_说明": "快速解释页2免责声明文字（默认取图版样本文本; 可人工修改, 甲方格式变体时更新此值即可生效）",
+    "disclaimer": ""
+  },
+  "图例": {
+    "_说明": "LEGEND 图例文字（逗号分隔）；岩性空=由数据自动提取；沉积微相/解释结论空=程序默认",
+    "lithology_legend": "",
+    "facies_legend": "Channel, Floodplain, Delta Front, Prodelta",
+    "interpretation_legend": "Oil, Gas, Water"
+  },
+  "曲线信息": {
+    "_说明": "LAS 曲线清单 MNEM:UNIT:说明（分号分隔, ~C 自动收集, 可修改补充）",
+    "curves": ""
+  },
+  "深度比例尺": {
+    "_说明": "深度道比例尺【2026-10-14 用户定案】：深度单位英尺=1:240、公制=1:200；人工修改非空值后出图直接调用",
+    "curve_scale_ft": "1:240",
+    "curve_scale_m": "1:200"
+  },
+  "流体颜色": {
+    "_说明": "交会图流体统一色【2026-10-14 用户定案】气=红/油=深绿/水=蓝；人工修改非空值后出图直接调用（#RRGGBB 或颜色名）",
+    "gas_color": "#d73027",
+    "oil_color": "#1a9850",
+    "water_color": "#00a8f8"
+  }
+}
