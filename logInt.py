@@ -15548,6 +15548,66 @@ class WellLogProcessor:
             else:
                 gas_data = None
 
+            # 【2026-10-31 R58】masterlog（录井图）自动解析：岩性 + 气测异常/油气显示。
+            # 用户口径：很多井没有数字气测，只有录井图；录井图岩性与 Gas Show/Gas Break
+            # 是重要证据。输出到井输出目录并记入 results / 决策报告。
+            try:
+                from logsys.masterlog import extract_masterlog
+                _ml_pdf = None
+                try:
+                    _dirs_ml = [Path(well_output_dir)]
+                    _lfp_ml = (self.results.get('las_path')
+                               or (self.results.get('las_info') or {}).get('las_path')
+                               or getattr(getattr(self, 'data_loader', None), 'last_file_path', None))
+                    if _lfp_ml:
+                        _dirs_ml.insert(0, Path(_lfp_ml).parent)
+                    for _dml in _dirs_ml:
+                        _pml = find_mudlog_pdf(str(_dml))
+                        if _pml and Path(_pml).exists():
+                            _ml_pdf = _pml
+                            break
+                except Exception:
+                    _ml_pdf = None
+                if _ml_pdf:
+                    import re as _re_ml
+                    _rng = None
+                    _mm = _re_ml.search(r'(\d+)\s*-\s*(\d+)\s*m', os.path.basename(str(_ml_pdf)))
+                    if _mm:
+                        _rng = (float(_mm.group(1)), float(_mm.group(2)))
+                    _mres = extract_masterlog(
+                        str(_ml_pdf),
+                        lith_out=str(Path(well_output_dir) / f"{well_name}_masterlog_lith.csv"),
+                        gas_out=str(Path(well_output_dir) / f"{well_name}_masterlog_gas.csv"),
+                        depth_range=_rng, depth_max_hint=(_rng[1] if _rng else None))
+                    # 解析 JSON 同步到输出目录（kb_decide 报告读取）
+                    try:
+                        import shutil as _sh_ml
+                        if _mres.get('json') and Path(_mres['json']).exists():
+                            _jout = Path(well_output_dir) / f"{well_name}_masterlog_extract.json"
+                            _sh_ml.copyfile(_mres['json'], _jout)
+                            _mres['json_out'] = str(_jout)
+                    except Exception:
+                        pass
+                    self.results['masterlog_extract'] = _mres
+                    logger.info('masterlog: 岩性 %s 层、气测异常 %s 条',
+                                _mres.get('lith_layers'), _mres.get('gas_events'))
+                    print(f"masterlog: 岩性 {_mres.get('lith_layers')} 层、气测异常 {_mres.get('gas_events')} 条")
+                    try:
+                        if _mres.get('gas_file') and Path(_mres['gas_file']).exists():
+                            _ge = pd.read_csv(_mres['gas_file'])
+                            _md_g = pd.to_numeric(self.results['processed_data']['MD'], errors='coerce')
+                            _flag = pd.Series(False, index=self.results['processed_data'].index)
+                            for _, _r in _ge.iterrows():
+                                if str(_r.get('TYPE')) in ('GAS_SHOW', 'FLUORESCENCE'):
+                                    _flag |= ((_md_g >= float(_r['MD_START'])) &
+                                              (_md_g <= float(_r['MD_END'])))
+                            self.results['processed_data']['MASTERLOG_GAS_SHOW'] = _flag.values
+                            logger.info('masterlog: 气测异常覆盖 %d 点', int(_flag.sum()))
+                    except Exception as _mge:
+                        logger.warning('masterlog 气测异常标注失败（忽略）: %s', _mge)
+            except Exception as _mle:
+                logger.warning('masterlog 自动解析失败（忽略）: %s', _mle)
+
             # 【2026-10-08】矿物体积计算已移至 CSV 保存前（一处一功能），
             # CSV/LAS/绘图共用同一份矿物列，此处不再重复计算。
 
@@ -15952,6 +16012,29 @@ class WellLogProcessor:
                                 logger.info('气田先验: %d 个油/混层改判为 GAS', _n_g)
                     except Exception as _gfe:
                         logger.warning('气田先验应用失败（忽略）: %s', _gfe)
+                    # masterlog 气测异常证据（层表标注，不改结论）
+                    try:
+                        _mev = self.results.get('masterlog_extract') or {}
+                        if _mev.get('gas_file') and Path(_mev['gas_file']).exists():
+                            _ge2 = pd.read_csv(_mev['gas_file'])
+                            _lay_me = pd.read_csv(_fin['canonical'])
+                            _hit = 0
+                            for _, _r in _ge2.iterrows():
+                                if str(_r.get('TYPE')) not in ('GAS_SHOW', 'FLUORESCENCE'):
+                                    continue
+                                _m_me = ((_lay_me['BASE_MD'] > float(_r['MD_START'])) &
+                                         (_lay_me['TOP_MD'] < float(_r['MD_END'])))
+                                if _m_me.any():
+                                    _col_me = _lay_me['REVIEW_FLAG'].fillna('').astype(str)
+                                    _col_me = _col_me.where(~_m_me, _col_me + ';MASTERLOG_GAS')
+                                    _lay_me['REVIEW_FLAG'] = _col_me
+                                    _hit += int(_m_me.sum())
+                            if _hit:
+                                _lay_me.to_csv(_fin['canonical'], index=False, encoding='utf-8-sig')
+                                _fin['masterlog_gas_layers'] = _hit
+                                logger.info('masterlog 气测异常标注: %d 层', _hit)
+                    except Exception as _mle2:
+                        logger.warning('masterlog 层表标注失败（忽略）: %s', _mle2)
                     # 知识证据统一附加到 canonical（覆盖/刷新 EV_* 列）
                     try:
                         from logsys.evidence_stack import enrich_layers_file

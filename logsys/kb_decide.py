@@ -188,6 +188,10 @@ def collect(out_dir: str, well: str, info: dict | None = None) -> dict:
         '允许岩性': rec['knowledge'].get('allowed_classes'),
     }
     # 清洗/QC 摘要
+    # 录井图（masterlog）解析结果
+    _mlp = os.path.join(d, '%s_masterlog_extract.json' % well)
+    if os.path.exists(_mlp):
+        rec.setdefault('knowledge', {})['masterlog'] = _read_json(_mlp)
     cln = _read_json(paths['clean_report'])
     if cln:
         rec['metrics']['data_cleaning'] = {
@@ -327,11 +331,25 @@ def render_html(rec: dict, out_dir: str) -> str:
     if not (fluid_m or lith_m):
         html.append('<tr><td>无试油/岩性真值：仅输出结论与过程指标</td></tr>')
     html.append('</table>')
+    # 录井图证据（masterlog）
+    _ml = (rec.get('knowledge') or {}).get('masterlog') or {}
+    if _ml:
+        html.append('<h2>6. 录井图（masterlog）证据</h2><table>')
+        html.append('<tr><th>来源 PDF</th><td>%s</td></tr>' % _ml.get('pdf'))
+        html.append('<tr><th>岩性层段</th><td>%s 层（%s）</td></tr>' % (
+            _ml.get('lith_layers'), _ml.get('lith_dist')))
+        html.append('<tr><th>气测异常/油气显示</th><td>%s 条（%s）</td></tr>' % (
+            _ml.get('gas_events'), _ml.get('gas_types')))
+        html.append('<tr><th>岩性深度范围</th><td>%s</td></tr>' % (_ml.get('depth_range'),))
+        html.append('</table>')
+        rec.setdefault('metrics', {})['masterlog'] = {
+            'lith_layers': _ml.get('lith_layers'), 'gas_events': _ml.get('gas_events'),
+            'lith_dist': _ml.get('lith_dist'), 'gas_types': _ml.get('gas_types')}
     # 清洗/QC
     mt = rec.get('metrics') or {}
     if mt.get('data_cleaning'):
         c = mt['data_cleaning']
-        html.append('<h2>6. 数据清洗与 QC</h2><table>'
+        html.append('<h2>7. 数据清洗与 QC</h2><table>'
                     '<tr><th>清洗行数</th><td>%s → %s</td></tr>'
                     '<tr><th>单位修正</th><td>%s</td></tr>'
                     '<tr><th>非法值</th><td>%s</td></tr>'
