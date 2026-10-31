@@ -154,11 +154,22 @@ def parse_offset_summary(src: str, out_dir: str, source_name: str | None = None)
     _os.makedirs(out_dir, exist_ok=True)
     full_path = _os.path.join(out_dir, 'offset_test_summary.csv')
     full.to_csv(full_path, index=False, encoding='utf-8-sig')
+    _bot = pd.to_numeric(full['BOT_FT'], errors='coerce')
+    _top = pd.to_numeric(full['TOP_FT'], errors='coerce')
     facts = pd.DataFrame({
         'ZONE': full['FORMATION'].replace('', '未定'),
         'WELL': full['WELL'],
         'DST_RESULT_RAW': full['CONCLUSION_RAW'],
         'RESULT_KIND': full['RESULT_KIND'],
+        'TOP_FT': _top, 'BOT_FT': _bot,
+        'DEPTH_CLASS': [('SHALLOW' if (pd.notna(b) and b <= 6900)
+                         else ('MID' if (pd.notna(b) and b <= 8000)
+                               else ('SHALLOW_INFERRED'
+                                     if any(k in (str(f) + str(blk) + str(nt)).upper()
+                                            for k in ('TAF', '浅', '<6900', '6900'))
+                                     else 'UNKNOWN')))
+                        for b, f, blk, nt in zip(_bot, full['FORMATION'],
+                                                 full['BLOCK'], full['NOTE'])],
         'SOURCE': full['SOURCE'],
         'CONF': full['CONF'],
     })

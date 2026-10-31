@@ -42,7 +42,10 @@ def import_offset_dst(conn, csv_path: str, default_country: str = 'Bangladesh') 
                      ' source_doc, conf) VALUES(?,?,?,?,?,?,?,?)',
                      (zone_id, 'Formation', zone, zone_id, default_country, '{}', src, conf))
         fid = 'FACT:%s:DST:%s:%s' % (_sha(well_id)[:8], _sha(zone)[:8], kind)
-        props = json.dumps({'raw': raw, 'result_kind': kind, 'country': default_country},
+        props = json.dumps({'raw': raw, 'result_kind': kind, 'country': default_country,
+                            'top_ft': (None if pd.isna(r.get('TOP_FT')) else float(r.get('TOP_FT'))),
+                            'bot_ft': (None if pd.isna(r.get('BOT_FT')) else float(r.get('BOT_FT'))),
+                            'depth_class': str(r.get('DEPTH_CLASS') or '')},
                            ensure_ascii=False)
         conn.execute('INSERT OR REPLACE INTO fact(id, subj, rel, obj, props_json, source_doc,'
                      ' source_loc, conf, extractor) VALUES(?,?,?,?,?,?,?,?,?)',
@@ -53,7 +56,8 @@ def import_offset_dst(conn, csv_path: str, default_country: str = 'Bangladesh') 
     return {'ok': n, 'fail': 0}
 
 
-def get_dst_facts(conn, formation: str | None = None, kind: str | None = None) -> list:
+def get_dst_facts(conn, formation: str | None = None, kind: str | None = None,
+                  depth_class: str | None = None) -> list:
     sql = "SELECT subj, obj, props_json, source_doc, conf FROM fact WHERE rel='DST_RESULT'"
     args = []
     if formation:
@@ -62,9 +66,14 @@ def get_dst_facts(conn, formation: str | None = None, kind: str | None = None) -
     if kind:
         sql += ' AND obj LIKE ?'
         args.append('%:' + kind.upper())
+    if depth_class:
+        sql += " AND props_json LIKE ?"
+        args.append('%' + '"depth_class": "' + depth_class.upper() + '"%')
     out = []
     for r in conn.execute(sql, args):
         props = json.loads(r[2] or '{}')
         out.append({'well': r[0], 'obj': r[1], 'raw': props.get('raw', ''),
+                    'top_ft': props.get('top_ft'), 'bot_ft': props.get('bot_ft'),
+                    'depth_class': props.get('depth_class'),
                     'source': r[3], 'conf': r[4]})
     return out

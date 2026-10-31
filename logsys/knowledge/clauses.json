@@ -103,5 +103,25 @@
     "rule_json": {
       "missing_label": "UNKNOWN"
     }
+  },
+  {
+    "std_no": "REF-01",
+    "section": "区域证据适用范围",
+    "text": "印尼 Jabung/South-Betara 邻井试油测试汇总共 76 条/47 井，测试段 4154–7794 ft，**全部为浅层（TAF 等，绝大多数 ≤6900 ft；仅 4 条 6900–7800 ft）**，没有 LTAF 深部试油；因此**不能直接外推到 BET-1 深部 LTAF（7119–9032 ft）**。引用邻井试油时必须核对深度与层位，深部解释按测井曲线 + 用户区域分带判断。",
+    "rule_type": "evidence_scope",
+    "rule_json": {
+      "depth_range_ft": [
+        4154,
+        7794
+      ],
+      "shallow_threshold_ft": 6900,
+      "all_shallow": true,
+      "has_deep_test": false,
+      "not_applicable": [
+        "LTAF",
+        "deep LTAF"
+      ],
+      "require_depth_check": true
+    }
   }
 ]
