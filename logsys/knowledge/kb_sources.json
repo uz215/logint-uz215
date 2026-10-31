@@ -133,6 +133,196 @@
       "kind": "generic_csv",
       "unit": "m",
       "conf": 0.9
+    },
+    {
+      "well": "Arianga NE-1",
+      "country": "Niger",
+      "region": "",
+      "truth": "D:/360/Niger/knowledge/Arianga NE-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "试油动态表（尼日尔重点井）"
+    },
+    {
+      "well": "Bokora-1",
+      "country": "Niger",
+      "region": "",
+      "truth": "D:/360/Niger/knowledge/Bokora-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "试油动态表（尼日尔重点井）"
+    },
+    {
+      "well": "Fana SE-1D",
+      "country": "Niger",
+      "region": "",
+      "truth": "D:/360/Niger/knowledge/Fana SE-1D_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "试油动态表（尼日尔重点井）"
+    },
+    {
+      "well": "Kaido-1",
+      "country": "Niger",
+      "region": "",
+      "truth": "D:/360/Niger/knowledge/Kaido-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "试油动态表（尼日尔重点井）"
+    },
+    {
+      "well": "Baobab 1-8",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Baobab 1-8_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Baobab C-1",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Baobab C-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Baobab E-2",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Baobab E-2_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Cassia-1",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Cassia-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Lanea E-2",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Lanea E-2_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Lanea SE-1",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Lanea SE-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Mimosa E-1",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Mimosa E-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Mimosa-9",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Mimosa-9_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Phoenix S-3",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Phoenix S-3_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Phoenix-2",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Phoenix-2_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Prosopis N-1",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Prosopis N-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Raphia S-10",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Raphia S-10_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Raphia S-6",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Raphia S-6_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Raphia S-9",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Raphia S-9_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
+    },
+    {
+      "well": "Ronier D-1",
+      "country": "Chad",
+      "region": "",
+      "truth": "D:/360/Chad/knowledge/Ronier D-1_test_truth.csv",
+      "kind": "generic_csv",
+      "unit": "m",
+      "conf": 0.8,
+      "note": "潜山试油统计（乍得）"
     }
   ],
   "clauses": "D:/360/src/logsys/knowledge/clauses.json",
