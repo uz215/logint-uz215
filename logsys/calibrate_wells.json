@@ -1,14 +1,14 @@
 [
   {
     "well": "BET-1",
-    "proc": "D:/360/src/output/BET-1/BET-1_processed.csv",
+    "proc": "C:\\Users\\Administrator\\Documents\\deepseek-harness\\default-workspace\\output\\BET-1\\BET-1_processed.csv",
     "truth": "D:/360/Indonesia/BET-1/BET-1_8.5IN_SLAM_Res_Table_20261003.xls",
     "truth_kind": "bet1_slam",
     "unit": "ft"
   },
   {
     "well": "TrakesKE-1",
-    "proc": "D:/360/src/output/TrakesKE-1/TrakesKE-1_processed.csv",
+    "proc": "C:\\Users\\Administrator\\Documents\\deepseek-harness\\default-workspace\\output\\TrakesKE-1\\TrakesKE-1_processed.csv",
     "truth": "D:/360/Niger/Trakes KE-1/Trakes KE-1 result table.xlsx",
     "truth_kind": "trakes_result",
     "unit": "m"

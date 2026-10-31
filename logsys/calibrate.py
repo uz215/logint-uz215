@@ -160,8 +160,18 @@ def run_well(spec: dict, out_dir: str) -> dict:
     a = prepare(spec['proc'], truth, lith_tight=bool(spec.get('lith_tight', False)))
     base = score_arr(a, DEFAULT_CUTOFFS, use_plate=spec.get('use_plate', False))
     best_cut, best_m, total = calibrate(a, use_plate=spec.get('use_plate', False))
+    # 诊断：各真值类的特征中位数（判断是 Sw 模型问题还是截止值问题）
+    diag = {}
+    for t in ('GAS', 'OIL', 'WATER', 'TIGHT'):
+        m = a['truth'] == t
+        if m.any():
+            diag[t] = {'n': int(m.sum()),
+                       'POR': round(float(np.nanmedian(a['por'][m])), 4) if np.isfinite(a['por'][m]).any() else None,
+                       'SW': round(float(np.nanmedian(a['sw'][m])), 4) if np.isfinite(a['sw'][m]).any() else None,
+                       'RT': round(float(np.nanmedian(a['rt'][m])), 3) if np.isfinite(a['rt'][m]).any() else None,
+                       'VSH_hi%': round(float(a['nonres'][m].mean()) * 100, 1)}
     res = {'well': spec['well'], 'truth': spec['truth_kind'], 'unit': spec.get('unit', ''),
-           'points': a['n'], 'grid_combos': total,
+           'points': a['n'], 'grid_combos': total, 'class_features': diag,
            'default': {'cutoffs': DEFAULT_CUTOFFS, **base},
            'calibrated': {'cutoffs': best_cut, **best_m}}
     os.makedirs(out_dir, exist_ok=True)
