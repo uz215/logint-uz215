@@ -97,3 +97,82 @@ def write_run_manifest(well_name: str, out_dir: str, results: dict,
         return p
     except Exception:
         return None
+
+
+def backfill(root_dirs: list, force: bool = False) -> dict:
+    """为已有输出目录回填运行清单（无法追溯配置/输入指纹的部分标 source=backfill）。
+
+    扫描 <root>/<井>/ 下 processed/layers/ML/PDF/report，生成最小清单；
+    已有清单默认不覆盖（force=True 覆盖）。
+    """
+    res = {'ok': 0, 'skip': 0, 'fail': 0, 'files': []}
+    for root in root_dirs:
+        if not os.path.isdir(root):
+            continue
+        for well_dir in sorted(os.listdir(root)):
+            d = os.path.join(root, well_dir)
+            if not os.path.isdir(d):
+                continue
+            try:
+                csvs = sorted(glob.glob(os.path.join(d, '*_processed.csv')), key=os.path.getmtime)
+                if not csvs:
+                    continue
+                well = os.path.basename(csvs[-1])[:-len('_processed.csv')]
+                mp = os.path.join(d, well + '_run_manifest.json')
+                if os.path.exists(mp) and not force:
+                    res['skip'] += 1
+                    continue
+                outs, layers = {}, {}
+                for pat in ('*_processed.csv', '*_interpreted.LAS', '*_report.html',
+                            '*_quicklook_*.pdf', '*_interpretation_layers.csv',
+                            '*_interpretation_layers_ML.csv', '*_composite_log_*.pdf'):
+                    fs = sorted(glob.glob(os.path.join(d, pat)), key=os.path.getmtime)
+                    if fs:
+                        outs[pat] = _file_fp(fs[-1])
+                for kind, pat in (('rules', '*_interpretation_layers.csv'),
+                                  ('ml', '*_interpretation_layers_ML.csv')):
+                    fs = sorted(glob.glob(os.path.join(d, pat)), key=os.path.getmtime)
+                    if fs:
+                        try:
+                            import pandas as pd
+                            t = pd.read_csv(fs[-1])
+                            layers[kind] = {'path': fs[-1], 'n': int(len(t)),
+                                            'dist': {str(k): int(v) for k, v in
+                                                     t['INTERPRETATION'].value_counts().items()}}
+                        except Exception:
+                            pass
+                manifest = {
+                    'well': well, 'created_at': time.strftime('%Y-%m-%d %H:%M:%S'),
+                    'source': 'backfill',
+                    'inputs': {'las': _file_fp(next(iter(glob.glob(os.path.join(d, '*.LAS')))
+                                                  if glob.glob(os.path.join(d, '*.LAS')) else '')),
+                               'info_json': _file_fp(os.path.join(d, well + 'info.json'))},
+                    'config_snapshot': {'note': 'backfill：历史产物无配置快照'},
+                    'versions': _versions(), 'outputs': outs, 'layers': layers,
+                }
+                json.dump(manifest, open(mp, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+                res['ok'] += 1
+                res['files'].append(mp)
+            except Exception:
+                res['fail'] += 1
+    return res
+
+
+def _cli():
+    import argparse
+    ap = argparse.ArgumentParser(description='运行清单：回填已有输出')
+    ap.add_argument('--backfill', required=True, help='输出根目录，逗号分隔')
+    ap.add_argument('--force', action='store_true')
+    args = ap.parse_args()
+    roots = [x.strip() for x in args.backfill.split(',') if x.strip()]
+    r = backfill(roots, force=args.force)
+    print(json.dumps({k: (v if k != 'files' else len(v)) for k, v in r.items()},
+                     ensure_ascii=False))
+    for f in r['files']:
+        print(' +', f)
+    return 0
+
+
+if __name__ == '__main__':
+    import sys as _sys
+    _sys.exit(_cli())
