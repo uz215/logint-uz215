@@ -87,6 +87,108 @@ def _find_depths(text):
     return [float(x) for x in re.findall(r'\b(\d{3,5}(?:\.\d+)?)\s*(?:m|米|ft|英尺)\b', text)]
 
 
+def _extract_location(text):
+    """井位：经纬度/UTM/区块/气田/国家（多语言标注）。"""
+    out = {}
+    m = re.search(r'(?:Latitude|LAT\.?|纬度)\s*[:：]?\s*([0-9]{1,3}\s*[°度]\s*[0-9]{1,2}\s*[\'′]\s*[0-9.]{1,10}\s*[\"″]?\s*[NS]?)', text, re.I)
+    if m:
+        out['latitude'] = m.group(1).strip()
+    m = re.search(r'(?:Longitude|LONG\.?|经度)\s*[:：]?\s*([0-9]{1,3}\s*[°度]\s*[0-9]{1,2}\s*[\'′]\s*[0-9.]{1,10}\s*[\"″]?\s*[EW]?)', text, re.I)
+    if m:
+        out['longitude'] = m.group(1).strip()
+    m = re.search(r'UTM[^\n]{0,60}?NORTH[:：]?\s*([\d,.]{3,20})[^\n]{0,40}?EAST[:：]?\s*([\d,.]{3,20})', text, re.I)
+    if m:
+        out['utm_north'] = m.group(1); out['utm_east'] = m.group(2)
+    m = re.search(r'(?:Block|区块|Licence|License)[^\n:：]{0,20}[:：]?\s*([^\n,，]{2,40})', text, re.I)
+    if m:
+        out['block'] = m.group(1).strip()
+    return out
+
+
+def _extract_purpose(text):
+    """设计目的/目标（Objectives and Targets / 设计目的 / Purpose）：
+    优先取正文 3.1 Objectives 后的项目符号条目（To ...），跳过目录页。"""
+    # 先找正文中的 Objectives 小节（跳过目录页：其前 200 字不应是标题+页码列表）
+    for m in re.finditer(r'(?:\d+\.\d+\s*)?Objectives?\b', text, re.I):
+        _pre = text[max(0, m.start() - 120):m.start()]
+        if re.search(r'(?:Page|\n\d+\s+\n)', _pre) or re.search(r'\n\d+\s*$', _pre):
+            continue
+        block = text[m.end():m.end() + 1500]
+        items = re.findall(r'(?:^|\n|\s)(?:[▪•●\-\u2022]\s*)?'
+                           r'((?:To|to|Explore|Evaluate|Appraise|Ascertain|Enhance|Determine|'
+                           r'Re-evaluate|Assess|Test|设计|评价|查明|探索)[^\n]{10,200})', block)
+        items = [re.sub(r'\s+', ' ', x).strip(' .;；') for x in items]
+        if items:
+            return '；'.join(items[:8])[:800]
+        break
+    best = None
+    pats = [
+        r'(?:Objectives?\s*(?:and|&)\s*Targets?|Design\s*Purpose|Purpose\s*of\s*(?:the\s*)?Well|'
+        r'设计目的|钻探目的)',
+        r'(?:Objectives?|目标)\b',
+    ]
+    for pat in pats:
+        for m in re.finditer(pat, text, re.I):
+            start = m.end()
+            body = text[start:start + 1200]
+            body = re.sub(r'\s+', ' ', body).strip()
+            body = re.sub(r'^[:：\s-]+', '', body)
+            # 去掉目录页（大量 "标题 页码"）
+            body = re.sub(r'^(?:[A-Z][A-Za-z&/().\- ]{3,70}\s+\d{1,3}\s+){1,6}', '', body)
+            body = re.sub(r'^(?:\d{1,3}\s+){1,6}', '', body)
+            body = re.split(r'(?:Page\b|\n\d+\.\s|Geology\s+of\s+the)', body)[0].strip()
+            if len(body) < 40:
+                continue
+            _letters = len(re.findall(r'[A-Za-z\u4e00-\u9fa5]', body))
+            _score = _letters / max(len(body), 1)
+            for kw in ('well', 'objective', 'evaluate', 'explor', 'gas', 'target',
+                       '设计', '目的', '评价', '勘探'):
+                if kw.lower() in body.lower():
+                    _score += 0.2
+            if best is None or _score > best[0]:
+                best = (_score, body[:500])
+    return best[1] if best else None
+
+
+def _extract_regional_geology(text):
+    """区域地质：地层/岩性/邻井油气显示/试油（多语言关键词行）。"""
+    kws = ('Formation', 'Lithology', 'Sandstone', 'Shale', 'Limestone', 'Dolomite',
+           'reservoir', 'offset well', 'adjacent well', 'neighbour', 'neighbor',
+           'DST', 'test', 'gas show', 'oil show', 'GWC', 'OWC', '地层', '岩性',
+           '邻井', '试油', '油气显示', '砂岩', '泥岩', '灰岩',
+           'formation', 'géologie', 'puits voisin', 'test de production',
+           'formação', 'poço vizinho', 'teste de produção')
+    out = []
+    for line in text.splitlines():
+        s0 = line.strip()
+        if not (6 <= len(s0) <= 240):
+            continue
+        if any(k.lower() in s0.lower() for k in kws):
+            # 过滤目录页行（标题+页码）与章节标题
+            if re.search(r'\s\d{1,3}$', s0) and len(s0) < 90:
+                continue
+            _heading = re.match(r'^[A-Za-z0-9/&().\- ]{4,90}$', s0) and not re.search(r'[.;:,，。：]', s0)
+            if _heading or re.search(r'(?:Program|Completion|Analysis|Logging|Prognosis|Design)$', s0):
+                continue
+            out.append(s0)
+        if len(out) >= 20:
+            break
+    return out
+
+
+def _detect_language(text):
+    ch = len(re.findall(r'[\u4e00-\u9fa5]', text))
+    fr = len(re.findall(r'\b(?:puits|objectif|géologie|forage|sondage|réservoir)\b', text, re.I))
+    pt = len(re.findall(r'\b(?:poço|objetivo|geologia|formação|perfuração)\b', text, re.I))
+    if ch > 50:
+        return 'zh'
+    if fr > pt and fr > 3:
+        return 'fr'
+    if pt > fr and pt > 3:
+        return 'pt'
+    return 'en'
+
+
 def _extract_interval(text):
     """从地质设计文本提取目标/解释井段（8.5in井眼、尾管、完井段、解释井段）。"""
     pats = [
@@ -243,6 +345,126 @@ def _extract_notes(text):
     return out
 
 
+def read_masterlog_header(well_dir, out_dir=None, well_name=None) -> dict:
+    """读 masterlog 图头通用字段（多国格式基本一致）：
+    公司/作业者、服务商、开钻/完钻日期、完钻井深、井型、坐标、泥浆、
+    井身结构（钻头/套管+鞋深）、岩性图例、油气显示图例。"""
+    cands = _masterlog_candidates(well_dir)
+    if not cands:
+        return {'ok': False, 'error': '未找到 masterlog PDF'}
+    pdf = cands[0]
+    txt, _ = _read_text(pdf, max_pages=2, max_chars=200000)
+    if not txt:
+        return {'ok': False, 'error': 'masterlog 无可读文本'}
+    head = {'ok': True, 'source_pdf': str(pdf), 'fields': {}, 'mud': [],
+            'sizes': [], 'lithology_legend': [], 'show_legend': [], 'language': _detect_language(txt)}
+    f = head['fields']
+    def grab(pat, key):
+        m = re.search(pat, txt, re.I)
+        if m and key not in f:
+            f[key] = m.group(1).strip()
+    grab(r'(?:Company\s*Name|Operator|作业者|公司)\s*[:：]\s*([^\n]{2,60})', 'company')
+    grab(r'(?:WELL\s*NAME|Well\s*Name|井名)\s*[:：]?\s*([^\n]{2,60})', 'well')
+    grab(r'(?:Country|国家)\s*[:：]\s*([^\n]{2,40})', 'country')
+    grab(r'(?:WELL\s*TYPE|Well\s*Type|井型)\s*[:：]\s*([^\n]{2,40})', 'well_type')
+    grab(r'(?:Spud(?:-in)?\s*Date|SPUD\s*DATE|开钻日期)\s*[:：]?\s*([^\n]{6,30})', 'spud_date')
+    grab(r'(?:Drilling\s*End\s*Date|END\s*OF\s*WELL|完钻日期)\s*[:：]?\s*([^\n]{6,30})', 'end_date')
+    grab(r'(?:Drilling\s*Contractor|RIG\s*OPERATOR|钻井承包商|钻机)\s*[:：]?\s*([^\n]{2,60})', 'contractor')
+    grab(r'(?:RIG\s*NAME|Rig\s*Name)\s*[:：]\s*([^\n]{2,40})', 'rig')
+    grab(r'(?:FINAL\s*DEPTH|Final\s*Depth|完钻井深)\s*[:：]?\s*([0-9.,]+\s*(?:m|ft))', 'final_depth')
+    grab(r'(?:MD\s*Depth|Depth)\s*[:：]\s*([0-9.,]+\s*m)', 'md_depth')
+    grab(r'(?:TVD\s*Depth)\s*[:：]\s*([0-9.,]+\s*m)', 'tvd_depth')
+    grab(r'(?:FIELD|Field|气田|油田)\s*[:：]\s*([^\n]{2,50})', 'field')
+    grab(r'(?:SEDIMENTARY\s*BASIN|Basin|盆地)\s*[:：]\s*([^\n]{2,50})', 'basin')
+    grab(r'(?:RKB[- ]GL|RTE|KB)\s*[:：]\s*([0-9.,]+\s*m)', 'elevation')
+    grab(r'(?:Drilling\s*Contractor)\s*[:：]?\s*([^\n]{2,60})', 'drilling_contractor')
+    # 服务商
+    svc = []
+    for k in ('LWD', 'WIRELINE LOG', 'MUD LOGGING', 'MWD', 'Cementing', '测井', '录井'):
+        for m in re.finditer(k + r'\s*[:：]\s*([^\n]{2,40})', txt, re.I):
+            svc.append('%s: %s' % (k, m.group(1).strip()))
+    head['services'] = svc[:10]
+    # 坐标
+    loc = _extract_location(txt)
+    if loc:
+        head['location'] = loc
+    # 泥浆井段/类型
+    for m in re.finditer(r'(\d+(?:\.\d+)?)\s*[-–~]\s*(\d+(?:\.\d+)?)\s*m\s*:\s*([A-Za-z0-9가-힣 \-]{2,40})', txt):
+        head['mud'].append({'top': float(m.group(1)), 'bottom': float(m.group(2)),
+                            'type': m.group(3).strip()})
+    # 井身结构（尺寸 to 深度 / SECTION / CASING SHOE / LINER）
+    for m in re.finditer(r'(\d{1,2}(?:\s+\d+/\d+)?|\d+\.\d+)\s*["”″]\s*(?:to|至)\s*([0-9.]+)\s*m', txt):
+        head['sizes'].append({'size_in': m.group(1).strip(), 'depth': float(m.group(2))})
+    for m in re.finditer(r'(SECTION|CASING\s*SHOE|LINER)\s*[:：]?\s*'
+                         r'(\d{1,2}(?:\s+\d+/\d+)?|\d+\.\d+)\s*["”″]\s*[:：]?\s*([0-9.]+)\s*m',
+                         txt, re.I):
+        head['sizes'].append({'type': m.group(1).upper(), 'size_in': m.group(2).strip(),
+                              'depth': float(m.group(3))})
+    # 岩性图例
+    for w in ('Sandstone', 'Shale', 'Siltstone', 'Claystone', 'Limestone', 'Dolomite',
+              'Anhydrite', 'Halite', 'Coal', 'Basalt', 'Alluvium', '砂岩', '泥岩', '灰岩',
+              '白云岩', '膏岩', '盐岩', '煤'):
+        if re.search(re.escape(w), txt, re.I):
+            head['lithology_legend'].append(w)
+    for w in ('Gas Show', 'Oil Show', 'Fluorescence', '油气显示', '荧光', '气测异常'):
+        if re.search(re.escape(w), txt, re.I):
+            head['show_legend'].append(w)
+    if well_name and not f.get('well'):
+        f['well'] = str(well_name)
+    # 置信度
+    _keys = ('company', 'well', 'spud_date', 'end_date', 'final_depth', 'mud', 'sizes')
+    head['confidence'] = round(sum(1 for k in _keys if head.get('fields', {}).get(k)) / 6.0, 3)
+    try:
+        if out_dir:
+            json.dump(head, open(Path(out_dir) / 'masterlog_header.json', 'w', encoding='utf-8'),
+                      ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+    return head
+
+
+def read_client_format(well_dir, repo_dir=None) -> dict:
+    """读甲方 quicklook 格式与图例（quicklook_config.json / templates/qlpt.json 等）。"""
+    cands = []
+    try:
+        for p in Path(str(well_dir)).rglob('*.json'):
+            low = p.name.lower()
+            if any(k in low for k in ('quicklook', 'qlpt', 'format', 'layout')):
+                cands.append(p)
+    except Exception:
+        pass
+    if repo_dir is None:
+        repo_dir = Path(__file__).resolve().parents[1]
+    for p in (Path(repo_dir) / 'quicklook_config.json', Path(repo_dir) / 'templates' / 'qlpt.json'):
+        if p.exists():
+            cands.append(p)
+    out = {'ok': False, 'source': None, 'format_name': None, 'legend_items': [],
+           'legend_title': None, 'header_fixed': {}, 'header_fields': [],
+           'borehole_record': [], 'casing_record': [], 'title_template': None}
+    for p in cands:
+        try:
+            d = json.load(open(p, encoding='utf-8'))
+        except Exception:
+            continue
+        if not isinstance(d, dict):
+            continue
+        items = d.get('legend_items') or (d.get('legend') or {}).get('items') or []
+        if not items and not d.get('header_fields') and not d.get('title_template'):
+            continue
+        out.update({'ok': True, 'source': str(p),
+                    'format_name': d.get('format_name') or (d.get('meta') or {}).get('format'),
+                    'legend_items': items, 'legend_title': d.get('legend_title') or (d.get('legend') or {}).get('title'),
+                    'header_fixed': d.get('header_fixed') or (d.get('header') or {}).get('fixed') or {},
+                    'header_fields': d.get('header_fields') or (d.get('header') or {}).get('fields_v') or [],
+                    'borehole_record': d.get('borehole_record') or (d.get('header') or {}).get('borehole_record') or [],
+                    'casing_record': d.get('casing_record') or (d.get('header') or {}).get('casing_record') or [],
+                    'title_template': d.get('title_template') or (d.get('title') or {}).get('template')})
+        out['legend_labels'] = [str(x.get('label') or x.get('name') or '')
+                                for x in out['legend_items'] if isinstance(x, dict)][:20]
+        break
+    return out
+
+
 def read_design(well_dir) -> dict:
     """读取地质设计（MD/PDF/DOCX）→ 结构化字段 + 来源。"""
     mds = _find_files(well_dir, DESIGN_MD_KEYS, ('.md', '.txt'))
@@ -303,6 +525,10 @@ def read_design(well_dir) -> dict:
     res['contacts'] = _extract_contacts(text)
     res['formation_tops'] = _extract_tops(text)
     res['formation_names'] = _extract_formation_names(text)
+    res['location'] = _extract_location(text)
+    res['purpose'] = _extract_purpose(text)
+    res['regional_geology'] = _extract_regional_geology(text)
+    res['language'] = _detect_language(text)
     res['casing'] = _extract_casing(text)
     res['offset_tests'] = _extract_offsets(text)
     res['notes'] = _extract_notes(text)
@@ -453,11 +679,22 @@ def build_context(well_dir, info=None, out_dir=None, use_cache=True,
         ctx['masterlog'] = read_masterlog(wd, out_dir=od, depth_range=dr, well_name=well)
     except Exception as e:
         ctx['masterlog'] = {'ok': False, 'error': str(e)}
+    try:
+        ctx['masterlog_header'] = read_masterlog_header(wd, out_dir=od, well_name=well)
+    except Exception as e:
+        ctx['masterlog_header'] = {'ok': False, 'error': str(e)}
+    try:
+        ctx['client_format'] = read_client_format(wd)
+    except Exception as e:
+        ctx['client_format'] = {'ok': False, 'error': str(e)}
     for s in (ctx['design'].get('sources') or []):
         ctx['sources'].append(s)
     if ctx['masterlog'].get('source_pdf'):
         ctx['sources'].append({'file': Path(ctx['masterlog']['source_pdf']).name,
                                'path': ctx['masterlog']['source_pdf'], 'type': 'masterlog'})
+    if (ctx.get('client_format') or {}).get('source'):
+        ctx['sources'].append({'file': Path(ctx['client_format']['source']).name,
+                               'path': ctx['client_format']['source'], 'type': 'quicklook_format'})
     ctx['cached'] = False
     try:
         json.dump(ctx, open(cache, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)

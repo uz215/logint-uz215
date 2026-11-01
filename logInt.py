@@ -18289,6 +18289,26 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
                       f"（{_ql_cfg.get('format_name', '')}）")
         if _ql_cfg is None:
             print("  未选择格式文件, 按图版默认格式(templates/qlpt.json)出图")
+        # 【2026-11-01 R66】甲方格式/图例读取（well_docs）：井文件夹 quicklook 配置/
+        # 图版文件优先；缺失项由模块补齐，供 quicklook 出图与报告共用。
+        try:
+            from logsys.well_docs import read_client_format
+            _cf_ql = ((results.get('well_context') or {}).get('client_format')
+                      or read_client_format(well_dir))
+            if _cf_ql and _cf_ql.get('ok'):
+                if _ql_cfg is None:
+                    _ql_cfg = {}
+                for _k in ('legend_items', 'legend_title', 'header_fixed', 'header_fields',
+                           'borehole_record', 'casing_record', 'title_template', 'format_name'):
+                    if not _ql_cfg.get(_k) and _cf_ql.get(_k):
+                        _ql_cfg[_k] = _cf_ql[_k]
+                results['client_format'] = _cf_ql
+                logger.info('甲方格式读取: %s；图例 %d 项（%s）',
+                            _cf_ql.get('format_name'), len(_cf_ql.get('legend_items') or []),
+                            os.path.basename(_cf_ql.get('source') or ''))
+                print(f"  甲方格式: {_cf_ql.get('format_name')}；图例 {len(_cf_ql.get('legend_items') or [])} 项")
+        except Exception as _cfe:
+            logger.warning('甲方格式读取失败（忽略）: %s', _cfe)
         _co_logo, _ct_logo = _find_well_logos(well_dir)
         print(f"  生成快速解释图 (company={Path(_co_logo).name} / "
               f"contractor={Path(_ct_logo).name}) ...")

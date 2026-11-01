@@ -437,6 +437,7 @@ def render_html(rec: dict, out_dir: str) -> str:
     html.append('<h2>0. 基础数据</h2>')
     _wc = (rec.get('knowledge') or {}).get('well_context') or {}
     _des = _wc.get('design') or {}
+    _mh = _wc.get('masterlog_header') or {}
     _mlr = (rec.get('knowledge') or {}).get('masterlog') or {}
     _zpath = os.path.join(d, '%s_masterlog_gas_zones.csv' % well)
     _zdf = _read_csv(_zpath) if os.path.exists(_zpath) else pd.DataFrame()
@@ -457,12 +458,16 @@ def render_html(rec: dict, out_dir: str) -> str:
             _itv_show = str(_pinfo)
     _rows_j = [
         ('井名', (_des.get('well') or well)),
-        ('气田/油田', _des.get('field') or '-'),
+        ('气田/油田', _des.get('field') or (_mh.get('fields') or {}).get('field') or '-'),
         ('国家/区域', (_des.get('country') or (rec.get('knowledge') or {}).get('region') or '-')),
         ('井型', _des.get('well_type') or '-'),
         ('构造位置', _des.get('structure') or '-'),
         ('设计井深', ('%s m' % _des.get('designed_td_m')) if _des.get('designed_td_m') else '-'),
         ('目的层', _des.get('target_formation') or '-'),
+        ('设计目的', (_des.get('purpose') or '-')[:200]),
+        ('井位', '；'.join('%s=%s' % (k, v) for k, v in
+                            ((_des.get('location') or _mh.get('location') or {})).items()) or '-'),
+        ('区域地质', '<br>'.join((_des.get('regional_geology') or [])[:6]) or '-'),
         ('预测地层序列', ' → '.join(x.get('name') for x in (_des.get('formation_names') or [])[:12]) or '-'),
         ('地层顶', '；'.join('%s@%.1f' % (t.get('formation'), float(t.get('depth') or 0))
                             for t in (_des.get('formation_tops') or [])[:12]) or '-'),
@@ -487,9 +492,31 @@ def render_html(rec: dict, out_dir: str) -> str:
     _arts = rec.get('artifacts') or {}
     if _arts.get('processed_csv'):
         html.append('<tr><th>处理成果</th><td>%s</td></tr>' % os.path.basename(_arts['processed_csv']))
+    _cf = _wc.get('client_format') or {}
+    if _cf.get('ok'):
+        html.append('<tr><th>甲方格式/图版</th><td>%s（%s）</td></tr>' % (
+            _cf.get('format_name'), os.path.basename(_cf.get('source') or '')))
+        if _cf.get('legend_labels'):
+            html.append('<tr><th>图例</th><td>%s</td></tr>' % '、'.join(_cf['legend_labels'][:16]))
     html.append('</table>')
     # ---- 0.3 录井图 masterlog（岩性+气测异常） ----
     html.append('<h3>0.3 录井图（masterlog）</h3><table>')
+    if _mh.get('ok'):
+        _hf = _mh.get('fields') or {}
+        _rows_mh = [
+            ('作业公司/承包商', _hf.get('company') or _hf.get('contractor') or '-'),
+            ('服务商', '；'.join(_mh.get('services') or []) or '-'),
+            ('开钻/完钻日期', '%s / %s' % (_hf.get('spud_date') or '-', _hf.get('end_date') or '-')),
+            ('完钻井深/井型', '%s / %s' % (_hf.get('final_depth') or '-', _hf.get('well_type') or '-')),
+            ('泥浆', '；'.join('%.0f-%.0fm:%s' % (m.get('top'), m.get('bottom'), m.get('type'))
+                               for m in (_mh.get('mud') or [])[:6]) or '-'),
+            ('井身结构', '；'.join('%s%s@%.0fm' % (x.get('type') or '', x.get('size_in'), x.get('depth'))
+                                 for x in (_mh.get('sizes') or [])[:10]) or '-'),
+            ('岩性图例', '、'.join(_mh.get('lithology_legend') or []) or '-'),
+            ('油气显示图例', '、'.join(_mh.get('show_legend') or []) or '-'),
+        ]
+        for _k, _v in _rows_mh:
+            html.append('<tr><th>%s</th><td>%s</td></tr>' % (_k, _v))
     if _mlr:
         if _mlr.get('source_pdf'):
             html.append('<tr><th>来源 PDF</th><td>%s</td></tr>' % os.path.basename(_mlr['source_pdf']))
@@ -536,7 +563,7 @@ def render_html(rec: dict, out_dir: str) -> str:
     # ---- 0.5 资料清单（来源可追溯） ----
     html.append('<h3>0.5 资料清单</h3><table>')
     _src_rows = []
-    for _s0 in (_wc.get('sources') or [])[:10]:
+    for _s0 in (_wc.get('sources') or [])[:12]:
         _src_rows.append((os.path.basename(_s0.get('file') or ''), _s0.get('type') or ''))
     for _k0 in ('processed_csv', 'layers_canonical', 'decision', 'qc_report', 'clean_report'):
         _p0 = (_arts or {}).get(_k0)
