@@ -323,17 +323,3 @@ def grade_gas_zones(zones: pd.DataFrame, gas: pd.DataFrame | None = None) -> pd.
             grades.append('弱显示')
     z['GRADE'] = grades
     return z
-
-
-def main(argv=None):
-    import sys
-    if not argv:
-        print('用法: python -m logsys.masterlog <masterlog.pdf>')
-        return 1
-    print(json.dumps(extract_masterlog(argv[0]), ensure_ascii=False, indent=2))
-    return 0
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main(sys.argv[1:]))
