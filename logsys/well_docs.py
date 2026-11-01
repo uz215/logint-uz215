@@ -785,7 +785,7 @@ def _apply_info_overrides(ctx, ov):
         try:
             if isinstance(itv, dict) and itv.get('top') is not None:
                 d['interval'] = {'top': float(itv['top']), 'bottom': float(itv['bottom']),
-                                 'text': str(itv.get('说明') or 'info.json 人工修改')}
+                                 'text': str(itv.get('说明') or itv.get('text') or 'info.json 配置')}
         except Exception:
             pass
     for k, f in (('套管程序', 'casing'), ('流体界面', 'contacts'),
