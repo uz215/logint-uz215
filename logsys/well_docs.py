@@ -989,6 +989,12 @@ def sync_info_json(well_dir, ctx, out_dir=None, well_name=None) -> dict:
             '_来源': 'well_docs:read_masterlog',
             '_自动同步': True,
         })
+    # 解释参数（可人工修改）：气油比例/干层含烃
+    par_sec = info.setdefault('解释参数', {})
+    for _k, _v in (('气油比例', None), ('干层含烃', True)):
+        if _k not in par_sec:
+            par_sec[_k] = _v
+    par_sec.setdefault('_说明', '气油比例=GAS_OIL中气占烃比例(0-1，空=按气测组分/默认0.5)；干层含烃=True时干层仍计算Sg/So（干层只是物性差/不可采，不含烃的假设不成立）')
     # 甲方格式
     cf_sec = info.setdefault('甲方格式', {})
     if True:

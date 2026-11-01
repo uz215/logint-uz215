@@ -485,6 +485,10 @@ def render_html(rec: dict, out_dir: str) -> str:
                                             float(_des['interval']['bottom'])))
                               if _des.get('interval') else '-'),
         ('解释井段', _itv_show or '-'),
+        ('气油比例(气占烃)', ((((_wc.get('info') or {}).get('解释参数') or {}).get('气油比例'))
+                             if (((_wc.get('info') or {}).get('解释参数') or {}).get('气油比例') is not None)
+                             else '按气测组分/默认0.5')),
+        ('干层含烃', str((((_wc.get('info') or {}).get('解释参数') or {}).get('干层含烃', True)))),
     ]
     for _k, _v in _rows_j:
         html.append('<tr><th>%s</th><td>%s</td></tr>' % (_k, _v))
@@ -652,6 +656,9 @@ def render_html(rec: dict, out_dir: str) -> str:
                        x.get('OIL') or '-', x['PLATE'] or '-', (x['FLAG'] or '')[:60]]
             html.append('<tr><td>' + '</td><td>'.join(_cells) + '</td></tr>')
         html.append('</table>')
+        html.append('<p style="font-size:12px;color:#555">说明：Sg/So 按 1-Sw 计算；GAS_OIL 按可配气油比例分配'
+                    '（info.json 解释参数.气油比例，空=按气测组分 C1/(C1..C5)/默认0.5）；'
+                    '干层仍计算含烃饱和度（干层=物性差/不可采，并非不含油气）；SG+SO+SW_EFF=1。</p>')
     # ---- 4.2 交汇图 ----
     if _xfigs:
         html.append('<h2>4.2 交汇图（按解释结论着色）</h2>')

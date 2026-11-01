@@ -15988,45 +15988,49 @@ class WellLogProcessor:
                             logger.info('地质设计地层顶已标注层表: %d 个顶', len(_tops_ctx))
                     except Exception as _fte:
                         logger.warning('地层顶标注失败（忽略）: %s', _fte)
-                    # 【2026-11-01 R68】Sg/So 含烃饱和度 + 不确定性复核清单
+                    # 【2026-11-01 R69】Sg/So 含烃饱和度（GAS_OIL 比例可配、干层含烃）+ 复核清单
                     try:
                         _pd_sg = self.results.get('processed_data')
                         _lay_sg = pd.read_csv(_fin['canonical'])
                         if _pd_sg is not None and 'INTERPRETATION' in _pd_sg.columns and len(_lay_sg):
-                            # 1) 点级 Sg/So（不再恒 Sg=0）
-                            _sw_col = next((c for c in ('SW_COMP', 'Sw', 'SW', 'SWIR') if c in _pd_sg.columns), None)
-                            if _sw_col:
-                                _sw_v = pd.to_numeric(_pd_sg[_sw_col], errors='coerce').clip(0, 1)
-                                _hc = (1.0 - _sw_v).clip(lower=0)
-                                _itp = _pd_sg['INTERPRETATION'].astype(str).str.upper()
-                                _sg = pd.Series(0.0, index=_pd_sg.index)
-                                _so = pd.Series(0.0, index=_pd_sg.index)
-                                _sg = _sg.where(~_itp.eq('GAS'), _hc)
-                                _so = _so.where(~_itp.eq('OIL'), _hc)
-                                _m_go = _itp.eq('GAS_OIL') | _itp.eq('OIL_GAS')
-                                _sg = _sg.where(~_m_go, 0.5 * _hc)
-                                _so = _so.where(~_m_go, 0.5 * _hc)
-                                _pd_sg['SG'] = _sg.clip(0, 1).round(4)
-                                _pd_sg['SO'] = _so.clip(0, 1).round(4)
-                                logger.info('Sg/So 已计算: 平均 Sg=%.3f So=%.3f',
-                                            float(_pd_sg['SG'].mean()), float(_pd_sg['SO'].mean()))
-                            # 2) 层表聚合 Sg/So
-                            if 'SG' in _pd_sg.columns:
-                                _md_sg = pd.to_numeric(_pd_sg['MD'], errors='coerce')
-                                _sg_m, _so_m = [], []
+                            # 气油比例：info.json「解释参数.气油比例」> 气测组分 > 默认0.5
+                            _ratio_cfg = None
+                            _dry_hc = True
+                            try:
+                                _info_sg = _info if isinstance(_info, dict) else {}
+                                _param_sg = _info_sg.get('解释参数') or {}
+                                if _param_sg.get('气油比例') not in (None, ''):
+                                    _ratio_cfg = float(_param_sg['气油比例'])
+                                if _param_sg.get('干层含烃') is not None:
+                                    _dry_hc = bool(_param_sg['干层含烃'])
+                            except Exception:
+                                pass
+                            from logsys.fluids import compute_sg_so
+                            _pd_sg, _sg_stats = compute_sg_so(
+                                _pd_sg, gas_data=gas_data, gas_oil_ratio=_ratio_cfg,
+                                dry_hc=_dry_hc)
+                            self.results['processed_data'] = _pd_sg
+                            self.results['sg_so_stats'] = _sg_stats
+                            logger.info('Sg/So: %s', {k: _sg_stats.get(k) for k in
+                                                        ('mean_sg', 'mean_so', 'dry_mean_sg',
+                                                         'dry_mean_so', 'max_conservation_residual')})
+                            # 层表聚合 SG/SO/SWE
+                            _md_sg = pd.to_numeric(_pd_sg['MD'], errors='coerce')
+                            for _col_src, _col_dst in (('SG', 'SG_MEAN'), ('SO', 'SO_MEAN'),
+                                                       ('SW_EFF', 'SWE_MEAN')):
+                                _vals = []
                                 for _, _r0 in _lay_sg.iterrows():
                                     try:
                                         _m0 = ((_md_sg >= float(_r0['TOP_MD'])) &
                                                (_md_sg < float(_r0['BASE_MD'])))
                                     except Exception:
                                         _m0 = pd.Series(False, index=_pd_sg.index)
-                                    _sg_m.append(round(float(_pd_sg.loc[_m0, 'SG'].median()), 4)
-                                                  if _m0.any() and _pd_sg.loc[_m0, 'SG'].notna().any() else None)
-                                    _so_m.append(round(float(_pd_sg.loc[_m0, 'SO'].median()), 4)
-                                                  if _m0.any() and _pd_sg.loc[_m0, 'SO'].notna().any() else None)
-                                _lay_sg['SG_MEAN'] = _sg_m
-                                _lay_sg['SO_MEAN'] = _so_m
-                            # 3) 不确定性复核清单（图版/气测异常/薄层冲突）
+                                    if _m0.any() and _pd_sg.loc[_m0, _col_src].notna().any():
+                                        _vals.append(round(float(_pd_sg.loc[_m0, _col_src].median()), 4))
+                                    else:
+                                        _vals.append(None)
+                                _lay_sg[_col_dst] = _vals
+                            # 不确定性复核清单（薄层 / 气测异常非气 / 图版冲突）
                             _rev_rows = []
                             _has_plate = 'PLATE_FLUID' in _pd_sg.columns
                             _plate_v = _pd_sg['PLATE_FLUID'].astype(str).str.upper() if _has_plate else None
@@ -16064,10 +16068,7 @@ class WellLogProcessor:
                                     index=False, encoding='utf-8-sig')
                                 logger.info('不确定性复核清单: %d 层', len(_rev_rows))
                             _fin['review_list_layers'] = len(_rev_rows)
-                            _fin['sg_so'] = {'SG_mean': round(float(_pd_sg['SG'].mean()), 4)
-                                             if 'SG' in _pd_sg.columns else None,
-                                             'SO_mean': round(float(_pd_sg['SO'].mean()), 4)
-                                             if 'SO' in _pd_sg.columns else None}
+                            _fin['sg_so'] = _sg_stats
                             import json as _js_sg
                             _js_sg.dump(_fin, open(_fin['decision_path'], 'w', encoding='utf-8'),
                                         ensure_ascii=False, indent=2)
