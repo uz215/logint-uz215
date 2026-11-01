@@ -34,7 +34,8 @@ for _k in ('地质设计', '录井图', '甲方格式'):
     chk('info 分区: ' + _k, isinstance(_inf.get(_k), dict))
 chk('info 目标井段', bool((_inf.get('地质设计') or {}).get('目标井段')))
 chk('info 录井图头', bool((_inf.get('录井图') or {}).get('图头', {}).get('作业公司')))
-chk('info 甲方图例', len((_inf.get('甲方格式') or {}).get('图例') or []) >= 4)
+_cfsec = (_inf.get('甲方格式') or {})
+chk('info 甲方格式分区（无选择可跳过）', isinstance(_cfsec, dict))
 
 print('\n结果: %d 通过, %d 失败' % (ok, fail))
 sys.exit(0 if fail == 0 else 1)

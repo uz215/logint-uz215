@@ -4,6 +4,7 @@
 # 依赖检查模块
 # =============================================================================
 import sys
+import re
 import importlib.util
 
 def check_dependency(module_name, install_command=None):
@@ -9990,138 +9991,22 @@ def _pdf_words_fast(pdf_path, max_pages=3):
 
 
 def _casing_shoe_from_masterlog(data, well_name='Unknown'):
-    """从 masterlog/录井 PDF 井身结构取套管/尾管鞋深记录（用户定案权威来源）。
-
-    【2026-10-30 P0-9b】性能修复：
-      - 取词改用 PyMuPDF（原 pdfplumber 逐词解析扫描版 masterlog 实测 308s/井）；
-      - 结果按 (pdf路径, 大小, mtime) 缓存，同井后续调用零成本；
-      - PyMuPDF 不可用时回退 pdfplumber（保持兼容）。
-
-    解析规则不变：按行聚类（容差 9pt）→ 只认含 CASING/LINER/CSG 标注的行 →
-    配尺寸词元与深度数字（支持 "10-3/4\"" 与整数+分数分词元两种写法）。
-    返回 (鞋深, 尺寸文本, [(鞋深, 尺寸文本), ...])；解析失败返回 (None, None, [])。
-    """
-    import re
-    src = None
+    """masterlog 套管/尾管鞋深（唯一实现：logsys.well_docs.casing_shoes_from_masterlog）。"""
     try:
         src = data.attrs.get('source_file')
     except Exception:
         src = None
     if not src:
         return None, None, []
-    well_dir = os.path.dirname(str(src))
-    try:
-        pdf_path = find_mudlog_pdf(well_dir)
-    except Exception:
-        pdf_path = None
+    from logsys.well_docs import find_masterlog_file, casing_shoes_from_masterlog
+    pdf_path = find_masterlog_file(os.path.dirname(str(src)))
     if not pdf_path:
         return None, None, []
-
-    # ---- 缓存：同 PDF（路径+大小+mtime）只解析一次 ----
-    try:
-        st = os.stat(str(pdf_path))
-        _ck = (str(pdf_path), int(st.st_size), round(float(st.st_mtime), 3))
-    except Exception:
-        _ck = (str(pdf_path), 0, 0)
-    if _ck in _MASTERLOG_CASING_CACHE:
-        return _MASTERLOG_CASING_CACHE[_ck]
-
-    # 尺寸词元："10-3/4"" / "10 3/4":" / "13.625"" / "22":"
-    size_pat = re.compile(r'^(?:(\d{1,2})[-\s](\d)/(\d)|(\d{1,2}(?:\.\d+)?))["”]?:?$')
-    frac_pat = re.compile(r'^(\d)/(\d)["”]?:?$')
-    num_pat = re.compile(r'^(\d{2,5}(?:\.\d+)?)(?:\s*(?:m|ft))?$', re.I)
-
-    pages = _pdf_words_fast(pdf_path, max_pages=3)
-    if pages is None:
-        try:
-            import pdfplumber
-            with pdfplumber.open(str(pdf_path)) as pdf:
-                pages = []
-                for page in pdf.pages[:3]:
-                    ws = page.extract_words(use_text_flow=False)
-                    pages.append([(float(w['top']), float(w['x0']), str(w['text']))
-                                  for w in ws])
-        except Exception as e:
-            logger.warning('[%s] masterlog 打开失败: %s', well_name, e)
-            pages = []
-
-    out = []
-    try:
-        for toks in pages:
-            if not toks:
-                continue
-            toks = sorted(toks)
-            # 按 top 坐标聚类成行（容差9pt：masterlog实测CASING标注与
-            # 尺寸/深度词元间最大8pt差，6pt会把同行拆散漏配），行内按 x 排序
-            rows = []
-            for y, x, t in toks:
-                if rows and abs(y - rows[-1][0][0]) <= 9:
-                    rows[-1].append((y, x, t))
-                else:
-                    rows.append([(y, x, t)])
-            for row in rows:
-                row.sort(key=lambda z: z[1])
-                labels = [t for _y, _x, t in row]
-                rowtext = ' '.join(labels).upper()
-                if not re.search(r'\b(CASING|LINER|CSG)\b', rowtext):
-                    continue
-                i = 0
-                while i < len(labels):
-                    m = size_pat.match(labels[i].strip())
-                    if m:
-                        if m.group(1):
-                            size_txt = '%s-%s/%s' % (m.group(1), m.group(2), m.group(3))
-                        else:
-                            size_txt = m.group(4)
-                            # 整数+分数分属两个词元（"10" + "3/4\":"）
-                            if i + 1 < len(labels):
-                                fm = frac_pat.match(labels[i + 1].strip())
-                                if fm:
-                                    size_txt = '%s-%s/%s' % (size_txt, fm.group(1), fm.group(2))
-                                    i += 1
-                        for j in range(i + 1, len(labels)):
-                            nm = num_pat.match(labels[j].strip())
-                            if nm:
-                                out.append((float(nm.group(1)), size_txt))
-                                break
-                    i += 1
-    except Exception as e:
-        logger.warning('[%s] masterlog 套管解析失败: %s', well_name, e)
-
-    # 【2026-10-30】合理性过滤：尺寸 4–36 in、深度 0<d<=MDmax、至少 2 条记录。
-    # 防止把 masterlog 的"井眼/钻头尺寸表"误读成套管鞋（曾解析出 0.01"@100 之类）。
-    def _size_inch(txt):
-        m = re.match(r'^(\d+)-(\d+)/(\d+)$', str(txt).strip())
-        if m:
-            return float(m.group(1)) + float(m.group(2)) / float(m.group(3))
-        try:
-            return float(txt)
-        except Exception:
-            return float('nan')
     try:
         _mdmax = float(pd.to_numeric(data['MD'], errors='coerce').max())
     except Exception:
         _mdmax = None
-    _clean = []
-    for _d, _s in out:
-        _sv = _size_inch(_s)
-        if (4.0 <= _sv <= 36.0) and (_d > 0) and (_mdmax is None or _d <= _mdmax + 1):
-            _clean.append((_d, _s))
-        else:
-            logger.info('masterlog 记录剔除(不合理): %s"@%s', _s, _d)
-    if len(_clean) < 2:
-        _clean = []
-    out = _clean
-
-    res = (None, None, [])
-    if out:
-        out.sort()
-        logger.info('[%s] masterlog(%s) 井身结构套管/尾管记录: %s',
-                    well_name, os.path.basename(str(pdf_path)),
-                    ', '.join('%s"@%.0f' % (s, d) for d, s in out[:8]))
-        res = (out[-1][0], out[-1][1], out)
-    _MASTERLOG_CASING_CACHE[_ck] = res
-    return res
+    return casing_shoes_from_masterlog(pdf_path, md_max=_mdmax)
 
 
 def _casing_layers_from_header(data):
@@ -15604,49 +15489,25 @@ class WellLogProcessor:
             else:
                 gas_data = None
 
-            # 【2026-10-31 R58】masterlog（录井图）自动解析：岩性 + 气测异常/油气显示。
-            # 用户口径：很多井没有数字气测，只有录井图；录井图岩性与 Gas Show/Gas Break
-            # 是重要证据。输出到井输出目录并记入 results / 决策报告。
+            # 【2026-11-01 R67】masterlog 读取唯一入口：logsys.well_docs.read_masterlog
+            # 未显式选择时在井目录查找；找不到则跳过（不弹窗、不报错）。
             try:
-                from logsys.masterlog import extract_masterlog
-                _ml_pdf = None
-                try:
-                    _dirs_ml = [Path(well_output_dir)]
-                    _lfp_ml = (self.results.get('las_path')
-                               or (self.results.get('las_info') or {}).get('las_path')
-                               or getattr(getattr(self, 'data_loader', None), 'last_file_path', None))
-                    if _lfp_ml:
-                        _dirs_ml.insert(0, Path(_lfp_ml).parent)
-                    for _dml in _dirs_ml:
-                        _pml = find_mudlog_pdf(str(_dml))
-                        if _pml and Path(_pml).exists():
-                            _ml_pdf = _pml
-                            break
-                except Exception:
-                    _ml_pdf = None
-                if _ml_pdf:
-                    import re as _re_ml
-                    _rng = None
-                    _mm = _re_ml.search(r'(\d+)\s*-\s*(\d+)\s*m', os.path.basename(str(_ml_pdf)))
-                    if _mm:
-                        _rng = (float(_mm.group(1)), float(_mm.group(2)))
-                    _mres = extract_masterlog(
-                        str(_ml_pdf),
-                        lith_out=str(Path(well_output_dir) / f"{well_name}_masterlog_lith.csv"),
-                        gas_out=str(Path(well_output_dir) / f"{well_name}_masterlog_gas.csv"),
-                        depth_range=_rng, depth_max_hint=(_rng[1] if _rng else None))
-                    # 解析 JSON 同步到输出目录（kb_decide 报告读取）
-                    try:
-                        import shutil as _sh_ml
-                        if _mres.get('json') and Path(_mres['json']).exists():
-                            _jout = Path(well_output_dir) / f"{well_name}_masterlog_extract.json"
-                            _sh_ml.copyfile(_mres['json'], _jout)
-                            _mres['json_out'] = str(_jout)
-                    except Exception:
-                        pass
+                from logsys.well_docs import read_masterlog, grade_gas_zones
+                _lfp_ml = (self.results.get('las_path')
+                           or (self.results.get('las_info') or {}).get('las_path')
+                           or getattr(getattr(self, 'data_loader', None), 'last_file_path', None))
+                _ml_dir = Path(_lfp_ml).parent if _lfp_ml else well_output_dir
+                _rng_ml = None
+                _des_ml = (self.results.get('well_context') or {}).get('design') or {}
+                if _des_ml.get('interval'):
+                    _rng_ml = (float(_des_ml['interval']['top']),
+                               float(_des_ml['interval']['bottom']))
+                _mres = read_masterlog(str(_ml_dir), out_dir=str(well_output_dir),
+                                       depth_range=_rng_ml,
+                                       well_name=str(getattr(self, 'well_name', '') or '') or None)
+                if _mres.get('ok'):
                     # 气测异常井段分级（厚度 + 数字气测幅度）
                     try:
-                        from logsys.masterlog import grade_gas_zones
                         if _mres.get('gas_zones_file') and Path(_mres['gas_zones_file']).exists():
                             _zg = pd.read_csv(_mres['gas_zones_file'])
                             _zg = grade_gas_zones(_zg, gas_data)
@@ -15674,8 +15535,11 @@ class WellLogProcessor:
                             logger.info('masterlog: 气测异常覆盖 %d 点', int(_flag.sum()))
                     except Exception as _mge:
                         logger.warning('masterlog 气测异常标注失败（忽略）: %s', _mge)
+                else:
+                    logger.info('masterlog: 未找到/跳过（%s）', _mres.get('error') or _mres.get('reason') or '')
+                    print('masterlog: 井目录未找到，跳过')
             except Exception as _mle:
-                logger.warning('masterlog 自动解析失败（忽略）: %s', _mle)
+                logger.warning('masterlog 读取失败（跳过）: %s', _mle)
 
             # 【2026-10-08】矿物体积计算已移至 CSV 保存前（一处一功能），
             # CSV/LAS/绘图共用同一份矿物列，此处不再重复计算。
@@ -16481,57 +16345,17 @@ def _find_main_las(well_dir):
 
 
 def _extract_md_knowledge(md_files, limit_chars=6000):
-    """从井文件夹中的 .md 知识文件提取结构化知识（BET-1 模式下这些是
-    已知识化的地质认识/分层/岩性/试油/气测分析文档）。"""
-    parts = []
-    for i, md in enumerate(md_files[:12]):
-        try:
-            text = md.read_text(encoding='utf-8', errors='ignore')
-        except Exception:
-            try:
-                text = md.read_text(encoding='gbk', errors='ignore')
-            except Exception:
-                continue
-        text = text.strip()
-        if not text:
-            continue
-        # frontmatter 摘除
-        body = text
-        if text.startswith('---'):
-            _end = text.find('\n---', 4)
-            if _end > 0:
-                body = text[_end + 4:].strip()
-        # 取标题（首行）与正文前若干字符
-        lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
-        title = lines[0] if lines else md.stem
-        excerpt = '\n'.join(lines[1:])[:limit_chars]
-        parts.append(f"### 来源: {md.name}\n**{title}**\n{excerpt[:limit_chars]}")
-    return '\n\n'.join(parts)
+    """井目录 .md 知识提取（唯一实现：logsys.well_docs.read_md_knowledge）。"""
+    from logsys.well_docs import read_md_knowledge
+    return read_md_knowledge(md_files, limit_chars=limit_chars)
+
 
 def _extract_pdf_knowledge(pdf_files, max_pages=3, limit_chars=4000):
-    """用 PyMuPDF 提取 PDF（mud log/DWOP/钻井程序等）关键文本。"""
-    parts = []
-    try:
-        import fitz
-    except Exception:
-        return ''
-    for i, pdf in enumerate(pdf_files[:6]):
-        try:
-            doc = fitz.open(str(pdf))
-            txt_parts = []
-            for pi in range(min(max_pages, doc.page_count)):
-                txt_parts.append(doc[pi].get_text() or '')
-            doc.close()
-            txt = '\n'.join(txt_parts).strip()
-            if not txt:
-                continue
-            lines = [ln.strip() for ln in txt.splitlines() if ln.strip()]
-            title = lines[0] if lines else pdf.stem
-            excerpt = '\n'.join(lines[1:])[:limit_chars]
-            parts.append(f"### PDF来源: {pdf.name}\n**{title}**\n{excerpt}")
-        except Exception as e:
-            logger.warning("PDF 文本提取失败 %s: %s", pdf.name, e)
-    return '\n\n'.join(parts)
+    """井目录 PDF 知识提取（唯一实现：logsys.well_docs.extract_pdf_knowledge）。"""
+    from logsys.well_docs import extract_pdf_knowledge
+    return extract_pdf_knowledge(pdf_files, max_pages=max_pages, limit_chars=limit_chars)
+
+
 
 def _extract_table_knowledge(xls_files):
     """登记井文件夹中的试油/测试表格文件名（内容解析由后续试油库负责）。"""
@@ -16769,125 +16593,24 @@ def _enrich_well_info(results, text_parts):
             {'size': s, 'from': f, 'to': t} for s, f, t in _cs_rows]
 
 def _scan_to_quicklook_config(res):
-    """qlscan 扫描结果 → logvis 可消费的 quicklook_config 结构。
+    """格式样本扫描结果转换（唯一实现：logsys.well_docs）。"""
+    from logsys.well_docs import _scan_to_quicklook_config as _f
+    return _f(res)
 
-    qlscan 一次扫描样本 PDF 得到 {fields/big_text/disclaimer/legend_items}，
-    这里转换出图所需字段：免责声明、图例标题与文字项（颜色按关键词
-    映射默认色，symbol 有图则用图、无则留空但文字保留）、比例尺。
+
+def _load_quicklook_config(config_file, well_dir=None):
+    """甲方 quicklook 格式读取（唯一实现：logsys.well_docs.read_client_format）。
+
+    显式 config_file 优先；未选择则井目录查找；都没有返回 None（调用方跳过）。
     """
-    import re as _re
-    _cfg = {'format_name': 'quick look (OCR 扫描样本)', 'legend_items': []}
-    _QL_SCAN_COLORS = {
-        'oil': '#ffd400', 'gas': '#ff0000', 'water': '#00a2e8',
-        'shale': '#7f7f7f', 'sand': '#ffedb0', 'sandstone': '#ffedb0',
-        'limestone': '#00b050', 'coal': '#000000', 'tight': '#a5a5a5',
-        'condensate': '#ff7f27', 'pay': '#ffff00', 'dolomite': '#00b0f0',
-    }
-    for _pg in res.get('scanned', []):
-        if _pg.get('disclaimer'):
-            _cfg['disclaimer'] = _pg['disclaimer']
-        if _pg.get('legend_title'):
-            _cfg['legend_title'] = _pg['legend_title']
-        for _it in _pg.get('legend_items', []):
-            _lbl = (_it.get('label') or '').strip()
-            if not _lbl:
-                continue
-            _color = '#bdbdbd'
-            for _k, _c in _QL_SCAN_COLORS.items():
-                if _k in _lbl.lower():
-                    _color = _c
-                    break
-            _cfg['legend_items'].append({'label': _lbl, 'color': _color})
-        for _b in _pg.get('big_text', []):
-            _m = _re.search(r'1\s*:\s*(\d{2,4})', _b.get('text', ''))
-            if _m:
-                _cfg['scale'] = f"1:{_m.group(1)}"
-    return _cfg
-
-def _load_quicklook_config(config_file):
-    """加载甲方 quick look 出图格式配置。
-
-    - .json 文件：直接读取（图版/甲方格式文件，如 qlpt.json）
-    - 样本 PDF/图片：调 qlscan 一次 OCR 扫描 → 自动生成格式配置，
-      并存为同名 _qlpt.json 供复用于图（保留 qlscan 独立扫描器形式，
-      但作为 logInt 的选择数据时的格式文件入口）
-    返回 quicklook_config dict；失败/未选择 → None（走图版默认）。
-    """
-    import json as _json
-    _p = Path(config_file)
-    if not _p.exists():
-        return None
-    if _p.suffix.lower() in ('.pdf', '.png', '.jpg', '.jpeg', '.tif', '.tiff'):
-        try:
-            # 2026-10-26 并库: qlscan 已内联本文件
-            print(f"  [qlscan] 样本格式一次扫描: {_p.name} ...")
-            _res = scan_pdf(str(_p), pages=(1, 2, 3))
-            _cfg = _scan_to_quicklook_config(_res)
-            _out = _p.with_name(_p.stem + '_qlpt.json')
-            _out.write_text(_json.dumps(_cfg, ensure_ascii=False, indent=2),
-                            encoding='utf-8')
-            print(f"  [qlscan] 已生成格式配置: {_out}（可复用于下次出图）")
-            return _cfg
-        except Exception as _e:  # noqa: BLE001
-            logger.warning("qlscan 样本扫描失败, 用图版默认: %s", _e)
-            return None
     try:
-        return _json.loads(_p.read_text(encoding='utf-8'))
-    except Exception as _e:  # noqa: BLE001
-        logger.warning("quicklook 配置解析失败, 用图版默认: %s", _e)
+        from logsys.well_docs import read_client_format
+        _cfg = read_client_format(well_dir=well_dir, config_file=config_file)
+        return _cfg if _cfg.get('ok') else None
+    except Exception:
         return None
 
-# ============================================================================
-# 井信息收集模块（【2026-10-14 用户定案】原 wellinfo.py 并入 logInt：
-# 多源收集井信息 → <井名>info.json（井名与 info 间无连字符，如 BET-1info.json），
-# 可视化时读取，人工可直接修改 json（非空值优先生效，空值回退自动提取）
-# ============================================================================
 
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-井信息收集模块（并入 logInt，不依赖外部 wellinfo.py）
-========================
-【2026-10-14 用户定案】logvis 原 well_info 仅从 LAS 头提取、信息有限；本模块
-从多源收集井信息组成 <井名>info.json（如 BET-1info.json），可视化时读取，
-人工可直接修改 json（非空值优先生效，空值回退自动提取，都没有留空白）。
-
-数据来源（按字段优先级）:
-  1. <井名>info.json 非空值 —— 第二次处理直接调用（人工修改即生效）
-  2. 井设置 well_settings.json（旧版, 存在则一次性迁移, 不再更新）
-  3. 录井图 PDF（文件名含 mud log/mudlog/录井）: 开钻/完钻日期、Lat/Long、
-     UTM X/Y、RKB-GL→地面海拔GL、RKB-MSL→补心海拔KB、钻机名、测井单位
-  4. 地质设计（钻探程序中文翻译MD / Drilling Program / DWOP）:
-     目的层、井型、设计井深、构造位置、UTM X/Y 备用
-  5. LAS 头: COMPANY/FLD/AREA/DATE、ENGI→测井工程师、EKB/EGL/EDF 海拔、
-     LATI/LONG、LOC 的 UTM 备用
-  6. 都没有 → 留空白（不编造）
-
-人员字段: 测井工程师 field_recorded_by 取 LAS ENGI；解释工程师
-processed_by / 校正工程师 corrected_by / 测井监督 field_witnessed_by
-为人工填写字段（json 留空, 表1留白）。
-
-英文均为简写（LATI=纬度、RKB=补心转盘、GL=地面、MSL=平均海平面），
-按关键词综合判断。
-"""
-import json
-import logging
-import re
-from pathlib import Path
-
-logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# 录井图 PDF 表头解析（HOLE DATA 块）
-# ---------------------------------------------------------------------------
-_MUDLOG_LABEL_KEYWORDS = (
-    # 标签简写词表: 用于剔除误入数值尾部的标签词（如 "... S UTM X"）
-    'utm', 'coordinates', 'coordinate', 'rkb-gl', 'rkb-msl', 'rkb', 'lat',
-    'long', 'latitude', 'longitude', 'spud', 'spuded', 'td', 'date', 'rig',
-    'logging', 'unit', 'company', 'well', 'field', 'region', 'elevation',
-    'classification', 'geologist', 'engineers', 'loggers', 'surface',
-    'bottom', 'hole', 'location', 'x', 'y',
-)
 
 def _mudlog_match_label(label):
     """录井图标签英文简写模糊匹配（英文均为简写需综合判断）→ 内部键或 None。
@@ -16961,20 +16684,11 @@ def _mudlog_match_label(label):
     return None
 
 def find_mudlog_pdf(well_dir):
-    """在井文件夹查找录井图/masterlog PDF（文件名含 mud log/mudlog/mud_log/录井/masterlog）。"""
-    try:
-        wd = Path(well_dir)
-        if not wd.is_dir():
-            return None
-        _keys = ('mud log', 'mudlog', 'mud_log', '录井',
-                 'masterlog', 'master log', 'master_log')
-        for p in sorted(wd.rglob('*.pdf')):
-            _low = p.name.lower()
-            if any(k in _low for k in _keys):
-                return p
-    except Exception as e:
-        logger.warning("查找录井图失败: %s", e)
-    return None
+    """井目录 masterlog PDF 查找（唯一实现：logsys.well_docs.find_masterlog_file）。"""
+    from logsys.well_docs import find_masterlog_file
+    return find_masterlog_file(well_dir)
+
+
 
 def extract_mudlog_header(pdf_path):
     """解析录井图 PDF 第 1 页表头 HOLE DATA 块 → 井设置字段 dict。
@@ -17289,266 +17003,43 @@ _GEO_PDF_KEYS = ('drilling program', 'dwop', '地质设计',
                  'gto', 'geological technical order', 'well prognosis')
 
 def find_geodesign_files(well_dir):
-    """查找地质设计文件: 中文翻译/地质设计 MD + 钻探程序/DWOP PDF。"""
-    mds, pdfs = [], []
-    try:
-        wd = Path(well_dir)
-        if not wd.is_dir():
-            return mds, pdfs
-        for p in sorted(wd.rglob('*')):
-            if p.suffix.lower() == '.md':
-                low = p.name.lower()
-                if any(k in low or k in p.name for k in _GEO_MD_KEYS):
-                    mds.append(p)
-            elif p.suffix.lower() == '.pdf':
-                low = p.name.lower()
-                if any(k in low for k in _GEO_PDF_KEYS):
-                    pdfs.append(p)
-    except Exception as e:
-        logger.warning("查找地质设计文件失败: %s", e)
-    return mds, pdfs
+    """查找地质设计文件（唯一实现：logsys.well_docs.find_design_files）。"""
+    from logsys.well_docs import find_design_files
+    _mds, _pdfs, _docxs = find_design_files(well_dir)
+    return _mds, _pdfs
+
 
 def extract_geodesign_info(well_dir):
-    """从地质设计提取井信息 → {target_formation, well_type, designed_td,
-    structure, x_coordinate, y_coordinate}（提取不到的字段不进结果）。
-
-    中文翻译 MD 为主（关键词: 目的层/井型/设计井深/构造位置/圈闭一览表），
-    英文 Drilling Program PDF 为辅（Total Depth / Target Formation）。
-    """
+    """地质设计字段（唯一解读：logsys.well_docs.read_design）。"""
+    from logsys.well_docs import read_design
+    d = read_design(well_dir) or {}
     out = {}
-    mds, pdfs = find_geodesign_files(well_dir)
-
-    # ---- MD: 中文关键词 ----
-    for md in mds[:3]:
-        try:
-            txt = md.read_text(encoding='utf-8', errors='replace')
-        except Exception:
-            continue
-        if 'target_formation' not in out:
-            _m = re.search(r'目的层[^。\n]{0,40}?((?:[A-Z]{2,}[\s\-—]*\d[\s\-—、与和]*)+)',
-                           txt)
-            if _m:
-                _toks = re.findall(r'[A-Z]{2,}[\s\-—]*\d', _m.group(1))
-                _seen = []
-                for _t in _toks:
-                    _t = re.sub(r'\s+', '-', _t.strip())
-                    if _t not in _seen:
-                        _seen.append(_t)
-                if _seen:
-                    out['target_formation'] = '、'.join(_seen)
-        if 'well_type' not in out:
-            _m = re.search(r'(直井|斜井|水平井)[·、]?((?:勘探|评价|开发|探边)井)',
-                           txt)
-            if _m:
-                out['well_type'] = _m.group(0)
-        if 'designed_td' not in out:
-            _m = re.search(r'(?:设计井深|预计井深|计划井深|完钻深度)[^\d\n]{0,30}'
-                           r'(\d{3,5})\s*(m|米|ft|英尺)?', txt)
-            if _m:
-                out['designed_td'] = f"{_m.group(1)} {_m.group(2)}".strip()
-        if 'structure' not in out:
-            _m = re.search(r'构造[位形置][^\n:：]{0,20}[:：]\s*([^\n|（*。]{2,40})', txt)
-            if _m:
-                out['structure'] = _m.group(1).strip()
-        # 圈闭一览表的 UTM X/Y 备用（含井名行内两个大整数）
-        if 'x_coordinate' not in out:
-            for line in txt.splitlines():
-                if ('X' in line and 'Y' in line
-                        and re.search(r'BET', line, re.I)):
-                    _m = re.search(r'\|\s*(\d{5,7})\s*\|\s*(\d{6,9})\s*\|', line)
-                    if _m:
-                        out['x_coordinate'] = f"{_m.group(1)} m"
-                        out['y_coordinate'] = f"{_m.group(2)} m"
-                        break
-        if len(out) >= 6:
-            break
-
-    # ---- PDF: 英文关键词（仅取 MD 缺失的字段） ----
-    if pdfs and len(out) < 5:
-        try:
-            import fitz
-            doc = fitz.open(str(pdfs[0]))
-            txt = '\n'.join(doc[i].get_text() for i in range(min(6, len(doc))))
-            doc.close()
-            if 'designed_td' not in out:
-                # 【2026-10-21 R18】GTO 口径：Target Depth (TD) : 42200 m TVDSS
-                # (4258m MDSS) —— MD 口径才是井深设计值，优先取括号内 MD
-                _m = re.search(r'Target\s*Depth\s*\(?TD\)?\s*[:：]?\s*'
-                               r'[\d\s]{0,12}m?\s*TVDSS[^()]{0,20}\(\s*(\d{3,5})\s*m?\s*MD',
-                               txt, re.I)
-                if _m:
-                    out['designed_td'] = f"{_m.group(1)} m MD"
-                else:
-                    _m = re.search(r'(?:Total\s*Depth|Proposed\s*TD|Design\s*TD|Planned\s*TD)'
-                                   r'[^0-9\n]{0,40}(\d{3,5})\s*(m|ft)', txt, re.I)
-                    if _m:
-                        out['designed_td'] = f"{_m.group(1)} {_m.group(2)}"
-            if 'well_type' not in out:
-                _m = re.search(r'Type\s*of\s*well\s*[:：]\s*'
-                               r'\b(Vertical|Directional|Deviated|Horizontal)\b', txt, re.I)
-                if _m:
-                    out['well_type'] = _m.group(1).title() + ' well'
-                else:
-                    _m = re.search(r'\b(Exploration|Appraisal|Development)\s+Well\b', txt, re.I)
-                    if _m:
-                        out['well_type'] = _m.group(0).title()
-            if 'classification' not in out and 'well_type' not in out:
-                _m = re.search(r'Classification\s*[:：]\s*'
-                               r'\b(Exploratory|Exploration|Appraisal|Development)\b', txt, re.I)
-                if _m:
-                    out['classification'] = _m.group(1).title() + ' well'
-            if 'target_formation' not in out:
-                _m = re.search(r'(?:Target|Objective)\s*Formation[s]?\s*[:：]?\s*'
-                               r'([A-Z][A-Za-z0-9 \-]{2,40})', txt)
-                if _m:
-                    out['target_formation'] = _m.group(1).strip()
-            # 【2026-10-21 用户修正】field 取地质设计/客户端成果（Rashidpur Gas
-            #   Field），不取 MIFT 报告的邻井/区块名（如 KAMTA Gas Field）。
-            if 'field_name' not in out:
-                # 【2026-10-21 修复】排除作业公司 "Gas Fields Limited"（复数 Fields +
-                #   常作页眉碎片 "CTION COMPANY LIMITE\net Gas Field"）：用负向后顾
-                #   (?!s) 要求 "Gas Field" 后不是 's'（公司 "Gas Fields" 必被排除）；
-                #   前缀限定为 1~3 个「首字母大写+其余小写」专名词（如 Rashidpur），
-                #   避免把 "Location map of Rashidpur Gas Field" 这类图名前缀吞进来。
-                _m = re.search(r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+){0,2}\s+Gas\s+Field(?!s))', txt)
-                if _m:
-                    out['field_name'] = _m.group(1).strip()
-        except Exception as e:
-            logger.warning("地质设计 PDF 解析失败: %s", e)
-
-    # ---- 【2026-10-21 R18】GTO Well Summary **坐标法**兜底（正则无效，见下）----
-    if pdfs:
-        _kv = _extract_gto_summary_kv(pdfs[0])
-        for _k, _v in _kv.items():
-            if _v and not out.get(_k):
-                out[_k] = _v
+    if d.get('target_formation'):
+        out['target_formation'] = d['target_formation']
+    if d.get('well_type'):
+        out['well_type'] = d['well_type']
+    if d.get('designed_td_m'):
+        out['designed_td'] = '%s m' % d['designed_td_m']
+    if d.get('structure'):
+        out['structure'] = d['structure']
+    if d.get('field'):
+        out['field_name'] = d['field']
+    if d.get('country'):
+        out['country'] = d['country']
+    loc = d.get('location') or {}
+    if loc.get('utm_east'):
+        out['x_coordinate'] = loc['utm_east']
+    if loc.get('utm_north'):
+        out['y_coordinate'] = loc['utm_north']
+    if loc.get('latitude'):
+        out['latitude'] = loc['latitude']
+    if loc.get('longitude'):
+        out['longitude'] = loc['longitude']
+    if d.get('well_type') and 'Exploration' in str(d.get('well_type')):
+        out['classification'] = 'Exploration well'
     return out
 
-def _extract_gto_summary_kv(pdf_path, max_pages=12):
-    """GTO(Geological Technical Order) Well Summary 键值 → 内部键。
 
-    ⚠️ 坑（2026-10-21 R18 实测）：GTO PDF 的 Well Summary 是**两列表格**，
-    文本层被拆成"标签列 + 值列"且**值列在 x≈205 起、标签列在 x≈77~190**，
-    同一行被拆成 5~6 个碎片（如 "42" | "200" | "m" | "TVDSS" | "(±100m)"），
-    **正则 `Target Depth (TD) : 42200 m TVDSS` 完全匹配不上**（值被换行拆散）；
-    且经纬度/Easting/Northing 各列**列头 x 与数据 x 不对齐**，按 x 区间切列
-    会串格 ⇒ 只能"y 聚行 + 冒号分列 + 整行文本正则"。
-    """
-    out = {}
-    try:
-        import fitz
-        doc = fitz.open(str(pdf_path))
-    except Exception as e:
-        logger.warning("GTO 打开失败: %s", e)
-        return out
-    try:
-        for _pi in range(min(max_pages, len(doc))):
-            _words = doc[_pi].get_text('words')
-            if not _words:
-                continue
-            _rows = []
-            for _w in sorted(_words, key=lambda z: ((z[1] + z[3]) / 2.0, z[0])):
-                _yc = (_w[1] + _w[3]) / 2.0
-                if _rows and abs(_yc - _rows[-1][0]) <= 4.0:
-                    _rows[-1][1].append(_w)
-                else:
-                    _rows.append([_yc, [_w]])
-            _rows = [[yc, sorted(ws, key=lambda z: z[0])] for yc, ws in _rows]
-            # 标签行 = 含 ':' 词元；值 = 冒号右侧全部词元拼接
-            for _yc, _ws in _rows:
-                _texts = [w[4] for w in _ws]
-                if ':' not in _texts:
-                    continue
-                _ci = _texts.index(':')
-                _label = ' '.join(' '.join(_texts[:_ci]).split())
-                if not _label or len(_label) > 40:
-                    continue
-                _val = ' '.join(' '.join(w[4] for w in _ws[_ci + 1:]).split())
-                if not _val:
-                    continue
-                _lab_l = _label.lower()
-                if 'target depth' in _lab_l or _lab_l in ('td', 'total depth'):
-                    # "42 200 m TVDSS (±100m) (4258m MDSS)" → 取 MD 口径
-                    _m = re.search(r'\(\s*([\d]{3,5})\s*m\s*MD', _val, re.I)
-                    if _m:
-                        out['designed_td'] = f"{_m.group(1)} m MD"
-                    else:
-                        _m = re.search(r'([\d]{3,5})\s*m\s*TVDSS', _val, re.I)
-                        if _m:
-                            out['designed_td'] = f"{_m.group(1)} m TVDSS"
-                elif _lab_l in ('type of well', 'well type'):
-                    _c = _val.replace(' ', '')
-                    for _kw in ('Vertical', 'Directional', 'Deviated', 'Horizontal'):
-                        if _kw.lower() in _c.lower():
-                            out['well_type'] = _kw + ' well'
-                            break
-                elif _lab_l == 'classification':
-                    _c = _val.replace(' ', '')
-                    for _kw in ('Exploratory', 'Exploration', 'Appraisal', 'Development'):
-                        if _kw.lower() in _c.lower():
-                            out['classification'] = _kw + ' well'
-                            break
-                elif _lab_l == 'trap type':
-                    out['structure'] = _val[:60]
-            # ---- 坐标表：Easting/Northing/Latitude/Longitude 列头 + 数据行 ----
-            _hdr_idx = -1
-            for _ri, (_yc, _ws) in enumerate(_rows):
-                _t = ' '.join(w[4] for w in _ws)
-                if 'Easting' in _t and 'Northing' in _t and 'ongitude' in _t:
-                    _hdr_idx = _ri
-                    break
-            if _hdr_idx >= 0:
-                for _ri in range(_hdr_idx + 1, len(_rows)):
-                    _yc, _ws = _rows[_ri]
-                    _t = ' '.join(w[4] for w in _ws)
-                    if 'Sub-' in _t or 'Depth' in _t or 'Location' in _t:
-                        break
-                    if not re.search(r'\d', _t) or '°' not in _t:
-                        continue
-                    # 整行文本正则：先取经纬度，剩下数字串依次 Easting/Northing
-                    #（⚠️ PDF 把 "6661419.052m" 拆成 "66" + "61419.052m" 两块，
-                    #  必须拼接而非各自成值）
-                    _la = re.search(r"(\d+\s*°\s*\d+'\s*[\d.\s]*\"\s*[NS])", _t)
-                    _lo = re.search(r"(\d+\s*°\s*\d+'\s*[\d.\s]*\"\s*[EW])", _t)
-                    if _la and not out.get('latitude'):
-                        out['latitude'] = ' '.join(_la.group(1).split())
-                        if _lo:
-                            out['longitude'] = ' '.join(_lo.group(1).split())
-                    _rest = _t
-                    for _mm in (_la, _lo):
-                        if _mm:
-                            _rest = _rest.replace(_mm.group(0), ' ')
-                    _nums = re.findall(r'\d+\.?\d*\s*m?', _rest)
-                    _nums = [re.sub(r'\s*m?$', '', z).strip() for z in _nums]
-                    _nums = [z for z in _nums if z]
-                    if len(_nums) >= 3 and 'x_coordinate' not in out:
-                        out['x_coordinate'] = f'{_nums[0]}{_nums[1]}m'
-                        out['y_coordinate'] = f'{_nums[2]}m'
-                    elif len(_nums) == 2 and 'x_coordinate' not in out:
-                        out['x_coordinate'] = f'{_nums[0]}m'
-                        out['y_coordinate'] = f'{_nums[1]}m'
-                    if out.get('x_coordinate') and out.get('latitude'):
-                        break
-            if out.get('x_coordinate') or out.get('designed_td'):
-                break
-        doc.close()
-    except Exception as e:
-        logger.warning("GTO Well Summary 解析失败: %s", e)
-    return out
-
-# ---------------------------------------------------------------------------
-# 井名 info.json 收集 / 加载 / 应用
-# ---------------------------------------------------------------------------
-_GROUPS = ('井信息', '日期', '坐标', '海拔', '钻机', '人员', '井深', '地质设计',
-           '泥浆信息', '测量记录', '图表标题', '免责声明', '图例', '曲线信息',
-           '深度比例尺', '流体颜色')
-
-# 表2 钻井液/测量参数 → LAS ~P 参数字典（其余键 → well 字典）
-_PARAM_KEYS = {'bit_size', 'drilling_fluid_type', 'drilling_fluid_density',
-               'drilling_fluid_viscosity', 'drilling_fluid_ph',
-               'drilling_fluid_loss', 'rm_meas_temp', 'rmf_meas_temp',
-               'rmc_meas_temp', 'rm_bht', 'time_since_circulation',
-               'max_record_temp', 'casing_record', 'borehole_record'}
 
 def _collect_las_curves(well_dir, results=None):
     """从 LAS ~C 收集曲线清单 "MNEM:UNIT:说明; ..."（失败返回 ''）。
@@ -18293,7 +17784,7 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
         if _arg_cfg:
             # 【2026-10-13】格式文件可以是 json 图版，也可以是甲方样本
             # PDF/图片（内部调 qlscan 一次扫描生成格式配置）
-            _ql_cfg = _load_quicklook_config(_arg_cfg)
+            _ql_cfg = _load_quicklook_config(_arg_cfg, well_dir=well_dir)
             if _ql_cfg is not None:
                 print(f"  加载 quick look 出图格式配置: {_arg_cfg}"
                       f"（{_ql_cfg.get('format_name', '')}）")

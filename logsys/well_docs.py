@@ -349,9 +349,9 @@ def read_masterlog_header(well_dir, out_dir=None, well_name=None) -> dict:
     """读 masterlog 图头通用字段（多国格式基本一致）：
     公司/作业者、服务商、开钻/完钻日期、完钻井深、井型、坐标、泥浆、
     井身结构（钻头/套管+鞋深）、岩性图例、油气显示图例。"""
-    cands = _masterlog_candidates(well_dir)
+    cands = [Path(str(pdf_path))] if pdf_path else _masterlog_candidates(well_dir)
     if not cands:
-        return {'ok': False, 'error': '未找到 masterlog PDF'}
+        return {'ok': False, 'skipped': True, 'error': '未找到 masterlog PDF'}
     pdf = cands[0]
     txt, _ = _read_text(pdf, max_pages=2, max_chars=200000)
     if not txt:
@@ -465,6 +465,263 @@ def read_client_format(well_dir, repo_dir=None) -> dict:
     return out
 
 
+def find_design_files(well_dir):
+    """查找地质设计文件：中文MD/地质设计 + 英文 Drilling Program/DWOP/GTO PDF。"""
+    mds = _find_files(well_dir, DESIGN_MD_KEYS, ('.md', '.txt'))
+    pdfs = _find_files(well_dir, DESIGN_PDF_KEYS, ('.pdf',))
+    docxs = _find_files(well_dir, DESIGN_PDF_KEYS, ('.docx',))
+    return mds, pdfs, docxs
+
+
+def read_md_knowledge(md_files, limit_chars=6000):
+    """从井目录 .md 知识文件提取结构化知识（地质认识/分层/岩性/试油/气测）。"""
+    parts = []
+    for md in list(md_files)[:12]:
+        try:
+            text = Path(str(md)).read_text(encoding='utf-8', errors='ignore')
+        except Exception:
+            try:
+                text = Path(str(md)).read_text(encoding='gbk', errors='ignore')
+            except Exception:
+                continue
+        text = text.strip()
+        if not text:
+            continue
+        body = text
+        if text.startswith('---'):
+            _end = text.find('\n---', 4)
+            if _end > 0:
+                body = text[_end + 4:].strip()
+        lines = [ln.strip() for ln in body.splitlines() if ln.strip()]
+        title = lines[0] if lines else Path(str(md)).stem
+        excerpt = '\n'.join(lines[1:])[:limit_chars]
+        parts.append(f"### 来源: {Path(str(md)).name}\n**{title}**\n{excerpt[:limit_chars]}")
+    return '\n\n'.join(parts)
+
+
+def extract_pdf_knowledge(pdf_files, max_pages=3, limit_chars=4000):
+    """提取井目录 PDF（mud log/DWOP/钻井程序等）关键文本。"""
+    parts = []
+    for pdf in list(pdf_files)[:6]:
+        try:
+            import fitz
+            doc = fitz.open(str(pdf))
+            txt_parts = [doc[i].get_text() for i in range(min(max_pages, doc.page_count))]
+            doc.close()
+            txt = '\n'.join(txt_parts).strip()
+            if txt:
+                parts.append(f"### 来源: {Path(str(pdf)).name}\n{txt[:limit_chars]}")
+        except Exception:
+            continue
+    return '\n\n'.join(parts)
+
+
+def find_masterlog_file(well_dir):
+    """井目录查找 masterlog/录井图 PDF；找不到返回 None（调用方跳过）。"""
+    cands = _masterlog_candidates(well_dir)
+    return cands[0] if cands else None
+
+
+def read_masterlog_file(pdf_path, out_dir=None, depth_range=None, well_name=None) -> dict:
+    """按 PDF 路径读取 masterlog（供 truth_lith 等调用；解析实现仍在 masterlog.py）。"""
+    from .masterlog import extract_masterlog
+    od = Path(out_dir) if out_dir else Path(str(pdf_path)).parent
+    try:
+        od.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        pass
+    wn = well_name or Path(str(pdf_path)).stem.split('_')[0].split(' ')[0]
+    r = extract_masterlog(str(pdf_path),
+                          lith_out=str(od / f'{wn}_masterlog_lith.csv'),
+                          gas_out=str(od / f'{wn}_masterlog_gas.csv'),
+                          depth_range=depth_range,
+                          depth_max_hint=(depth_range[1] if depth_range else None))
+    r['ok'] = True
+    return r
+
+
+_CASING_CACHE = {}
+
+
+def casing_shoes_from_masterlog(pdf_path, md_max=None) -> tuple:
+    """从 masterlog 井身结构读取套管/尾管鞋深（唯一实现）。返回 (鞋深, 尺寸, [(深, 尺寸)...])。"""
+    import re as _re
+    p = str(pdf_path)
+    try:
+        st = os.stat(p)
+        ck = (p, int(st.st_size), round(float(st.st_mtime), 3), None if md_max is None else round(float(md_max), 1))
+    except Exception:
+        ck = (p, 0, 0, md_max)
+    if ck in _CASING_CACHE:
+        return _CASING_CACHE[ck]
+    size_pat = _re.compile(r'^(?:(\d{1,2})[-\s](\d)/(\d)|(\d{1,2}(?:\.\d+)?))["”]?:?$')
+    frac_pat = _re.compile(r'^(\d)/(\d)["”]?:?$')
+    num_pat = _re.compile(r'^(\d{2,5}(?:\.\d+)?)(?:\s*(?:m|ft))?$', _re.I)
+    out = []
+    try:
+        import fitz
+        doc = fitz.open(p)
+        pages = []
+        for pi in range(min(3, doc.page_count)):
+            page = doc[pi]
+            pages.append([(w[1], w[0], w[4]) for w in page.get_text('words')])
+        doc.close()
+        for toks in pages:
+            if not toks:
+                continue
+            toks = sorted(toks)
+            rows = []
+            for y, x, t in toks:
+                if rows and abs(y - rows[-1][0][0]) <= 9:
+                    rows[-1].append((y, x, t))
+                else:
+                    rows.append([(y, x, t)])
+            for row in rows:
+                row.sort(key=lambda z: z[1])
+                labels = [t for _y, _x, t in row]
+                rowtext = ' '.join(labels).upper()
+                if not _re.search(r'\b(CASING|LINER|CSG)\b', rowtext):
+                    continue
+                i = 0
+                while i < len(labels):
+                    m = size_pat.match(labels[i].strip())
+                    if m:
+                        if m.group(1):
+                            size_txt = '%s-%s/%s' % (m.group(1), m.group(2), m.group(3))
+                        else:
+                            size_txt = m.group(4)
+                            if i + 1 < len(labels):
+                                fm = frac_pat.match(labels[i + 1].strip())
+                                if fm:
+                                    size_txt = '%s-%s/%s' % (size_txt, fm.group(1), fm.group(2))
+                                    i += 1
+                        for j in range(i + 1, len(labels)):
+                            nm = num_pat.match(labels[j].strip())
+                            if nm:
+                                out.append((float(nm.group(1)), size_txt))
+                                break
+                    i += 1
+    except Exception:
+        pass
+
+    def _size_inch(txt):
+        m = _re.match(r'^(\d+)-(\d+)/(\d+)$', str(txt).strip())
+        if m:
+            return float(m.group(1)) + float(m.group(2)) / float(m.group(3))
+        try:
+            return float(txt)
+        except Exception:
+            return float('nan')
+    clean = []
+    for d0, s0 in out:
+        sv = _size_inch(s0)
+        if 4.0 <= sv <= 36.0 and d0 > 0 and (md_max is None or d0 <= float(md_max) + 1):
+            clean.append((d0, s0))
+    if len(clean) < 2:
+        clean = []
+    clean.sort()
+    res = (clean[-1][0], clean[-1][1], clean) if clean else (None, None, [])
+    _CASING_CACHE[ck] = res
+    return res
+
+
+def _normalize_format(d: dict, source: str) -> dict:
+    items = d.get('legend_items') or (d.get('legend') or {}).get('items') or []
+    return {'ok': True, 'source': source,
+            'format_name': d.get('format_name') or (d.get('meta') or {}).get('format'),
+            'legend_items': items,
+            'legend_title': d.get('legend_title') or (d.get('legend') or {}).get('title'),
+            'header_fixed': d.get('header_fixed') or (d.get('header') or {}).get('fixed') or {},
+            'header_fields': d.get('header_fields') or (d.get('header') or {}).get('fields_v') or [],
+            'borehole_record': d.get('borehole_record') or (d.get('header') or {}).get('borehole_record') or [],
+            'casing_record': d.get('casing_record') or (d.get('header') or {}).get('casing_record') or [],
+            'title_template': d.get('title_template') or (d.get('title') or {}).get('template'),
+            'legend_labels': [str(x.get('label') or x.get('name') or '')
+                              for x in items if isinstance(x, dict)][:20]}
+
+
+def _scan_to_quicklook_config(res: dict) -> dict:
+    """qlscan 扫描结果 → quicklook_config（图例/比例尺/免责声明）。"""
+    import re as _re
+    cfg = {'format_name': 'quick look (OCR 扫描样本)', 'legend_items': []}
+    colors = {'oil': '#ffd400', 'gas': '#ff0000', 'water': '#00a2e8',
+              'shale': '#7f7f7f', 'sand': '#ffedb0', 'sandstone': '#ffedb0',
+              'limestone': '#00b050', 'coal': '#000000', 'tight': '#a5a5a5',
+              'condensate': '#ff7f27', 'pay': '#ffff00', 'dolomite': '#00b0f0'}
+    for pg in res.get('scanned', []):
+        if pg.get('disclaimer'):
+            cfg['disclaimer'] = pg['disclaimer']
+        if pg.get('legend_title'):
+            cfg['legend_title'] = pg['legend_title']
+        for it in pg.get('legend_items', []):
+            lbl = (it.get('label') or '').strip()
+            if not lbl:
+                continue
+            color = '#bdbdbd'
+            for k, c in colors.items():
+                if k in lbl.lower():
+                    color = c
+                    break
+            cfg['legend_items'].append({'label': lbl, 'color': color})
+        for b in pg.get('big_text', []):
+            m = _re.search(r'1\s*:\s*(\d{2,4})', b.get('text', ''))
+            if m:
+                cfg['scale'] = '1:%s' % m.group(1)
+    return cfg
+
+
+def read_client_format(well_dir=None, config_file=None) -> dict:
+    """甲方 quicklook 出图格式/图例读取（唯一入口）。
+
+    规则（用户定案 2026-11-01）：
+    - 显式选择 config_file：JSON 直接读；PDF/图片用 qlscan 扫描；
+    - 未选择：在井目录查找 quicklook_config.json / *_qlpt.json；
+    - 都没有：返回 {'ok': False, 'skipped': True}（调用方跳过，不弹窗、不报错）。
+    """
+    import json as _json
+    if config_file:
+        p = Path(str(config_file))
+        if not p.exists():
+            return {'ok': False, 'skipped': True, 'error': '格式文件不存在: %s' % p}
+        if p.suffix.lower() == '.json':
+            try:
+                return _normalize_format(_json.load(open(p, encoding='utf-8')), str(p))
+            except Exception as e:
+                return {'ok': False, 'skipped': True, 'error': str(e)}
+        if p.suffix.lower() in ('.pdf', '.png', '.jpg', '.jpeg', '.tif', '.tiff'):
+            try:
+                import qlscan
+                res = qlscan.scan_pdf(str(p), pages=(1, 2, 3))
+                cfg = _scan_to_quicklook_config(res)
+                out = p.with_name(p.stem + '_qlpt.json')
+                out.write_text(_json.dumps(cfg, ensure_ascii=False, indent=2), encoding='utf-8')
+                return _normalize_format(cfg, str(out))
+            except Exception as e:
+                return {'ok': False, 'skipped': True, 'error': '样本格式扫描失败: %s' % e}
+        return {'ok': False, 'skipped': True, 'error': '不支持的格式文件类型'}
+    # 未选择：井目录查找
+    if well_dir:
+        wd = Path(str(well_dir))
+        cands = []
+        for p in sorted(wd.rglob('*.json')):
+            low = p.name.lower()
+            if 'quicklook' in low or low.endswith('_qlpt.json') or 'format' in low or 'layout' in low:
+                cands.append(p)
+        # 井目录根下 quicklook_config.json 优先
+        root_cfg = wd / 'quicklook_config.json'
+        if root_cfg.exists():
+            cands.insert(0, root_cfg)
+        for p in cands:
+            try:
+                d = _json.load(open(p, encoding='utf-8'))
+                if isinstance(d, dict) and (d.get('legend_items') or d.get('header_fields')
+                                            or d.get('title_template') or d.get('legend')):
+                    return _normalize_format(d, str(p))
+            except Exception:
+                continue
+    return {'ok': False, 'skipped': True, 'reason': '未选择且井目录未找到 quicklook 格式文件'}
+
+
 def read_design(well_dir) -> dict:
     """读取地质设计（MD/PDF/DOCX）→ 结构化字段 + 来源。"""
     mds = _find_files(well_dir, DESIGN_MD_KEYS, ('.md', '.txt'))
@@ -552,15 +809,15 @@ def _masterlog_candidates(well_dir):
 
 
 def read_masterlog(well_dir, out_dir=None, depth_range=None, cache=True,
-                   well_name=None) -> dict:
+                   well_name=None, pdf_path=None) -> dict:
     """读取 masterlog（录井图 PDF）→ 岩性层 + 气测异常井段；带缓存。"""
     try:
         from .masterlog import extract_masterlog
     except Exception as e:
         return {'ok': False, 'error': 'masterlog 模块不可用: %s' % e}
-    cands = _masterlog_candidates(well_dir)
+    cands = [Path(str(pdf_path))] if pdf_path else _masterlog_candidates(well_dir)
     if not cands:
-        return {'ok': False, 'error': '未找到 masterlog PDF'}
+        return {'ok': False, 'skipped': True, 'error': '未找到 masterlog PDF'}
     pdf = cands[0]
     od = Path(out_dir) if out_dir else Path(well_dir)
     try:
@@ -969,6 +1226,12 @@ def apply_contacts(design: dict, md_col, unit='m'):
         out.append({'type': c.get('type'), 'depth': float(d),
                     'unit': c.get('unit') or unit})
     return out
+
+
+def grade_gas_zones(zones, gas=None):
+    """气测异常井段分级（唯一实现位于 masterlog.py；此处为模块统一出口）。"""
+    from .masterlog import grade_gas_zones as _g
+    return _g(zones, gas)
 
 
 def main(argv=None):

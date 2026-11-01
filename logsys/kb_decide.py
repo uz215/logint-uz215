@@ -498,6 +498,8 @@ def render_html(rec: dict, out_dir: str) -> str:
             _cf.get('format_name'), os.path.basename(_cf.get('source') or '')))
         if _cf.get('legend_labels'):
             html.append('<tr><th>图例</th><td>%s</td></tr>' % '、'.join(_cf['legend_labels'][:16]))
+    else:
+        html.append('<tr><th>甲方格式/图版</th><td>未选择且井目录未找到（跳过）</td></tr>')
     html.append('</table>')
     # ---- 0.3 录井图 masterlog（岩性+气测异常） ----
     html.append('<h3>0.3 录井图（masterlog）</h3><table>')

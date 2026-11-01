@@ -164,8 +164,10 @@ def summarize_well(profile_path: str, source: str | None = None) -> dict:
     # PDF：先用 masterlog.py 解析出岩性 CSV
     if str(profile_path).lower().endswith('.pdf'):
         try:
-            from .masterlog import extract_masterlog
-            _r = extract_masterlog(str(profile_path), depth_max_hint=8000)
+            import tempfile
+            from .well_docs import read_masterlog_file
+            _td = tempfile.mkdtemp(prefix='mdlith_')
+            _r = read_masterlog_file(str(profile_path), out_dir=_td, depth_range=(0, 8000))
             if _r.get('lith_file') and os.path.exists(_r['lith_file']):
                 profile_path = _r['lith_file']
         except Exception:
