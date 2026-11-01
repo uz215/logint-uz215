@@ -301,6 +301,10 @@ def _layer_details(pr: pd.DataFrame, lay: pd.DataFrame, gas_zones: pd.DataFrame 
             'PHI': _med('PHI', m) if _med('PHI', m) is not None else _med('POR', m),
             'SW': _med('Sw', m) if _med('Sw', m) is not None else _med('SW_COMP', m),
             'RT': _med('RT', m),
+            'SG': (round(float(r.get('SG_MEAN')), 3) if r.get('SG_MEAN') is not None
+                   and pd.notna(r.get('SG_MEAN')) else None),
+            'SO': (round(float(r.get('SO_MEAN')), 3) if r.get('SO_MEAN') is not None
+                   and pd.notna(r.get('SO_MEAN')) else None),
             'DEN': (_med('RHOB', m) if _med('RHOB', m) is not None else _med('DEN', m)),
             'CNL': (_med('CNL', m) if _med('CNL', m) is not None else _med('NPHI', m)),
             'DT': _med('DT', m),
@@ -631,7 +635,7 @@ def render_html(rec: dict, out_dir: str) -> str:
         _has_fm = any(x.get('FORMATION') for x in _sel)
         _hdr = ('<table><tr><th>顶(m)</th><th>底(m)</th><th>厚(m)</th><th>结论</th><th>岩性</th>'
                 + ('<th>地层</th>' if _has_fm else '')
-                + '<th>GR</th><th>VSH</th><th>PHI</th><th>Sw</th><th>RT</th>'
+                + '<th>GR</th><th>VSH</th><th>PHI</th><th>Sw</th><th>Sg</th><th>So</th><th>RT</th>'
                   '<th>气测异常井段</th><th>气测异常点</th><th>油/荧光显示</th>'
                   '<th>图版</th><th>依据/标志</th></tr>')
         html.append(_hdr)
@@ -640,7 +644,9 @@ def render_html(rec: dict, out_dir: str) -> str:
                       '<b>%s</b>' % x['ITP'], str(x['LITH'])]
             if _has_fm:
                 _cells.append(x.get('FORMATION') or '')
-            _cells += [str(x['GR']), str(x['VSH']), str(x['PHI']), str(x['SW']), str(x['RT']),
+            _cells += [str(x['GR']), str(x['VSH']), str(x['PHI']), str(x['SW']),
+                       '-' if x.get('SG') is None else ('%.3f' % x['SG']),
+                       '-' if x.get('SO') is None else ('%.3f' % x['SO']), str(x['RT']),
                        x['GAS_ZONE'] or '-',
                        str(x['MGAS']) if x['MGAS'] is not None else '-',
                        x.get('OIL') or '-', x['PLATE'] or '-', (x['FLAG'] or '')[:60]]
@@ -653,6 +659,22 @@ def render_html(rec: dict, out_dir: str) -> str:
             _u = _img_data_uri(_fp)
             if _u:
                 html.append('<img src="%s" width="520">' % _u)
+    # ---- 4.3 不确定性复核清单 ----
+    try:
+        _rev = lay[lay['REVIEW_FLAG'].fillna('').astype(str).str.contains('UNCERTAIN')] \
+            if ('REVIEW_FLAG' in lay.columns and len(lay)) else pd.DataFrame()
+        if len(_rev):
+            html.append('<h2>4.3 不确定性复核清单（%d 层）</h2><table>' % len(_rev))
+            html.append('<tr><th>顶(m)</th><th>底(m)</th><th>结论</th><th>岩性</th><th>复核原因</th></tr>')
+            for _, _r in _rev.head(20).iterrows():
+                _why = str(_r.get('REVIEW_FLAG') or '')
+                _why = _why.split('UNCERTAIN:')[-1] if 'UNCERTAIN:' in _why else _why
+                html.append('<tr><td>%.1f</td><td>%.1f</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (
+                    float(_r['TOP_MD']), float(_r['BASE_MD']), _r.get('INTERPRETATION'),
+                    _r.get('LITHOLOGY'), _why[:80]))
+            html.append('</table>')
+    except Exception:
+        pass
     # 指标
     html.append('<h2>5. 准确率与指标</h2><table>')
     if fluid_m:
