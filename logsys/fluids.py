@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """含烃饱和度 Sg/So 计算（用户定案 2026-11-01）：
 
-- GAS_OIL：不是固定 50/50，而是**可配气油比例**（如油 60% = 气 0.4）；
-  比例来源：井 info.json「解释参数.气油比例」 > 气测组分 C1/(C1..C5) 逐点估计 > 默认 0.5；
+- GAS_OIL = 油气同层（测试油气同出、比例大体相当）：默认 Sg/So 各半（0.5/0.5）；
+  如实际测试比例不同，可在井 info.json「解释参数.气油比例」显式指定（如 0.4=气占40%，仅示例，不是固定规则）；
+  不再用气测组分自动推断饱和度比例（气测组分≠地下含烃比例）；
 - 干层 DRY：**不是不含油气**，只是物性/可采性差；仍按 1-Sw 计算含烃饱和度；
   气/油分配：气测图版 GAS/OIL 优先，否则用气油比例；
 - 守恒：SG + SO + SW_EFF = 1（SW_EFF = 1 - SG - SO；Sw 实测值保留在 SW 列）。
@@ -24,30 +25,9 @@ def _sw_col(df):
     return None
 
 
-def _gas_fraction_series(df, gas_data, default=0.5):
-    """逐点气占烃比例：C1/(C1+C2+C3+C4+C5)，截断 0.1–0.9；无气测返回 default。"""
-    if gas_data is None or len(gas_data) == 0 or 'MD' not in gas_data.columns:
-        return pd.Series(float(default), index=df.index)
-    try:
-        g = gas_data
-        cols = [c for c in ('C1', 'C2', 'C3', 'C4', 'C5') if c in g.columns]
-        if 'C1' not in cols:
-            return pd.Series(float(default), index=df.index)
-        # 对齐到 df 行：优先按 MD merge_asof（防御性），否则按行数直接对齐
-        if 'MD' in df.columns and len(g) == len(df):
-            s = pd.Series(np.nan, index=df.index)
-            for c in cols:
-                v = pd.to_numeric(g[c], errors='coerce').values
-                s = pd.Series(v, index=df.index) if c == 'C1' else s
-            total = None
-            for c in cols:
-                v = pd.to_numeric(g[c], errors='coerce').values
-                total = pd.Series(v, index=df.index) if total is None else total + pd.Series(v, index=df.index)
-            f = (s / total.replace(0, np.nan)).clip(0.1, 0.9).fillna(float(default))
-            return f
-    except Exception:
-        pass
-    return pd.Series(float(default), index=df.index)
+def _constant_ratio(df, ratio=0.5):
+    """GAS_OIL 默认气占烃比例：0.5（油气同层、比例相当）。仅作默认值。"""
+    return pd.Series(float(ratio), index=df.index)
 
 
 def compute_sg_so(df: pd.DataFrame, gas_data=None, gas_oil_ratio=None,
@@ -69,7 +49,8 @@ def compute_sg_so(df: pd.DataFrame, gas_data=None, gas_oil_ratio=None,
         return out, stats
     sw = pd.to_numeric(out[swc], errors='coerce').clip(0, 1)
     itp = out['INTERPRETATION'].astype(str).str.upper()
-    f_gas = _gas_fraction_series(out, gas_data, default=default_ratio)
+    # GAS_OIL 默认各半；只有井配置显式指定比例时才改（气测组分不用于推断饱和度比例）
+    f_gas = _constant_ratio(out, default_ratio)
     if gas_oil_ratio is not None:
         try:
             f_gas = pd.Series(float(gas_oil_ratio), index=out.index).clip(0.0, 1.0)
@@ -114,14 +95,3 @@ def compute_sg_so(df: pd.DataFrame, gas_data=None, gas_oil_ratio=None,
             stats['dry_mean_so'] = round(float(so[m_dry & sw.notna()].mean()), 4)
     return out, stats
 
-
-def main(argv=None):
-    import json
-    import sys
-    print(__doc__)
-    return 0
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main())

@@ -994,7 +994,7 @@ def sync_info_json(well_dir, ctx, out_dir=None, well_name=None) -> dict:
     for _k, _v in (('气油比例', None), ('干层含烃', True)):
         if _k not in par_sec:
             par_sec[_k] = _v
-    par_sec.setdefault('_说明', '气油比例=GAS_OIL中气占烃比例(0-1，空=按气测组分/默认0.5)；干层含烃=True时干层仍计算Sg/So（干层只是物性差/不可采，不含烃的假设不成立）')
+    par_sec.setdefault('_说明', '气油比例=GAS_OIL中气占烃比例(0-1)，默认各半0.5；如试油测试油气比例不同可修改（0.4=气40%/油60%仅示例）')
     # 甲方格式
     cf_sec = info.setdefault('甲方格式', {})
     if True:
@@ -1238,21 +1238,3 @@ def grade_gas_zones(zones, gas=None):
     """气测异常井段分级（唯一实现位于 masterlog.py；此处为模块统一出口）。"""
     from .masterlog import grade_gas_zones as _g
     return _g(zones, gas)
-
-
-def main(argv=None):
-    import argparse
-    ap = argparse.ArgumentParser(description='井文档（地质设计+masterlog）读取')
-    ap.add_argument('--well-dir', required=True)
-    ap.add_argument('--out-dir', default=None)
-    ap.add_argument('--no-cache', action='store_true')
-    args = ap.parse_args(argv)
-    ctx = build_context(args.well_dir, out_dir=args.out_dir, use_cache=not args.no_cache)
-    print(json.dumps({k: ctx.get(k) for k in ('well', 'sources', 'design', 'masterlog')},
-                     ensure_ascii=False, indent=2, default=str)[:6000])
-    return 0
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main())

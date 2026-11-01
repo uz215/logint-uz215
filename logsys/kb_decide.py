@@ -487,7 +487,7 @@ def render_html(rec: dict, out_dir: str) -> str:
         ('解释井段', _itv_show or '-'),
         ('气油比例(气占烃)', ((((_wc.get('info') or {}).get('解释参数') or {}).get('气油比例'))
                              if (((_wc.get('info') or {}).get('解释参数') or {}).get('气油比例') is not None)
-                             else '按气测组分/默认0.5')),
+                             else '默认各半(0.5)；可按测试比例配置')),
         ('干层含烃', str((((_wc.get('info') or {}).get('解释参数') or {}).get('干层含烃', True)))),
     ]
     for _k, _v in _rows_j:
@@ -656,8 +656,9 @@ def render_html(rec: dict, out_dir: str) -> str:
                        x.get('OIL') or '-', x['PLATE'] or '-', (x['FLAG'] or '')[:60]]
             html.append('<tr><td>' + '</td><td>'.join(_cells) + '</td></tr>')
         html.append('</table>')
-        html.append('<p style="font-size:12px;color:#555">说明：Sg/So 按 1-Sw 计算；GAS_OIL 按可配气油比例分配'
-                    '（info.json 解释参数.气油比例，空=按气测组分 C1/(C1..C5)/默认0.5）；'
+        html.append('<p style="font-size:12px;color:#555">说明：Sg/So 按 1-Sw 计算；GAS_OIL=油气同层'
+                    '（测试油气同出、比例大体相当），默认 Sg/So 各半；如实际测试比例不同，可在 '
+                    'info.json「解释参数.气油比例」指定（0.4=气占40%仅为示例，不是固定规则）；'
                     '干层仍计算含烃饱和度（干层=物性差/不可采，并非不含油气）；SG+SO+SW_EFF=1。</p>')
     # ---- 4.2 交汇图 ----
     if _xfigs:
@@ -773,22 +774,3 @@ def build(out_dir: str, well: str, info: dict | None = None) -> dict:
                 'report_pdf': (_pf if os.path.exists(_pf) else None)}
     except Exception as e:
         return {'ok': False, 'error': '%s: %s' % (type(e).__name__, e)}
-
-
-def main(argv=None):
-    import argparse
-    ap = argparse.ArgumentParser(description='知识驱动决策记录 + 成果报告')
-    ap.add_argument('--well', required=True)
-    ap.add_argument('--dir', default=None)
-    args = ap.parse_args(argv)
-    d = args.dir or os.path.join(WS, 'output', args.well)
-    if not os.path.isdir(d):
-        d = os.path.join(BASE, 'output', args.well)
-    print(json.dumps(build(d, args.well, _read_json(os.path.join(d, args.well + 'info.json'))),
-                     ensure_ascii=False, indent=2))
-    return 0
-
-
-if __name__ == '__main__':
-    import sys
-    sys.exit(main())
