@@ -14372,6 +14372,25 @@ class WellLogProcessor:
             except Exception as _rce:
                 logger.warning('区域标定回退失败（忽略）: %s', _rce)
             set_active_cutoffs(cutoffs)
+            # 【2026-10-31 R63】数据充分性门禁（P1 诊断项）：核心曲线/覆盖率不足时
+            # 明确标记 DEGRADED/INSUFFICIENT，输出 <井>_data_sufficiency.json。
+            try:
+                from logsys.sufficiency import evaluate as _ev_suf, write as _wr_suf
+                _raw_suf = getattr(getattr(self, 'data_loader', None), 'data', None)
+                if _raw_suf is None:
+                    _raw_suf = self.results.get('processed_data')
+                _suf = _ev_suf(_raw_suf)
+                self.data_sufficiency = _suf
+                _outd = Path(self.config.get('output_dir', 'output'))
+                _outd.mkdir(parents=True, exist_ok=True)
+                self.sufficiency_path = _wr_suf(_suf, str(_outd),
+                                                str(getattr(self, 'well_name', '') or 'well'))
+                logger.info('数据充分性: %s（核心覆盖率 %.1f%%）%s',
+                            _suf.get('status'), 100 * (_suf.get('coverage_rows') or 0),
+                            '；'.join(_suf.get('reasons') or []))
+                print(f"数据充分性: {_suf.get('status')}（核心覆盖率 {100*(_suf.get('coverage_rows') or 0):.1f}%）")
+            except Exception as _sufe:
+                logger.warning('数据充分性评估失败（忽略）: %s', _sufe)
             # 【2026-10-31 R53】解释井段（加深井只解释目标井眼段）
             try:
                 _itv = load_interpret_interval(
@@ -16236,6 +16255,50 @@ class WellLogProcessor:
                         self.results.setdefault('kb_usage', {})['decision_report'] = _kd2.get('report_path')
             except Exception:
                 pass
+
+            # 【2026-10-31 R63】run_status.json：机器可读运行状态（P1 诊断项）
+            try:
+                import json as _js_rs
+                _suf2 = getattr(self, 'data_sufficiency', None) or {}
+                _checks = {
+                    'load': bool(self.results.get('processed_data') is not None),
+                    'clean': bool(self.results.get('data_clean_report')),
+                    'qc': bool(getattr(self, 'qc_report', None) or
+                              getattr(getattr(self, 'data_loader', None), 'qc_report', None)),
+                    'lithology': bool(self.results.get('lith_ml') or self.results.get('lithology')),
+                    'interpretation': bool(self.results.get('layers_path')),
+                    'layer_table': bool(self.results.get('layers_path')),
+                    'masterlog': bool(self.results.get('masterlog_extract')),
+                    'kb_evidence': bool(self.results.get('kb_usage')),
+                    'report': bool(self.results.get('report_path')),
+                    'decision_report': bool((self.results.get('knowledge_decision') or {}).get('ok')),
+                }
+                _failed = [k for k, v in _checks.items() if not v]
+                if not _checks['interpretation'] or not _checks['report']:
+                    _st = 'FAIL'
+                elif _suf2.get('status') == 'INSUFFICIENT':
+                    _st = 'INSUFFICIENT'
+                elif _failed:
+                    _st = 'DEGRADED'
+                else:
+                    _st = 'PASS'
+                _rs = {'well': str(getattr(self, 'well_name', '') or ''),
+                       'status': _st, 'checks': _checks, 'failed': _failed,
+                       'data_sufficiency': {k: _suf2.get(k) for k in
+                                            ('status', 'coverage_rows', 'curve_coverage', 'reasons')},
+                       'artifacts': {'layers': self.results.get('layers_path'),
+                                     'report': self.results.get('report_path'),
+                                     'decision_report': (self.results.get('knowledge_decision') or {}).get('report_path'),
+                                     'masterlog': (self.results.get('masterlog_extract') or {}).get('json_out'),
+                                     'sufficiency': getattr(self, 'sufficiency_path', None)}}
+                _rsp = Path(well_output_dir) / f"{well_name}_run_status.json"
+                _js_rs.dump(_rs, open(_rsp, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+                self.results['run_status'] = _rs
+                self.results['run_status_path'] = str(_rsp)
+                logger.info('运行状态: %s（失败项: %s）', _st, _failed)
+                print(f"运行状态: {_st}" + (f"（失败/不足: {_failed}）" if _failed else ''))
+            except Exception as _rse:
+                logger.warning('运行状态写出失败（忽略）: %s', _rse)
 
             # 【2026-10-31 R44】运行清单（全流程可追溯）：输入指纹/配置快照/版本/产物/层数
             try:

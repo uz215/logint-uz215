@@ -436,8 +436,23 @@ def render_html(rec: dict, out_dir: str) -> str:
         html.append('<tr><th>录井图 masterlog</th><td>岩性 %s 层；气测异常 %s 段/总厚 %s m；范围 %s</td></tr>' % (
             _mlr.get('lith_layers'), _mlr.get('gas_zones'),
             _mlr.get('gas_zone_total_m'), _mlr.get('gas_zone_range')))
+    _sufp = os.path.join(d, '%s_data_sufficiency.json' % well)
+    _suf = _read_json(_sufp) if os.path.exists(_sufp) else {}
+    if _suf:
+        rec.setdefault('metrics', {})['data_sufficiency'] = _suf
+    _rsp = os.path.join(d, '%s_run_status.json' % well)
+    _rs = _read_json(_rsp) if os.path.exists(_rsp) else {}
+    if _rs:
+        rec.setdefault('metrics', {})['run_status'] = _rs
     _cl = (rec.get('metrics') or {}).get('data_cleaning') or {}
     _qc = (rec.get('metrics') or {}).get('qc') or {}
+    if _suf:
+        html.append('<tr><th>数据充分性</th><td><b>%s</b>（核心覆盖率 %.1f%%；曲线覆盖 %s）%s</td></tr>' % (
+            _suf.get('status'), 100 * (_suf.get('coverage_rows') or 0),
+            _suf.get('curve_coverage'), '；'.join(_suf.get('reasons') or [])))
+    if _rs:
+        html.append('<tr><th>运行状态</th><td>%s（失败项：%s）</td></tr>' % (
+            _rs.get('status'), _rs.get('failed')))
     html.append('<tr><th>数据清洗/QC</th><td>%s→%s 行；非法值 %s；QC %s（%s）</td></tr>' % (
         _cl.get('rows_in'), _cl.get('rows_out'), _cl.get('value_total'),
         _qc.get('quality_level'), _qc.get('overall_score')))
