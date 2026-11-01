@@ -434,16 +434,83 @@ def render_html(rec: dict, out_dir: str) -> str:
     _dmax = round(float(_md.max()), 1) if _md.notna().any() else None
     _curves = [str(c) for c in _pr.columns if c not in ('MD',)][:40]
     _curves_n = max(0, len(_pr.columns) - 1) if len(_pr.columns) else 0
-    html.append('<h2>0. 基础数据</h2><table>')
-    html.append('<tr><th>井名</th><td>%s</td></tr>' % well)
-    html.append('<tr><th>地区/区域</th><td>%s</td></tr>' % ((rec.get('knowledge') or {}).get('region') or '-'))
+    html.append('<h2>0. 基础数据</h2>')
+    _wc = (rec.get('knowledge') or {}).get('well_context') or {}
+    _des = _wc.get('design') or {}
+    _mlr = (rec.get('knowledge') or {}).get('masterlog') or {}
+    _zpath = os.path.join(d, '%s_masterlog_gas_zones.csv' % well)
+    _zdf = _read_csv(_zpath) if os.path.exists(_zpath) else pd.DataFrame()
+    # ---- 0.1 井基础信息（地质设计） ----
+    html.append('<h3>0.1 井基础信息（地质设计）</h3><table>')
+    _itv_show = None
+    if _des.get('interval'):
+        _itv_show = '%.1f–%.1f m（地质设计）' % (float(_des['interval']['top']),
+                                                float(_des['interval']['bottom']))
+    _pinfo = (rec.get('parameters') or {}).get('解释井段')
+    if _pinfo:
+        if isinstance(_pinfo, dict):
+            _t = _pinfo.get('top'); _b = _pinfo.get('bottom')
+            _src = '自动/电测覆盖' if _pinfo.get('auto') else 'info.json'
+            if _t is not None:
+                _itv_show = '%.1f–%.1f m（%s）' % (float(_t), float(_b), _src)
+        else:
+            _itv_show = str(_pinfo)
+    _rows_j = [
+        ('井名', (_des.get('well') or well)),
+        ('气田/油田', _des.get('field') or '-'),
+        ('国家/区域', (_des.get('country') or (rec.get('knowledge') or {}).get('region') or '-')),
+        ('井型', _des.get('well_type') or '-'),
+        ('构造位置', _des.get('structure') or '-'),
+        ('设计井深', ('%s m' % _des.get('designed_td_m')) if _des.get('designed_td_m') else '-'),
+        ('目的层', _des.get('target_formation') or '-'),
+        ('预测地层序列', ' → '.join(x.get('name') for x in (_des.get('formation_names') or [])[:12]) or '-'),
+        ('地层顶', '；'.join('%s@%.1f' % (t.get('formation'), float(t.get('depth') or 0))
+                            for t in (_des.get('formation_tops') or [])[:12]) or '-'),
+        ('流体界面(GWC/OWC)', '；'.join('%s@%.1f%s' % (c.get('type'), float(c.get('depth') or 0),
+                                                  c.get('unit') or 'm')
+                                    for c in (_des.get('contacts') or [])[:6]) or '-'),
+        ('套管程序', '；'.join('%s@%.0f-%.0f' % (c.get('size_in'), float(c.get('depth') or 0),
+                                              float(c.get('bottom') or c.get('depth') or 0))
+                            for c in (_des.get('casing') or [])[:8]) or '-'),
+        ('地质设计目标井段', ('%.1f–%.1f m' % (float(_des['interval']['top']),
+                                            float(_des['interval']['bottom'])))
+                              if _des.get('interval') else '-'),
+        ('解释井段', _itv_show or '-'),
+    ]
+    for _k, _v in _rows_j:
+        html.append('<tr><th>%s</th><td>%s</td></tr>' % (_k, _v))
+    html.append('</table>')
+    # ---- 0.2 数据与曲线（测井） ----
+    html.append('<h3>0.2 数据与曲线（测井）</h3><table>')
     html.append('<tr><th>数据深度范围</th><td>%s–%s m（%d 点）</td></tr>' % (_dmin, _dmax, _nrow))
     html.append('<tr><th>曲线数量</th><td>%d（%s）</td></tr>' % (_curves_n, '、'.join(_curves[:16])))
-    _mlr = (rec.get('knowledge') or {}).get('masterlog') or {}
+    _arts = rec.get('artifacts') or {}
+    if _arts.get('processed_csv'):
+        html.append('<tr><th>处理成果</th><td>%s</td></tr>' % os.path.basename(_arts['processed_csv']))
+    html.append('</table>')
+    # ---- 0.3 录井图 masterlog（岩性+气测异常） ----
+    html.append('<h3>0.3 录井图（masterlog）</h3><table>')
     if _mlr:
-        html.append('<tr><th>录井图 masterlog</th><td>岩性 %s 层；气测异常 %s 段/总厚 %s m；范围 %s</td></tr>' % (
-            _mlr.get('lith_layers'), _mlr.get('gas_zones'),
-            _mlr.get('gas_zone_total_m'), _mlr.get('gas_zone_range')))
+        if _mlr.get('source_pdf'):
+            html.append('<tr><th>来源 PDF</th><td>%s</td></tr>' % os.path.basename(_mlr['source_pdf']))
+        html.append('<tr><th>岩性层段</th><td>%s 层（%s），深度 %s</td></tr>' % (
+            _mlr.get('lith_layers'), _mlr.get('lith_dist'), _mlr.get('depth_range')))
+        html.append('<tr><th>气测异常</th><td>事件 %s 条；井段 %s 段，总厚 %.1f m，范围 %s</td></tr>' % (
+            _mlr.get('gas_events'), _mlr.get('gas_zones'),
+            float(_mlr.get('gas_zone_total_m') or 0), _mlr.get('gas_zone_range')))
+        if len(_zdf) and 'GRADE' in _zdf.columns:
+            _gc = _zdf['GRADE'].value_counts().to_dict()
+            html.append('<tr><th>气测异常等级</th><td>%s</td></tr>' % '；'.join(
+                '%s %d 段' % (k, v) for k, v in _gc.items()))
+        if _mlr.get('lith_file'):
+            html.append('<tr><th>提取文件</th><td>%s；%s；%s</td></tr>' % (
+                os.path.basename(_mlr.get('lith_file') or ''),
+                os.path.basename(_mlr.get('gas_file') or ''),
+                os.path.basename(_mlr.get('gas_zones_file') or '')))
+    else:
+        html.append('<tr><td>未找到 masterlog（或解析失败）</td></tr>')
+    html.append('</table>')
+    # ---- 0.4 数据质量与运行状态 ----
     _sufp = os.path.join(d, '%s_data_sufficiency.json' % well)
     _suf = _read_json(_sufp) if os.path.exists(_sufp) else {}
     if _suf:
@@ -454,6 +521,7 @@ def render_html(rec: dict, out_dir: str) -> str:
         rec.setdefault('metrics', {})['run_status'] = _rs
     _cl = (rec.get('metrics') or {}).get('data_cleaning') or {}
     _qc = (rec.get('metrics') or {}).get('qc') or {}
+    html.append('<h3>0.4 数据质量与运行状态</h3><table>')
     if _suf:
         html.append('<tr><th>数据充分性</th><td><b>%s</b>（核心覆盖率 %.1f%%；曲线覆盖 %s）%s</td></tr>' % (
             _suf.get('status'), 100 * (_suf.get('coverage_rows') or 0),
@@ -465,48 +533,26 @@ def render_html(rec: dict, out_dir: str) -> str:
         _cl.get('rows_in'), _cl.get('rows_out'), _cl.get('value_total'),
         _qc.get('quality_level'), _qc.get('overall_score')))
     html.append('</table>')
-    # ---- 0.1 地质设计要点（井文档模块 well_docs） ----
-    _wc = (rec.get('knowledge') or {}).get('well_context') or {}
-    _des = _wc.get('design') or {}
-    if _des:
-        html.append('<h2>0.1 地质设计要点</h2><table>')
-        for k, lab in (('well', '井名'), ('field', '气田/油田'), ('well_type', '井型'),
-                       ('designed_td_m', '设计井深(m)'), ('structure', '构造位置'),
-                       ('target_formation', '目的层'), ('country', '国家'),
-                       ('confidence', '解析置信度')):
-            if _des.get(k):
-                html.append('<tr><th>%s</th><td>%s</td></tr>' % (lab, _des.get(k)))
-        if _des.get('interval'):
-            html.append('<tr><th>目标/解释井段</th><td>%.1f–%.1f m（%s）</td></tr>' % (
-                float(_des['interval']['top']), float(_des['interval']['bottom']),
-                _des['interval'].get('text') or ''))
-        if _des.get('casing'):
-            html.append('<tr><th>套管程序</th><td>%s</td></tr>' % '；'.join(
-                '%s@%.0f-%.0f' % (c.get('size_in'), float(c.get('depth') or 0),
-                                  float(c.get('bottom') or c.get('depth') or 0))
-                for c in _des['casing'][:8]))
-        if _des.get('contacts'):
-            html.append('<tr><th>流体界面</th><td>%s</td></tr>' % '；'.join(
-                '%s@%.1f%s' % (c.get('type'), float(c.get('depth') or 0), c.get('unit') or 'm')
-                for c in _des['contacts'][:6]))
-        if _des.get('formation_tops'):
-            html.append('<tr><th>地层顶</th><td>%s</td></tr>' % '；'.join(
-                '%s@%.1f' % (t.get('formation'), float(t.get('depth') or 0))
-                for t in _des['formation_tops'][:12]))
-        if _des.get('formation_names'):
-            html.append('<tr><th>预测地层序列</th><td>%s</td></tr>' % ' → '.join(
-                x.get('name') for x in _des['formation_names'][:12]))
-        if _des.get('offset_tests'):
-            html.append('<tr><th>邻井试油/测试</th><td>%s</td></tr>' % '<br>'.join(
-                str(x) for x in _des['offset_tests'][:6]))
-        if _wc.get('sources'):
-            html.append('<tr><th>资料</th><td>%s</td></tr>' % '；'.join(
-                s0.get('file', '') for s0 in _wc['sources'][:6]))
-        html.append('</table>')
+    # ---- 0.5 资料清单（来源可追溯） ----
+    html.append('<h3>0.5 资料清单</h3><table>')
+    _src_rows = []
+    for _s0 in (_wc.get('sources') or [])[:10]:
+        _src_rows.append((os.path.basename(_s0.get('file') or ''), _s0.get('type') or ''))
+    for _k0 in ('processed_csv', 'layers_canonical', 'decision', 'qc_report', 'clean_report'):
+        _p0 = (_arts or {}).get(_k0)
+        if _p0:
+            _src_rows.append((os.path.basename(_p0), '成果'))
+    for _fn, _tp in _src_rows:
+        if _fn:
+            html.append('<tr><th>%s</th><td>%s</td></tr>' % (_fn, _tp))
+    html.append('</table>')
     html.append('<h2>1. 决策结论（一处确定）</h2><table>')
     ic = rec.get('conclusion', {}).get('interpretation') or {}
     for k, v in (('解释来源', ic.get('chosen')), ('策略', ic.get('policy')), ('依据', ic.get('reason')),
                  ('canonical 层数', ic.get('canonical_rows')), ('解释井段', ic.get('interval'))):
+        if isinstance(v, dict) and v.get('top') is not None:
+            v = '%.1f–%.1f m（%s）' % (float(v['top']), float(v['bottom']),
+                                      '自动/电测覆盖' if v.get('auto') else 'info.json')
         html.append('<tr><th>%s</th><td>%s</td></tr>' % (k, v if v is not None else '-'))
     html.append('</table>')
     # 知识
@@ -523,6 +569,15 @@ def render_html(rec: dict, out_dir: str) -> str:
     pr = rec.get('parameters') or {}
     html.append('<h2>3. 参数选择（来源可追溯）</h2><table>')
     for k, v in pr.items():
+        if isinstance(v, dict):
+            if k == '解释井段' and v.get('top') is not None:
+                v = '%.1f–%.1f m（%s）' % (float(v['top']), float(v['bottom']),
+                                          '自动/电测覆盖' if v.get('auto') else 'info.json')
+            else:
+                v = '；'.join('%s=%s' % (kk, vv) for kk, vv in v.items()
+                              if not str(kk).startswith('_') and vv not in ('', None)) or '-'
+        elif isinstance(v, (list, tuple)):
+            v = '、'.join(str(x) for x in v)
         html.append('<tr><th>%s</th><td>%s</td></tr>' % (k, v))
     html.append('</table>')
     # 结论分布
