@@ -15374,6 +15374,16 @@ class WellLogProcessor:
                 _ctx = build_context(str(_wd_src_ctx), out_dir=str(well_output_dir),
                                      well_name=str(getattr(self, 'well_name', '') or '') or None)
                 self.results['well_context'] = _ctx
+                # 解析结果同步进 <井>info.json（可读可改，后续优先使用人工修改）
+                try:
+                    from logsys.well_docs import sync_info_json
+                    _syn = sync_info_json(str(_wd_src_ctx), _ctx,
+                                          out_dir=str(well_output_dir),
+                                          well_name=str(getattr(self, 'well_name', '') or '') or None)
+                    self.results['info_json_sync'] = _syn
+                    logger.info('info.json 同步: %s', _syn.get('path'))
+                except Exception as _sye:
+                    logger.warning('info.json 同步失败（忽略）: %s', _sye)
                 _des_ctx = _ctx.get('design') or {}
                 _info_ctx = _ctx.get('info') or {}
                 if not self.results.get('interpret_interval'):

@@ -25,5 +25,16 @@ chk('masterlog 岩性层', (m.get('lith_layers') or 0) >= 5, str(m.get('lith_lay
 chk('masterlog 气测井段', (m.get('gas_zones') or 0) >= 5, str(m.get('gas_zones')))
 chk('缓存读取', bool(load_context(OUT, 'RASHIDPUR_13').get('design')))
 
+# info.json 单配置：同步后可读可改（三个分区 + 目标井段 + 图例）
+from logsys.well_docs import sync_info_json
+_syn = sync_info_json(WELL, ctx, out_dir=OUT, well_name='RASHIDPUR_13')
+_inf = json.load(open(_syn['path'], encoding='utf-8'))
+chk('info.json 同步', _syn.get('updated'))
+for _k in ('地质设计', '录井图', '甲方格式'):
+    chk('info 分区: ' + _k, isinstance(_inf.get(_k), dict))
+chk('info 目标井段', bool((_inf.get('地质设计') or {}).get('目标井段')))
+chk('info 录井图头', bool((_inf.get('录井图') or {}).get('图头', {}).get('作业公司')))
+chk('info 甲方图例', len((_inf.get('甲方格式') or {}).get('图例') or []) >= 4)
+
 print('\n结果: %d 通过, %d 失败' % (ok, fail))
 sys.exit(0 if fail == 0 else 1)

@@ -618,6 +618,209 @@ def _stale(cache_json, pdf):
         return False
 
 
+def _info_paths(well_dir, well_name=None):
+    """定位井 info.json（源井目录优先，其次输出目录由调用方处理）。"""
+    wd = Path(str(well_dir))
+    cands = []
+    try:
+        for p in sorted(wd.rglob('*info.json')):
+            cands.append(p)
+    except Exception:
+        pass
+    if well_name:
+        for name in ('%sinfo.json' % well_name, '%sinfo.json' % well_name.lower(),
+                     '%sinfo.json' % well_name.upper()):
+            for base in (wd,):
+                q = base / name
+                if q.exists() and q not in cands:
+                    cands.append(q)
+    return cands
+
+
+def _deep_merge(dst, src):
+    for k, v in (src or {}).items():
+        if isinstance(v, dict) and isinstance(dst.get(k), dict):
+            _deep_merge(dst[k], v)
+        else:
+            dst[k] = v
+    return dst
+
+
+def _merge_auto(dst, src):
+    """首次只补缺失字段（保护人工已有字段）；已 _自动同步 则整体刷新。"""
+    if dst.get('_自动同步'):
+        _deep_merge(dst, src)
+    else:
+        for k, v in src.items():
+            if k not in dst or dst.get(k) in (None, '', [], {}):
+                dst[k] = v
+    return dst
+
+
+def sync_info_json(well_dir, ctx, out_dir=None, well_name=None) -> dict:
+    """把 well_docs 读取结果同步进 <井名>info.json（可读可改的单一配置）。
+
+    规则：
+    - 只补/更新「地质设计」「录井图」「甲方格式」三个分区，保留用户已有手工字段；
+    - 手工修改优先：若 info 中已有同名字段，不覆盖（_自动同步 标记只在首次写入）；
+    - 记录 _同步时间/_来源/_自动同步，便于下次判断是否刷新；
+    - 返回 {path, updated}。
+    """
+    wd = Path(str(well_dir))
+    wn = well_name or ctx.get('well') or wd.name.replace(' ', '_')
+    paths = _info_paths(wd, wn)
+    info_path = paths[0] if paths else (wd / ('%sinfo.json' % wn))
+    try:
+        info = json.load(open(info_path, encoding='utf-8')) if info_path.exists() else {}
+    except Exception:
+        info = {}
+    now = time.strftime('%Y-%m-%d %H:%M:%S')
+    des = ctx.get('design') or {}
+    mlh = ctx.get('masterlog_header') or {}
+    ml = ctx.get('masterlog') or {}
+    cf = ctx.get('client_format') or {}
+    # 地质设计
+    des_sec = info.setdefault('地质设计', {})
+    if True:
+        _merge_auto(des_sec, {
+            '井名': des.get('well') or wn,
+            '气田/油田': des.get('field'),
+            '国家': des.get('country'),
+            '井型': des.get('well_type'),
+            '设计井深': des.get('designed_td_m'),
+            '构造位置': des.get('structure'),
+            '目的层': des.get('target_formation'),
+            '预测地层序列': [x.get('name') for x in (des.get('formation_names') or [])],
+            '地层顶': des.get('formation_tops') or [],
+            '流体界面': des.get('contacts') or [],
+            '套管程序': des.get('casing') or [],
+            '目标井段': des.get('interval'),
+            '设计目的': des.get('purpose'),
+            '区域地质': des.get('regional_geology') or [],
+            '井位': des.get('location') or {},
+            '来源文件': [x.get('file') for x in (des.get('sources') or [])],
+            '解析置信度': des.get('confidence'),
+            '_同步时间': now,
+            '_来源': 'well_docs:read_design',
+            '_自动同步': True,
+        })
+    # 录井图
+    ml_sec = info.setdefault('录井图', {})
+    if True:
+        _merge_auto(ml_sec, {
+            '来源文件': os.path.basename(ml.get('source_pdf') or '') or None,
+            '岩性层数': ml.get('lith_layers'),
+            '岩性分布': ml.get('lith_dist') or {},
+            '深度范围': ml.get('depth_range'),
+            '气测异常事件': ml.get('gas_events'),
+            '气测异常井段': ml.get('gas_zones'),
+            '气测异常总厚_m': ml.get('gas_zone_total_m'),
+            '气测异常等级': ml.get('gas_zone_grades') or {},
+            '图头': {
+                '作业公司': (mlh.get('fields') or {}).get('company'),
+                '服务商': mlh.get('services') or [],
+                '开钻日期': (mlh.get('fields') or {}).get('spud_date'),
+                '完钻日期': (mlh.get('fields') or {}).get('end_date'),
+                '完钻井深': (mlh.get('fields') or {}).get('final_depth'),
+                '井型': (mlh.get('fields') or {}).get('well_type'),
+                '泥浆': mlh.get('mud') or [],
+                '井身结构': mlh.get('sizes') or [],
+                '岩性图例': mlh.get('lithology_legend') or [],
+                '油气显示图例': mlh.get('show_legend') or [],
+            },
+            '_同步时间': now,
+            '_来源': 'well_docs:read_masterlog',
+            '_自动同步': True,
+        })
+    # 甲方格式
+    cf_sec = info.setdefault('甲方格式', {})
+    if True:
+        _merge_auto(cf_sec, {
+            '来源文件': os.path.basename(cf.get('source') or '') or None,
+            '格式名': cf.get('format_name'),
+            '图例标题': cf.get('legend_title'),
+            '图例': cf.get('legend_labels') or [],
+            '表头固定': cf.get('header_fixed') or {},
+            '井身结构': cf.get('borehole_record') or [],
+            '套管': cf.get('casing_record') or [],
+            '_同步时间': now,
+            '_来源': 'well_docs:read_client_format',
+            '_自动同步': True,
+        })
+    try:
+        json.dump(info, open(info_path, 'w', encoding='utf-8'), ensure_ascii=False, indent=2)
+    except Exception as e:
+        return {'path': str(info_path), 'updated': False, 'error': str(e)}
+    return {'path': str(info_path), 'updated': True}
+
+
+def load_info_overrides(well_dir, well_name=None) -> dict:
+    """读 info.json 的三类手工配置（地质设计/录井图/甲方格式）。"""
+    paths = _info_paths(well_dir, well_name)
+    out = {}
+    for p in paths[:2]:
+        try:
+            d = json.load(open(p, encoding='utf-8'))
+            for k in ('地质设计', '录井图', '甲方格式'):
+                if isinstance(d.get(k), dict):
+                    out.setdefault(k, {})
+                    _deep_merge(out[k], d[k])
+        except Exception:
+            continue
+    return out
+
+
+def _apply_info_overrides(ctx, ov):
+    """把 info.json 中文配置映射回 parsed 字段（人工修改优先）。"""
+    des = (ov or {}).get('地质设计') or {}
+    d = ctx.setdefault('design', {})
+    _map = {'井名': 'well', '气田/油田': 'field', '国家': 'country', '井型': 'well_type',
+            '设计井深': 'designed_td_m', '构造位置': 'structure', '目的层': 'target_formation',
+            '设计目的': 'purpose', '区域地质': 'regional_geology', '井位': 'location'}
+    for k, f in _map.items():
+        if des.get(k) not in (None, '', [], {}):
+            d[f] = des[k]
+    if des.get('目标井段'):
+        itv = des['目标井段']
+        try:
+            if isinstance(itv, dict) and itv.get('top') is not None:
+                d['interval'] = {'top': float(itv['top']), 'bottom': float(itv['bottom']),
+                                 'text': str(itv.get('说明') or 'info.json 人工修改')}
+        except Exception:
+            pass
+    for k, f in (('套管程序', 'casing'), ('流体界面', 'contacts'),
+                 ('地层顶', 'formation_tops')):
+        if des.get(k):
+            d[f] = des[k]
+    if des.get('预测地层序列'):
+        _seq = des['预测地层序列']
+        d['formation_names'] = [x if isinstance(x, dict) else {'name': str(x)} for x in _seq]
+    # 录井图
+    ml = (ov or {}).get('录井图') or {}
+    h = ctx.setdefault('masterlog_header', {})
+    hf = h.setdefault('fields', {})
+    ht = ml.get('图头') or {}
+    _m2 = {'作业公司': 'company', '开钻日期': 'spud_date', '完钻日期': 'end_date',
+           '完钻井深': 'final_depth', '井型': 'well_type'}
+    for k, f in _m2.items():
+        if ht.get(k) not in (None, '', [], {}):
+            hf[f] = ht[k]
+    if ht.get('服务商'):
+        h['services'] = ht['服务商']
+    for k, f in (('泥浆', 'mud'), ('井身结构', 'sizes'),
+                 ('岩性图例', 'lithology_legend'), ('油气显示图例', 'show_legend')):
+        if ht.get(k):
+            h[f] = ht[k]
+    h['ok'] = True
+    m = ctx.setdefault('masterlog', {})
+    for k, f in (('岩性层数', 'lith_layers'), ('岩性分布', 'lith_dist'),
+                 ('气测异常事件', 'gas_events'), ('气测异常井段', 'gas_zones'),
+                 ('气测异常总厚_m', 'gas_zone_total_m'), ('气测异常等级', 'gas_zone_grades')):
+        if ml.get(k) not in (None, '', [], {}):
+            m[f] = ml[k]
+    return ctx
+
+
 def _find_info(well_dir):
     info = {}
     try:
@@ -658,7 +861,12 @@ def build_context(well_dir, info=None, out_dir=None, use_cache=True,
             old = json.load(open(cache, encoding='utf-8'))
             # 只要设计/masterlog 源文件未变即可复用
             srcs = [s.get('path') for s in old.get('sources', []) if s.get('path')]
-            if srcs and all(Path(s).exists() for s in srcs):
+            _infos = _info_paths(wd, well)
+            _newest = max([cache.stat().st_mtime] +
+                          [q.stat().st_mtime for q in _infos if q.exists()] or [0])
+            # 源文件与 info.json 均未变才复用
+            if srcs and all(Path(s).exists() for s in srcs) and \
+                    cache.stat().st_mtime >= _newest - 1e-6:
                 old['cached'] = True
                 return old
         except Exception:
@@ -679,6 +887,23 @@ def build_context(well_dir, info=None, out_dir=None, use_cache=True,
         ctx['masterlog'] = read_masterlog(wd, out_dir=od, depth_range=dr, well_name=well)
     except Exception as e:
         ctx['masterlog'] = {'ok': False, 'error': str(e)}
+    # info.json 手工配置优先（可读可改）：地质设计/录井图/甲方格式
+    try:
+        _ov = load_info_overrides(wd, well)
+        if _ov.get('地质设计'):
+            _deep_merge(ctx['design'], _ov['地质设计'])
+        if _ov.get('甲方格式') and (ctx.get('client_format') or {}).get('ok', True):
+            _cf0 = ctx.get('client_format') or {}
+            _cf0.update({'format_name': _ov['甲方格式'].get('格式名') or _cf0.get('format_name'),
+                         'legend_labels': _ov['甲方格式'].get('图例') or _cf0.get('legend_labels') or [],
+                         'legend_title': _ov['甲方格式'].get('图例标题') or _cf0.get('legend_title'),
+                         'source': _ov['甲方格式'].get('来源文件') or _cf0.get('source'),
+                         'from_info': True})
+            ctx['client_format'] = _cf0
+        if _ov.get('录井图'):
+            ctx['masterlog_info'] = _ov['录井图']
+    except Exception as e:
+        ctx['info_override_error'] = str(e)
     try:
         ctx['masterlog_header'] = read_masterlog_header(wd, out_dir=od, well_name=well)
     except Exception as e:
@@ -687,6 +912,11 @@ def build_context(well_dir, info=None, out_dir=None, use_cache=True,
         ctx['client_format'] = read_client_format(wd)
     except Exception as e:
         ctx['client_format'] = {'ok': False, 'error': str(e)}
+    try:
+        if _ov:
+            _apply_info_overrides(ctx, _ov)
+    except Exception as e:
+        ctx['info_apply_error'] = str(e)
     for s in (ctx['design'].get('sources') or []):
         ctx['sources'].append(s)
     if ctx['masterlog'].get('source_pdf'):
