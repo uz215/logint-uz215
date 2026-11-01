@@ -188,6 +188,13 @@ def collect(out_dir: str, well: str, info: dict | None = None) -> dict:
         '允许岩性': rec['knowledge'].get('allowed_classes'),
     }
     # 清洗/QC 摘要
+    # 井文档上下文（地质设计 + masterlog，logsys.well_docs）
+    _wcp = os.path.join(d, '%s_well_context.json' % well)
+    if not os.path.exists(_wcp):
+        _g = glob.glob(os.path.join(d, '*_well_context.json'))
+        _wcp = _g[0] if _g else _wcp
+    if os.path.exists(_wcp):
+        rec.setdefault('knowledge', {})['well_context'] = _read_json(_wcp)
     # 录井图（masterlog）解析结果
     _mlp = os.path.join(d, '%s_masterlog_extract.json' % well)
     if os.path.exists(_mlp):
@@ -298,6 +305,7 @@ def _layer_details(pr: pd.DataFrame, lay: pd.DataFrame, gas_zones: pd.DataFrame 
             'CNL': (_med('CNL', m) if _med('CNL', m) is not None else _med('NPHI', m)),
             'DT': _med('DT', m),
             'PLATE': plate, 'GAS_ZONE': gz, 'MGAS': mg, 'OIL': _oil,
+            'FORMATION': str(r.get('FORMATION') or ''),
             'FLAG': why, 'EV': ev,
         })
     return rows
@@ -457,6 +465,44 @@ def render_html(rec: dict, out_dir: str) -> str:
         _cl.get('rows_in'), _cl.get('rows_out'), _cl.get('value_total'),
         _qc.get('quality_level'), _qc.get('overall_score')))
     html.append('</table>')
+    # ---- 0.1 地质设计要点（井文档模块 well_docs） ----
+    _wc = (rec.get('knowledge') or {}).get('well_context') or {}
+    _des = _wc.get('design') or {}
+    if _des:
+        html.append('<h2>0.1 地质设计要点</h2><table>')
+        for k, lab in (('well', '井名'), ('field', '气田/油田'), ('well_type', '井型'),
+                       ('designed_td_m', '设计井深(m)'), ('structure', '构造位置'),
+                       ('target_formation', '目的层'), ('country', '国家'),
+                       ('confidence', '解析置信度')):
+            if _des.get(k):
+                html.append('<tr><th>%s</th><td>%s</td></tr>' % (lab, _des.get(k)))
+        if _des.get('interval'):
+            html.append('<tr><th>目标/解释井段</th><td>%.1f–%.1f m（%s）</td></tr>' % (
+                float(_des['interval']['top']), float(_des['interval']['bottom']),
+                _des['interval'].get('text') or ''))
+        if _des.get('casing'):
+            html.append('<tr><th>套管程序</th><td>%s</td></tr>' % '；'.join(
+                '%s@%.0f-%.0f' % (c.get('size_in'), float(c.get('depth') or 0),
+                                  float(c.get('bottom') or c.get('depth') or 0))
+                for c in _des['casing'][:8]))
+        if _des.get('contacts'):
+            html.append('<tr><th>流体界面</th><td>%s</td></tr>' % '；'.join(
+                '%s@%.1f%s' % (c.get('type'), float(c.get('depth') or 0), c.get('unit') or 'm')
+                for c in _des['contacts'][:6]))
+        if _des.get('formation_tops'):
+            html.append('<tr><th>地层顶</th><td>%s</td></tr>' % '；'.join(
+                '%s@%.1f' % (t.get('formation'), float(t.get('depth') or 0))
+                for t in _des['formation_tops'][:12]))
+        if _des.get('formation_names'):
+            html.append('<tr><th>预测地层序列</th><td>%s</td></tr>' % ' → '.join(
+                x.get('name') for x in _des['formation_names'][:12]))
+        if _des.get('offset_tests'):
+            html.append('<tr><th>邻井试油/测试</th><td>%s</td></tr>' % '<br>'.join(
+                str(x) for x in _des['offset_tests'][:6]))
+        if _wc.get('sources'):
+            html.append('<tr><th>资料</th><td>%s</td></tr>' % '；'.join(
+                s0.get('file', '') for s0 in _wc['sources'][:6]))
+        html.append('</table>')
     html.append('<h2>1. 决策结论（一处确定）</h2><table>')
     ic = rec.get('conclusion', {}).get('interpretation') or {}
     for k, v in (('解释来源', ic.get('chosen')), ('策略', ic.get('policy')), ('依据', ic.get('reason')),
@@ -498,18 +544,23 @@ def render_html(rec: dict, out_dir: str) -> str:
                 ('GAS', 'OIL', 'GAS_OIL', 'OIL_WATER', 'WATER', 'DRY')]
         _sel = sorted(_sel, key=lambda x: -(x.get('TH') or 0))[:40]
         html.append('<h2>4.1 逐层解释依据（主要层，按厚度前 %d）</h2>' % len(_sel))
-        html.append('<table><tr><th>顶(m)</th><th>底(m)</th><th>厚(m)</th><th>结论</th><th>岩性</th>'
-                    '<th>GR</th><th>VSH</th><th>PHI</th><th>Sw</th><th>RT</th>'
-                    '<th>气测异常井段</th><th>气测异常点</th><th>油/荧光显示</th>'
-                    '<th>图版</th><th>依据/标志</th></tr>')
+        _has_fm = any(x.get('FORMATION') for x in _sel)
+        _hdr = ('<table><tr><th>顶(m)</th><th>底(m)</th><th>厚(m)</th><th>结论</th><th>岩性</th>'
+                + ('<th>地层</th>' if _has_fm else '')
+                + '<th>GR</th><th>VSH</th><th>PHI</th><th>Sw</th><th>RT</th>'
+                  '<th>气测异常井段</th><th>气测异常点</th><th>油/荧光显示</th>'
+                  '<th>图版</th><th>依据/标志</th></tr>')
+        html.append(_hdr)
         for x in _sel:
-            html.append('<tr><td>%.1f</td><td>%.1f</td><td>%.1f</td><td><b>%s</b></td><td>%s</td>'
-                        '<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td>'
-                        '<td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (
-                            x['TOP'], x['BASE'], x['TH'], x['ITP'], x['LITH'],
-                            x['GR'], x['VSH'], x['PHI'], x['SW'], x['RT'],
-                            x['GAS_ZONE'] or '-', x['MGAS'] if x['MGAS'] is not None else '-',
-                            x.get('OIL') or '-', x['PLATE'] or '-', (x['FLAG'] or '')[:60]))
+            _cells = ['%.1f' % x['TOP'], '%.1f' % x['BASE'], '%.1f' % x['TH'],
+                      '<b>%s</b>' % x['ITP'], str(x['LITH'])]
+            if _has_fm:
+                _cells.append(x.get('FORMATION') or '')
+            _cells += [str(x['GR']), str(x['VSH']), str(x['PHI']), str(x['SW']), str(x['RT']),
+                       x['GAS_ZONE'] or '-',
+                       str(x['MGAS']) if x['MGAS'] is not None else '-',
+                       x.get('OIL') or '-', x['PLATE'] or '-', (x['FLAG'] or '')[:60]]
+            html.append('<tr><td>' + '</td><td>'.join(_cells) + '</td></tr>')
         html.append('</table>')
     # ---- 4.2 交汇图 ----
     if _xfigs:

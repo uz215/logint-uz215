@@ -15360,6 +15360,33 @@ class WellLogProcessor:
             logger.info("Step 4: 保存处理后数据为CSV文件")
             well_output_dir = Path(self.config.get('output_dir', 'output'))
             well_output_dir.mkdir(exist_ok=True, parents=True)
+
+            # 【2026-11-01 R64】井文档模块：地质设计 + masterlog 统一读取（独立模块）
+            # 解释/可视化/报告共用；地质设计井段作为 info.json 未显式指定时的兜底。
+            try:
+                from logsys.well_docs import build_context, apply_design_interval
+                _lfp_ctx = (self.results.get('las_path')
+                            or (self.results.get('las_info') or {}).get('las_path')
+                            or getattr(getattr(self, 'data_loader', None), 'last_file_path', None))
+                _wd_src_ctx = Path(_lfp_ctx).parent if _lfp_ctx else well_output_dir
+                if not _wd_src_ctx.is_dir():
+                    _wd_src_ctx = well_output_dir
+                _ctx = build_context(str(_wd_src_ctx), out_dir=str(well_output_dir),
+                                     well_name=str(getattr(self, 'well_name', '') or '') or None)
+                self.results['well_context'] = _ctx
+                _des_ctx = _ctx.get('design') or {}
+                _info_ctx = _ctx.get('info') or {}
+                if not self.results.get('interpret_interval'):
+                    _itv_d, _src_d = apply_design_interval(_des_ctx, _info_ctx)
+                    if _itv_d:
+                        self.results['interpret_interval'] = _itv_d
+                        self.results['interpret_interval_source'] = _src_d
+                        logger.info('解释井段来自地质设计: %.1f-%.1f m', _itv_d['top'], _itv_d['bottom'])
+                logger.info('井文档: 设计来源 %s；masterlog %s',
+                            [x.get('file') for x in (_des_ctx.get('sources') or [])][:3],
+                            (_ctx.get('masterlog') or {}).get('ok'))
+            except Exception as _ctxe:
+                logger.warning('井文档模块加载失败（忽略）: %s', _ctxe)
             
             # 保存处理后数据CSV（包含原始数据 + 岩性、沉积相、解释结论等处理结果）
             if 'processed_data' in self.results and self.results['processed_data'] is not None:
@@ -16067,6 +16094,26 @@ class WellLogProcessor:
                                 logger.info('masterlog 气测异常标注: %d 层', _hit)
                     except Exception as _mle2:
                         logger.warning('masterlog 层表标注失败（忽略）: %s', _mle2)
+                    # 地质设计地层顶 → canonical 层表 FORMATION 列（解释/可视化共用）
+                    try:
+                        _tops_ctx = ((self.results.get('well_context') or {}).get('design') or {}).get('formation_tops') or []
+                        if _tops_ctx:
+                            _lay_f = pd.read_csv(_fin['canonical'])
+                            _tops_sorted = sorted(_tops_ctx, key=lambda x: float(x.get('depth') or 0))
+                            def _fmtop(topd):
+                                _nm = ''
+                                for _t in _tops_sorted:
+                                    if float(_t.get('depth') or 0) <= float(topd) + 1e-6:
+                                        _nm = str(_t.get('formation') or '')
+                                    else:
+                                        break
+                                return _nm
+                            _lay_f['FORMATION'] = [_fmtop(x) for x in _lay_f['TOP_MD']]
+                            _lay_f.to_csv(_fin['canonical'], index=False, encoding='utf-8-sig')
+                            self.results['formation_tops'] = _tops_ctx
+                            logger.info('地质设计地层顶已标注层表: %d 个顶', len(_tops_ctx))
+                    except Exception as _fte:
+                        logger.warning('地层顶标注失败（忽略）: %s', _fte)
                     # 知识证据统一附加到 canonical（覆盖/刷新 EV_* 列）
                     try:
                         from logsys.evidence_stack import enrich_layers_file
