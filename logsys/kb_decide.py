@@ -262,6 +262,12 @@ def _layer_details(pr: pd.DataFrame, lay: pd.DataFrame, gas_zones: pd.DataFrame 
                 _z = gas_zones.loc[_ov]
                 gz = '%.1f–%.1f m（%d段）' % (float(_z['MD_START'].min()),
                                               float(_z['MD_END'].max()), int(len(_z)))
+                if 'GRADE' in _z.columns:
+                    _pri = {'主气层': 3, '显示段': 2, '弱显示': 1}
+                    _best = max((str(x) for x in _z['GRADE'].dropna()),
+                                key=lambda x: _pri.get(x, 0), default='')
+                    if _best:
+                        gz = _best + '；' + gz
         # 气测异常点占比
         mg = None
         if 'MASTERLOG_GAS_SHOW' in pr.columns:
@@ -345,6 +351,9 @@ def _crossplots(pr: pd.DataFrame, lay: pd.DataFrame, out_dir: str, well: str) ->
     scatter(_den, _cnl, 'den_cnl', 'DEN/RHOB (g/cc)', 'CNL/NPHI (%)')
     scatter(num('GR'), num('RT'), 'gr_rt', 'GR (API)', 'RT (ohm·m)', logx=True)
     scatter(num('PHI'), num('SW'), 'phi_sw', 'PHI', 'Sw')
+    return figs
+
+
 def render_html(rec: dict, out_dir: str) -> str:
     """生成完整 HTML 报告（结论+准确率+指标+分布图）。"""
     import matplotlib
@@ -527,11 +536,14 @@ def render_html(rec: dict, out_dir: str) -> str:
             try:
                 _z = pd.read_csv(_zf)
                 html.append('<table><tr><th>气测异常井段顶(m)</th><th>底(m)</th>'
-                            '<th>厚度(m)</th><th>事件数</th></tr>')
+                            '<th>厚度(m)</th><th>等级</th><th>TG均值(ppm)</th><th>事件数</th></tr>')
                 for _, _r in _z.head(40).iterrows():
-                    html.append('<tr><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%d</td></tr>' % (
+                    html.append('<tr><td>%.1f</td><td>%.1f</td><td>%.1f</td><td>%s</td>'
+                                '<td>%s</td><td>%d</td></tr>' % (
                         float(_r['MD_START']), float(_r['MD_END']),
-                        float(_r.get('THICK_M') or 0), int(_r.get('EVENTS') or 0)))
+                        float(_r.get('THICK_M') or 0), _r.get('GRADE') or '-',
+                        int(_r.get('TG_MEAN')) if pd.notna(_r.get('TG_MEAN')) else '-',
+                        int(_r.get('EVENTS') or 0)))
                 html.append('</table>')
             except Exception:
                 pass

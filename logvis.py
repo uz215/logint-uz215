@@ -3299,7 +3299,10 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
         # 【2026-10-08 用户要求】可视化出图从套管外（裸眼段）开始：
         # IS_CASING=True 的套管段点测井反映泥浆/钢材，不作为绘图起点，
         # depth_min 取第一个裸眼采样点（BET-1 实测：6307→6456ft）
-        actual_first_depth = data['MD'].iloc[0]
+        # 【2026-10-31 R62】MD 可能含个别 NaN 行（气测合并/区间裁剪），取有效深度
+        _mdv = pd.to_numeric(data['MD'], errors='coerce')
+        _md_ok = _mdv.dropna()
+        actual_first_depth = float(_md_ok.iloc[0]) if len(_md_ok) else float(_mdv.min())
         if 'IS_CASING' in data.columns:
             _cs = data['IS_CASING'].fillna(False).astype(str).str.lower().isin(('true', '1', '1.0'))
             _oh = data.loc[~_cs, 'MD']
@@ -3307,7 +3310,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 actual_first_depth = float(_oh.iloc[0])
                 logger.info('综合图从裸眼段起点 %.1f 开始（套管段已跳过，%d 点）',
                             actual_first_depth, int(_cs.sum()))
-        actual_last_depth = data['MD'].iloc[-1]
+        actual_last_depth = float(_md_ok.iloc[-1]) if len(_md_ok) else float(_mdv.max())
         
         # 深度刻度显示范围：向下取整到10个深度单位（顶部），向上取整到10个深度单位（底部）。
         # 【2026-10-09 公英制自适应】10 的倍数在米制（整十米）与英制（整十英尺，

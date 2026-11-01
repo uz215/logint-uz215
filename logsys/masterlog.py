@@ -275,6 +275,56 @@ def extract_masterlog(pdf_path: str, lith_out: str | None = None,
     return res
 
 
+def grade_gas_zones(zones: pd.DataFrame, gas: pd.DataFrame | None = None) -> pd.DataFrame:
+    """气测异常井段强度分级：主气层 / 显示段 / 弱显示。
+
+    依据：井段厚度 + 数字气测幅度（如可用）。阈值可后续按区域知识调整。
+    gas: 数字气测 DataFrame（含 MD/TG/C1，TG/C1 单位 ppm）。
+    """
+    import numpy as _np
+    if zones is None or len(zones) == 0:
+        return zones
+    z = zones.copy()
+    z['THICK_M'] = (pd.to_numeric(z['MD_END'], errors='coerce') -
+                    pd.to_numeric(z['MD_START'], errors='coerce')).clip(lower=0)
+    for c in ('TG_MEAN', 'TG_MAX', 'C1_MEAN', 'C1_MAX'):
+        z[c] = _np.nan
+    if gas is not None and len(gas) and 'MD' in gas.columns:
+        _md = pd.to_numeric(gas['MD'], errors='coerce')
+        _tg = pd.to_numeric(gas['TG'], errors='coerce') if 'TG' in gas.columns else None
+        _c1 = pd.to_numeric(gas['C1'], errors='coerce') if 'C1' in gas.columns else None
+        for i, r in z.iterrows():
+            m = (_md >= float(r['MD_START'])) & (_md <= float(r['MD_END']))
+            if not m.any():
+                continue
+            if _tg is not None:
+                z.at[i, 'TG_MEAN'] = round(float(_tg[m].mean()), 0)
+                z.at[i, 'TG_MAX'] = round(float(_tg[m].max()), 0)
+            if _c1 is not None:
+                z.at[i, 'C1_MEAN'] = round(float(_c1[m].mean()), 0)
+                z.at[i, 'C1_MAX'] = round(float(_c1[m].max()), 0)
+    grades = []
+    for _, r in z.iterrows():
+        th = float(r['THICK_M'])
+        _tgmax = r.get('TG_MAX'); _tgmean = r.get('TG_MEAN')
+        _c1max = r.get('C1_MAX')
+        amp_high = False; amp_mid = False
+        if pd.notna(_tgmax) and _tgmax >= 8000:
+            amp_high = True
+        elif pd.notna(_tgmean) and _tgmean >= 3000:
+            amp_mid = True
+        if pd.notna(_c1max) and _c1max >= 10000:
+            amp_high = True
+        if th >= 8.0 or amp_high:
+            grades.append('主气层')
+        elif th >= 2.0 or amp_mid:
+            grades.append('显示段')
+        else:
+            grades.append('弱显示')
+    z['GRADE'] = grades
+    return z
+
+
 def main(argv=None):
     import sys
     if not argv:

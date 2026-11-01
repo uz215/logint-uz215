@@ -15588,6 +15588,19 @@ class WellLogProcessor:
                             _mres['json_out'] = str(_jout)
                     except Exception:
                         pass
+                    # 气测异常井段分级（厚度 + 数字气测幅度）
+                    try:
+                        from logsys.masterlog import grade_gas_zones
+                        if _mres.get('gas_zones_file') and Path(_mres['gas_zones_file']).exists():
+                            _zg = pd.read_csv(_mres['gas_zones_file'])
+                            _zg = grade_gas_zones(_zg, gas_data)
+                            _zg.to_csv(_mres['gas_zones_file'], index=False, encoding='utf-8-sig')
+                            _vc = _zg['GRADE'].value_counts().to_dict()
+                            _mres['gas_zone_grades'] = {str(k): int(v) for k, v in _vc.items()}
+                            logger.info('气测异常分级: %s', _vc)
+                            print(f"气测异常分级: {_vc}")
+                    except Exception as _gge:
+                        logger.warning('气测异常分级失败（忽略）: %s', _gge)
                     self.results['masterlog_extract'] = _mres
                     logger.info('masterlog: 岩性 %s 层、气测异常 %s 条',
                                 _mres.get('lith_layers'), _mres.get('gas_events'))
