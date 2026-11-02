@@ -3141,7 +3141,8 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
                         {c: round(_gr_score(c), 1) for c in _rank[:5]})
             print(f"★ 注释语义: GR ← {_best}")
 
-    # CAL：必须是真的 Caliper（排除 CALC1/3/5 —— 用户口径：它们是不同时间的灰岩含量）
+    # CAL：必须是真的 Caliper（排除 CALC1/3/5 —— 用户口径：
+    # CALC1=前1分钟CO2→灰岩指示；CALC3/CALC5=3–5分钟CO2→白云岩指示，均不是井径）
     def _is_calcite_like(col):
         _nm = str(col).upper()
         _lb = _label(col)
@@ -3179,7 +3180,7 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
             print(f"★ LAS注释语义: CAL ← {'+'.join(_good)}（Caliper）"
                   + (f"，剔除异常 {_n_bad} 点" if _n_bad else ""))
         elif _cals:
-            logger.info('LAS注释语义: 找到标称Caliper曲线 %s，但均不符合井径特征；跳过（可能实为灰岩含量）', _cals)
+            logger.info('LAS注释语义: 找到标称Caliper曲线 %s，但均不符合井径特征；跳过（CALC1/3/5是酸解CO2，不是井径）', _cals)
             print('★ LAS注释语义: 标称Caliper曲线不符合井径特征，跳过')
 
     # BS：已有 BS/BIT 类列则归一；否则用参数 bit size 合成（最后一个=最小）
@@ -3229,6 +3230,23 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
     if _mapped:
         logger.info('元素矿物曲线映射: %s（元素测井优先）', ', '.join(_mapped))
         print('★ 元素矿物曲线映射: ' + ', '.join(_mapped))
+
+    # ---- 酸解 CO2 曲线语义拆分（用户 2026-11-02 定案）----
+    # CALC1：前 1 分钟 CO2 量，此阶段白云岩不反应 → 灰岩指示；
+    # CALC3/CALC5：第 3–5 分钟 CO2 量，灰岩已反应完，白云岩与盐酸反应 → 白云岩指示。
+    # 保留原始 CALC1/3/5，不重命名、不合成井径。
+    if 'CALC1' in data.columns and 'CALC_LIME_CO2' not in data.columns:
+        data['CALC_LIME_CO2'] = pd.to_numeric(data['CALC1'], errors='coerce')
+    _calc_dol_src = [c for c in ('CALC3', 'CALC5') if c in data.columns]
+    if _calc_dol_src and 'CALC_DOL_CO2' not in data.columns:
+        _dol = [pd.to_numeric(data[c], errors='coerce') for c in _calc_dol_src]
+        data['CALC_DOL_CO2'] = pd.concat(_dol, axis=1).mean(axis=1)
+    if ('CALC_LIME_CO2' in data.columns) and ('CALC_DOL_CO2' in data.columns):
+        _sum = data['CALC_LIME_CO2'] + data['CALC_DOL_CO2']
+        data['CALC_DOL_RATIO'] = (data['CALC_DOL_CO2'] / _sum).where(_sum > 0)
+        data['CALC_LIME_RATIO'] = (data['CALC_LIME_CO2'] / _sum).where(_sum > 0)
+        logger.info('酸解CO2语义: CALC1→灰岩指示(CALC_LIME_CO2)，'
+                    'CALC3/5→白云岩指示(CALC_DOL_CO2)，并派生DOL/LIME_RATIO')
     return data
 
 def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):

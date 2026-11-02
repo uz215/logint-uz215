@@ -21,7 +21,9 @@ desc={'CALC1':{'desc':'','family':'Caliper'},'CALC3':{'desc':'','family':'Calipe
       'GR_EDTC':{'desc':'GR_EDTC_1','family':'Gamma Ray'},'GRN':{'desc':'','family':'Gamma Ray Normalized'}}
 out=standardize_curve_names(df, context='las', descriptions=desc, bit_sizes=sem['bit_sizes'])
 chk('CALC1/3/5 不作 CAL', 'CAL' not in out.columns, str(list(out.columns)))
-chk('CALC 仍保留为灰岩含量', all(c in out.columns for c in ('CALC1','CALC3','CALC5')))
+chk('CALC 原始曲线保留', all(c in out.columns for c in ('CALC1','CALC3','CALC5')))
+chk('CALC1→灰岩指示', 'CALC_LIME_CO2' in out.columns and abs(float(out['CALC_LIME_CO2'].iloc[0])-0.4)<1e-9)
+chk('CALC3/5→白云岩指示', 'CALC_DOL_CO2' in out.columns and abs(float(out['CALC_DOL_CO2'].iloc[0])-0.25)<1e-9)
 chk('GR 已识别', 'GR' in out.columns)
 chk('BS 已合成=8.5', 'BS' in out.columns and abs(float(out['BS'].iloc[0])-8.5)<1e-6)
 # 2) 真井径 CALA + Gamma EVR + BITSIZE（DLIS 风格）
