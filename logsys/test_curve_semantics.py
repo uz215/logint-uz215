@@ -31,6 +31,16 @@ out2=standardize_curve_names(df2, context='dlis', descriptions=desc2, bit_sizes=
 chk('DLIS CALA→CAL', 'CAL' in out2.columns and abs(float(out2['CAL'].iloc[0])-8.5)<1e-6, str(list(out2.columns)))
 chk('DLIS GREV→GR', 'GR' in out2.columns)
 chk('DLIS BITSIZE→BS', 'BS' in out2.columns and abs(float(out2['BS'].iloc[0])-8.5)<1e-6)
+# 2b) GR 语义优先级：gamma ray/GR_EDTC/GRN 优先于 GREV(Gamma EVR)
+df3=pd.DataFrame({'DEPT':np.arange(10),'GREV':[77.0]*10,'GRN':[66.0]*10,'GR_EDTC':[55.0]*10})
+desc3={'GREV':{'desc':'GREV/Gamma EVR','family':''},
+       'GRN':{'desc':'GRN/Gamma Ray Normalized','family':''},
+       'GR_EDTC':{'desc':'GR_EDTC/Gamma Ray','family':''}}
+out3=standardize_curve_names(df3, context='gr-rank', descriptions=desc3, bit_sizes=None)
+_gr_ok = ('GR' in out3.columns and abs(float(out3['GR'].iloc[0])-55.0)<1e-6)
+_gr_detail = ({'GR': float(out3['GR'].iloc[0])} if 'GR' in out3.columns else list(out3.columns))
+chk('GR优先gamma ray而非GREV', _gr_ok, str(_gr_detail))
+
 # 3) 真实 DLIS 加载（小样本；dlisio 无 cp315 时跳过）
 try:
     import dlisio  # noqa: F401

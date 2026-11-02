@@ -3011,11 +3011,41 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
         _grs = [c for c in data.columns
                 if 'gamma' in _label(c) or re.match(r'^GR(_|$)', str(c).upper())]
         if _grs:
-            _best = max(_grs, key=lambda c: _valid_ratio(data, c))
+            def _gr_score(c):
+                _nm = str(c).upper()
+                _lb = _label(c)
+                _sc = 0.0
+                # 注释明确 gamma ray 优先；gamma EVR 仅兜底
+                if 'gamma ray' in _lb:
+                    _sc += 40
+                elif 'gamma evr' in _lb:
+                    _sc += 5
+                elif 'gamma' in _lb:
+                    _sc += 15
+                if re.search(r'spectr|spectro|spectrometry', _lb):
+                    _sc -= 60
+                # 名称优先级：GR/GR_EDTC/GRN(归一化)/GR_CAL > CGR/SGR > GREV
+                if _nm == 'GR':
+                    _sc += 30
+                elif _nm == 'GR_EDTC':
+                    _sc += 28
+                elif _nm == 'GRN':
+                    _sc += 26
+                elif _nm in ('GR_CAL', 'GR_CALI', 'CGR', 'SGR'):
+                    _sc += 22
+                elif _nm.startswith('GREV'):
+                    _sc -= 10
+                elif _nm.startswith(('GRSPEC', 'GR_SPEC', 'SPCGR')):
+                    _sc -= 30
+                # 有效覆盖作第二排序（同语义下取数据更全的）
+                _sc += min(1.0, _valid_ratio(data, c)) * 3
+                return _sc
+            _rank = sorted(_grs, key=_gr_score, reverse=True)
+            _best = _rank[0]
             data = data.rename(columns={_best: 'GR'})
-            logger.info('LAS注释语义: GR ← %s（%s）', _best,
-                        (descriptions.get(str(_best).upper()) or {}).get('family') or 'Gamma Ray')
-            print(f"★ LAS注释语义: GR ← {_best}")
+            logger.info('LAS/DLIS注释语义: GR ← %s（candidates=%s）', _best,
+                        {c: round(_gr_score(c), 1) for c in _rank[:5]})
+            print(f"★ 注释语义: GR ← {_best}")
 
     # CAL：必须是真的 Caliper（排除 CALC1/3/5 —— 用户口径：它们是不同时间的灰岩含量）
     def _is_calcite_like(col):
