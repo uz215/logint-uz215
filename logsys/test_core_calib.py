@@ -2,7 +2,8 @@
 """岩心/XRD/XRF 标定自检。"""
 import sys, numpy as np, pandas as pd
 sys.path.insert(0, r'D:\360\src')
-from logsys.core_calib import read_well_calibration, attach_core_calibration, apply_core_lithology
+from logsys.core_calib import (read_well_calibration, attach_core_calibration,
+                               apply_core_lithology, estimate_xrd_depth_shift)
 ok=0; fail=0
 def chk(n,c,d=''):
     global ok,fail
@@ -15,6 +16,11 @@ if cal is not None and len(cal):
     chk('含 XRD 方解石/白云石', 'XRD_CAL' in cal and 'XRD_DOL' in cal)
     chk('含 XRF 元素', 'XRF_FE' in cal or 'XRF_AL' in cal)
     chk('含岩心孔隙度', 'CORE_PHIE' in cal)
+    chk('区分取芯(LOG)/XRD-XRF(MUD)深度基准', set(cal.get('DEPTH_BASIS', [])) >= {'LOG','MUD'}, cal.get('DEPTH_BASIS').value_counts().to_dict() if 'DEPTH_BASIS' in cal else None)
+    _xrd=cal[cal['DEPTH_BASIS'].eq('MUD')].dropna(subset=['MD'])
+    _d0=pd.DataFrame({'MD':[6300,6310,6320],'CALCITE_QE':[0.3,0.5,0.2]})
+    _shift,_det=estimate_xrd_depth_shift(_d0,_xrd)
+    chk('XRD深度配准在±10m内', abs(float(_shift))<=10.0, (_shift,_det))
 df=pd.DataFrame({'MD':[6312.1,6314.5,6320.0],'LITHOLOGY':['sandstone']*3})
 df=attach_core_calibration(df,r'D:\360\Brasil\Curacao-1')
 chk('按深度挂接岩心岩性', 'CORE_LITH' in df and df['CORE_LITH'].notna().any(), df.get('CORE_LITH'))
