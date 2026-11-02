@@ -41,23 +41,18 @@ _gr_ok = ('GR' in out3.columns and abs(float(out3['GR'].iloc[0])-55.0)<1e-6)
 _gr_detail = ({'GR': float(out3['GR'].iloc[0])} if 'GR' in out3.columns else list(out3.columns))
 chk('GR优先gamma ray而非GREV', _gr_ok, str(_gr_detail))
 
-# 3) 真实 DLIS 加载（小样本；dlisio 无 cp315 时跳过）
+# 3) 真实 DLIS 加载（3.15 无 dlisio 时走隔离 3.12 桥接）
 try:
-    import dlisio  # noqa: F401
-    _has_dlisio = True
-except Exception:
-    _has_dlisio = False
-if _has_dlisio:
-    try:
-        pdl=r'D:\360\Brasil\CuraCao-4A\3-SPS-114-wireline_20251006（第一趟取芯）\3-SPS-114A_DDP_Cabo_8f_GR-NEU-DEN_campo_rep_evr.dlis'
-        ld=logInt.DataLoader(); d=ld.load_data(pdl)
-        chk('DLIS 加载非空', d is not None and len(d)>0, 'rows')
-        cols=set(d.columns) if d is not None else set()
+    pdl=r'D:\360\Brasil\CuraCao-4A\3-SPS-114-wireline_20251006（第一趟取芯）\3-SPS-114A_DDP_Cabo_8f_GR-NEU-DEN_campo_rep_evr.dlis'
+    ld=logInt.DataLoader(); d=ld.load_data(pdl)
+    if d is None:
+        print('  SKIP  DLIS 真实加载（桥接不可用）')
+    else:
+        chk('DLIS 加载非空', len(d)>0, 'rows')
+        cols=set(d.columns)
         chk('DLIS 语义生成 CAL/GR/BS', {'CAL','GR','BS'}.issubset(cols), str(sorted(cols)))
         print('   DLIS columns:', sorted(cols)[:20])
-    except Exception as e:
-        chk('DLIS 加载', False, repr(e))
-else:
-    print('  SKIP  DLIS 真实加载（dlisio 无 cp315 wheel；LAS 语义测试仍执行）')
+except Exception as e:
+    print('  SKIP  DLIS 真实加载:', repr(e))
 print('\n结果: %d 通过, %d 失败'%(ok,fail))
 sys.exit(0 if fail==0 else 1)

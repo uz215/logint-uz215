@@ -49,4 +49,5 @@ Whoosh==2.7.4
 xlrd==2.0.2
 xlsxwriter==3.3.1
 
-# 注意: dlisio 目前无 cp315 wheel（Python3.15 下 DLIS 读取不可用）；如需 DLIS，等待上游轮子或使用隔离的兼容解释器
+# 注意: dlisio/dliswriter 无 cp315 wheel；已装到 C:\Python312（dlisio 1.0.4/dliswriter 1.2.0/h5py 3.16.0）；
+# logInt 3.15 通过 LOGINT_DLIS_PYTHON(默认 C:\Python312\python.exe) 调用 3.12 读取 DLIS

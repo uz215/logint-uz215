@@ -618,6 +618,84 @@ def refine_element_mineral_volumes(data):
         logger.warning('元素矿物精化跳过: %s', _e)
         return data
 
+def _read_dlis_via_external(file_path, py_exe=None):
+    """Python3.15 无 dlisio 时，调用隔离的 Python3.12（已装 dlisio）读取 DLIS。
+
+    返回 (DataFrame, curve_descriptions, bit_sizes)；失败返回 (None, {}, [])。
+    仅提取 1D 通道；通道 long_name/units 与 BS* 参数一并返回，供 GR/CAL/BS 语义识别。
+    可用环境变量 LOGINT_DLIS_PYTHON 覆盖解释器路径。
+    """
+    import subprocess as _sp
+    import tempfile as _tf
+    import json as _json
+    exe = py_exe or os.environ.get('LOGINT_DLIS_PYTHON') or r'C:\Python312\python.exe'
+    if not os.path.exists(exe):
+        return None, {}, []
+    script = r"""
+import sys, os, json
+import numpy as np
+import pandas as pd
+from dlisio import dlis
+p, csv, meta = sys.argv[1:4]
+sem = {}; bits = []; data = {}
+with dlis.load(p) as f:
+    for lf in f:
+        chans = list(getattr(lf, 'channels', []) or [])
+        if not chans and hasattr(lf, 'frames'):
+            for fr in lf.frames:
+                chans.extend(list(getattr(fr, 'channels', []) or []))
+        for ch in chans:
+            name = str(getattr(ch, 'name', '') or '').strip()
+            if not name:
+                continue
+            try:
+                arr = np.asarray(ch.curves())
+            except Exception:
+                continue
+            if arr.ndim != 1:
+                continue
+            if name not in data:
+                data[name] = arr
+            sem[name.upper()] = {'desc': str(getattr(ch, 'long_name', '') or ''),
+                                 'unit': str(getattr(ch, 'units', '') or ''), 'tags': []}
+        try:
+            for par in list(getattr(lf, 'parameters', []) or []):
+                pn = str(getattr(par, 'name', '') or '').upper()
+                pl = str(getattr(par, 'long_name', '') or '')
+                vals = getattr(par, 'values', None)
+                if ('BIT' in pn or 'bit size' in pl.lower()) and vals:
+                    try:
+                        bits.append((pn, float(str(vals[0]).replace(',', '.'))))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+pd.DataFrame(data).to_csv(csv, index=False, encoding='utf-8')
+json.dump({'sem': sem, 'bits': bits}, open(meta, 'w', encoding='utf-8'), ensure_ascii=False)
+"""
+    td = _tf.mkdtemp(prefix='dlis_bridge_')
+    csv_p = os.path.join(td, 'data.csv')
+    meta_p = os.path.join(td, 'meta.json')
+    try:
+        r = _sp.run([exe, '-c', script, str(file_path), csv_p, meta_p],
+                    capture_output=True, text=True, timeout=1800)
+        if r.returncode != 0 or not os.path.exists(csv_p):
+            logger.warning('外部DLIS读取失败(%s): %s', exe, (r.stderr or '')[-500:])
+            return None, {}, []
+        df = pd.read_csv(csv_p, low_memory=False)
+        meta = _json.load(open(meta_p, encoding='utf-8')) if os.path.exists(meta_p) else {}
+        return df, (meta.get('sem') or {}), (meta.get('bits') or [])
+    except Exception as e:
+        logger.warning('外部DLIS读取异常: %s', e)
+        return None, {}, []
+    finally:
+        try:
+            import shutil as _sh
+            _sh.rmtree(td, ignore_errors=True)
+        except Exception:
+            pass
+
+
 class DataLoader:
     """数据加载类"""
     
@@ -767,8 +845,17 @@ class DataLoader:
                     self.file_info = info
                     self.las_info = info  # 向后兼容
                 except ImportError:
-                    logger.error("需要安装dlisio库: pip install dlisio")
-                    return None
+                    # Python3.15 无 dlisio（cp315 轮子未发布）：调用隔离 Python3.12 读取
+                    logger.info('当前解释器无dlisio，尝试外部Python(3.12)桥接读取DLIS...')
+                    _df, _sem, _bits = _read_dlis_via_external(str(file_path))
+                    if _df is None:
+                        logger.error("需要安装dlisio库（3.15无轮子，可装到3.12并设置LOGINT_DLIS_PYTHON）")
+                        return None
+                    self.data = _df
+                    self.curve_descriptions = _sem
+                    self.bit_sizes = _bits
+                    self.file_info = {'well': {}, 'parameter': {}}
+                    self.las_info = self.file_info
                 except Exception as e:
                     logger.error(f"DLIS文件读取失败: {e}")
                     import traceback
