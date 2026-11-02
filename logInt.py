@@ -685,6 +685,21 @@ class DataLoader:
                     # COREANALYSIS），解析建立语义标签，供核磁孔隙度/渗透率
                     # 选择与综合图岩心点绘制使用
                     self.curve_descriptions = self._mine_curve_semantics(las)
+                    # 【2026-11-02】补 lasio 未解析的 TLFamily_*/BS*（巴西 LQC 等）
+                    try:
+                        _raw_sem = parse_las_semantics_raw(str(file_path))
+                        for _nm, _fam in (_raw_sem.get('families') or {}).items():
+                            _d = self.curve_descriptions.setdefault(
+                                _nm, {'desc': '', 'unit': '', 'tags': []})
+                            if not (_d.get('desc') or '').strip():
+                                _d['desc'] = _fam
+                            _d['family'] = _fam
+                        self.bit_sizes = _raw_sem.get('bit_sizes') or []
+                        if self.bit_sizes:
+                            logger.info('LAS参数 bit size: %s', self.bit_sizes)
+                    except Exception as _rse:
+                        logger.warning('LAS原始头段语义解析失败（忽略）: %s', _rse)
+                        self.bit_sizes = []
                     try:
                         from logvis import set_depth_unit
                         set_depth_unit(du)
@@ -788,7 +803,9 @@ class DataLoader:
             # 为中子, 导致评价错位/声波误判不合格; 归一化后QC/岩性/孔隙度/
             # 绘图/解释全流程共用统一口径。须在大写化之后执行(别名表全大写)。
             self.data = standardize_curve_names(
-                self.data, context=os.path.basename(str(file_path)))
+                self.data, context=os.path.basename(str(file_path)),
+                descriptions=getattr(self, 'curve_descriptions', None),
+                bit_sizes=getattr(self, 'bit_sizes', None))
 
             # ========== 全局缺测标记清洗(2026-10-15) ==========
             # -999/-999.25/-9999等负大值是缺测标记不是有效值，置NaN后方可
@@ -2901,30 +2918,145 @@ CURVE_NAME_ALIASES = {
     'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP'],
 }
 
-def standardize_curve_names(data, context=""):
-    """把曲线列名统一归一化为程序标准名（DEN/CNL/DT/RT/CAL/PE/GR）。
+def parse_las_semantics_raw(file_path):
+    """从 LAS 原始头段解析语义信息（lasio 未解析的 TLFamily_*/BS* 等）。
 
-    在 DataLoader.load_data 加载数据后、QC 之前调用一次 —— 此后 QC 的
-    2012国标曲线质量评价、岩性识别、孔隙度计算、绘图、解释全部使用统一
-    标准名, 无需各环节再做各自的别名猜测。
+    返回 {'families': {曲线名: 描述}, 'bit_sizes': [(参数名, 英寸值), ...]}
+    典型（CuraCao-1 LQC.las）：
+      TLFamily_GR_EDTC ... Gamma Ray
+      TLFamily_CALC1 ... Caliper
+      BS/BS1..BS6 .in 8.5/42/26/21/16/14 3/4/8 1/2
+    """
+    import re as _re
+    out = {'families': {}, 'bit_sizes': []}
+    try:
+        txt = io.open(str(file_path), encoding='latin-1', errors='replace').read(500000)
+    except Exception:
+        try:
+            txt = open(str(file_path), encoding='utf-8', errors='ignore').read(500000)
+        except Exception:
+            return out
+    for line in txt.splitlines():
+        s = line.strip()
+        if s.startswith('TLFamily_'):
+            m = _re.match(r'TLFamily_([A-Za-z0-9_\-]+)\s+\.\s*(.+?)\s*:\s*$', s)
+            if m:
+                val = m.group(2).strip().strip('.')
+                if val:
+                    out['families'][m.group(1).upper()] = val
+        m = _re.match(r'^(BS\d*)\s+\.\s*(in|inch|inches)\s+([0-9]+(?:\s+[0-9]+/[0-9]+)?(?:\.[0-9]+)?)\s*:', s, _re.I)
+        if m:
+            raw = m.group(3).strip()
+            try:
+                if ' ' in raw:
+                    a, b = raw.split()
+                    val = float(a) + float(b.split('/')[0]) / float(b.split('/')[1])
+                elif '/' in raw:
+                    val = float(raw.split('/')[0]) / float(raw.split('/')[1])
+                else:
+                    val = float(raw)
+                out['bit_sizes'].append((m.group(1).upper(), val))
+            except Exception:
+                pass
+    return out
+
+
+def _valid_ratio(data, col):
+    try:
+        v = pd.to_numeric(data[col], errors='coerce')
+        return float(v.notna().mean())
+    except Exception:
+        return 0.0
+
+
+def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None):
+    """把曲线列名统一归一化为程序标准名（DEN/CNL/DT/RT/CAL/PE/GR/BS）。
+
+    除固定别名外，利用 LAS 注释/TLFamily 语义识别：
+    - Gamma Ray（GR_EDTC/GRN/...）→ GR；
+    - Caliper（CALC1/3/5/...）→ 合并为 CAL（优先有效值覆盖高的列）；
+    - Bit size（BS/BS1..BSn 参数）→ 合成 BS（用户口径：取最后一个=最小 bit size）。
+    在 DataLoader.load_data 加载后、QC 之前调用一次，全流程共用标准名。
     """
     if data is None or len(data.columns) == 0:
         return data
+    descriptions = descriptions or {}
     rename_map = {}
     for std, aliases in CURVE_NAME_ALIASES.items():
         if std in data.columns:
-            continue  # 已有标准名, 不覆盖
-        for alias in aliases:
-            if alias in data.columns:
-                rename_map[alias] = std
-                break
-    if not rename_map:
-        return data
-    data = data.rename(columns=rename_map)
-    renamed = ', '.join(f'{k}→{v}' for k, v in rename_map.items())
-    logger.info(f"曲线名统一归一化{('(' + context + ')') if context else ''}: {renamed}")
-    print(f"★ 曲线名统一: {renamed}"
-          f"{(' [' + context + ']') if context else ''} —— QC/解释/绘图共用标准名")
+            continue
+        _cands = [a for a in aliases if a in data.columns]
+        if not _cands:
+            continue
+        # 选有效值最多的别名（避免选到全空列）
+        _best = max(_cands, key=lambda c: _valid_ratio(data, c))
+        rename_map[_best] = std
+    if rename_map:
+        data = data.rename(columns=rename_map)
+        renamed = ', '.join(f'{k}→{v}' for k, v in rename_map.items())
+        logger.info(f"曲线名统一归一化{('(' + context + ')') if context else ''}: {renamed}")
+        print(f"★ 曲线名统一: {renamed}"
+              f"{(' [' + context + ']') if context else ''} —— QC/解释/绘图共用标准名")
+
+    # ---- 语义补充：GR / CAL / BS ----
+    def _label(col):
+        d = descriptions.get(str(col).upper()) or {}
+        return (str(d.get('desc') or '') + ' ' + str(d.get('family') or '')).lower()
+
+    # GR：注释含 gamma ray；优先有效值覆盖高的
+    if 'GR' not in data.columns:
+        _grs = [c for c in data.columns
+                if 'gamma ray' in _label(c) or str(c).upper() in ('GR_EDTC', 'GRN', 'GR_CAL')]
+        if _grs:
+            _best = max(_grs, key=lambda c: _valid_ratio(data, c))
+            data = data.rename(columns={_best: 'GR'})
+            logger.info('LAS注释语义: GR ← %s（%s）', _best,
+                        (descriptions.get(str(_best).upper()) or {}).get('family') or 'Gamma Ray')
+            print(f"★ LAS注释语义: GR ← {_best}")
+
+    # CAL：注释含 caliper；多个 caliper 列合并（按有效覆盖从高到低 fillna）
+    if 'CAL' not in data.columns:
+        _cals = [c for c in data.columns
+                 if 'caliper' in _label(c) or str(c).upper() in ('CALC1', 'CALC3', 'CALC5', 'CALI', 'HCAL')]
+        if _cals:
+            _cals = sorted(_cals, key=lambda c: _valid_ratio(data, c), reverse=True)
+            _ser = pd.to_numeric(data[_cals[0]], errors='coerce')
+            for _c in _cals[1:]:
+                _ser = _ser.fillna(pd.to_numeric(data[_c], errors='coerce'))
+            # 物理范围过滤：CAL 正常 3–40 in；>40 多为仪器异常/错误刻度（CuraCao-1 出现 87in）
+            _n_bad = 0
+            try:
+                if _ser.notna().any() and float(_ser.median()) < 30:
+                    _bad = (_ser < 3) | (_ser > 40)
+                    _n_bad = int(_bad.sum())
+                    _ser = _ser.where(~_bad)
+            except Exception:
+                pass
+            data['CAL'] = _ser
+            logger.info('LAS注释语义: CAL ← %s（Caliper 合并%s）', _cals,
+                        '，剔除异常 %d 点' % _n_bad if _n_bad else '')
+            print(f"★ LAS注释语义: CAL ← {'+'.join(_cals)}（Caliper）"
+                  + (f"，剔除异常 {_n_bad} 点" if _n_bad else ''))
+
+    # BS：已有 BS/BIT 类列则归一；否则用参数 bit size 合成（最后一个=最小）
+    if 'BS' not in data.columns:
+        _bs_cols = [c for c in data.columns
+                    if str(c).upper() in ('BS', 'BIT', 'BITSIZE', 'BIT_SIZE', 'BSIZE', 'DRILL_BIT')]
+        if _bs_cols:
+            data = data.rename(columns={_bs_cols[0]: 'BS'})
+            logger.info('LAS曲线: BS ← %s', _bs_cols[0])
+        elif bit_sizes:
+            _vals = []
+            for _n, _v in bit_sizes:
+                try:
+                    _vals.append(float(_v))
+                except Exception:
+                    pass
+            if _vals:
+                _bs = min(_vals)  # 用户口径：最后一个/最小 bit size
+                data['BS'] = _bs
+                logger.info('LAS参数: BS=%s in（由 BS*/Bit size 参数合成，取最小/最后）', _bs)
+                print(f"★ LAS参数: BS={_bs} in（Bit size 合成）")
     return data
 
 def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):
@@ -4014,7 +4146,10 @@ class DataProcessor:
     def set_data(self, data):
         """设置数据"""
         # 曲线名统一归一化兜底(2026-10-08): 外部注入数据同样走标准名口径
-        self.data = standardize_curve_names(data, context="set_data注入")
+        self.data = standardize_curve_names(
+            data, context="set_data注入",
+            descriptions=getattr(self, 'curve_descriptions', None),
+            bit_sizes=getattr(self, 'bit_sizes', None))
         # 全局缺测标记清洗兜底：与 load_data 同一口径（幂等）
         self.data = sanitize_null_markers(self.data)
         # 泥质含量调和兜底：与 load_data 同一口径（幂等，重复调用结果不变）
