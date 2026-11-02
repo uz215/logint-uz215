@@ -215,7 +215,7 @@ def _pair_corr(data, xrd, xcol, dcol, shift, max_dt=0.5):
         v = float(r[xcol])
         if np.isfinite(v) and np.isfinite(yv[j]):
             xs.append(v); ys.append(yv[j])
-    if len(xs) < 10:
+    if len(xs) < 6:
         return np.nan, 0
     a, b = np.asarray(xs), np.asarray(ys)
     if np.nanstd(a) < 1e-9 or np.nanstd(b) < 1e-9:
@@ -246,8 +246,11 @@ def _best_shift_for_xrd_subset(data, xrd, max_shift=10.0, step=0.25):
             continue
         wsum = sum(v[1] for v in vals)
         score = sum(v[0] * v[1] for v in vals) / wsum if wsum else np.nan
-        # 先验：通常 3–5m；超过 5m 轻微惩罚，避免弱相关噪声选到 8–10m
-        score -= 0.02 * max(0.0, abs(shift) - 5.0)
+        # 先验（用户定案）：通常 3–5m；超 5m 明显惩罚、过小也惩罚，
+        # 避免弱相关噪声把位移选到 -10/+6
+        _mag = abs(shift)
+        score -= 0.15 * max(0.0, _mag - 5.0)
+        score -= 0.03 * max(0.0, 3.0 - _mag)
         if np.isfinite(score) and (best is None or score > best[0]):
             best = (score, float(shift), vals)
     if best is None or best[0] < 0.12:
@@ -259,58 +262,107 @@ def _best_shift_for_xrd_subset(data, xrd, max_shift=10.0, step=0.25):
     return details
 
 
-def estimate_xrd_depth_shifts(data, xrd, block_m=150.0,
-                              max_shift=10.0, step=0.25):
-    """XRD/XRF 录井深度→测井深度：分段局部配准，不是全井一个固定值。
+def estimate_xrd_depth_shifts(data, xrd, window_m=100.0,
+                              max_shift=10.0, step=0.25,
+                              anchor_m=150.0):
+    """XRD/XRF 录井深度→测井深度：逐样本局部配准 + 分段锚点约束。
 
-    用户 2026-11-02 定案：换钻具后深度误差会变，通常 3–5m、上限 10m；
-    故按 block_m 分段独立估计，段内近似常数、段间可不同。返回
-    (shift_series, details)，shift 按 xrd 索引对齐；无法估计的段用最近
-    有效段/全局估计/0 兜底。
+    用户 2026-11-02 定案：误差不是全井固定值，也不只换钻具时变；
+    **起下钻一次都可能变**。故：
+    - 每个样本在 ±window_m/2 窗内估局部偏移；
+    - 同时按 anchor_m 计算局部锚点（稳定基线）；
+    - 局部偏移必须在锚点附近（|Δ|≤1.0m）或局部相关性很强（score≥0.65）
+      才允许采用，否则回退锚点；再做相邻中值平滑，防止噪声乱跳；
+    - 通常 3–5m、上限 10m。
+    返回 (shift_series, details)，shift 与 xrd 原索引对齐。
     """
-    xrd = xrd.copy().sort_values('MD').reset_index()
+    xrd = xrd.copy().sort_values('MD')
+    orig_index = xrd.index
+    xrd = xrd.reset_index(drop=True)
     md = pd.to_numeric(xrd['MD'], errors='coerce').values
-    shifts = pd.Series(np.nan, index=xrd.index, dtype=float)
-    details = {'mode': 'piecewise_local', 'block_m': block_m,
-               'max_shift_m': max_shift, 'segments': []}
+    shifts = np.full(len(xrd), np.nan, dtype=float)
+    scores = np.full(len(xrd), np.nan, dtype=float)
+    details = {'mode': 'per_sample_local_anchored', 'window_m': window_m,
+               'anchor_m': anchor_m, 'max_shift_m': max_shift,
+               'samples': [], 'anchors': []}
+    if len(xrd) < 6:
+        return pd.Series(np.zeros(len(xrd)), index=orig_index), details
+    # 1) 分段锚点（稳定基线；段间可不同，不假设全井固定）
     lo, hi = float(np.nanmin(md)), float(np.nanmax(md))
-    edges = list(np.arange(lo, hi + block_m, block_m))
+    edges = list(np.arange(lo, hi + anchor_m, anchor_m))
     if edges and edges[-1] < hi:
         edges.append(hi + 0.01)
+    anchors = []
     for k in range(len(edges) - 1):
         a, b = edges[k], edges[k + 1]
         sub = xrd[(md >= a) & (md < b)]
         if len(sub) < 6:
             continue
         det = _best_shift_for_xrd_subset(data, sub, max_shift, step)
-        if det is None:
-            details['segments'].append({'top': round(float(a), 1),
-                                        'base': round(float(b), 1),
-                                        'n': int(len(sub)), 'shift_m': None,
-                                        'score': None})
+        anchors.append({'top': float(a), 'base': float(b),
+                        'shift_m': (det['shift_m'] if det else np.nan),
+                        'score': (det['score'] if det else np.nan),
+                        'n': int(len(sub))})
+    anchors = [x for x in anchors if np.isfinite(x['shift_m'])]
+    details['anchors'] = anchors
+    def _anchor_for(dd):
+        for a in anchors:
+            if a['top'] <= dd < a['base']:
+                return a
+        if anchors:
+            return min(anchors, key=lambda a: min(abs(dd - a['top']),
+                                                  abs(dd - a['base'])))
+        return None
+    # 2) 逐样本局部估计 + 锚点约束
+    for i in range(len(xrd)):
+        if not np.isfinite(md[i]):
             continue
-        shifts.loc[sub.index] = det['shift_m']
-        details['segments'].append({'top': round(float(a), 1),
-                                    'base': round(float(b), 1),
-                                    'n': int(len(sub)),
-                                    'shift_m': det['shift_m'],
-                                    'score': det['score']})
-    # 无有效段的块：用最近有效段填充；整段都无 → 全局估计 → 0
-    if shifts.notna().any():
-        shifts = shifts.ffill().bfill()
+        w = float(window_m)
+        for _try in range(3):
+            sub = xrd[(np.abs(md - md[i]) <= w / 2.0)]
+            if len(sub) >= 6:
+                break
+            w *= 2.0
+        det = _best_shift_for_xrd_subset(data, sub, max_shift, step)
+        anc = _anchor_for(float(md[i]))
+        _loc = det['shift_m'] if det else np.nan
+        _sc = det['score'] if det else np.nan
+        _use = np.nan
+        if np.isfinite(_loc):
+            if anc is None:
+                _use = _loc
+            elif abs(_loc - anc['shift_m']) <= 1.0:
+                _use = _loc
+            elif np.isfinite(_sc) and _sc >= 0.65:
+                _use = _loc
+            else:
+                _use = anc['shift_m']
+        elif anc is not None:
+            _use = anc['shift_m']
+        if np.isfinite(_use):
+            shifts[i] = _use
+            scores[i] = _sc if np.isfinite(_sc) else np.nan
+            details['samples'].append({
+                'idx': int(i), 'md': round(float(md[i]), 2),
+                'n': int(len(sub)), 'local_shift': (round(_loc, 2)
+                if np.isfinite(_loc) else None),
+                'used_shift': round(float(_use), 2),
+                'local_score': (round(_sc, 3) if np.isfinite(_sc) else None),
+                'anchor_shift': (anc['shift_m'] if anc else None)})
+    # 3) 插值 + 相邻中值平滑（保留持续跳变、抑制单点噪声）
+    if np.isfinite(shifts).any():
+        shifts = pd.Series(shifts).interpolate(limit_direction='both').values
+        shifts = (pd.Series(shifts).rolling(3, center=True, min_periods=1)
+                  .median().values)
     else:
         det = _best_shift_for_xrd_subset(data, xrd, max_shift, step)
-        if det is not None:
-            shifts[:] = det['shift_m']
-            details['global_fallback'] = det
-        else:
-            shifts[:] = 0.0
-            details['global_fallback'] = {'shift_m': 0.0, 'reason': 'no correlation'}
-    # 输出按原索引顺序
-    out = shifts.values.astype(float)
-    details['shift_min'] = float(np.nanmin(out)) if len(out) else 0.0
-    details['shift_max'] = float(np.nanmax(out)) if len(out) else 0.0
-    return pd.Series(out, index=xrd['index'].values), details
+        shifts[:] = det['shift_m'] if det is not None else 0.0
+        details['global_fallback'] = det or {'shift_m': 0.0}
+    shifts = np.clip(shifts, -max_shift, max_shift)
+    details['shift_min'] = float(np.nanmin(shifts)) if len(shifts) else 0.0
+    details['shift_max'] = float(np.nanmax(shifts)) if len(shifts) else 0.0
+    details['n_estimated'] = int(np.isfinite(shifts).sum())
+    return pd.Series(shifts, index=orig_index), details
 
 
 def attach_core_calibration(data, well_dir, tolerance=0.30):
@@ -368,7 +420,7 @@ def attach_core_calibration(data, well_dir, tolerance=0.30):
                 d[c] = np.where(_ok, _arr[_use], np.nan)
             _shift_arr = _shifts.values
             d['XRD_DEPTH_SHIFT'] = np.where(_ok, _shift_arr[_use], np.nan)
-            logger.info('XRD/XRF 分段深度配准: %d段，偏移 %.2f~%.2fm（%s）',
+            logger.info('XRD/XRF 逐样本局部配准: %d段锚点，偏移 %.2f~%.2fm（%s）',
                         len(_det.get('segments') or []),
                         _det.get('shift_min', 0.0), _det.get('shift_max', 0.0),
                         _det.get('mode', ''))

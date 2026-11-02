@@ -1,5 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
-"""岩性判定标准规则库（LITH-2026-11-02-v2.1）。
+"""岩性判定标准规则库（LITH-2026-11-02-v2.2）。
 
 本模块是"程序即标准依据"的唯一规则入口：标准条款编号、证据优先级、
 GR 政策、酸解 CO2 语义、深度基准、剖面仲裁、缓存校验集中在此；
@@ -10,7 +10,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-STANDARD_ID = 'LITH-2026-11-02-v2.1'
+STANDARD_ID = 'LITH-2026-11-02-v2.2'
 STANDARD_DATE = '2026-11-02'
 
 # 证据优先级：取芯/岩心（最高）> 元素测井 > 曲线特征 > 点级统计
@@ -42,10 +42,11 @@ DEPTH_BASIS = {
     'XRF': 'mud_logging_depth',
     'xrd_xrf_max_shift_m': 10.0,
     'xrd_xrf_normal_shift_m': (3.0, 5.0),
-    'xrd_xrf_shift_mode': 'piecewise_local',
-    'xrd_xrf_block_m': 150.0,
-    'note': '取芯/岩心按测井深度直挂；XRD/XRF 不是全井固定偏移：换钻具会变，'
-            '通常 3–5m、上限 10m，按 150m 分段局部配准后再挂。',
+    'xrd_xrf_shift_mode': 'per_sample_local_anchored',
+    'xrd_xrf_window_m': 100.0,
+    'xrd_xrf_anchor_m': 150.0,
+    'note': '取芯/岩心按测井深度直挂；XRD/XRF 不是全井固定偏移：换钻具/'
+            '起下钻都可能变，通常 3–5m、上限 10m；逐样本滑动窗+局部锚点配准后再挂。',
 }
 
 # 剖面仲裁：元素 > 曲线特征 > 点级计数（点级只能参考，不能反推覆盖）
