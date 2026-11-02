@@ -1,0 +1,19 @@
+{
+  "generated_at": "2026-11-02 13:16:26",
+  "db": "data/kb/kb.db",
+  "size_bytes": 116805632,
+  "sha256": "8e89c3f9fb8e826b3966131729d464de383090c3f2b944e7d387ca996d296723",
+  "stats": {
+    "doc": 1356,
+    "chunk": 30040,
+    "entity": 1229,
+    "fact": 172,
+    "case_layer": 494,
+    "clause": 21,
+    "doubt": 0,
+    "region_calib": 4
+  },
+  "versioning": "git lfs",
+  "rebuild": "python -m logsys.knowledge.build",
+  "note": "知识库权威快照；重建后更新本清单并提交 LFS"
+}

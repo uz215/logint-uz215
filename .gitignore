@@ -1,5 +1,17 @@
 # ===== 数据/产物目录（不入库） =====
-data/
+# 数据/产物：默认不入库；知识库资产纳入 git（kb.db 走 Git LFS）
+data/*
+!data/kb/
+data/kb/*
+!data/kb/kb.db
+!data/kb/topics/
+!data/kb/topics/**
+!data/kb/kb_manifest.json
+!data/kb/README.md
+!data/knowledge_summary/
+!data/knowledge_summary/**
+!data/exported_experiences/
+!data/exported_experiences/**
 output/
 cache/
 index/
