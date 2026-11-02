@@ -3194,6 +3194,34 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
                 data['BS'] = _bs
                 logger.info('LAS参数: BS=%s in（由 BS*/Bit size 参数合成，取最小/最后）', _bs)
                 print(f"★ LAS参数: BS={_bs} in（Bit size 合成）")
+
+    # ---- 元素测井矿物曲线归一（Quanti.Elan *_QE → VOL_*，元素第一）----
+    # Quanti.Elan 交付名如 CALCITE_QE/DOLOMITE_QE/SHALE_QE/QUARTZ_QE；
+    # 岩性识别/元素泥质定源/元素仲裁只认 VOL_CALCITE/VOL_DOLOM/VOL_ILLITE 等。
+    _min_canon = {
+        'CALCITE_QE': 'VOL_CALCITE',
+        'DOLOMITE_QE': 'VOL_DOLOM',
+        'ANHYDRITE_QE': 'VOL_ANHY',
+        'HALITE_QE': 'VOL_HALITE',
+        'SHALE_QE': 'VOL_ILLITE',
+    }
+    _min_quartz = ('QUARTZ_QE', 'SAND_QE', 'QUARTZ')
+    _mapped = []
+    for _src, _dst in _min_canon.items():
+        if _src in data.columns and _dst not in data.columns:
+            data[_dst] = pd.to_numeric(data[_src], errors='coerce')
+            _mapped.append(f'{_src}→{_dst}')
+    if 'VOL_QUARTZ' not in data.columns:
+        for _q in _min_quartz:
+            if _q in data.columns:
+                data['VOL_QUARTZ'] = pd.to_numeric(data[_q], errors='coerce')
+                _mapped.append(f'{_q}→VOL_QUARTZ')
+                break
+    if 'VOL_ILLITE' in data.columns and 'VOL_CLAY' not in data.columns:
+        data['VOL_CLAY'] = data['VOL_ILLITE']
+    if _mapped:
+        logger.info('元素矿物曲线映射: %s（元素测井优先）', ', '.join(_mapped))
+        print('★ 元素矿物曲线映射: ' + ', '.join(_mapped))
     return data
 
 def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):
@@ -4000,6 +4028,44 @@ def apply_elemental_vsh(data):
                     int(_covered.sum()), len(data))
     return data
 
+def element_profile_type(data):
+    """元素矿物第一的剖面判定：碳酸盐体积/泥质体积决定 carbonate/mixed/sand_shale。
+
+    与曲线剖面判定不同，这里不使用 GR 绝对阈值；GR 只在曲线特征阶段作分位参考。
+    返回 'carbonate' / 'mixed' / 'sand_shale' / ''（元素曲线不足=不约束）。
+    """
+    if data is None or len(data) == 0:
+        return ''
+    if not all(c in data.columns for c in ('VOL_CALCITE', 'VOL_DOLOM', 'VOL_ILLITE')):
+        return ''
+    # 优先使用原始元素交付列（*_QE），避免 close_mineral_balance 闭合后
+    # VOL_* 被按岩性补齐而失去“原始元素证据”含义（闭环会自证）。
+    _c = 'CALCITE_QE' if 'CALCITE_QE' in data.columns else 'VOL_CALCITE'
+    _d = 'DOLOMITE_QE' if 'DOLOMITE_QE' in data.columns else 'VOL_DOLOM'
+    _i = 'SHALE_QE' if 'SHALE_QE' in data.columns else 'VOL_ILLITE'
+    calc = pd.to_numeric(data[_c], errors='coerce')
+    dol = pd.to_numeric(data[_d], errors='coerce')
+    clay = pd.to_numeric(data[_i], errors='coerce')
+    carb = calc + dol
+    valid = carb.notna() & clay.notna()
+    if int(valid.sum()) < max(50, int(len(data) * 0.1)):
+        return ''
+    carb_frac = float((((carb >= 0.45) & (clay < 0.45))[valid]).mean())
+    clay_frac = float((clay[valid] >= 0.45).mean())
+    carb_med = float(carb[valid].median())
+    clay_med = float(clay[valid].median())
+    logger.info('元素剖面判定: 碳酸盐主导点%.1f%%, 泥质主导点%.1f%%, '
+                '碳酸盐中位%.3f, 泥质中位%.3f', carb_frac * 100,
+                clay_frac * 100, carb_med, clay_med)
+    if carb_frac >= 0.20 or (carb_med >= 0.35 and carb_med > clay_med):
+        return 'carbonate'
+    if carb_frac >= 0.10:
+        return 'mixed'
+    if clay_frac >= 0.40:
+        return 'sand_shale'
+    return ''
+
+
 def arbitrate_lithology_by_elements(data):
     """【2026-10-20 用户定案】元素含量仲裁岩性：修复"无证据泥岩"。
 
@@ -4037,8 +4103,9 @@ def arbitrate_lithology_by_elements(data):
 
     _n = 0
     # ① 无证据泥岩 → 碳酸盐岩
-    _m1 = _arb & (lith_s == 'shale') & (clay < 0.45) \
-        & ((calc + dol) >= 0.45)
+    # ① 元素优先：当前定名（泥岩/砂岩/其它）只要泥质低、碳酸盐矿物>=0.45
+    #    即改判碳酸盐岩（原逻辑只改泥岩→碳酸盐，砂岩里高钙点会漏改）
+    _m1 = _arb & (clay < 0.45) & ((calc + dol) >= 0.45)
     # ② 泥质漏判 → 泥岩
     _m2 = _arb & lith_s.isin(['limestone', 'dolomite', 'carbonate']) \
         & (clay >= 0.60)
@@ -5916,20 +5983,40 @@ class SegmentClassifier:
         self.output_dir.mkdir(exist_ok=True, parents=True)
     
     def load_lith_profile(self):
-        """读取井名+lithprofile.json文件"""
-        profile_path = self.output_dir / f"{self.well_name}_lithprofile.json"
+        """读取井名+lithprofile.json文件（严格校验井名/标签，禁止 Unknown 缓存）。"""
+        _wn = str(self.well_name or '').strip()
+        if not _wn or _wn.lower() == 'unknown':
+            logger.warning("剖面缓存跳过：井名为空/Unknown")
+            return None
+        profile_path = self.output_dir / f"{_wn}_lithprofile.json"
         if profile_path.exists():
             try:
                 with open(profile_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    _pd = json.load(f)
+                _lab = set(map(str, (_pd.get('local_profile_type') or [])))
+                _allowed = {'sand_shale', 'carbonate', 'mixed'}
+                _bad = _lab - _allowed
+                if _bad:
+                    logger.warning("剖面缓存无效（非标准标签 %s），忽略并重算: %s",
+                                   sorted(_bad)[:6], profile_path.name)
+                    return None
+                if str(_pd.get('well_name') or '').strip() not in (_wn, ''):
+                    logger.warning("剖面缓存井名不匹配(%s≠%s)，忽略并重算",
+                                   _pd.get('well_name'), _wn)
+                    return None
+                return _pd
             except Exception as e:
                 logger.error(f"读取剖面文件失败: {e}")
                 return None
         return None
     
     def save_lith_profile(self, profile_data):
-        """保存剖面数据到井名+lithprofile.json文件"""
-        profile_path = self.output_dir / f"{self.well_name}_lithprofile.json"
+        """保存剖面数据到井名+lithprofile.json文件（Unknown 井不落盘）"""
+        _wn = str(self.well_name or '').strip()
+        if not _wn or _wn.lower() == 'unknown':
+            logger.warning("剖面缓存不保存：井名为空/Unknown")
+            return None
+        profile_path = self.output_dir / f"{_wn}_lithprofile.json"
         try:
             with open(profile_path, 'w', encoding='utf-8') as f:
                 json.dump(profile_data, f, ensure_ascii=False, indent=2)
@@ -8503,6 +8590,16 @@ class MineralAnalyzer:
             except Exception as _pti_e2:
                 logger.warning("PTI 剖面判别失败（用交会图法结果）: %s", _pti_e2)
             # 将剖面类型存入data.attrs，供下游模块使用（特殊岩性检测、解释等）
+            # ========== 元素第一：元素矿物体积可直接定剖面，优先于曲线统计 ==========
+            try:
+                _elem_prof = element_profile_type(data)
+                if _elem_prof:
+                    profile_type = _elem_prof
+                    if _elem_prof == 'carbonate':
+                        has_carbonate = True
+                    logger.info("元素第一剖面覆盖(PTI/交汇图后): %s", _elem_prof)
+            except Exception as _e_ep:
+                logger.warning("元素剖面判定失败（回退曲线判定）: %s", _e_ep)
             data.attrs['profile_type'] = profile_type
             data.attrs['main_lithology'] = main_lithology
             
@@ -8595,14 +8692,21 @@ class MineralAnalyzer:
                                         if _low < 0.20 or _v.median() > 110.0:
                                             gr_supports = False
                                     break
-                            if not (cnl_supports and gr_supports):
+                            if not cnl_supports:
+                                # 用户定案：GR 绝对值不能作为否决条件；GR 只作井内分位参考
                                 den_supports_carbonate = False
                                 logger.warning(
-                                    f"PE anomaly rejected by CNL/GR: "
-                                    f"CNL_supports={cnl_supports}, "
-                                    f"GR_supports={gr_supports}. "
-                                    f"Skipping PE override (砂泥岩剖面特征)."
-                                )
+                                    "PE anomaly rejected by CNL: "
+                                    "CNL_supports=%s. Skipping PE override.",
+                                    cnl_supports)
+                            else:
+                                _grmed_ref = 'NA'
+                                if 'GR' in data.columns:
+                                    _grmed_ref = float(pd.to_numeric(
+                                        data['GR'], errors='coerce').median())
+                                logger.info(
+                                    "PE carbonate override: GR 不参与否决"
+                                    "（GR仅分位参考，井内GR中位=%s）", _grmed_ref)
                             if den_supports_carbonate:
                                 has_carbonate = True
                                 logger.info(f"PE carbonate override: PE>3.5 in {pe_carbonate_ratio*100:.1f}% of points, "
@@ -8638,16 +8742,17 @@ class MineralAnalyzer:
                                                    or _v.median() > 110.0):
                                 gr_ok = False
                             break
-                    if (den_median > 2.70 or den_high_ratio > 0.5) and cnl_ok and gr_ok:
+                    if (den_median > 2.70 or den_high_ratio > 0.5) and cnl_ok:
+                        # 用户定案：GR 绝对值不能否决；GR 只作分位参考
                         has_carbonate = True
                         logger.info(f"密度强约束：ρ中位={den_median:.3f}，>2.68占比="
                                     f"{den_high_ratio*100:.1f}%，且中子/伽马支持碳酸盐")
                         if 'limestone' not in main_lithology:
                             main_lithology.append('limestone')
                     elif den_median > 2.70 or den_high_ratio > 0.5:
-                        logger.info(f"密度偏高但中子/伽马不支持碳酸盐"
-                                    f"（ρ中位={den_median:.3f}, CNL_ok={cnl_ok}, "
-                                    f"GR_ok={gr_ok}），不注入 limestone")
+                        logger.info(f"密度偏高但中子不支持碳酸盐"
+                                    f"（ρ中位={den_median:.3f}, CNL_ok={cnl_ok}）；"
+                                    f"GR 不参与否决")
             
             if density_col and rt_col:
                 valid_density = data[density_col].dropna()
@@ -11646,8 +11751,7 @@ LITHOLOGY_RULES = [
         'deny': [
             # 中子偏高 → 绝不可能是碳酸盐（泥质/粉砂质）
             {'all': [('CNL', '>', 15.0)]},
-            # 伽马偏高 → 是泥岩/砂泥岩，不是灰岩
-            {'all': [('GR', '>', 110.0)]},
+            # 用户定案：GR 绝对值不能否决；GR 只作井内分位参考（core 中 @GR_lime_max）
         ],
     },
     # ---------- 白云岩：比灰岩更重、Δt 更低、Pe 略低 ----------
@@ -11674,7 +11778,7 @@ LITHOLOGY_RULES = [
         ],
         'deny': [
             {'all': [('CNL', '>', 14.0)]},
-            {'all': [('GR', '>', 110.0)]},
+            # 用户定案：GR 绝对值不能否决；GR 只作井内分位参考
         ],
     },
     # ---------- 岩盐：负中子 + 低密度 + 低声波【2026-10-19 用户反馈重写】 ----------
@@ -11733,7 +11837,7 @@ LITHOLOGY_RULES = [
             ('CNL', '>', 8.0),    # 含氢响应，绝无盐
             ('DEN', '>', 2.45),   # 密度太高：硬石膏/灰岩
             ('DT',  '>', 85.0),   # 高声波：疏松层/煤
-            {'all': [('GR', '>', 120.0)]},  # 纯泥质（泥质盐 GR 65-86 不否决）
+            # GR 绝对值不否决（高伽马泥质盐 GR 65-86 是实例）
         ],
     },
     # ---------- 火成岩：ρ 高、Pe 高、CNL 极低 ----------
@@ -11759,7 +11863,7 @@ LITHOLOGY_RULES = [
         # deny 死值：含氢(CNL>18)且高伽马(GR>150)绝不是火成岩；
         # 界面抬升校验见 _lith_why_post_annotate 后置留痕
         'deny': [
-            {'all': [('CNL', '>', 18.0), ('GR', '>', 150.0)]},
+            {'all': [('CNL', '>', 18.0), ('GR', '>', '@GR_p95?150')]},
         ],
     },
     # ---------- 硬石膏：巴西蒸发岩序列特殊岩性【2026-10-15新增】 ----------
@@ -11790,9 +11894,7 @@ LITHOLOGY_RULES = [
         'deny': [
             # 中子偏高（孔隙/泥质） → 不是硬石膏
             {'all': [('CNL', '>', 12.0)]},
-            # 伽马明显偏高 → 泥岩/泥膏岩，不是纯硬石膏
-            # （碳酸盐岩剖面下此阈值由 _rule_match 自动放宽+45）
-            {'all': [('GR', '>', 85.0)]},
+            # 用户定案：GR 绝对值不能否决硬石膏；交给 CNL/DEN/DT 物理证据
         ],
     },
     # ---------- 黄铁矿：高密度 + 极高 PE ----------
@@ -14450,6 +14552,18 @@ class WellLogProcessor:
                             if not _nphi_ok:
                                 logger.info("中子曲线质量不合格(%s)，岩性识别将忽略全部CNL判据",
                                             self.results.get('neutron_quality', ''))
+                            # 元素第一：元素泥质定源 VSH（KTH/GR 外推，火成岩段除外）
+                            try:
+                                data = apply_elemental_vsh(data)
+                            except Exception as _e_ev2:
+                                logger.warning("元素泥质定源失败（回退曲线VSH）: %s", _e_ev2)
+                            try:
+                                _elem_prof2 = element_profile_type(data)
+                                if _elem_prof2:
+                                    _profile_type = _elem_prof2
+                                    logger.info("识别器使用元素第一剖面: %s", _elem_prof2)
+                            except Exception as _e_ep2:
+                                logger.warning("元素剖面覆盖识别器失败（回退）: %s", _e_ep2)
                             _rec = LithologyRecognizer(
                                 data, depth_unit=_unit,
                                 casing_mask=_casing_mask,
@@ -14635,8 +14749,19 @@ class WellLogProcessor:
                             cb_count = sum(v for k, v in lith_counts.items() 
                                          if str(k).lower() in [c.lower() for c in carbonate_liths])
                             is_sand_shale_profile = ss_count > cb_count
-                            logger.info(f"剖面判定: 砂泥岩段={ss_count}, 碳酸盐岩段={cb_count}, "
+                            logger.info(f"剖面判定(点级岩性计数): 砂泥岩段={ss_count}, 碳酸盐岩段={cb_count}, "
                                       f"→ {'砂泥岩剖面' if is_sand_shale_profile else '碳酸盐岩/混合剖面'}")
+                            # 元素第一：点级岩性可能被曲线规则误判；元素体积结论优先
+                            try:
+                                _elem_prof3 = element_profile_type(data)
+                                if _elem_prof3 == 'carbonate':
+                                    is_sand_shale_profile = False
+                                    logger.info("元素第一覆盖最终剖面: carbonate（点级计数不采用）")
+                                elif _elem_prof3 == 'sand_shale':
+                                    is_sand_shale_profile = True
+                                    logger.info("元素第一覆盖最终剖面: sand_shale（点级计数不采用）")
+                            except Exception as _e_ep3:
+                                logger.warning("最终元素剖面覆盖失败（用点级计数）: %s", _e_ep3)
                         else:
                             is_sand_shale_profile = False
                             logger.info("无LITHOLOGY列，默认按碳酸盐岩/混合剖面处理")
