@@ -21,7 +21,6 @@ graph/
 backup/
 Claw/
 config/
-docs/
 interpretation/
 test_crawl_result/
 tmp_chad/
@@ -162,63 +161,6 @@ gui_log.txt
 ocr_*.txt
 rapid_test_*.txt
 
-# ===== 临时模块/实验脚本（非主程序） =====
-FMI.py
-Flair.py
-Gas.py
-GasInterpretation.py
-NMR20260318.py
-nmr_*.py
-process_dlis_nmr.py
-microresistivity_imaging.py
-lithology_identifier.py
-logAI.py
-log_interpreter.py
-logging_processor.py
-main.py
-main_processor.py
-ppt_extract.py
-ppt_generator.py
-query_csv_data.py
-query_thin_shale.py
-read_sample_report.py
-rebuild_index.py
-remove_*.py
-report_generator.py
-generate_final_report.py
-integrate_calculations.py
-isolated_render.py
-kb_translator.py
-knowledge_build.py
-knowledge_builder_simple.py
-knowledge_scheduler.py
-quicklook_*.py
-qlscan.py
-run_*.py
-scan_*.py
-scheduled_knowledge_update.py
-simple_*.py
-spring_*.py
-syt5945_*.py
-test_whoosh.py
-test_wikipedia_crawl.py
-translate_to_english.py
-unify_tick_params.py
-update_pdf_parser.py
-update_ppt.py
-update_slide8.py
-utils.py
-visualize_composite_only.py
-visualizer.py
-visualizer2.py
-weekly_*.py
-welllog_flowchart.drawio
-welllog_interpretation_flowchart.drawio
-log_flowchart.drawio
-log_visualizer2*.py
-log_visualizer_fluid.py
-gen_legend_icons.py
-
 # ===== 日志 =====
 *.log
 
@@ -237,3 +179,4 @@ quicklook_config.json
 gas_test.csv
 *.bat
 !run_gui.bat
+!启动logInt.bat
