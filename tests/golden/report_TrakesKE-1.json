@@ -1,0 +1,24 @@
+{
+  "well": "TrakesKE-1",
+  "dir": "C:\\Users\\Administrator\\Documents\\deepseek-harness\\default-workspace\\output\\TrakesKE-1",
+  "html_exists": true,
+  "pdf_exists": true,
+  "sections": {
+    "0. 基础数据": true,
+    "1. 决策结论": true,
+    "2. 知识使用": true,
+    "3. 参数选择": true,
+    "4. 结论与分布": true,
+    "4.1 逐层解释依据": true,
+    "4.2 交汇图": true,
+    "5. 准确率与指标": true,
+    "6. 录井图（masterlog）证据": false,
+    "7. 数据清洗与 QC": true
+  },
+  "images": 5,
+  "xplots": 3,
+  "layer_rows": 40,
+  "gas_zone_rows": 0,
+  "pdf_pages": 6,
+  "pdf_size": 8129480
+}

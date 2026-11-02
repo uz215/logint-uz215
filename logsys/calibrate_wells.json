@@ -1,0 +1,63 @@
+[
+  {
+    "well": "BET-1",
+    "proc": "C:\\Users\\Administrator\\Documents\\deepseek-harness\\default-workspace\\output\\BET-1\\BET-1_processed.csv",
+    "truth": "D:/360/Indonesia/BET-1/BET-1_8.5IN_SLAM_Res_Table_20261003.xls",
+    "truth_kind": "bet1_slam",
+    "unit": "ft",
+    "gas_file": "D:/360/Indonesia/BET-1/supportdata/ASCI GAS  dan ROP BET-001 _9032 ft.txt",
+    "mixed_as": "GAS_OIL",
+    "country": "Indonesia",
+    "region": "Jabung Tengah Block",
+    "cutoff_bounds": {
+      "por_hc": [
+        0.1,
+        0.3
+      ]
+    },
+    "reference": true,
+    "conf": 0.5,
+    "note": "无试油结论；SLAM 65 层解释仅作参考，不纳入验收统计（用户 2026-10-31）",
+    "include_reference_in_region": true
+  },
+  {
+    "well": "TrakesKE-1",
+    "proc": "C:\\Users\\Administrator\\Documents\\deepseek-harness\\default-workspace\\output\\TrakesKE-1\\TrakesKE-1_processed.csv",
+    "truth": "D:/360/Niger/Trakes KE-1/Trakes KE-1 result table.xlsx",
+    "truth_kind": "trakes_result",
+    "unit": "m",
+    "country": "Niger",
+    "region": "Bilma Block"
+  },
+  {
+    "well": "RASHIDPUR_13",
+    "proc": "D:/360/src/output/RASHIDPUR_13/RASHIDPUR_13_processed.csv",
+    "truth": "D:/360/Bangladesh/RP-13/RP-13_RESULT_RUSH INTERPRETATION_20261019.xls",
+    "truth_kind": "rp13_rush",
+    "unit": "m",
+    "reference": true,
+    "conf": 0.5,
+    "note": "RUSH 解释仅作参考，非最终试油结论（用户 2026-10-31）；不纳入验收统计",
+    "country": "Bangladesh",
+    "region": "Rashidpur",
+    "include_reference_in_region": false
+  },
+  {
+    "well": "3-SPS-111D",
+    "proc": "D:/360/src/output/3-SPS-111D/3-SPS-111D_processed.csv",
+    "truth": "D:/360/Brasil/CuraCao-3/3-SPS-111D_20250425/3-SPS-111D_truth.csv",
+    "truth_kind": "generic_csv",
+    "unit": "m",
+    "country": "Brazil",
+    "region": "Aram Block"
+  },
+  {
+    "well": "XIMENIA-5",
+    "proc": "D:/360/src/output/XIMENIA-5/XIMENIA-5_processed.csv",
+    "truth": "D:/360/Chad/Ximenia-5/XIMENIA-5_truth.csv",
+    "truth_kind": "generic_csv",
+    "unit": "m",
+    "country": "Chad",
+    "region": "Doba Basin"
+  }
+]

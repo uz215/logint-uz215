@@ -1,0 +1,312 @@
+[
+  {
+    "std_no": "QL-STD-01",
+    "section": "层表",
+    "text": "每个解释层必须包含 TOP/BASE/THICKNESS/LITHOLOGY/INTERPRETATION；缺任一字段时该层标记 REVIEW，不得静默省略。",
+    "rule_type": "layer_table_required",
+    "rule_json": {
+      "required_fields": [
+        "TOP_MD",
+        "BASE_MD",
+        "THICKNESS",
+        "LITHOLOGY",
+        "INTERPRETATION"
+      ],
+      "on_missing": "REVIEW"
+    }
+  },
+  {
+    "std_no": "FLUID-01",
+    "section": "流体判据-气层",
+    "text": "气层：气测异常（TG/C1 等）是重要判据，但因气测与测井深度系统误差、单根气/循环气干扰，**不把\"无气测异常\"作为硬性否决**；最终综合判断时气测异常权重高。测井侧 Sw<sw_hc 且 RT>rt_gas；图版 GAS 可提升；无气测时保留原结论并标 NO_GAS_DATA。",
+    "rule_type": "fluid_gas",
+    "rule_json": {
+      "gas_evidence": [
+        "TG_high",
+        "C1_high",
+        "plate_GAS"
+      ],
+      "log": {
+        "sw_lt": "sw_hc",
+        "rt_gt": "rt_gas"
+      },
+      "no_gas_data_flag": "NO_GAS_DATA",
+      "hard_gate": false,
+      "note": "气测与测井深度系统误差、单根气/循环气干扰，故不作硬门槛"
+    }
+  },
+  {
+    "std_no": "FLUID-02",
+    "section": "流体判据-油层",
+    "text": "油层：Sw<sw_hc 且 RT>rt_oil；气测图版 OIL 仅作辅助证据，不单独降级 GAS。",
+    "rule_type": "fluid_oil",
+    "rule_json": {
+      "log": {
+        "sw_lt": "sw_hc",
+        "rt_gt": "rt_oil"
+      },
+      "plate": "evidence_only"
+    }
+  },
+  {
+    "std_no": "FLUID-03",
+    "section": "流体判据-水层",
+    "text": "水层：Sw≥sw_cut 且气测低背景（TG 低于区块阈值）；图版不单独否定水层结论，冲突时标 REVIEW。",
+    "rule_type": "fluid_water",
+    "rule_json": {
+      "log": {
+        "sw_ge": "sw_cut"
+      },
+      "conflict_flag": "REVIEW"
+    }
+  },
+  {
+    "std_no": "FLUID-04",
+    "section": "流体判据-干层/致密",
+    "text": "干层/致密层：POR<por_hc 或 VSH>0.60 且无有效烃显示；不得因高阻误判油气层。",
+    "rule_type": "fluid_tight",
+    "rule_json": {
+      "log": {
+        "por_lt": "por_hc",
+        "vsh_gt": 0.6
+      }
+    }
+  },
+  {
+    "std_no": "FLUID-05",
+    "section": "流体判据-混合层",
+    "text": "油气同层必须\"气在上、油在下\"（重力分异决定），不存在油上气下；解释时统一输出 GAS_OIL 并按气测/测井证据把层拆为 GAS(上)+OIL(下)；证据无梯度时按中点拆分并标 INFERRED；单点混合保留 GAS_OIL 并标 SINGLE_POINT。",
+    "rule_type": "fluid_mixed",
+    "rule_json": {
+      "output": "GAS_OIL",
+      "order": "GAS_ABOVE_OIL",
+      "forbid": "OIL_GAS",
+      "split": "GAS_TOP_OIL_BASE",
+      "flag": "REVIEW"
+    }
+  },
+  {
+    "std_no": "CAL-01",
+    "section": "标定",
+    "text": "每口井应使用该井试油/分层成果标定解释截止值或流体模型；标定来源、样本数与验证精度必须记录，未标定井使用区块默认值并标注。",
+    "rule_type": "calibration_required",
+    "rule_json": {
+      "require_source": true,
+      "require_metrics": true
+    }
+  },
+  {
+    "std_no": "QC-01",
+    "section": "质量控制",
+    "text": "关键曲线缺失或关键特征（PHI/Sw/RT）大段缺失时，不得外推解释；缺失段标 UNKNOWN 并计入复核率。",
+    "rule_type": "missing_data_no_extrapolation",
+    "rule_json": {
+      "missing_label": "UNKNOWN"
+    }
+  },
+  {
+    "std_no": "REF-01",
+    "section": "区域证据适用范围",
+    "text": "印尼 Jabung/South-Betara 邻井试油测试汇总共 76 条/47 井，测试段 4154–7794 ft，**全部为浅层（TAF 等，绝大多数 ≤6900 ft；仅 4 条 6900–7800 ft）**，没有 LTAF 深部试油；因此**不能直接外推到 BET-1 深部 LTAF（7119–9032 ft）**。引用邻井试油时必须核对深度与层位，深部解释按测井曲线 + 用户区域分带判断。",
+    "rule_type": "evidence_scope",
+    "rule_json": {
+      "depth_range_ft": [
+        4154,
+        7794
+      ],
+      "shallow_threshold_ft": 6900,
+      "all_shallow": true,
+      "has_deep_test": false,
+      "not_applicable": [
+        "LTAF",
+        "deep LTAF"
+      ],
+      "require_depth_check": true
+    }
+  },
+  {
+    "std_no": "LITH-01",
+    "section": "区域岩性识别·印尼Jabung(BET-1)",
+    "text": "BET-1 为砂泥岩剖面，含煤层与碳质泥岩，少量钙质泥岩与灰岩薄层。识别：煤层低GR+低密度+高中子/低PE；碳质泥岩高GR+低密度+高电阻率；钙质泥岩PE/密度偏高；灰岩低GR+低中子+高密度+PE≈5。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Indonesia/Jabung",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale",
+        "coal",
+        "carbonaceous_shale",
+        "limestone",
+        "dolomite"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-02",
+    "section": "区域岩性识别·孟加拉",
+    "text": "孟加拉（RP-13 等 D:/360/Bangladesh 下各井）为砂泥岩互层，无碳酸盐岩/膏盐/火成岩；砂岩低GR低VSH，泥岩高GR高VSH。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Bangladesh",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-03",
+    "section": "区域岩性识别·巴西深水",
+    "text": "巴西 D:/360/Brasil 下各井（如 3-SPS-111D）为典型碳酸盐岩剖面，含岩盐、硬石膏与玄武岩火成岩。元素测井矿物含量（ECS）可作真岩性：方解石→灰岩、白云石→白云岩、硬石膏、盐岩、玄武岩按优势矿物归类；碳酸盐岩储层孔隙度下限6%。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Brasil",
+      "dominant": [
+        "limestone",
+        "dolomite",
+        "halite",
+        "anhydrite",
+        "basalt"
+      ],
+      "allowed": [
+        "limestone",
+        "dolomite",
+        "halite",
+        "anhydrite",
+        "basalt",
+        "sandstone",
+        "shale"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-04",
+    "section": "区域岩性识别·乍得",
+    "text": "乍得各井为砂泥岩剖面，有岩性分析数据与大量试油数据（Doseo2023 10井46段、历史试油大表71井265段），可支撑区域岩性/流体标定；凝析气层RT偏低(40-47)，气层RT下限需分井调整。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Chad",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale",
+        "coal",
+        "carbonaceous_shale",
+        "limestone",
+        "dolomite"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-05",
+    "section": "区域岩性识别·尼日尔",
+    "text": "尼日尔各井为砂泥岩剖面；TrakesKE-1 有承包商岩性解释剖面（240层）可作真值/井内标定；低阻油层发育。",
+    "rule_type": "lithology_region",
+    "rule_json": {
+      "region": "Niger",
+      "dominant": [
+        "sandstone",
+        "shale"
+      ],
+      "allowed": [
+        "sandstone",
+        "shale",
+        "coal",
+        "carbonaceous_shale"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-06",
+    "section": "岩性识别技术标准（总则）",
+    "text": "岩性识别执行《岩性识别技术标准 v1.0》：分类体系/区域规则/识别流程/判据表/质量要求见 docs/岩性识别技术标准.md；引用 SY/T 6451-2017 探井测井处理解释技术规范、SY/T 6546-2011 复杂岩性地层测井数据处理解释规范、SY/T 5360-2004 裸眼井单井测井数据处理流程、SY/T 5132-2012 测井原始资料质量要求等。程序实现映射：region_lithology.json/region_lith.py/lith_validate.py/lithcal.py。",
+    "rule_type": "standard",
+    "rule_json": {
+      "doc": "docs/岩性识别技术标准.md",
+      "version": "v1.0"
+    }
+  },
+  {
+    "std_no": "LITH-07",
+    "section": "数据清洗与QC联动",
+    "text": "数据清洗按 SY/T 5132-2012 原始资料质量要求执行：缺测标记、单位归一（CAL/BS mm→in、NPHI 分数→百分、RHOB kg/m3→g/cc、DT us/m→us/ft）、非法值清理、深度去重排序；清洗报告并入 QC 检查项 data_cleaning，导出 <井>_data_clean_report.json 与 <井>_qc_report.json，零静默修改。",
+    "rule_type": "standard",
+    "rule_json": {
+      "module": "logsys/clean.py",
+      "qc_item": "data_cleaning"
+    }
+  },
+  {
+    "std_no": "LITH-08",
+    "section": "真岩性来源与深度容差",
+    "text": "真岩性来源优先级：岩石分析(CT/薄片/孔渗, conf0.95, ±1m) > 元素测井矿物(conf0.90, ±2m) > 录井图masterlog(conf0.80, 一般±3-5m、绝不超过10m一根单根；大段可靠、薄层不一定准)。真岩性必须标注来源与置信度；与测井深度对齐按±10m搜索最优偏移。程序：logsys/truth_lith.py。",
+    "rule_type": "lithology_truth",
+    "rule_json": {
+      "sources": [
+        "core_analysis",
+        "element_log",
+        "masterlog"
+      ],
+      "max_shift_m": 10
+    }
+  },
+  {
+    "std_no": "LITH-09",
+    "section": "剖面类型与最优矿物/大段评价",
+    "text": "按真岩性厚度占比判定剖面类型（砂泥岩/碳酸盐岩/蒸发岩-火成岩/混合），据此选择最优岩性计算矿物组合；评价按层厚分解为全体/大段(≥2m)/薄层(<2m)，验收以层口径为主、薄层单独统计。程序：logsys/truth_lith.py（profile_type/recommended_minerals/evaluate_by_thickness）。",
+    "rule_type": "lithology_method",
+    "rule_json": {
+      "large_min_m": 2.0
+    }
+  },
+  {
+    "std_no": "FLUID-06",
+    "section": "自动流体解释规范（试油依据）",
+    "text": "自动流体解释以试油数据为依据：真值分级（试油真值验收、解释参考仅参考）；标准=分井/区域截止值+气上油下+气测图版交叉验证；流程=清洗/QC→VSH/孔渗/Sw→图版→规则/井内ML→区域约束→层表→证据栈→验收；指标=流体一致率≥90%、层表完整性100%、复核率≤20%。程序：calibrate/regions/wellcal/pipeline_ml/acceptance。",
+    "rule_type": "fluid_standard",
+    "rule_json": {
+      "truth": "试油数据",
+      "metrics": [
+        "fluid_agreement",
+        "completeness",
+        "review_rate"
+      ]
+    }
+  },
+  {
+    "std_no": "LITH-10",
+    "section": "录井图作为真值与证据来源",
+    "text": "录井图masterlog是岩性真值的重要来源：大段岩性可靠、薄层不一定准；与测井深度一般±3-5m，绝不超过10m（一根单根），需按容差对齐；录井图上的气测异常/Gas Show/Gas Break/荧光是测井解释的重要证据，很多井无数字气测只能从录井图读取。程序：logsys/masterlog.py（PDF自动解析深度标定/岩性/气测异常），结果写入<井>_masterlog_lith.csv、<井>_masterlog_gas.csv、<井>_masterlog_extract.json，并用于层表证据标注与决策报告。",
+    "rule_type": "lithology_truth",
+    "rule_json": {
+      "source": "masterlog",
+      "depth_tol_m": [
+        3,
+        5
+      ],
+      "max_tol_m": 10,
+      "gas_evidence": true
+    }
+  },
+  {
+    "std_no": "FLUID-07",
+    "section": "录井图气测异常作为解释证据",
+    "text": "无数字气测数据时，录井图气测异常/Gas Show/Gas Break/荧光应作为油气层解释的重要证据：与测井解释不一致时标注MASTERLOG_GAS复核标记，不强行改判；气田区域认识（邻井试油）可结合气测异常提高气层判断置信度。程序：masterlog.py提取→processed_data.MASTERLOG_GAS_SHOW→canonical层表REVIEW_FLAG=MASTERLOG_GAS→决策报告。",
+    "rule_type": "fluid_evidence",
+    "rule_json": {
+      "flag": "MASTERLOG_GAS",
+      "no_force_relabel": true
+    }
+  }
+]
