@@ -3231,22 +3231,12 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
         logger.info('元素矿物曲线映射: %s（元素测井优先）', ', '.join(_mapped))
         print('★ 元素矿物曲线映射: ' + ', '.join(_mapped))
 
-    # ---- 酸解 CO2 曲线语义拆分（用户 2026-11-02 定案）----
-    # CALC1：前 1 分钟 CO2 量，此阶段白云岩不反应 → 灰岩指示；
-    # CALC3/CALC5：第 3–5 分钟 CO2 量，灰岩已反应完，白云岩与盐酸反应 → 白云岩指示。
-    # 保留原始 CALC1/3/5，不重命名、不合成井径。
-    if 'CALC1' in data.columns and 'CALC_LIME_CO2' not in data.columns:
-        data['CALC_LIME_CO2'] = pd.to_numeric(data['CALC1'], errors='coerce')
-    _calc_dol_src = [c for c in ('CALC3', 'CALC5') if c in data.columns]
-    if _calc_dol_src and 'CALC_DOL_CO2' not in data.columns:
-        _dol = [pd.to_numeric(data[c], errors='coerce') for c in _calc_dol_src]
-        data['CALC_DOL_CO2'] = pd.concat(_dol, axis=1).mean(axis=1)
-    if ('CALC_LIME_CO2' in data.columns) and ('CALC_DOL_CO2' in data.columns):
-        _sum = data['CALC_LIME_CO2'] + data['CALC_DOL_CO2']
-        data['CALC_DOL_RATIO'] = (data['CALC_DOL_CO2'] / _sum).where(_sum > 0)
-        data['CALC_LIME_RATIO'] = (data['CALC_LIME_CO2'] / _sum).where(_sum > 0)
-        logger.info('酸解CO2语义: CALC1→灰岩指示(CALC_LIME_CO2)，'
-                    'CALC3/5→白云岩指示(CALC_DOL_CO2)，并派生DOL/LIME_RATIO')
+    # ---- 酸解 CO2 曲线语义（标准 LITH-2026-11-02-v2）----
+    try:
+        from logsys.lith_standard import annotate_calc_curves
+        data = annotate_calc_curves(data)
+    except Exception as _e_calcstd:
+        logger.warning('酸解CO2标准规则应用失败（跳过派生列）: %s', _e_calcstd)
     return data
 
 def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):
