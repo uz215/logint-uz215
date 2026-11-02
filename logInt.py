@@ -896,6 +896,13 @@ class DataLoader:
                 self.data, context=os.path.basename(str(file_path)),
                 descriptions=getattr(self, 'curve_descriptions', None),
                 bit_sizes=getattr(self, 'bit_sizes', None))
+            # 岩心/XRD/XRF 标定：按同井目录挂接（无资料则跳过）
+            try:
+                from logsys.core_calib import attach_core_calibration
+                self.data = attach_core_calibration(
+                    self.data, os.path.dirname(str(file_path)))
+            except Exception as _e_cal:
+                logger.warning('岩心标定挂接失败（跳过）: %s', _e_cal)
 
             # ========== 全局缺测标记清洗(2026-10-15) ==========
             # -999/-999.25/-9999等负大值是缺测标记不是有效值，置NaN后方可
@@ -14677,6 +14684,19 @@ class WellLogProcessor:
                             if _casing_mask is not None:
                                 data['IS_CASING'] = pd.Series(
                                     _casing_mask, dtype=bool).values
+                            # 岩心/XRD/XRF 标定：井壁取芯岩性为最高优先级证据
+                            try:
+                                from logsys.core_calib import apply_core_lithology
+                                _n_core_lith = 0
+                                data, _n_core_lith = apply_core_lithology(data)
+                                if _n_core_lith:
+                                    logger.info('岩心标定覆盖: %d 点按井壁取芯岩性定名', _n_core_lith)
+                                    self.results['core_calibration'] = {
+                                        'n_points': int(_n_core_lith),
+                                        'source': 'SWC/Core + XRD/XRF',
+                                    }
+                            except Exception as _e_core:
+                                logger.warning('岩心标定覆盖失败（跳过）: %s', _e_core)
                             self.results['lithology_recognizer'] = {
                                 'summary': _rec.summary(),
                                 'rules': _rec.rule_report(),
@@ -15593,6 +15613,27 @@ class WellLogProcessor:
             except Exception as _gw:
                 logger.warning("全井气层REG复核失败（不影响主流程）: %s", _gw)
 
+
+            # 岩心/XRD/XRF 标定（最终一次，必须在 facies/全部后处理之后、
+            # 分层表生成之前）：井壁取芯岩性为最高优先级证据，避免后续
+            # facies 重算再次覆盖岩心定名。
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    from logsys.core_calib import apply_core_lithology
+                    _pd_core, _n_core_final = apply_core_lithology(
+                        self.results['processed_data'])
+                    if _n_core_final:
+                        self.results['processed_data'] = _pd_core
+                        logger.info('岩心标定最终覆盖: %d 点（分层表前）', _n_core_final)
+                        self.results['core_calibration'] = {
+                            'n_points': int(_n_core_final),
+                            'stage': 'before_layers',
+                            'source': 'SWC/Core + XRD/XRF',
+                        }
+            except Exception as _e_core_final:
+                logger.warning('岩心标定最终覆盖失败（不影响主流程）: %s',
+                               _e_core_final)
 
             # 【2026-10-27 R27】按孔隙度截止值分层解释：储层点聚合成层、
             # 层内多数票整层统一、薄层按流体分布规律并入邻层
