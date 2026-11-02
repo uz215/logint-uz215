@@ -392,6 +392,10 @@ class GraphBuilder:
 
         # 国家/区块归一: 孤立国家清掉
         self._prune_empty_countries()
+
+        # 区域构造抽取: 盆地/凹陷/隆起/区块/油气田/构造
+        self._stats['regional_extracted'] = self._extract_regional_structures()
+
         self._stats['build_seconds'] = round(time.time() - t0, 1)
         return self._stats
 
@@ -681,6 +685,215 @@ class GraphBuilder:
         for n, d in list(self.g.nodes(data=True)):
             if d.get('kind') == 'Country' and self.g.degree(n) == 0:
                 self.g.remove_node(n)
+
+    def _extract_regional_structures(self):
+        """自动区域构造抽取: 盆地/凹陷/隆起/构造/油气田
+        
+        从 overseas 目录下的 md 文件中自动抽取地名，建立层级关系:
+          Country -> Basin -> Sag/Uplift -> Structure -> Field -> Well
+        
+        原则:
+          - 地区统一的地质知识往上收（盆地级）
+          - 具体特征往下放（油田级）
+        """
+        import re
+        import os
+        
+        # overseas 目录
+        overseas_dir = os.path.join(LOCAL_DIR, 'well_test', 'overseas')
+        if not os.path.isdir(overseas_dir):
+            return 0
+        
+        # 地质分级模式（正则）
+        patterns = {
+            'Basin': [
+                r'([A-Z][a-zA-Z\s]+)\s*Basin\b',      # Santos Basin
+                r'([\u4e00-\u9fa5]{2,})盆地',           # 桑托斯盆地
+            ],
+            'Sag': [
+                r'([A-Z][a-zA-Z\s]+)\s*Sag\b',        # Santos Sag
+                r'([\u4e00-\u9fa5]{2,})凹陷',           # 桑托斯凹陷
+            ],
+            'Uplift': [
+                r'([A-Z][a-zA-Z\s]+)\s*Uplift\b',     # Santos Uplift
+                r'([\u4e00-\u9fa5]{2,})隆起',           # 桑托斯隆起
+            ],
+            'Structure': [
+                r'([A-Z][a-zA-Z\s]+)\s*Structure\b',  # Chanin Structure
+                r'([\u4e00-\u9fa5]{2,})构造',           # 昌德构造
+            ],
+            'Field': [
+                r'([A-Z][a-zA-Z\s]+)\s*Field\b',      # Titas Field
+                r'([\u4e00-\u9fa5]{2,})油田',           # 扎波塔尔油田
+                r'([\u4e00-\u9fa5]{2,})气田',           # 提塔斯气田
+            ],
+        }
+        
+        # 噪音词（严格过滤）
+        noise_words = {
+            'the', 'and', 'for', 'are', 'was', 'were', 'been', 'this', 'that',
+            'these', 'those', 'with', 'from', 'have', 'has', 'had', 'not', 'but',
+            'they', 'their', 'them', 'then', 'than', 'when', 'where', 'which',
+            'while', 'will', 'would', 'could', 'should', 'about', 'after',
+            'before', 'between', 'through', 'during', 'because', 'although',
+            'though', 'until', 'since', 'also', 'only', 'just', 'very', 'much',
+            'many', 'some', 'any', 'all', 'each', 'every', 'both', 'either',
+            'neither', 'one', 'two', 'first', 'second', 'last', 'next',
+            'previous', 'following', 'above', 'below', 'under', 'over', 'again',
+            'further', 'once', 'here', 'there', 'why', 'how', 'what', 'who',
+            'company', 'technical', 'geological', 'sedimentary', 'crystal',
+            'magnetic', 'gravity', 'flame', 'trending', 'daily', 'supervisor',
+            'another', 'far', 'near', 'along', 'across', 'behind', 'beside',
+            'including', 'given', 'known', 'unknown', 'specific', 'general',
+            'special', 'particular', 'certain', 'different', 'similar', 'same',
+            'other', 'others', 'such', 'like', 'unlike', 'new', 'old',
+            'modern', 'ancient', 'historical', 'future', 'past', 'present',
+            'absent', 'missing', 'available', 'possible', 'impossible',
+            'probable', 'likely', 'unlikely', 'certain', 'uncertain', 'clear',
+            'unclear', 'obvious', 'subtle', 'hidden', 'visible', 'real',
+            'false', 'true', 'fake', 'genuine', 'artificial', 'natural',
+            'normal', 'abnormal', 'regular', 'irregular', 'common',
+            'uncommon', 'rare', 'frequent', 'constant', 'variable', 'fixed',
+            'changing', 'stable', 'unstable', 'steady', 'smooth', 'rough',
+            'flat', 'uneven', 'level', 'even', 'odd', 'straight', 'curved',
+            'bent', 'twisted', 'winding', 'parallel', 'perpendicular',
+            'diagonal', 'vertical', 'horizontal', 'inclined', 'sloped',
+            'tilted', 'classification', 'important', 'evaluation', 'table',
+            'petrophysical', 'reservoir', 'best', 'our', 'at', 'in', 'on',
+            'of', 'to', 'for', 'with', 'by', 'from', 'as', 'is', 'are',
+            'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had',
+            'do', 'does', 'did', 'will', 'would', 'shall', 'should', 'may',
+            'might', 'must', 'can', 'could', 'need', 'dare', 'ought',
+            'used', 'had', 'better', 'rather', 'sooner', 'later',
+        }
+        
+        def is_noise(name):
+            name_lower = name.lower().strip()
+            # 长度限制
+            if len(name_lower) < 3:
+                return True
+            # 单词数限制（最多3个单词）
+            words = name_lower.split()
+            if len(words) > 3:
+                return True
+            # 包含换行符
+            if '\n' in name or '\r' in name:
+                return True
+            # 纯数字
+            if name_lower.replace(' ', '').replace('-', '').isdigit():
+                return True
+            # 在噪音词列表中
+            if name_lower in noise_words:
+                return True
+            # 包含噪音词
+            for noise in noise_words:
+                if noise in name_lower:
+                    return True
+            return False
+        
+        # 从 overseas 目录扫描
+        extracted = 0
+        country_entities = {}
+        
+        for country_dir in os.listdir(overseas_dir):
+            country_path = os.path.join(overseas_dir, country_dir)
+            if not os.path.isdir(country_path):
+                continue
+            
+            country = country_dir
+            
+            # 确保国家节点存在
+            if country not in self.g:
+                self._add(country, 'Country', name=country)
+            
+            country_entities[country] = {
+                'Basin': set(), 'Sag': set(), 'Uplift': set(),
+                'Structure': set(), 'Field': set()
+            }
+            
+            # 扫描该国家目录下的 md 文件（最多20个）
+            md_files = [f for f in os.listdir(country_path) if f.endswith('.md')][:20]
+            
+            for md_file in md_files:
+                md_path = os.path.join(country_path, md_file)
+                try:
+                    with open(md_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read()
+                except:
+                    continue
+                
+                # 匹配各种模式
+                for kind, pats in patterns.items():
+                    for pat in pats:
+                        matches = re.findall(pat, content, re.IGNORECASE)
+                        for match in matches:
+                            name = match.strip()
+                            if not is_noise(name):
+                                country_entities[country][kind].add(name)
+        
+        # 建立层级关系
+        for country, kinds in country_entities.items():
+            if country not in self.g:
+                continue
+            
+            # 1. Country -> Basin
+            for basin_name in kinds['Basin']:
+                basin_id = f'{country}_Basin_{basin_name}'
+                if basin_id not in self.g:
+                    self._add(basin_id, 'Basin', name=basin_name, country=country)
+                    extracted += 1
+                self._link(country, 'CONTAINS', basin_id)
+            
+            # 2. Basin -> Sag/Uplift
+            for sag_name in kinds['Sag']:
+                sag_id = f'{country}_Sag_{sag_name}'
+                if sag_id not in self.g:
+                    self._add(sag_id, 'Sag', name=sag_name, country=country)
+                    extracted += 1
+                # 挂到第一个盆地
+                if kinds['Basin']:
+                    basin_name = list(kinds['Basin'])[0]
+                    basin_id = f'{country}_Basin_{basin_name}'
+                    self._link(basin_id, 'CONTAINS', sag_id)
+            
+            for uplift_name in kinds['Uplift']:
+                uplift_id = f'{country}_Uplift_{uplift_name}'
+                if uplift_id not in self.g:
+                    self._add(uplift_id, 'Uplift', name=uplift_name, country=country)
+                    extracted += 1
+                if kinds['Basin']:
+                    basin_name = list(kinds['Basin'])[0]
+                    basin_id = f'{country}_Basin_{basin_name}'
+                    self._link(basin_id, 'CONTAINS', uplift_id)
+            
+            # 3. Structure -> Field
+            for struct_name in kinds['Structure']:
+                struct_id = f'{country}_Structure_{struct_name}'
+                if struct_id not in self.g:
+                    self._add(struct_id, 'Structure', name=struct_name, country=country)
+                    extracted += 1
+                # 挂到盆地
+                if kinds['Basin']:
+                    basin_name = list(kinds['Basin'])[0]
+                    basin_id = f'{country}_Basin_{basin_name}'
+                    self._link(basin_id, 'CONTAINS', struct_id)
+            
+            for field_name in kinds['Field']:
+                field_id = f'{country}_Field_{field_name}'
+                if field_id not in self.g:
+                    self._add(field_id, 'Field', name=field_name, country=country)
+                    extracted += 1
+                # 挂到构造或盆地
+                if kinds['Structure']:
+                    struct_name = list(kinds['Structure'])[0]
+                    struct_id = f'{country}_Structure_{struct_name}'
+                    self._link(struct_id, 'CONTAINS', field_id)
+                elif kinds['Basin']:
+                    basin_name = list(kinds['Basin'])[0]
+                    basin_id = f'{country}_Basin_{basin_name}'
+                    self._link(basin_id, 'CONTAINS', field_id)
+        
+        return extracted
 
 
 def gap_report(store):
