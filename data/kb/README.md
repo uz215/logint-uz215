@@ -9,6 +9,10 @@
 | `kb_manifest.json` | 数据库统计/大小/sha256/生成时间（人工可读版本标记） | 普通 git |
 | `data/knowledge_summary/` | 公式/参数/方法摘要 | 普通 git |
 | `data/exported_experiences/` | 导出的经验条目 | 普通 git |
+| `graph/graph.db` | 知识图谱 SQLite（实体/关系/证据） | **Git LFS**（约12MB） |
+| `graph/graph.json` / `graph.graphml` | 图谱导出（供查看/交换） | 普通 git |
+| `index/` | Whoosh 全文索引（约1.2GB，可由 KB 重建） | **不入库**，用 `python logKnow.py update --index-only` 重建 |
+| `data/local/` | 原始/导入语料（约6GB） | **不入库**，由资料盘重新导入 |
 
 ## 重建/更新
 ```bash
@@ -27,4 +31,5 @@ git lfs ls-files       # 查看 LFS 跟踪文件
 ## 原则
 - 源码/配置/条款 JSON（`logsys/knowledge/`）与知识库快照（本目录）共同入库；
 - 大语料原文件（数据盘 `D:\360\培训材料` 等）不入库，由入库脚本生成 `kb.db`；
+- `index/` 与 `data/local/` 为可重建大资产，不入库；克隆后按需重建。
 - 重建导致 DB 变化时同步更新 manifest，便于追溯。

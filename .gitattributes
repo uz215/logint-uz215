@@ -1,4 +1,5 @@
 # 知识库 SQLite 数据库（111MB）用 Git LFS 版本化
 data/kb/kb.db filter=lfs diff=lfs merge=lfs -text
-
 # 其他二进制（如模型）如纳入时按需加规则
+# 知识图谱 SQLite（约12MB）用 Git LFS
+graph/graph.db filter=lfs diff=lfs merge=lfs -text

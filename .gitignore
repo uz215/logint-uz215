@@ -17,7 +17,8 @@ cache/
 index/
 vector_index/
 logs/
-graph/
+!graph/
+!graph/**
 backup/
 Claw/
 config/
