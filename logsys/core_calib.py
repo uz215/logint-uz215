@@ -223,12 +223,8 @@ def _pair_corr(data, xrd, xcol, dcol, shift, max_dt=0.5):
     return float(np.corrcoef(a, b)[0, 1]), len(a)
 
 
-def estimate_xrd_depth_shift(data, xrd, max_shift=10.0, step=0.25):
-    """XRD/XRF 是录井深度，测井深度需在 ±max_shift 内配准。
-
-    用 XRD 方解石/白云石/石英与元素方解石/白云石/石英相关最大处定偏移；
-    正常 3–5m、上限 10m；返回 (shift, details)。
-    """
+def _best_shift_for_xrd_subset(data, xrd, max_shift=10.0, step=0.25):
+    """对一段 XRD 样本估计最佳位移；返回 (score, shift, details) 或 None。"""
     specs = [('XRD_CAL', ('CALCITE_QE', 'CALC_LIME_CO2')),
              ('XRD_DOL', ('DOLOMITE_QE', 'CALC_DOL_CO2')),
              ('XRD_QTZ', ('QUARTZ_QE', 'VOL_QUARTZ'))]
@@ -237,29 +233,84 @@ def estimate_xrd_depth_shift(data, xrd, max_shift=10.0, step=0.25):
         dcol = next((c for c in dcols if c in data.columns), None)
         if xcol in xrd.columns and dcol:
             active.append((xcol, dcol))
-    if not active:
-        return 0.0, {'reason': 'no common XRD/log curves'}
+    if not active or len(xrd) < 6:
+        return None
     best = None
     for shift in np.arange(-max_shift, max_shift + 1e-9, step):
         vals = []
         for xcol, dcol in active:
             r, n = _pair_corr(data, xrd, xcol, dcol, shift)
-            if np.isfinite(r) and n >= 10:
+            if np.isfinite(r) and n >= 6:
                 vals.append((max(-1.0, min(1.0, r)), n, xcol, dcol))
         if not vals:
             continue
-        # 按样本量加权；方解石通常样本最多、最可靠
         wsum = sum(v[1] for v in vals)
         score = sum(v[0] * v[1] for v in vals) / wsum if wsum else np.nan
+        # 先验：通常 3–5m；超过 5m 轻微惩罚，避免弱相关噪声选到 8–10m
+        score -= 0.02 * max(0.0, abs(shift) - 5.0)
         if np.isfinite(score) and (best is None or score > best[0]):
             best = (score, float(shift), vals)
-    if best is None or best[0] < 0.15:
-        return 0.0, {'reason': 'correlation too weak', 'best': best}
-    details = {'score': round(best[0], 3),
-               'shift_m': best[1],
+    if best is None or best[0] < 0.12:
+        return None
+    details = {'score': round(best[0], 3), 'shift_m': best[1],
+               'n_xrd': int(len(xrd)),
                'pairs': [{'xrd': v[2], 'log': v[3],
                           'corr': round(v[0], 3), 'n': v[1]} for v in best[2]]}
-    return best[1], details
+    return details
+
+
+def estimate_xrd_depth_shifts(data, xrd, block_m=150.0,
+                              max_shift=10.0, step=0.25):
+    """XRD/XRF 录井深度→测井深度：分段局部配准，不是全井一个固定值。
+
+    用户 2026-11-02 定案：换钻具后深度误差会变，通常 3–5m、上限 10m；
+    故按 block_m 分段独立估计，段内近似常数、段间可不同。返回
+    (shift_series, details)，shift 按 xrd 索引对齐；无法估计的段用最近
+    有效段/全局估计/0 兜底。
+    """
+    xrd = xrd.copy().sort_values('MD').reset_index()
+    md = pd.to_numeric(xrd['MD'], errors='coerce').values
+    shifts = pd.Series(np.nan, index=xrd.index, dtype=float)
+    details = {'mode': 'piecewise_local', 'block_m': block_m,
+               'max_shift_m': max_shift, 'segments': []}
+    lo, hi = float(np.nanmin(md)), float(np.nanmax(md))
+    edges = list(np.arange(lo, hi + block_m, block_m))
+    if edges and edges[-1] < hi:
+        edges.append(hi + 0.01)
+    for k in range(len(edges) - 1):
+        a, b = edges[k], edges[k + 1]
+        sub = xrd[(md >= a) & (md < b)]
+        if len(sub) < 6:
+            continue
+        det = _best_shift_for_xrd_subset(data, sub, max_shift, step)
+        if det is None:
+            details['segments'].append({'top': round(float(a), 1),
+                                        'base': round(float(b), 1),
+                                        'n': int(len(sub)), 'shift_m': None,
+                                        'score': None})
+            continue
+        shifts.loc[sub.index] = det['shift_m']
+        details['segments'].append({'top': round(float(a), 1),
+                                    'base': round(float(b), 1),
+                                    'n': int(len(sub)),
+                                    'shift_m': det['shift_m'],
+                                    'score': det['score']})
+    # 无有效段的块：用最近有效段填充；整段都无 → 全局估计 → 0
+    if shifts.notna().any():
+        shifts = shifts.ffill().bfill()
+    else:
+        det = _best_shift_for_xrd_subset(data, xrd, max_shift, step)
+        if det is not None:
+            shifts[:] = det['shift_m']
+            details['global_fallback'] = det
+        else:
+            shifts[:] = 0.0
+            details['global_fallback'] = {'shift_m': 0.0, 'reason': 'no correlation'}
+    # 输出按原索引顺序
+    out = shifts.values.astype(float)
+    details['shift_min'] = float(np.nanmin(out)) if len(out) else 0.0
+    details['shift_max'] = float(np.nanmax(out)) if len(out) else 0.0
+    return pd.Series(out, index=xrd['index'].values), details
 
 
 def attach_core_calibration(data, well_dir, tolerance=0.30):
@@ -291,29 +342,42 @@ def attach_core_calibration(data, well_dir, tolerance=0.30):
         if n_core:
             logger.info('岩心标定挂接: %d/%d 点有井壁取芯岩性（测井深度直挂）',
                         n_core, len(d))
-    # 2) XRD/XRF：录井深度，先估偏移（±10m）再挂
-    xrd = cal[cal.get('DEPTH_BASIS', 'MUD').eq('MUD')].dropna(subset=['MD'])
+    # 2) XRD/XRF：录井深度，分段局部配准后再挂（不是全井固定偏移）
+    xrd = cal[cal.get('DEPTH_BASIS', 'MUD').eq('MUD')].dropna(subset=['MD']).copy()
     if not xrd.empty:
-        shift, details = estimate_xrd_depth_shift(d, xrd)
-        xrd = xrd.copy()
-        xrd['MD'] = pd.to_numeric(xrd['MD'], errors='coerce') + shift
-        xrd = xrd.sort_values('MD')
-        left = d[['_MD_ORG']].rename(columns={'_MD_ORG': 'MD'}).sort_values('MD')
-        merged = pd.merge_asof(left, xrd, on='MD', direction='nearest',
-                               tolerance=0.75)
-        for c in xrd.columns:
-            if c == 'MD' or not (c.startswith('XRD_') or c.startswith('XRF_')):
-                continue
-            if merged[c].notna().any():
-                d[c] = merged[c].values
-        d['XRD_DEPTH_SHIFT'] = shift
-        logger.info('XRD/XRF 深度配准: 录井→测井偏移 %+0.2fm（%s）',
-                    shift, details.get('score', 'NA'))
         try:
-            d.attrs['xrd_depth_shift'] = shift
-            d.attrs['xrd_depth_shift_details'] = details
-        except Exception:
-            pass
+            _shifts, _det = estimate_xrd_depth_shifts(d, xrd)
+            xrd = xrd.reset_index(drop=True)
+            _shifts = pd.Series(_shifts.values, index=xrd.index)
+            xrd['MD_LOG'] = pd.to_numeric(xrd['MD'], errors='coerce') + _shifts
+            xrd = xrd.dropna(subset=['MD_LOG']).sort_values('MD_LOG').reset_index(drop=True)
+            _xmd = pd.to_numeric(xrd['MD_LOG'], errors='coerce').values
+            _dmd = pd.to_numeric(d['MD'], errors='coerce').values
+            _pos = np.searchsorted(_xmd, _dmd)
+            _pos = np.clip(_pos, 1, max(len(_xmd) - 1, 1))
+            _left = np.clip(_pos - 1, 0, len(_xmd) - 1)
+            _right = np.clip(_pos, 0, len(_xmd) - 1)
+            _use = np.where(np.abs(_xmd[_left] - _dmd) <= np.abs(_xmd[_right] - _dmd),
+                            _left, _right)
+            _ok = np.abs(_xmd[_use] - _dmd) <= 0.75
+            for c in xrd.columns:
+                if c in ('MD', 'MD_LOG', 'DEPTH_BASIS') or not (
+                        c.startswith('XRD_') or c.startswith('XRF_')):
+                    continue
+                _arr = pd.to_numeric(xrd[c], errors='coerce').values
+                d[c] = np.where(_ok, _arr[_use], np.nan)
+            _shift_arr = _shifts.values
+            d['XRD_DEPTH_SHIFT'] = np.where(_ok, _shift_arr[_use], np.nan)
+            logger.info('XRD/XRF 分段深度配准: %d段，偏移 %.2f~%.2fm（%s）',
+                        len(_det.get('segments') or []),
+                        _det.get('shift_min', 0.0), _det.get('shift_max', 0.0),
+                        _det.get('mode', ''))
+            try:
+                d.attrs['xrd_depth_shift_details'] = _det
+            except Exception:
+                pass
+        except Exception as _e_xrd:
+            logger.warning('XRD/XRF 深度配准失败（跳过XRD/XRF挂接）: %s', _e_xrd)
     return d
 
 def apply_core_lithology(data):

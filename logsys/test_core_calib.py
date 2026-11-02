@@ -3,7 +3,7 @@
 import sys, numpy as np, pandas as pd
 sys.path.insert(0, r'D:\360\src')
 from logsys.core_calib import (read_well_calibration, attach_core_calibration,
-                               apply_core_lithology, estimate_xrd_depth_shift)
+                               apply_core_lithology, estimate_xrd_depth_shifts)
 ok=0; fail=0
 def chk(n,c,d=''):
     global ok,fail
@@ -19,8 +19,9 @@ if cal is not None and len(cal):
     chk('区分取芯(LOG)/XRD-XRF(MUD)深度基准', set(cal.get('DEPTH_BASIS', [])) >= {'LOG','MUD'}, cal.get('DEPTH_BASIS').value_counts().to_dict() if 'DEPTH_BASIS' in cal else None)
     _xrd=cal[cal['DEPTH_BASIS'].eq('MUD')].dropna(subset=['MD'])
     _d0=pd.DataFrame({'MD':[6300,6310,6320],'CALCITE_QE':[0.3,0.5,0.2]})
-    _shift,_det=estimate_xrd_depth_shift(_d0,_xrd)
-    chk('XRD深度配准在±10m内', abs(float(_shift))<=10.0, (_shift,_det))
+    _sh,_det=estimate_xrd_depth_shifts(_d0,_xrd)
+    chk('XRD局部配准在±10m内', len(_sh)==len(_xrd) and float(_sh.abs().max())<=10.0,
+        (_sh.min(),_sh.max(),_det.get('mode')))
 df=pd.DataFrame({'MD':[6312.1,6314.5,6320.0],'LITHOLOGY':['sandstone']*3})
 df=attach_core_calibration(df,r'D:\360\Brasil\Curacao-1')
 chk('按深度挂接岩心岩性', 'CORE_LITH' in df and df['CORE_LITH'].notna().any(), df.get('CORE_LITH'))
