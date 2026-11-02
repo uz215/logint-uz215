@@ -3,7 +3,7 @@
 
 与 logInt.sanitize_null_markers 分工：
   - sanitize_null_markers：已知缺测标记（-999/-9999 等）与负值合法性（SP/中子例外）；
-  - 本模块：**单位归一**（CAL/BS mm→in、NPHI 分数→百分、RHOB kg/m3→g/cc）、
+  - 本模块：**单位归一**（NPHI 分数→百分、RHOB kg/m3→g/cc；CAL/BS 恒为 in，不做 cm/mm 换算）、
     物理量非法值裁剪、深度重复/乱序处理，并输出可追溯的清洗报告。
 
 设计原则：保守——只在有把握时转换；检测到的修正写入报告，不静默丢数据。
@@ -19,7 +19,6 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 # 单位归一候选列（按列名前缀/包含匹配）
-CAL_COLS = ('CAL', 'CALI', 'CALX', 'CALY', 'CALS', 'HCAL', 'BS', 'BIT', 'DIA')
 NEUTRON_COLS = ('NPHI', 'CNL', 'CNCF', 'PHIN', 'TNPH', 'NEUT')
 DENSITY_COLS = ('RHOB', 'DEN', 'ZDEN', 'RHO')
 
@@ -32,16 +31,8 @@ def normalize_units(data: pd.DataFrame, report: dict) -> pd.DataFrame:
     """单位归一（保守规则，命中才转换）。"""
     data = data.copy()
     rep = report.setdefault('unit_fixes', {})
-    # 1) 井径/钻头：mm → inch（中位数 > 50 视为 mm）
-    for c in data.columns:
-        cu = str(c).upper()
-        if not any(k in cu for k in CAL_COLS):
-            continue
-        v = _num(data[c])
-        med = v.median(skipna=True)
-        if pd.notna(med) and med > 50:
-            data[c] = v / 25.4
-            rep[c] = 'mm→in (中位 %.1f)' % med
+    # 1) 井径/钻头：单位恒为 in（用户口径：CAL 不会用 cm/mm），不做 mm/cm 换算。
+    #    仅保留物理范围裁剪（在 clean_values 中按 3–40in 处理异常）。
     # 2) 中子：分数 → 百分（中位 0<median<1.5）
     for c in data.columns:
         cu = str(c).upper()
