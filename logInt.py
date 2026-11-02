@@ -726,30 +726,43 @@ class DataLoader:
                     return None
             elif file_ext == '.dlis':
                 try:
-                    import dlisio
-                    with dlisio.load(str(file_path)) as f:
-                        # 收集所有通道数据
+                    from dlisio import dlis as _dlis
+                    _dl_sem = {}
+                    _dl_bit = []
+                    with _dlis.load(str(file_path)) as f:
                         curve_data = {}
                         for logical_file in f:
-                            for frame in logical_file.frames:
-                                for channel in frame.channels:
-                                    ch_name = str(channel.name).strip() if hasattr(channel, 'name') else str(channel)
-                                    try:
-                                        curve_data[ch_name] = channel.curves()
-                                    except Exception:
-                                        pass
-                        if not curve_data:
-                            # 备用方式: 从顶层 channels() 遍历
-                            f2 = dlisio.load(str(file_path))
-                            for logical_file in f2:
-                                for channel in logical_file.channels:
-                                    ch_name = str(channel.name).strip() if hasattr(channel, 'name') else str(channel)
-                                    try:
-                                        curve_data[ch_name] = channel.curves()
-                                    except Exception:
-                                        pass
-                            f2.close()
+                            _chans = list(logical_file.channels) if hasattr(logical_file, 'channels') else []
+                            if not _chans and hasattr(logical_file, 'frames'):
+                                for _fr in logical_file.frames:
+                                    _chans.extend(list(getattr(_fr, 'channels', []) or []))
+                            for channel in _chans:
+                                ch_name = str(getattr(channel, 'name', '') or '').strip()
+                                if not ch_name:
+                                    continue
+                                try:
+                                    curve_data[ch_name] = channel.curves()
+                                except Exception:
+                                    continue
+                                _ln = str(getattr(channel, 'long_name', '') or '').strip()
+                                _un = str(getattr(channel, 'units', '') or '').strip()
+                                _dl_sem[ch_name.upper()] = {'desc': _ln, 'unit': _un, 'tags': []}
+                            try:
+                                for _par in list(logical_file.parameters):
+                                    _pn = str(getattr(_par, 'name', '') or '').upper()
+                                    _pl = str(getattr(_par, 'long_name', '') or '')
+                                    _vals = getattr(_par, 'values', None)
+                                    if ('BIT' in _pn or 'bit size' in _pl.lower()) and _vals:
+                                        try:
+                                            _v = float(str(_vals[0]).replace(',', '.'))
+                                            _dl_bit.append((_pn, _v))
+                                        except Exception:
+                                            pass
+                            except Exception:
+                                pass
                         self.data = pd.DataFrame(curve_data) if curve_data else pd.DataFrame()
+                    self.curve_descriptions = _dl_sem
+                    self.bit_sizes = _dl_bit
                     info = self._extract_dlis_info(str(file_path))
                     self.file_info = info
                     self.las_info = info  # 向后兼容
@@ -761,16 +774,6 @@ class DataLoader:
                     import traceback
                     traceback.print_exc()
                     return None
-            elif file_ext in ('.xlsx', '.xls'):
-                try:
-                    self.data = pd.read_excel(file_path, engine='calamine')
-                except (ValueError, ImportError):
-                    if file_ext == '.xlsx':
-                        self.data = pd.read_excel(file_path, engine='openpyxl')
-                    else:
-                        self.data = pd.read_excel(file_path)
-                self.file_info = None
-                self.las_info = None
             else:
                 raise ValueError(f"不支持的文件格式: {file_ext}")
             
@@ -2462,13 +2465,13 @@ class DataLoader:
             'parameter': {}
         }
         try:
-            import dlisio
+            from dlisio import dlis as _dlis
         except ImportError:
             logger.warning("dlisio库未安装，无法提取DLIS元信息: pip install dlisio")
             return info
         
         try:
-            with dlisio.load(file_path) as f:
+            with _dlis.load(file_path) as f:
                 logical_files = list(f)
                 if not logical_files:
                     return info
@@ -3006,7 +3009,7 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
     # GR：注释含 gamma ray；优先有效值覆盖高的
     if 'GR' not in data.columns:
         _grs = [c for c in data.columns
-                if 'gamma ray' in _label(c) or str(c).upper() in ('GR_EDTC', 'GRN', 'GR_CAL')]
+                if 'gamma' in _label(c) or re.match(r'^GR(_|$)', str(c).upper())]
         if _grs:
             _best = max(_grs, key=lambda c: _valid_ratio(data, c))
             data = data.rename(columns={_best: 'GR'})
@@ -3014,29 +3017,46 @@ def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None)
                         (descriptions.get(str(_best).upper()) or {}).get('family') or 'Gamma Ray')
             print(f"★ LAS注释语义: GR ← {_best}")
 
-    # CAL：注释含 caliper；多个 caliper 列合并（按有效覆盖从高到低 fillna）
+    # CAL：必须是真的 Caliper（排除 CALC1/3/5 —— 用户口径：它们是不同时间的灰岩含量）
+    def _is_calcite_like(col):
+        _nm = str(col).upper()
+        _lb = _label(col)
+        if re.match(r'^CALC\d+$', _nm):
+            return True
+        return any(k in _lb for k in ('calcite', 'limestone', 'fraction'))
     if 'CAL' not in data.columns:
         _cals = [c for c in data.columns
-                 if 'caliper' in _label(c) or str(c).upper() in ('CALC1', 'CALC3', 'CALC5', 'CALI', 'HCAL')]
-        if _cals:
-            _cals = sorted(_cals, key=lambda c: _valid_ratio(data, c), reverse=True)
-            _ser = pd.to_numeric(data[_cals[0]], errors='coerce')
-            for _c in _cals[1:]:
+                 if not _is_calcite_like(c) and (
+                     'caliper' in _label(c) or
+                     str(c).upper() in ('CALI', 'HCAL', 'CALA', 'CALIPER', 'CAL_AVERAGE'))]
+        _good = []
+        for _c in sorted(_cals, key=lambda c: _valid_ratio(data, c), reverse=True):
+            _x = pd.to_numeric(data[_c], errors='coerce')
+            if _x.notna().sum() == 0:
+                continue
+            _med = float(_x.median())
+            _q95 = float(_x.quantile(0.95))
+            # 真井径物理范围：中位 2–30in、95% <60in；否则判为误标（如灰岩含量 0–1）
+            if 2.0 <= _med <= 30.0 and _q95 <= 60.0:
+                _good.append(_c)
+            else:
+                logger.info('LAS注释语义: %s 标为Caliper但数值不像井径（中位%.2f/95%%%.2f），不作为CAL', _c, _med, _q95)
+        if _good:
+            _ser = pd.to_numeric(data[_good[0]], errors='coerce')
+            for _c in _good[1:]:
                 _ser = _ser.fillna(pd.to_numeric(data[_c], errors='coerce'))
-            # 物理范围过滤：CAL 正常 3–40 in；>40 多为仪器异常/错误刻度（CuraCao-1 出现 87in）
-            _n_bad = 0
-            try:
-                if _ser.notna().any() and float(_ser.median()) < 30:
-                    _bad = (_ser < 3) | (_ser > 40)
-                    _n_bad = int(_bad.sum())
-                    _ser = _ser.where(~_bad)
-            except Exception:
-                pass
+            _bad = (_ser < 3) | (_ser > 40)
+            _n_bad = int(_bad.sum())
+            if _n_bad and (_ser.notna().sum() - _n_bad) > 0:
+                _ser = _ser.where(~_bad)
             data['CAL'] = _ser
-            logger.info('LAS注释语义: CAL ← %s（Caliper 合并%s）', _cals,
+            logger.info('LAS注释语义: CAL ← %s（Caliper%s）', _good,
                         '，剔除异常 %d 点' % _n_bad if _n_bad else '')
-            print(f"★ LAS注释语义: CAL ← {'+'.join(_cals)}（Caliper）"
-                  + (f"，剔除异常 {_n_bad} 点" if _n_bad else ''))
+            print(f"★ LAS注释语义: CAL ← {'+'.join(_good)}（Caliper）"
+                  + (f"，剔除异常 {_n_bad} 点" if _n_bad else ""))
+        elif _cals:
+            logger.info('LAS注释语义: 找到标称Caliper曲线 %s，但均不符合井径特征；跳过（可能实为灰岩含量）', _cals)
+            print('★ LAS注释语义: 标称Caliper曲线不符合井径特征，跳过')
 
     # BS：已有 BS/BIT 类列则归一；否则用参数 bit size 合成（最后一个=最小）
     if 'BS' not in data.columns:
