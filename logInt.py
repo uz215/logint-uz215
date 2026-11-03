@@ -3070,11 +3070,13 @@ def _norm_cutoffs(raw):
     return cut
 
 
-def load_interpretation_cutoffs(well_dir, well_name=''):
+def load_interpretation_cutoffs(well_dir, well_name='', src_dir=None):
     """读 <井名>info.json「解释截止值」组 → cutoffs dict（无文件/无组=全默认）。
 
-    候选位置: well_dir/<井名>info.json 与 well_dir 父目录同名文件（各试一次，
-    先命中先用）；找不到 → 打印默认口径说明并返回全 None（用内联默认）。
+    候选位置: well_dir/<井名>info.json 与 well_dir 父目录同名文件，以及
+    src_dir/<井名>info.json（输入数据所在目录，用户维护的权威配置常放此处），
+    各试一次，先命中先用；候选文件存在但缺该组时继续尝试下一候选（不提前
+    返回，避免丢失其它候选里的配置）。找不到 → 返回全 None（用内联默认）。
     """
     _name = str(well_name or '').strip() or 'well'
     _cands = []
@@ -3082,6 +3084,8 @@ def load_interpretation_cutoffs(well_dir, well_name=''):
         wd = Path(well_dir)
         _cands.append(wd / (_name + 'info.json'))
         _cands.append(wd.parent / (_name + 'info.json'))
+        if src_dir:
+            _cands.append(Path(src_dir) / (_name + 'info.json'))
     except Exception:
         pass
     for p in _cands:
@@ -3090,6 +3094,9 @@ def load_interpretation_cutoffs(well_dir, well_name=''):
                 continue
             cfg = json.loads(p.read_text(encoding='utf-8'))
             sec = cfg.get('解释截止值') if isinstance(cfg, dict) else None
+            if not isinstance(sec, dict):
+                print('  解释截止值: %s 无该组，尝试下一候选位置' % p.name)
+                continue
             cut = _norm_cutoffs(sec)
             _ov = [k for k in DEFAULT_CUTOFFS if cut[k] is not None]
             if _ov:
@@ -3138,11 +3145,13 @@ def get_active_regional():
     return dict(_ACTIVE_REGIONAL)
 
 
-def load_regional_knowledge(well_dir, well_name=''):
+def load_regional_knowledge(well_dir, well_name='', src_dir=None):
     """读 <井名>info.json「区域知识」组 → dict（无文件/无组/空值=不约束）。
 
     候选位置与 load_interpretation_cutoffs 相同：well_dir/<井名>info.json
-    与 well_dir 父目录同名文件，先命中先用；值域校验失败忽略该项。
+    与 well_dir 父目录同名文件，以及 src_dir/<井名>info.json（输入数据所在
+    目录，用户维护的权威配置常放此处）；值域校验失败忽略该项。候选文件存在
+    但缺该组时继续尝试下一候选（不提前返回，避免丢失其它候选里的配置）。
     """
     reg = {k: '' for k in _REGIONAL_KN_ALLOWED}
     _name = str(well_name or '').strip() or 'well'
@@ -3151,6 +3160,8 @@ def load_regional_knowledge(well_dir, well_name=''):
         wd = Path(well_dir)
         _cands.append(wd / (_name + 'info.json'))
         _cands.append(wd.parent / (_name + 'info.json'))
+        if src_dir:
+            _cands.append(Path(src_dir) / (_name + 'info.json'))
     except Exception:
         pass
     for p in _cands:
@@ -3160,9 +3171,8 @@ def load_regional_knowledge(well_dir, well_name=''):
             cfg = json.loads(p.read_text(encoding='utf-8'))
             sec = cfg.get('区域知识') if isinstance(cfg, dict) else None
             if not isinstance(sec, dict):
-                print('  区域知识: %s 无该组（空=不约束, 可在 json「区域知识」'
-                      '组填写区域地质认识）' % p.name)
-                return reg
+                print('  区域知识: %s 无该组，尝试下一候选位置' % p.name)
+                continue
             for k, allowed in _REGIONAL_KN_ALLOWED.items():
                 v = str(sec.get(k) or '').strip()
                 if v and v not in allowed:
@@ -3181,6 +3191,67 @@ def load_regional_knowledge(well_dir, well_name=''):
     print('  区域知识: 未找到 <井名>info.json（空=不约束, 区域认识可在该 '
           'json「区域知识」组填写：剖面类型/煤层/碳质泥岩）')
     return reg
+
+
+# 【R59b 修复】模块级显式 Archie 覆盖。run_workflow 从 <井名>info.json「archie」
+# 组加载 Rw 后写入本全局；calculate_saturation 无论被哪个对象（主处理器 / 矿物
+# 分析器子对象——二者 config 不共享）调用，都强制采用显式 Rw 并禁用自动检测。
+# 否则子对象 config 未被同步 → rw_explicit 丢失 → 回退自动检测(Rw≈0.3649)→伪水层。
+# 无显式 archie 时置 None（走自动检测/默认，不影响其它井）。
+_ARCHIE_EXPLICIT_OVERRIDE = None
+
+
+def load_archie_params(well_dir, well_name='', src_dir=None):
+    """读 <井名>info.json「archie」组 → dict（阿尔奇公式参数, 无文件/无组=空）。
+
+    候选位置与 load_interpretation_cutoffs 相同：well_dir/<井名>info.json
+    与 well_dir 父目录同名文件，以及 src_dir/<井名>info.json（输入数据所在
+    目录，用户维护的权威配置常放此处），先命中先用。只读 Rw/a/m/n/Rsh 五个键，
+    其余键忽略。用于覆盖程序默认的 Rw（如高矿化度地层需显式指定低 Rw：
+    本井无水层可反算，自动检测必高估→伪水层）。候选文件存在但缺该组时继续
+    尝试下一候选（不提前返回，避免丢失其它候选里的配置）。
+
+    【R59 用户定案】含水饱和度一律用阿尔奇公式重算（a·Rw/(φ^m·RT)）^(1/n)，
+    绝不直接采用测井提供的 SW/SWE/SWT（现场算的，未考虑岩性/泥质/油气影响）。
+    显式指定 archie.Rw 时，calculate_saturation 跳过自动检测。
+    """
+    _allowed = {'Rw', 'a', 'm', 'n', 'Rsh'}
+    _name = str(well_name or '').strip() or 'well'
+    _cands = []
+    try:
+        wd = Path(well_dir)
+        _cands.append(wd / (_name + 'info.json'))
+        _cands.append(wd.parent / (_name + 'info.json'))
+        if src_dir:
+            _cands.append(Path(src_dir) / (_name + 'info.json'))
+    except Exception:
+        pass
+    for p in _cands:
+        try:
+            if not p.exists():
+                continue
+            cfg = json.loads(p.read_text(encoding='utf-8'))
+            sec = cfg.get('archie') if isinstance(cfg, dict) else None
+            if not isinstance(sec, dict):
+                print('  archie参数: %s 无该组，尝试下一候选位置' % p.name)
+                continue
+            out = {}
+            for k in _allowed:
+                if k in sec and sec[k] is not None:
+                    try:
+                        out[k] = float(sec[k])
+                    except (TypeError, ValueError):
+                        logger.warning("archie.%s=%r 非数值, 忽略", k, sec[k])
+            if out:
+                print('  archie参数: %s → %s（显式指定, 不触发自动Rw检测）'
+                      % (p.name, out))
+            else:
+                print('  archie参数: %s 未配置（用程序默认 Rw=0.05）' % p.name)
+            return out
+        except Exception as e:
+            logger.warning("archie参数读取失败 %s: %s", p, e)
+    print('  archie参数: 未找到 <井名>info.json（用程序默认 Rw=0.05）')
+    return {}
 
 
 def build_interpretation_rules(cut=None):
@@ -3382,6 +3453,26 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
                     return True
             return False
 
+        def _water_veto(k):
+            """True=该点是油的铁证，禁止被整饰成水（与 _hc_veto 对称）。
+
+            【R59b 修复】原层间整饰 R2「过渡带底水」仅保护 HC←WATER 方向，
+            不保护 WATER←HC 方向——导致 SPS-108 6311.8-6313.2m 高阻
+            (RT=261~532Ω·m)、低饱和(Sw=0.19~0.49)的明显油点被邻层水体
+            整饰成 WATER，违背「Sw<0.5 不可能为水层」的物理。新增对称
+            否决：Sw<0.5（低于水层饱和度定义线）或 RT>25Ω·m（远高于水层
+            电阻率上限）的油铁证点，禁止被改判为水。
+            """
+            if _sw_arr is not None:
+                _s = _sw_arr[k]
+                if np.isfinite(_s) and _s < 0.5:
+                    return True
+            if _rt_arr is not None:
+                _r = _rt_arr[k]
+                if np.isfinite(_r) and _r > 25.0:
+                    return True
+            return False
+
         edges = [0] + bounds + [nf]
         seg_fix = 0
         seg_veto = 0
@@ -3398,6 +3489,8 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
                 if _to_hc and _hc_veto(k):
                     seg_veto += 1
                     continue        # 物理下限保护：水的铁证不改判为油气
+                if tname == 'WATER' and _water_veto(k):
+                    continue        # 物理下限保护：油的铁证不改判为水
                 vals[k] = new_val
                 fam_arr[k] = tname   # 【2026-10-14 修复】同步家族数组，保证
                                      # 后续层间整饰的层块计数与 vals 一致
@@ -3451,6 +3544,8 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
                 if fam_arr[k] != _tgt:
                     if _to_hc and _hc_veto(k):
                         continue
+                    if str(_tgt) == 'WATER' and _water_veto(k):
+                        continue    # 物理下限保护：油的铁证不改判为水
                     vals[k] = _nv
                     fam_arr[k] = _tgt
                     data.iloc[k, idx_pos] = _nv
@@ -4233,17 +4328,25 @@ class DataProcessor:
         return data['PHI']
     
     def calculate_water_saturation(self):
-        """计算含水饱和度"""
+        """计算含水饱和度（阿尔奇重算，绝不用现场提供值）
+
+        【R59 用户定案】含水饱和度一律用阿尔奇公式重算
+        (a·Rw/(φ^m·RT))^(1/n)，绝不直接采用测井提供的 SW/SWE/SWT（现场算的，
+        未考虑岩性/泥质/油气影响，不可靠）。提供的列保留为 SW_PROVIDED 仅供对照。
+        """
         if self.data is None:
             logger.error("Data not loaded")
             return None
-        
+
         data = self.data.copy()
-        
+
+        # 提供的 SW/SWE/SWT 仅留作对照，绝不参与解释
         if 'SW' in data.columns:
-            data['Sw'] = data['SW']
-            data['Sw'] = data['Sw'].clip(0, 1)
-        elif 'RT' in data.columns and 'PHI' in data.columns:
+            data['SW_PROVIDED'] = data['SW']
+        elif 'SWE' in data.columns:
+            data['SW_PROVIDED'] = data['SWE']
+
+        if 'RT' in data.columns and 'PHI' in data.columns:
             # 从配置文件读取阿尔奇公式参数
             archie_config = self.config.get('archie', {})
             Rw = archie_config.get('Rw', 0.05)
@@ -4251,18 +4354,25 @@ class DataProcessor:
             m = archie_config.get('m', 2.0)
             n = archie_config.get('n', 2.0)
             Rsh = archie_config.get('Rsh', 2.0)
-            
+
             data['Sw'] = (a * Rw / (data['PHI']**m * data['RT']))**(1/n)
             data['Sw'] = data['Sw'].clip(0, 1)
-            
+
             if 'VSH' in data.columns:
                 vsh_threshold = self.config.get('vsh_threshold', {}).get('sand_max', 0.3)
-                data.loc[data['VSH'] > vsh_threshold, 'Sw'] = (a * Rw / (data.loc[data['VSH'] > vsh_threshold, 'PHI']**m * data.loc[data['VSH'] > vsh_threshold, 'RT']) + 
-                                                      data.loc[data['VSH'] > vsh_threshold, 'VSH'] / Rsh)**(-1)
-                data['Sw'] = data['Sw'].clip(0, 1)
+                _m = data['VSH'] > vsh_threshold
+                if _m.any():
+                    # 【R59b 修复】原公式 **(-1) 与干净分支 **(1/n) 数学不自洽，
+                    # 在 VSH>阈值 处产生跳变并将 Sw 强制到 1.0（如 SPS-108 6422m
+                    # 泥质灰岩 VSH~0.3 → Sw 恒为 1.0）。修正为 **(1/n) 与干净分支
+                    # 同族，泥质项平滑叠加，消除 Sw 伪饱和。
+                    data.loc[_m, 'Sw'] = (a * Rw / (data.loc[_m, 'PHI']**m *
+                                          data.loc[_m, 'RT']) +
+                                          data.loc[_m, 'VSH'] / Rsh)**(1 / n)
+                    data['Sw'] = data['Sw'].clip(0, 1)
         else:
             data['Sw'] = 1.0
-        
+
         self.data = data
         return data['Sw']
     
@@ -4484,7 +4594,141 @@ def _ql_find_col(data, possible_names):
             return _low[name.strip().lower()]
     return None
 
-def _build_hc_reason_sections(results):
+def _build_methodology_section(results, config=None):
+    """【R59 用户定案】生成"测井解释分析方法与图版说明"总论章节。
+
+    把油气水解释的分析思路与方法论固化进程序：每口井都按同一方法论输出——
+    含水饱和度重算原则、流体类型曲线/交会图特征、图版(must/core/deny)判别思路。
+    数据驱动：剖面类型/区域知识来自模块全局（get_active_regional），Rw 来自
+    config['archie']（显式指定或自动检测）。
+    """
+    well_name = str(results.get('well_name') or 'Well')
+    # ---- Rw 来源 ----
+    _archie = (config or {}).get('archie', {}) if isinstance(config, dict) else {}
+    rw = _archie.get('Rw')
+    rw_explicit = bool(_archie.get('rw_explicit'))
+    if rw is None:
+        rw = 0.05
+    _rw_src = ('info.json「archie」组显式指定（禁用自动检测：本井无水层可反算，'
+               '自动检测必高估→伪水层）' if rw_explicit
+              else '程序自动检测（从明显水层 sqrt(Rw)50%%频率反算）')
+    # ---- 剖面类型 / 区域知识 ----
+    _reg = get_active_regional()
+    _profile = str(_reg.get('剖面类型') or results.get('profile_type') or '').strip()
+    _profile_zh = {'carbonate': '碳酸盐岩剖面', 'sand_shale': '砂泥岩剖面',
+                   'mixed': '混合剖面'}.get(_profile, '程序自动判定剖面')
+    _no_water = '无' if str(_reg.get('煤层') or '') else ''
+    # 区域认识：从区域知识组推断"全油/无水"等（用户口述知识结构化）
+    _regional_notes = []
+    if _profile:
+        _regional_notes.append('区域剖面类型为%s' % _profile_zh)
+    # ---- 本井流体层统计（用于"本井结论概览"） ----
+    _df = results.get('processed_data') if isinstance(results, dict) else None
+    _fluid_summary = ''
+    if _df is not None and 'INTERPRETATION' in _df.columns:
+        _itp = _df['INTERPRETATION'].apply(
+            lambda x: str(x).upper().strip() if x is not None else '')
+        _cnt = _itp.value_counts()
+        _order = ['OIL', 'GAS', 'WATER', 'DRY', 'GAS_POSSIBLE', 'OIL_POSSIBLE',
+                  'WATER_POSSIBLE']
+        _zh = {'OIL': '油层', 'GAS': '气层', 'WATER': '水层', 'DRY': '干层',
+               'GAS_POSSIBLE': '可能气层', 'OIL_POSSIBLE': '可能油层',
+               'WATER_POSSIBLE': '可能水层'}
+        _parts = []
+        for _k in _order:
+            if _k in _cnt and _cnt[_k] > 0:
+                _parts.append('%s %d 段' % (_zh.get(_k, _k), int(_cnt[_k])))
+        if _parts:
+            _fluid_summary = '；'.join(_parts)
+
+    html = f"""
+    <div class="section" style="background:#fbfdff;border:1px solid #cfe3f7;">
+      <h2>测井解释分析方法与图版说明</h2>
+      <p style="color:#555;">本章节固化本程序对每口井统一采用的油气水解释方法论：
+      含水饱和度一律重算、流体类型按曲线与交会图特征判别、图版按 must/core/deny
+      原则裁决。以下为通用分析思路，并结合本井具体参数。</p>
+
+      <h3>一、含水饱和度计算原则（重算，不采用现场提供值）</h3>
+      <ul style="font-size:13px;line-height:1.7;">
+        <li><b>一律用阿尔奇公式重算</b>：Sw = (a·Rw / (φ<sup>m</sup>·RT))<sup>1/n</sup>，
+        绝不直接采用测井提供的 SW / SWE / SWT（现场算的，未考虑岩性、泥质、油气
+        影响，不可靠）。提供的列仅保留为对照（SW_PROVIDED）。</li>
+        <li><b>本井 Rw = {rw:.4f} Ω·m</b>（{_rw_src}）。</li>
+        <li><b>本井剖面类型：{_profile_zh}</b>{('；' + '；'.join(_regional_notes)) if _regional_notes else ''}。</li>
+        <li>{('本井解释结论概览：' + _fluid_summary + '。') if _fluid_summary else ''}</li>
+      </ul>
+
+      <h3>二、流体类型的曲线与交会图特征</h3>
+      <table style="border-collapse:collapse;font-size:12px;width:100%;">
+        <tr style="background:#eef4fb;">
+          <th style="border:1px solid #ccc;padding:5px;">流体类型</th>
+          <th style="border:1px solid #ccc;padding:5px;">电阻率 RT</th>
+          <th style="border:1px solid #ccc;padding:5px;">含水饱和度 Sw</th>
+          <th style="border:1px solid #ccc;padding:5px;">孔隙度/岩性</th>
+          <th style="border:1px solid #ccc;padding:5px;">密度-中子交会</th>
+          <th style="border:1px solid #ccc;padding:5px;">孔隙度-电阻率(Pickett)</th>
+        </tr>
+        <tr>
+          <td style="border:1px solid #ccc;padding:5px;"><b>油层</b></td>
+          <td style="border:1px solid #ccc;padding:5px;">相对围岩明显抬升（油层 RT&gt;30Ω·m）</td>
+          <td style="border:1px solid #ccc;padding:5px;">降低（Sw&lt;0.5，含烃）</td>
+          <td style="border:1px solid #ccc;padding:5px;">有效孔隙度发育，GR 中-低</td>
+          <td style="border:1px solid #ccc;padding:5px;">落在碳酸盐/砂岩孔隙岩石线，与泥岩分离</td>
+          <td style="border:1px solid #ccc;padding:5px;">低 Sw 区（左下方），远离水线</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid #ccc;padding:5px;"><b>气层</b></td>
+          <td style="border:1px solid #ccc;padding:5px;">更高（气层 RT&gt;50Ω·m）</td>
+          <td style="border:1px solid #ccc;padding:5px;">低（Sw&lt;0.5）</td>
+          <td style="border:1px solid #ccc;padding:5px;">物性好，GR 低</td>
+          <td style="border:1px solid #ccc;padding:5px;">"挖掘效应"交叉：中子降低+密度降低</td>
+          <td style="border:1px solid #ccc;padding:5px;">低 Sw 区，与油层同域但电阻率更高</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid #ccc;padding:5px;"><b>水层</b></td>
+          <td style="border:1px solid #ccc;padding:5px;">低（水层 RT&lt;20Ω·m）</td>
+          <td style="border:1px solid #ccc;padding:5px;">高（Sw&gt;0.6，无烃聚集证据）</td>
+          <td style="border:1px solid #ccc;padding:5px;">有孔隙，但无含烃指示</td>
+          <td style="border:1px solid #ccc;padding:5px;">岩石线位置，无挖掘效应</td>
+          <td style="border:1px solid #ccc;padding:5px;">高 Sw 区（右上方），贴近水线(Sw=100%)</td>
+        </tr>
+        <tr>
+          <td style="border:1px solid #ccc;padding:5px;"><b>一般储层(干层)</b></td>
+          <td style="border:1px solid #ccc;padding:5px;">低-中（无含烃抬升）</td>
+          <td style="border:1px solid #ccc;padding:5px;">高（Sw高，非含烃导致）</td>
+          <td style="border:1px solid #ccc;padding:5px;">孔隙度 6%~10% 低孔段或物性差</td>
+          <td style="border:1px solid #ccc;padding:5px;">岩石线位置</td>
+          <td style="border:1px solid #ccc;padding:5px;">介于水/油之间，无明确含烃指向</td>
+        </tr>
+      </table>
+
+      <h3>三、交会图分析方法</h3>
+      <ul style="font-size:13px;line-height:1.7;">
+        <li><b>密度-中子交会图</b>：判别岩性与孔隙度，识别气层"挖掘效应"交叉，
+        区分碳酸盐与砂泥岩骨架；泥岩因高 CNL+中密度落在右上孤立区。</li>
+        <li><b>孔隙度-电阻率(Pickett)交会图</b>：以 RT 为对数纵轴、φ 为横轴，
+        按 Sw 等值线判别含流体性质；水线(Sw=100%)与含烃线(Sw&lt;50%)的分离程度
+        即含烃指示。每段油气层均在全井储层背景上高亮对比。</li>
+        <li><b>图版判据</b>：逐层对上述交会图与曲线做 must/core/deny 判别（见下）。</li>
+      </ul>
+
+      <h3>四、图版判别思路（must / core / deny）</h3>
+      <ul style="font-size:13px;line-height:1.7;">
+        <li><b>must（必要条件）</b>：缺一则直接排除该流体结论。例：油层必须
+        Sw&lt;0.5 且 φ≥6%，否则不可能是油层。</li>
+        <li><b>core（核心证据，M-of-K）</b>：多项物性/电性证据累计权重达阈值才成立
+        （如 RT 抬升、Sw 降低、孔隙度有效 等）。</li>
+        <li><b>deny（否决条件）</b>：满足则排除油气层。例：Sw&gt;0.65 或 φ&lt;6%
+        否决一切油气层结论。</li>
+        <li><b>兜底</b>：逐点未命中图版时按归一化距离就近归类（RT 取对数域），
+        避免"一会油一会水"的层内交错误判。</li>
+      </ul>
+    </div>
+    """
+    return html
+
+
+def _build_hc_reason_sections(results, config=None):
     """【2026-10-13 用户要求】解释报告逐油气层归因 + 交汇图。
 
     对每个储层流体段（OIL/GAS/WATER 及 *_POSSIBLE/*_PROBABLE），
@@ -4869,8 +5113,59 @@ def _build_hc_reason_sections(results):
                         _p = plot_dir / f'{well_name}_{layer_no:02d}_rt.png'
                         _f.savefig(_p, bbox_inches='tight'); plt.close(_f)
                         img_tags.append(f'<img src="crossplots/{_p.name}" width="460" />')
+                # ---- Pickett 图版（孔隙度-电阻率 + 含水饱和度等值线） ----
+                if rt_col and phi_col:
+                    _bg_r2 = pd.to_numeric(df[rt_col], errors='coerce').values
+                    _bg_p2 = pd.to_numeric(df[phi_col], errors='coerce').values
+                    _seg_r2 = _bg_r2[i0:i1]; _seg_p2 = _bg_p2[i0:i1]
+                    if _seg_p2.max() > 1.5:
+                        _bg_p2, _seg_p2 = _bg_p2 * 100.0, _seg_p2 * 100.0
+                    _ok_pick = _res_mask & (~np.isnan(_bg_r2)) & (~np.isnan(_bg_p2)) & (_bg_r2 > 0.05) & (_bg_p2 > 0)
+                    if _ok_pick.sum() > 10:
+                        _arch = (config or {}).get('archie', {}) if isinstance(config, dict) else {}
+                        _a = float(_arch.get('a', 1.0)); _m = float(_arch.get('m', 2.0))
+                        _n = float(_arch.get('n', 2.0)); _rw = float(_arch.get('Rw', 0.05))
+                        _f, _ax = plt.subplots(figsize=(4.6, 3.4), dpi=130)
+                        _ax.scatter(_bg_p2[_ok_pick], _bg_r2[_ok_pick], s=3, c='#b0b0b0',
+                                    alpha=0.35, label='全井储层背景')
+                        _ok_s2 = (~np.isnan(_seg_r2)) & (~np.isnan(_seg_p2)) & (_seg_p2 > 0)
+                        if _ok_s2.sum() > 1:
+                            _ax.scatter(_seg_p2[_ok_s2], _seg_r2[_ok_s2], s=22, c='purple',
+                                        alpha=0.85, label=f'{lab} {seg_start:.0f}-{seg_end:.0f}')
+                        # 含水饱和度等值线：RT = a·Rw/(Sw^n·φ^m)
+                        _ph = np.linspace(1, 40, 60)
+                        for _swl, _col, _lab in ((1.0, 'blue', 'Sw=100%'),
+                                                 (0.5, 'green', 'Sw=50%'),
+                                                 (0.2, 'red', 'Sw=20%')):
+                            _rtline = (_a * _rw / (_swl ** _n)) / (_ph ** _m)
+                            _ax.plot(_ph, _rtline, '--', color=_col, lw=1.0, label=_lab)
+                        _ax.set_xlabel('Porosity (%)'); _ax.set_ylabel('Resistivity (Ω·m)')
+                        _ax.set_yscale('log')
+                        _ax.set_title(f'{well_name} Pickett图版 #{layer_no} ({_zh.get(lab, lab)})')
+                        _ax.legend(fontsize=5, loc='lower left'); _ax.grid(alpha=0.3, which='both')
+                        _f.tight_layout()
+                        _p = plot_dir / f'{well_name}_{layer_no:02d}_pickett.png'
+                        _f.savefig(_p, bbox_inches='tight'); plt.close(_f)
+                        img_tags.append(f'<img src="crossplots/{_p.name}" width="460" />')
             except Exception as _e:
                 logger.warning('交汇图生成失败(层%d): %s', layer_no, _e)
+
+        # ---- 曲线特征变化叙述（综合各曲线相对全井基线的变化） ----
+        _cn = []
+        for _k, _u in (('GR', 'API'), ('RT', 'Ω·m'), ('DEN', 'g/cc'),
+                       ('NPHI', ''), ('DT', 'μs/ft'), ('PHI', ''), ('SW', '')):
+            _c, _b = sm.get(_k), base.get(_k)
+            if _c is None or _b is None or not np.isfinite(_c) or not np.isfinite(_b):
+                continue
+            _r = _c / _b if abs(_b) > 1e-9 else None
+            if _r and _r > 1.3:
+                _cn.append(f'{_k}升高{_r:.1f}倍')
+            elif _r and _r < 0.77:
+                _cn.append(f'{_k}降低至{_c:.3g}{_u}（基线{_b:.3g}）')
+            elif abs(_c - _b) > 0.15 * abs(_b):
+                _cn.append(f'{_k}{"升高" if _c > _b else "降低"}')
+        _curve_narr = ('本段曲线特征变化：' + '；'.join(_cn) + '。'
+                       if _cn else '本段曲线特征与全井基线相近。')
 
         # ---- 参数统计表 ----
         stat_rows_html = ''.join(
@@ -4888,6 +5183,8 @@ def _build_hc_reason_sections(results):
                 <th style="border:1px solid #ddd;padding:4px;">变化</th></tr>
             {stat_rows_html}
           </table>
+          <div style="font-size:12.5px;background:#f4f9f4;border:1px solid #cfe7cf;
+               border-radius:4px;padding:5px 8px;margin:6px 0;"><b>曲线特征变化：</b>{_curve_narr}</div>
           <div style="font-size:12px;">{reasons_html}</div>
           {plate_html}
           <div style="font-size:13px;color:#8b0000;margin:4px 0;"><b>结论依据：</b>{verdict}</div>
@@ -4930,7 +5227,9 @@ class ReportGenerator:
         report_path = self.report_dir / f'{well_name}_report.html'
 
         # 【2026-10-13】逐油气层解释原因归因 + 交汇图（用户第7条）
-        _hc_html, _plot_dir_rel = _build_hc_reason_sections(results)
+        _hc_html, _plot_dir_rel = _build_hc_reason_sections(results, config)
+        # 【R59 用户定案】分析方法与图版说明总论（每口井统一方法论）
+        _method_html = _build_methodology_section(results, config)
 
         # 报告内容
         html_content = f"""
@@ -4985,6 +5284,8 @@ class ReportGenerator:
             
             <div class="section">
                 <h2>解释结果</h2>
+                <!-- 【R59 用户定案】分析方法与图版说明总论（置于解释结果之前） -->
+                {_method_html}
                 <!-- 【2026-10-13】逐油气层解释原因归因 + 交汇图 -->
                 {_hc_html}
             </div>
@@ -7693,24 +7994,39 @@ class MineralAnalyzer:
             if 'PHI' in data.columns and rt_col_name is not None:
                 # 从配置文件读取阿尔奇公式参数
                 archie_config = self.config.get('archie', {})
+                # 【R59b 修复】合并模块级显式覆盖：run_workflow 从 info.json「archie」
+                # 组加载的 Rw 写入 _ARCHIE_EXPLICIT_OVERRIDE，确保本方法被主处理器
+                # 或矿物分析器子对象（config 不共享）调用时都采用显式 Rw，不被
+                # 子对象默认 config（rw_explicit 丢失）覆盖回退自动检测。
+                if _ARCHIE_EXPLICIT_OVERRIDE:
+                    archie_config = {**archie_config,
+                                     **_ARCHIE_EXPLICIT_OVERRIDE}
                 a = archie_config.get('a', 1.0)
                 m = archie_config.get('m', 2.0)
                 n = archie_config.get('n', 2.0)
-                
-                # ========== 自动检测 Rw（从明显水层）==========
-                rw_result = self._auto_detect_Rw(data, a=a, m=m)
-                if rw_result is not None and rw_result[0] is not None:
-                    Rw = rw_result[0]
-                    rw_stats = rw_result[1]
-                    logger.info(f"使用自动检测的Rw={Rw:.4f}（来自水层sqrt(Rw)50%频率）")
-                    # 保存Rw到config供后续使用
-                    self.config['archie'] = self.config.get('archie', {})
-                    self.config['archie']['Rw'] = Rw
-                    if rw_stats:
-                        self.config['archie']['rw_stats'] = rw_stats
-                else:
+
+                # ========== Rw 取值：显式指定优先，否则自动检测 ==========
+                # 【R59 用户定案】info.json「archie」组显式指定 Rw 时（如高矿化度
+                # 地层 Rw 低、且无水层可反算），禁用自动检测——否则自动检测必
+                # 高估 Rw，导致油层 Sw 被算高、误判为水层。
+                _rw_explicit = bool(archie_config.get('rw_explicit'))
+                if _rw_explicit:
                     Rw = archie_config.get('Rw', 0.05)
-                    logger.debug(f"自动检测Rw失败，使用配置的Rw={Rw}")
+                    logger.info(f"使用 info.json 显式指定的Rw={Rw:.4f}（跳过自动检测）")
+                else:
+                    rw_result = self._auto_detect_Rw(data, a=a, m=m)
+                    if rw_result is not None and rw_result[0] is not None:
+                        Rw = rw_result[0]
+                        rw_stats = rw_result[1]
+                        logger.info(f"使用自动检测的Rw={Rw:.4f}（来自水层sqrt(Rw)50%频率）")
+                        # 保存Rw到config供后续使用
+                        self.config['archie'] = self.config.get('archie', {})
+                        self.config['archie']['Rw'] = Rw
+                        if rw_stats:
+                            self.config['archie']['rw_stats'] = rw_stats
+                    else:
+                        Rw = archie_config.get('Rw', 0.05)
+                        logger.debug(f"自动检测Rw失败，使用配置的Rw={Rw}")
                 
                 # 使用动态检测的电阻率列
                 rt = data[rt_col_name]
@@ -11438,14 +11754,22 @@ LITHOLOGY_RULES = [
     {
         'key': 'halite', 'cn': '岩盐', 'priority': 84, 'score_min': 5.0,
         'core_min': 3,
-        'desc': '岩盐：CNL<2（负~零中子=无氢+挖掘效应）且 1.90≤ρ<2.35 且 '
-                'Δt<75 为必要条件；再要求负中子/盐核密度/高阻/低声波 至少 3 项。'
+        'desc': '岩盐：CNL<-0.5（强负中子挖掘效应=盐岩铁证；普通碳酸盐CNL≈0'
+                '不误入）且 1.90≤ρ<2.35 且 Δt<75 为必要条件；再要求负中子/'
+                '盐核密度/高阻/低声波 至少 3 项。'
                 '【2026-10-19 重写】旧条件 Δt<62/PE<1.2/GR<40 与骨架参数表 '
                 'Halite=[2.03,0,67,4.70] 矛盾，3-SPS-111D 6442-6454m 12m '
                 '盐岩（CNL≈-4.5 负中子、ρ2.04-2.15、Δt53-68、RT>500）'
-                '因此整段漏判为砂岩/泥岩',
+                '因此整段漏判为砂岩/泥岩；【2026-11-03 修正】CNL<2 过松，'
+                'SPS-108 全井 CNL 最大仅0.33、无负中子点，多孔碳酸岩(CNL≈0)'
+                '被误判 halite，收紧到 CNL<-0.5',
         'must': [
-            ('CNL', '<', 2.0),
+            # 盐岩铁证是**强负中子**（挖掘效应，CNL 通常 -2~-5）；普通碳酸盐
+            # 中子≈0 也满足旧的 CNL<2，会被误判为盐（SPS-108 全井 CNL 最大仅
+            # 0.33、无任何负中子点，却因 CNL<2 把多孔碳酸盐储层段判成 halite）。
+            # 故 must 收紧到 CNL<-0.5：只有真正强负中子才是盐岩，与 111D 实测
+            # 盐岩 CNL≈-4.5 一致；多孔碳酸盐(CNL≈0)不再误入。
+            ('CNL', '<', -0.5),
             ('DEN', '>=', 1.90),
             ('DEN', '<', 2.35),
             ('DT',  '<', 75.0),
@@ -12077,6 +12401,14 @@ class LithologyRecognizer:
         # 碳酸盐层全杀掉 → 剖面为碳酸盐时 GR 排除阈值 +45（110→155）
         _cb_gr_relax = (self.profile_type == 'carbonate' and
                         rule['key'] in ('limestone', 'dolomite', 'anhydrite'))
+        # 碳酸盐岩剖面下，多孔碳酸盐（储层）的"高密 must"放宽：允许 RHOB
+        # 低至 ~2.0 的高孔隙碳酸盐进入灰岩候选（仅排除煤 DEN<2.00；DT/CNL
+        # 仍卡碳酸盐中子标志）。否则 25%+ 孔隙度碳酸盐因 DEN<2.62 永远进不
+        # 了灰岩候选，被砂岩规则(GR+CNL+DEN 凑分)抢走（SPS-108 油层主体实测
+        # RHOB 2.04-2.66、CNL≈0、GR 57-69 误判 sandstone）。仅作用于碳酸盐
+        # 剖面，砂泥岩井不受影响。
+        _cb_carb_lith_relax = (self.profile_type == 'carbonate' and
+                               rule['key'] in ('limestone', 'dolomite'))
 
         # 【2026-11 用户定案：SPS-108 全判泥岩根因之一】PE 不可信时火成岩
         # 规则整体失效：火成岩由 PE>4 定义，PE 无法信任则无从识别；若仅把
@@ -12126,6 +12458,15 @@ class LithologyRecognizer:
                                        if not _skipped(c)))
             else:
                 col, op, thr = item
+                # 碳酸盐岩剖面下，灰岩"DEN>2.62"必须项放宽到 DEN>2.00：
+                # 允许高孔隙碳酸盐储层（RHOB 可低至 ~2.0）进入候选，仅排除
+                # 煤（DEN<2.00）；DT/CNL 仍卡碳酸盐中子标志。否则 25%+ 孔隙
+                # 度碳酸盐因 DEN<2.62 永远进不了灰岩候选，被砂岩规则抢走
+                # （SPS-108 油层主体实测 RHOB 2.04-2.66、CNL≈0、GR 57-69
+                # 误判 sandstone）。仅放宽灰岩（白云岩骨架更重，保持 DEN>2.74）。
+                if (_cb_carb_lith_relax and rule['key'] == 'limestone'
+                        and col == 'DEN' and op == '>' and abs(thr - 2.62) < 1e-6):
+                    thr = 2.00
                 if _skipped(col):
                     continue
                 v = self._val(i, col)
@@ -12166,6 +12507,15 @@ class LithologyRecognizer:
                     return (False, 0.0, ['排除项命中: %s%s%.2f(实测%.2f)'
                                          % (col, op, thr, v)])
 
+        # 碳酸盐岩剖面下：CNL<15（碳酸盐中子标志）的段不应判为砂岩
+        # （多孔碳酸盐储层 RHOB 可低至 ~2.0，与净砂岩曲线重叠；碳酸盐井
+        # 默认碳酸盐，砂岩需更强证据）。R34 deny 原则：排除性证据写 deny。
+        if _cb_profile and rule['key'] == 'sandstone':
+            _cnl = self._val(i, 'CNL')
+            if _cnl is not None and not _skip_nphi and _cnl < 15.0:
+                return (False, 0.0,
+                        ['排除项命中(碳酸盐剖面): CNL<15.0(实测%.2f)→非砂岩'
+                         % _cnl])
         # ---- 3. 一致性项：M-of-K ----
         core = [it for it in rule.get('core', []) if not _skipped(it[0])]
         need = int(rule.get('core_min', 1))
@@ -12179,6 +12529,11 @@ class LithologyRecognizer:
         # 机制之一）。真砂岩 CNL/PE/DEN/DT 多项全中，通常仍能过守门。
         if _cb_profile and rule['key'] == 'sandstone':
             need += 2
+        # 碳酸盐岩剖面下，多孔碳酸盐（储层）只需 CNL+RT 两项一致性即可定
+        # 灰岩（DEN 已放宽、GR 上限已放宽），core_min 降为 2，避免高孔隙
+        # 碳酸盐因 DEN>2.70 / GR>55 等致密碳酸盐特征被否决
+        if _cb_carb_lith_relax:
+            need = min(need, 2)
         score = 0.0
         hits = 0
         hit_txt = []
@@ -12203,10 +12558,15 @@ class LithologyRecognizer:
                     score += w_lin
                     hit_txt.append('%s<lin=%.2f' % (col, w_lin))
                 continue
-            if self._cmp(v, op, thr):
+            # 碳酸盐岩剖面下放宽灰岩 GR core 上限（含泥/孔隙碳酸盐 GR 可
+            # 偏高至 70-90；放宽 +25 后仍卡在明显砂泥区间之外）
+            _thr = thr
+            if _cb_carb_lith_relax and col == 'GR' and op == '<':
+                _thr = thr + 25.0
+            if self._cmp(v, op, _thr):
                 hits += 1
                 score += w
-                hit_txt.append('%s%s%.2f' % (col, op, thr))
+                hit_txt.append('%s%s%.2f' % (col, op, _thr))
         if hits < need:
             return (False, score, ['一致性不足: 命中%d项/需%d项 [%s]'
                                    % (hits, need, '; '.join(hit_txt))])
@@ -12363,12 +12723,25 @@ class LithologyRecognizer:
                     _tot = sum(_vv.values())
                     if (_vv[_mx] >= 0.45 and _tot > 0
                             and _vv[_mx] / _tot >= 0.50):
-                        lith[i] = self.mineral_map[_mx][0]
-                        conf[i] = 4.0 + 4.0 * (_vv[_mx] / _tot)
-                        why[i] = ('元素测井矿物含量主控: %s=%.2f'
-                                  '(占矿物总量%.0f%%)'
-                                  % (_mx, _vv[_mx], _vv[_mx] / _tot * 100))
-                        continue
+                        _mx_lith = self.mineral_map[_mx][0]
+                        # 碳酸盐岩剖面下：石英(VOL_QUARTZ)主控不得直接定性为
+                        # 砂岩。石英并非砂岩专属矿物（碳酸盐溶蚀残余/泥质均含
+                        # 石英），且元素反演在纯净碳酸盐储层段易把方解石误分解
+                        # 为石英——SPS-108 油层主体 VOL_QUARTZ=0.73 被判
+                        # sandstone，但该段 CNL≈0、RHOB 2.0-2.7、高 RT 是典型
+                        # 多孔碳酸盐储层。碳酸盐井默认碳酸盐，石英指示交回曲线
+                        # 规则（配合多孔碳酸盐放宽）判定，避免元素反演失真误判。
+                        # 砂泥岩剖面保留石英→砂岩（那里石英确指砂岩）。碳酸盐/
+                        # 蒸发盐矿物(方解石/白云石/硬石膏/岩盐)在所有剖面均采信。
+                        if _mx_lith == 'sandstone' and self.profile_type == 'carbonate':
+                            pass   # 不采信石英主控，落回曲线规则链
+                        else:
+                            lith[i] = _mx_lith
+                            conf[i] = 4.0 + 4.0 * (_vv[_mx] / _tot)
+                            why[i] = ('元素测井矿物含量主控: %s=%.2f'
+                                      '(占矿物总量%.0f%%)'
+                                      % (_mx, _vv[_mx], _vv[_mx] / _tot * 100))
+                            continue
             cands = []
             for ri, rule in enumerate(LITHOLOGY_RULES):
                 ok, s, reasons = self._rule_match(i, rule)
@@ -13803,6 +14176,7 @@ class WellLogProcessor:
     
     def run_workflow(self, file_path=None):
         """运行完整工作流"""
+        global _ARCHIE_EXPLICIT_OVERRIDE
         logger.info("Starting well log processing workflow")
         # 【2026-10-10】出图格式（数据选择界面选定）: all/composite/crossplot
         # run_well_log_workflow 通过模块全局 _PLOT_MODE 传入
@@ -14036,10 +14410,16 @@ class WellLogProcessor:
             # 2. 弹簧段校正（基于密度变化检测，校正时同时校正RHOB和MSFL）
             # 【2026-10-27 R28 用户定案】解释截止值分井配置：0.06 等默认值是
             # 巴西海上深水经验知识，不作所有井统一要求——每口井可在
+            # 【R59b 修复】src_dir = 输入文件所在目录（用户常把权威 info.json 与
+            # DLIS/LAS 放在一起，如 F:/360/Brasil/Curacao-1/1-SPS-108info.json）；
+            # 此前只搜 output/<井名>/ 与 output/，导致该目录的 archie 组从未被
+            # 读取，Rw=0.01 显式指定形同虚设、自动检测回退到 0.3649→伪水层。
+            _src_dir = str(Path(file_path).parent) if file_path else None
             # <井名>info.json「解释截止值」组覆盖（人工填非空值即生效）。
             try:
                 cutoffs = load_interpretation_cutoffs(
-                    str(well_output_dir), str(getattr(self, 'well_name', '')))
+                    str(well_output_dir), str(getattr(self, 'well_name', '')),
+                    _src_dir)
             except Exception as _ce:
                 logger.warning("解释截止值加载回退默认: %s", _ce)
                 cutoffs = dict(DEFAULT_CUTOFFS)
@@ -14050,11 +14430,32 @@ class WellLogProcessor:
             # 承接——以前只能口头纠正的知识现在每次处理自动生效
             try:
                 _regional = load_regional_knowledge(
-                    str(well_output_dir), str(getattr(self, 'well_name', '')))
+                    str(well_output_dir), str(getattr(self, 'well_name', '')),
+                    _src_dir)
             except Exception as _rge:
                 logger.warning("区域知识加载失败（不约束）: %s", _rge)
                 _regional = {}
             set_active_regional(_regional)
+            # 【R59 用户定案】阿尔奇参数（含 Rw）同样可从 <井名>info.json「archie」
+            # 组显式指定；显式指定时禁用自动 Rw 检测（高矿化度地层 Rw 低、且无
+            # 水层可反算，自动检测必高估→伪水层）。
+            try:
+                _archie = load_archie_params(
+                    str(well_output_dir), str(getattr(self, 'well_name', '')),
+                    _src_dir)
+            except Exception as _ae:
+                logger.warning("archie参数加载失败（用程序默认）: %s", _ae)
+                _archie = {}
+            if _archie:
+                self.config['archie'] = {**self.config.get('archie', {}),
+                                         **_archie}
+                self.config['archie']['rw_explicit'] = ('Rw' in _archie)
+                # 【R59b 修复】同步到模块级覆盖，使 calculate_saturation 无论被
+                # 主处理器还是矿物分析器子对象调用都采用显式 Rw（子对象 config
+                # 不共享，否则 rw_explicit 丢失→回退自动检测→伪水层）。
+                _ARCHIE_EXPLICIT_OVERRIDE = dict(self.config['archie'])
+            else:
+                _ARCHIE_EXPLICIT_OVERRIDE = None
             if str(_regional.get('剖面类型') or '').strip():
                 _profile_type = _regional['剖面类型']
                 logger.info("区域知识剖面类型覆盖自动预判: %s", _profile_type)
