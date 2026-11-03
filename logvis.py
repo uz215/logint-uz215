@@ -1105,27 +1105,39 @@ def _lith_pattern_core(kind, cx, cy, r_base=0, cw_px=None, ch_px=None):
                 xc += _G.get('brick_w', 2.0)
             r += 1
     elif kind == 'tri':
-        # 硬石膏 = 无底倒三角（∧，无底边，Anhydrite.png），行间错开半格；
-        # 顶角 60°（hw=0.577·腿高），屏幕等比不漂移。
-        # 【2026-10-19 用户要求】三角行**等距分布**：顶边距=行间隙=底边距，
-        # 首排/末排符号与中间排视觉间距一致（旧版首排尖点贴顶边、末排贴底，
-        # 行距不齐）
+        # 硬石膏 = 无底倒三角（∧，无底边），行间错开半格；
+        # 顶角 60°（hw=angle_k·腿高 × ch/cw，屏幕等比不漂移）。
+        # 纵向【2026-10-19 用户定案】等距闭合：顶边距=行间隙=底边距。
+        # 横向【2026-11-03 用户修复】两行作为**整体居中簇**：
+        #   - 偶数行中心集 {e₀, e₀+S, e₀+2S, …}，奇数行中心集 {eᵢ+0.5}
+        #     → 上下行错开半格；
+        #   - 行数 N 由最紧约束（奇数行末三角右边界）决定，保证两行相同；
+        #   - 簇整体以 cx/2 为中心对称 → 左右空隙相等、所有三角等间距。
         rows_n = max(1, int(round(cy)))
         py = cy / rows_n                                # 实际行距（格）
-        th = _G.get('leg_frac', 0.5) * py               # 腿高=半行距
-        g = (cy - rows_n * th) / (rows_n + 1.0)         # 边距=行间隙（等距闭合）
+        th = _G.get('leg_frac', 0.5) * py               # 腿高（格）
+        g = (cy - rows_n * th) / (rows_n + 1.0)         # 纵向等距闭合
         hw = _G.get('angle_k', 0.577) * th * (ch_px / cw_px)  # 屏幕顶角 60°
+
+        # --- 横向：整体居中簇 ---
+        S = 2.0                                         # 相邻三角中心间距（格）
+        # 整体最紧约束来自奇数行末三角右边界 = e₀ + (N-1)S + 0.5 + hw ≤ cx，
+        # 簇居中要求 pad_h = cx/2 - (整体范围宽)/2，代入 N 解：
+        N = max(1, int(math.floor((cx - 0.5 - 2.0 * hw) / S)) + 1)
+        # 首三角中心 e₀：簇整体中心落在 cx/2 → (e₀ + (e₀ + (N-1)S + 0.5))/2 = cx/2
+        e0 = cx / 2.0 - (N - 1) * S / 2.0 - 0.25
+
         for kk in range(rows_n):
             za = (kk + 1) * g + kk * th                 # 尖点（上/浅）
             zb = za + th                                # 两腿端（下/深）
-            stag = 0.5 if ((r_base + kk) % 2) else 0.0
-            c = 0
-            while (c + stag) <= (cx + 1.0):             # 越界由守卫跳过
-                xc = c + stag
+            is_odd = ((r_base + kk) % 2) != 0
+            x_off = 0.5 if is_odd else 0.0
+            for i in range(N):
+                xc = e0 + i * S + x_off
+                # 防御守卫（极端小 cx 或大 hw 时个别三角可能越界）
                 if (xc - hw) >= -_EPS and (xc + hw) <= (cx + _EPS):
                     segs.append(([xc - hw, xc, xc + hw],
                                  [zb, za, zb]))
-                c += 2
     elif kind == 'invL':
         # 火成岩/玄武岩 = 倒L形（Γ：顶横杠+左竖杠，Basalt.bmp），红底由
         # 背景色提供；行间错开半格，杠间不相连
