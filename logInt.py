@@ -60,6 +60,7 @@ def print_dependency_status():
         ('scipy', 'pip install scipy', '科学计算'),
         ('seaborn', 'pip install seaborn', '可视化增强'),
         ('sklearn', 'pip install scikit-learn', '机器学习'),
+        ('dlisio', 'pip install dlisio', 'DLIS格式支持'),
     ]
     
     for name, cmd, desc in optional_deps:
@@ -711,35 +712,14 @@ class DataLoader:
                     return None
             elif file_ext == '.dlis':
                 try:
-                    import dlisio
-                    with dlisio.load(str(file_path)) as f:
-                        # 收集所有通道数据
-                        curve_data = {}
-                        for logical_file in f:
-                            for frame in logical_file.frames:
-                                for channel in frame.channels:
-                                    ch_name = str(channel.name).strip() if hasattr(channel, 'name') else str(channel)
-                                    try:
-                                        curve_data[ch_name] = channel.curves()
-                                    except Exception:
-                                        pass
-                        if not curve_data:
-                            # 备用方式: 从顶层 channels() 遍历
-                            f2 = dlisio.load(str(file_path))
-                            for logical_file in f2:
-                                for channel in logical_file.channels:
-                                    ch_name = str(channel.name).strip() if hasattr(channel, 'name') else str(channel)
-                                    try:
-                                        curve_data[ch_name] = channel.curves()
-                                    except Exception:
-                                        pass
-                            f2.close()
-                        self.data = pd.DataFrame(curve_data) if curve_data else pd.DataFrame()
-                    info = self._extract_dlis_info(str(file_path))
+                    from logint.dlis_tool import DlisTool
+                    tool = DlisTool()
+                    df, info = tool.load_dlis(str(file_path))
+                    self.data = df if df is not None else pd.DataFrame()
                     self.file_info = info
                     self.las_info = info  # 向后兼容
                 except ImportError:
-                    logger.error("需要安装dlisio库: pip install dlisio")
+                    logger.error("需要安装 dlisio 库: pip install dlisio")
                     return None
                 except Exception as e:
                     logger.error(f"DLIS文件读取失败: {e}")
@@ -1071,6 +1051,16 @@ class DataLoader:
         
         # 策略3：模糊匹配——检查列名是否包含关键标识词
         # 为每种曲线类型定义一组关键词（小写）
+        # ── 跨类型排除规则 ────────────────────────────────────── #
+        # 任何列名如果精确命中了「其他曲线类型」的别名列表，
+        # 就不能再被当前类型的关键词模糊匹配（避免 GR_EDTC 被 'ac'
+        # 关键词 'dt' 误命中，因为 'edtc' 内含 'dt' 子串）。
+        all_other_aliases = set()
+        for _ct, _aliases in self.curve_aliases.items():
+            if _ct == curve_type:
+                continue
+            all_other_aliases.update(a.lower() for a in _aliases)
+
         fuzzy_keywords = {
             'depth': ['dept', 'depth', 'md', 'tvd'],
             'gr':    ['gr', 'gamma', 'gam'],
@@ -1088,6 +1078,9 @@ class DataLoader:
         if curve_type in fuzzy_keywords:
             keywords = fuzzy_keywords[curve_type]
             for col_lower, col_original in columns_lower.items():
+                # ── 跨类型排除 ── 此列已精确命中其他类型别名，跳过
+                if col_lower in all_other_aliases:
+                    continue
                 for kw in keywords:
                     if kw in col_lower:
                         logger.info(f"模糊匹配曲线: '{col_original}' → 类型 '{curve_type}' (关键词 '{kw}')")
@@ -2434,109 +2427,54 @@ class DataLoader:
         return las_info
     
     def _extract_dlis_info(self, file_path):
-        """从DLIS文件中提取所有元信息。
+        """从DLIS文件中提取所有元信息（复用 dlis_tool，兼容 dlisio 0.x / 1.x）。
         
-        数据来源优先级: Origin > Frame > Channel。
         返回与 _extract_las_info 相同的结构:
             {'well': {...}, 'parameter': {...}}
         """
-        info = {
-            'well': {},
-            'parameter': {}
-        }
         try:
-            import dlisio
-        except ImportError:
-            logger.warning("dlisio库未安装，无法提取DLIS元信息: pip install dlisio")
-            return info
-        
-        try:
-            with dlisio.load(file_path) as f:
-                logical_files = list(f)
-                if not logical_files:
-                    return info
-                lf = logical_files[0]
-                
-                # Origin → well info 字段映射
-                # dlisio 属性名可能因版本而异，故用 hasattr 探测
-                origin_fields = [
-                    ('company', 'company'),
-                    ('well_name', 'well_name'),
-                    ('well_id', 'api_number'),
-                    ('field_name', 'field_name'),
-                    ('producer', 'company'),
-                    ('run_number', 'run_number'),
-                    ('service_company', 'service_company_name'),
-                ]
-                
-                if hasattr(lf, 'origins') and lf.origins:
-                    origin = lf.origins[0]
-                    for attr, field_name in origin_fields:
-                        try:
-                            val = getattr(origin, attr, None)
-                            if val is not None and str(val).strip():
-                                info['well'][field_name] = str(val).strip()
-                        except Exception:
-                            pass
-                
-                # Frame → 深度范围（start_depth, stop_depth）
-                if hasattr(lf, 'frames') and lf.frames:
-                    for frame in lf.frames:
-                        try:
-                            if hasattr(frame, 'index_type') and frame.index_type:
-                                info['well']['index_type'] = str(frame.index_type).strip()
-                        except Exception:
-                            pass
-                
-                # Channel → parameter info（曲线描述/单位）
-                if hasattr(lf, 'channels') and lf.channels:
-                    param_info = {}
-                    for channel in lf.channels:
-                        try:
-                            ch_name = str(channel.name).strip() if hasattr(channel, 'name') else ''
-                            ch_unit = str(channel.units).strip() if hasattr(channel, 'units') and channel.units else ''
-                            ch_desc = str(channel.long_name).strip() if hasattr(channel, 'long_name') and channel.long_name else ''
-                            if ch_name:
-                                param_info[ch_name] = {
-                                    'unit': ch_unit,
-                                    'description': ch_desc,
-                                }
-                        except Exception:
-                            continue
-                    if param_info:
-                        info['parameter']['channel_info'] = param_info
-                
-                # 尝试从 fileheader / origin 提取更多信息
-                for origin_attr in dir(lf.origins[0]) if (hasattr(lf, 'origins') and lf.origins) else []:
-                    if origin_attr.startswith('_'):
-                        continue
-                    # 已知字段已在上面处理，跳过
-                    known = {f[0] for f in origin_fields}
-                    if origin_attr.lower() in known:
-                        continue
+            from logint.dlis_tool import _load_logical_files, _extract_well_info
+            pf, logical_files = _load_logical_files(str(file_path))
+            try:
+                info = _extract_well_info(logical_files)
+            finally:
+                if pf is not None:
                     try:
-                        val = getattr(lf.origins[0], origin_attr, None)
-                        if val is not None and str(val).strip():
-                            info['parameter'][origin_attr] = str(val).strip()
+                        pf.close()
                     except Exception:
                         pass
-                
-                return info
+            # 确保返回结构完整
+            if not isinstance(info, dict):
+                info = {'well': {}, 'parameter': {}}
+            info.setdefault('well', {})
+            info.setdefault('parameter', {})
+            return info
+        except ImportError:
+            logger.warning("dlisio库未安装，无法提取DLIS元信息: pip install dlisio")
+            return {'well': {}, 'parameter': {}}
         except Exception as e:
             logger.warning(f"DLIS元信息提取失败: {e}")
-            return info
+            return {'well': {}, 'parameter': {}}
     
     def get_las_well_info(self):
-        """获取文件井信息（LAS/DLIS统一）"""
+        """
+        获取文件井信息（LAS/DLIS 统一返回 well 子字典；不存在返回 {}）。
+        等价于 (file_info or {}).get('well', {})。
+        """
         info = self.file_info or self.las_info
-        if info and 'well' in info:
-            return info['well']
-        return None
+        if isinstance(info, dict):
+            # 新结构: {'well': {...}, 'parameter': {...}}（LAS/DLIS 统一）
+            if 'well' in info and isinstance(info.get('well'), dict):
+                return info['well']
+            # 兼容旧的扁平结构（dlis_tool 早期版本直接把 well 名放顶层）
+            if any(k in info for k in ('well_name', 'field_name', 'company')):
+                return info
+        return {}
     
     def get_las_parameter_info(self):
         """获取文件参数信息（LAS/DLIS统一）"""
         info = self.file_info or self.las_info
-        if info and 'parameter' in info:
+        if isinstance(info, dict) and 'parameter' in info:
             return info['parameter']
         return None
     
@@ -2893,12 +2831,13 @@ RESISTIVITY_CANDIDATES = ['RT', 'RD', 'LLD', 'RDEEP', 'AT90', 'ILD', 'M2RX',
 #       横波(DTSM/DTS)不映射为纵波DT; 阵列电阻率(AT系列)不映射为RT。
 CURVE_NAME_ALIASES = {
     'DEN': ['ZDEN', 'RHOZ', 'DENB', 'DENX', 'RHO', 'BUPD', 'RHO8'],
-    'CNL': ['CNCF', 'CNC', 'CN', 'TNPH', 'NPHI', 'PHIN'],
+    'CNL': ['CNCF', 'CNC', 'CN', 'TNPH', 'NPHI', 'PHIN', 'NPOR', 'NPH',
+            'NEU', 'NEUT', 'PHI_N', 'NEUTRON', 'PORN'],
     'DT':  ['DTC', 'DTCO', 'DT4P', 'AC', 'SONIC', 'SON'],
     'RT':  ['RD', 'RDEEP', 'RILD'],
     'CAL': ['CALX', 'CALI', 'HCAL'],
     'PE':  ['PEF', 'PEFZ', 'PEFL'],
-    'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP'],
+    'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP', 'GR_EDTC'],
 }
 
 def standardize_curve_names(data, context=""):
@@ -10969,21 +10908,23 @@ class FaciesAnalyzer:
 返回:
             data: 添加了 VALID_CURVES_COUNT 列的DataFrame
         """
-        # 候选名必须覆盖 LAS 原始列名，否则统计不到有效曲线。
-        # 实测 BET-1（LAS 列名 ZDEN/CNCF/DTC/RD/RMSL/CALX/CALY）在原列表下
-        # 只能数出 1 条曲线，导致"有效曲线数量不足"而跳过岩性/沉积相/绘图。
-        valid_curves = ['GR', 'GRX', 'GR_LAS', 'RT', 'RT_LAS', 'LLD', 'ILD', 'R90',
-                        'RD', 'RS', 'RMSL', 'MSFL', 'LLS',
-                        # 【2026-10-21 R18】HAL7506 等老井的阵列电阻率 RAL1-5
-                        'RAL1', 'RAL2', 'RAL3', 'RAL4', 'RAL5',
-                        'DEN', 'DEN_LAS', 'RHOB', 'ZDEN',
-                        'NPHI', 'CNL', 'CNL_LAS', 'CNCF', 'CNC',
-                        'DT', 'DTCO', 'DTC', 'AC', 'DTTC', 'DTTST', 'DTTXX',
-                        'PE', 'PEF',
-                        # 【R33 用户定案】井径（CAL 族）/钻头（BIT）不算有效
-                        # 曲线——井径只反映井眼状况，不构成解释依据；SP 是
-                        # 真地层信号保留。
-                        'SP']
+        # 候选名必须覆盖所有 DLIS/LAS 原始列名，否则统计不到有效曲线。
+        # 自动从 curve_aliases 拉取别名池 + 硬编码补充
+        try:
+            _loader = getattr(self, 'data_loader', None)
+            _aliases = getattr(_loader, 'curve_aliases', {}) if _loader else {}
+            valid_curves = list({
+                alias for ctype in ('gr', 'rt', 'den', 'nphi', 'ac', 'pe', 'sp')
+                for alias in _aliases.get(ctype, [])
+            })
+        except Exception:
+            valid_curves = []
+        if not valid_curves:
+            valid_curves = ['GR', 'GRX', 'RT', 'LLD', 'ILD', 'AT90',
+                            'DEN', 'RHOB', 'ZDEN',
+                            'NPHI', 'CNL', 'NPOR',
+                            'DT', 'DTCO', 'DTC', 'AC',
+                            'PE', 'PEF', 'GR_EDTC', 'SP']
 
         # 创建有效曲线计数列
         valid_counts = []
@@ -11025,11 +10966,19 @@ class FaciesAnalyzer:
             data = self._count_valid_curves_per_segment(data)
             
             # 检查是否有足够的有效曲线
-            # 有效曲线包括：GR, RT/LLD/ILD, DEN/RHOB, NPHI/CNL, DT/AC
-            # 必须覆盖 LAS 原始列名（ZDEN/CNCF/DTC/RD/RMSL），否则会误判为"曲线不足"
-            valid_curves = ['GR', 'GRX', 'RT', 'LLD', 'ILD', 'R90', 'RD', 'RMSL', 'MSFL',
-                            'DEN', 'RHOB', 'ZDEN', 'NPHI', 'CNL', 'CNCF',
-                            'DT', 'DTCO', 'DTC', 'AC', 'PE', 'PEF']
+            # 有效曲线包括：GR, RT/LLD/ILD, DEN/RHOB, NPHI/CNL, DT/AC, PE
+            # 用 curve_aliases 自动构建别名池
+            try:
+                _loader = getattr(self, 'data_loader', None)
+                _aliases = getattr(_loader, 'curve_aliases', {}) if _loader else {}
+                valid_curves = list({
+                    alias for ctype in ('gr', 'rt', 'den', 'nphi', 'ac', 'pe')
+                    for alias in _aliases.get(ctype, [])
+                })
+            except Exception:
+                valid_curves = ['GR', 'GR_EDTC', 'RT', 'LLD', 'ILD', 'AT90',
+                                'DEN', 'RHOB', 'ZDEN', 'NPHI', 'CNL', 'NPOR',
+                                'DT', 'DTCO', 'DTC', 'AC', 'PE', 'PEF']
             available_curves = [curve for curve in valid_curves if curve in data.columns]
             
             # 如果整个井的有效曲线少于3条，跳过岩性和沉积相分析
@@ -11112,11 +11061,13 @@ priority  : 多岩性同时得分时的优先级（越大越优先，用于煤/�
 # LAS 里的原始中子列名是 CNCF（补偿中子），若把 CNCF 映射成 DT 是错的
 # （CNCF 是孔隙度 PU，不是声波），会造成中子道缺失而声波道画成中子。
 COL_CANDIDATES = {
-    'GR':   ['GR_LAS', 'GR', 'GRX', 'GR_XMAC'],
+    'GR':   ['GR_LAS', 'GR', 'GRX', 'GR_XMAC', 'GR_EDTC'],
     'DEN':  ['DEN_LAS', 'DEN', 'ZDEN', 'RHOB'],
-    'CNL':  ['CNL_LAS', 'CNL', 'CNCF', 'NPHI', 'CNC'],
+    'CNL':  ['CNL_LAS', 'CNL', 'CNCF', 'NPHI', 'CNC', 'NPOR', 'NPH', 'NEU',
+              'NEUT', 'PHIN', 'TNPH', 'PHI_N', 'NEUTRON', 'PORN'],
     'DT':   ['DT', 'DTC', 'DTTC', 'DTCO', 'AC'],  # DTTC=纵波时差(R-13)
-    'RT':   ['RT_LAS', 'RT', 'RMSL', 'RD', 'MSFL', 'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1', 'LLD', 'LLS', 'ILD'],  # RAL1-5=阵列电阻率(R-13)，深探优先
+    'RT':   ['RT_LAS', 'RT', 'RMSL', 'RD', 'MSFL', 'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1', 'LLD', 'LLS', 'ILD',
+             'AT90', 'AT60', 'AT30', 'AT20', 'AT10'],  # RAL1-5=阵列电阻率(R-13)；AT10-90=Schlumberger阵列电阻率(深探优先)
     'PE':   ['PE', 'PEF'],
     # 【R35】补 CALS/BS：XIMENIA-5 用 CALS+BS 命名，此前没映射到
     # CAL/BIT → 派生扩径比 CALR 缺失，煤 deny 的井径条件无从判定
@@ -12077,24 +12028,45 @@ class LithologyRecognizer:
         _cb_gr_relax = (self.profile_type == 'carbonate' and
                         rule['key'] in ('limestone', 'dolomite', 'anhydrite'))
 
+        # 【2026-11 用户定案：SPS-108 全判泥岩根因之一】PE 不可信时火成岩
+        # 规则整体失效：火成岩由 PE>4 定义，PE 无法信任则无从识别；若仅把
+        # PE 条件"跳过当通过"，火成岩 must 凭 DEN>2.62 & CNL<8 仍会通过，
+        # 而火成岩 priority(86) > 灰岩(80) > 白云岩(82)，会直接抢走碳酸盐
+        # （processed.csv 实测 DEN 中位 2.754、CNL 中位 0.10、PE 中位 7.27 但
+        # max 419 坏道 → PE 判不可信）。故 PE 不可信时整体跳过火成岩规则，
+        # 让灰岩/白云岩得以正确判定。
+        if _skip_pe and rule.get('key') == 'igneous':
+            return (False, 0.0, ['PE不可信：火成岩判据依赖PE，整体跳过'])
+
         def _dthr(col, op, thr):
             if _cb_gr_relax and col == 'GR' and op == '>':
                 return thr + 45.0
             return thr
 
         # ---- 1. 必要项：全部满足 ----
+        # 【2026-11 用户定案：SPS-108 全判泥岩根因之二】判据曲线缺失（v is
+        # None，例如常规测井/DLIS 未带声波 DT，或 DLIS 多帧合并把 sonic 帧
+        # 丢失）时，旧逻辑把缺失当"不满足"→ 整条 must 失败 → 碳酸盐永远进
+        # 不了候选。修正：**缺失曲线按"无证据=跳过"处理（不否决）**，但要求
+        # 至少一条必要项用真实数据通过（_real_pass>=1），杜绝 DEN/DT/CNL 全
+        # 空时真空通过。这样灰岩凭 DEN>2.62 & CNL<15（DT 缺失时跳过）仍可进
+        # 候选，由 DEN+CNL+RT 等真实证据驱动碳酸盐识别。
+        _real_pass = 0
         for item in rule.get('must', []):
             cols = item.get('all') if isinstance(item, dict) else None
             if cols:
-                # 多条件必要项：全部满足才算命中
+                # 多条件必要项：全部满足才算命中（缺失/不可信曲线跳过）
                 bad = None
                 for col, op, thr in cols:
                     if _skipped(col):
                         continue      # 判据曲线不可信 → 该判据不作数
                     v = self._val(i, col)
+                    if v is None:
+                        continue      # 曲线缺失 → 无证据，跳过该必要项
                     if not self._cmp(v, op, thr):
                         bad = (col, op, thr, v)
                         break
+                    _real_pass += 1
                 if bad:
                     return (False, 0.0,
                             ['必要项不满足: %s%s%.2f(实测%s)'
@@ -12107,11 +12079,18 @@ class LithologyRecognizer:
                 if _skipped(col):
                     continue
                 v = self._val(i, col)
+                if v is None:
+                    continue          # 曲线缺失 → 无证据，跳过该必要项
                 if not self._cmp(v, op, thr):
                     return (False, 0.0, ['必要项不满足: %s%s%.2f(实测%s)'
                                          % (col, op, thr,
                                             'NaN' if v is None else '%.2f' % v)])
+                _real_pass += 1
                 reasons.append('%s%s%.2f' % (col, op, thr))
+        # 全缺失真空保护：没有任何一条必要项用真实数据通过时，该岩性不能
+        # 仅凭"缺数据"被推定（例如 DEN/DT/CNL 全空时任意判据真空通过）
+        if _real_pass == 0:
+            return (False, 0.0, ['必要项无真实数据支撑(曲线全部缺失)'])
 
         # ---- 2. 排除项：命中即否决（支持多条件 AND 语义）----
         for item in rule.get('deny', []):
@@ -13740,10 +13719,14 @@ class WellLogProcessor:
             self.data_processor.set_data(data)
             self.results['raw_data'] = data
             
-            # 优先使用从LAS文件读取的井名
+            # 优先使用从LAS/DLIS文件读取的井名
             las_well_info = self.data_loader.get_las_well_info()
-            if las_well_info and las_well_info.get('well_name'):
-                self.well_name = str(las_well_info['well_name']).strip()
+            _wn = (las_well_info.get('well_name')
+                   if isinstance(las_well_info, dict) else None)
+            if not _wn and isinstance(las_well_info, dict):
+                _wn = las_well_info.get('well')
+            if _wn:
+                self.well_name = str(_wn).strip()
             else:
                 # 如果LAS文件中没有井名，从文件路径提取
                 file_path = Path(file_path)
@@ -13801,10 +13784,14 @@ class WellLogProcessor:
                     self.data_processor.set_data(data)
                     self.results['raw_data'] = data
                     
-                    # 优先使用从LAS文件读取的井名
+                    # 优先使用从LAS/DLIS文件读取的井名
                     las_well_info = self.data_loader.get_las_well_info()
-                    if las_well_info and las_well_info.get('well_name'):
-                        self.well_name = str(las_well_info['well_name']).strip()
+                    _wn = (las_well_info.get('well_name')
+                           if isinstance(las_well_info, dict) else None)
+                    if not _wn and isinstance(las_well_info, dict):
+                        _wn = las_well_info.get('well')
+                    if _wn:
+                        self.well_name = str(_wn).strip()
                     else:
                         # 如果LAS文件中没有井名，从文件路径提取
                         file_path = Path(self.data_loader.last_file_path)
@@ -13829,10 +13816,14 @@ class WellLogProcessor:
                     logger.info(f"输出目录已设置为: {well_output_dir}")
             elif file_path:
                 # 如果数据已加载且提供了file_path，确保井名和输出目录正确设置
-                # 优先使用从LAS文件读取的井名
+                # 优先使用从LAS/DLIS文件读取的井名
                 las_well_info = self.data_loader.get_las_well_info()
-                if las_well_info and las_well_info.get('well_name'):
-                    self.well_name = str(las_well_info['well_name']).strip()
+                _wn = (las_well_info.get('well_name')
+                       if isinstance(las_well_info, dict) else None)
+                if not _wn and isinstance(las_well_info, dict):
+                    _wn = las_well_info.get('well')
+                if _wn:
+                    self.well_name = str(_wn).strip()
                 else:
                     file_path = Path(file_path)
                     self.well_name = file_path.stem  # 文件名不含扩展名
@@ -13889,10 +13880,16 @@ class WellLogProcessor:
             # 有效曲线包括：GR, RT/LLD/ILD, DEN/RHOB, NPHI/CNL, DT/AC
             # 必须覆盖 LAS 原始列名（ZDEN/CNCF/DTC/RD/RMSL），否则 BET-1 这类
             # 用 LAS 原名的井只能数出 1 条曲线，会被误判为"曲线不足"而跳过全流程
-            valid_curves = ['GR', 'GRX', 'RT', 'LLD', 'ILD', 'R90', 'RD', 'RMSL',
-                            'MSFL', 'DEN', 'RHOB', 'ZDEN',
-                            'NPHI', 'CNL', 'CNCF', 'DT', 'DTCO', 'DTC', 'AC',
-                            'PE', 'PEF']
+            # 用 curve_aliases 自动构建有效曲线别名池（覆盖所有常见列名）
+            try:
+                _aliases = self.data_loader.curve_aliases
+                valid_curves = list({
+                    alias for ctype in ('gr', 'rt', 'den', 'nphi', 'ac', 'pe')
+                    for alias in _aliases.get(ctype, [])
+                })
+            except Exception:
+                valid_curves = ['GR', 'RT', 'LLD', 'ILD', 'RHOB', 'NPHI', 'CNL',
+                                'DT', 'AC', 'PE', 'PEF', 'GR_EDTC', 'NPOR', 'AT90']
             available_curves = [curve for curve in valid_curves if curve in self.data_processor.data.columns]
             
             # 逐井段统计有效曲线数量（用于后续逐段判断）
