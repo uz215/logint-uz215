@@ -3320,6 +3320,7 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
         i = j + 1
 
     total_fix = 0
+    total_veto = 0          # 【R58】被物理下限保护拦下、未改判为油气的点数
     idx_pos = data.columns.get_loc('INTERPRETATION')
     for (s, e) in segs:
         f_idx = np.array([k for k in range(s, e + 1) if fam_arr[k]])
@@ -3350,8 +3351,40 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
                     best = int(tot[m])
                     bounds = [b1, int(b2[m])]
         # ---- 区域内错配点改判 ----
+        # 【R58 2026-11-03 物理下限保护】原文对区域内"不属于本区主类"的
+        # 流体点一律改判为区域主类（众数）。实测 1-SPS-108 6285-6300m：
+        # 夹在油层中间的 3 个 Sw=1.000、RT=0.20~0.28 的点（水的铁证，规则
+        # 判 WATER，score=4）被整饰成 OIL —— 违反"Sw=100% 含水不可能是油"
+        # 的基本物理，用户定案"判据不能反复/不能被副作用覆盖"。
+        # 修复：改判前做物理否决 —— 目标为油气家族时，若该点 Sw 高于
+        # sw_veto（默认 0.85，远高于规则 deny 线 0.65，只拦铁证水点）或
+        # RT 低于 rt_veto（默认 1.0 ohm·m，近绝缘体不可能储油气），
+        # 则保留原点结论，不改判。被改判为 WATER/DRY 方向不受此限
+        # （把油气点改成水不违背物理下限）。
+        _sw_col = next((c for c in ('Sw', 'SW') if c in data.columns), None)
+        _rt_col = next((c for c in ('RT', 'RT_LAS') if c in data.columns), None)
+        _sw_arr = (pd.to_numeric(data[_sw_col], errors='coerce').values
+                   if _sw_col else None)
+        _rt_arr = (pd.to_numeric(data[_rt_col], errors='coerce').values
+                   if _rt_col else None)
+        _SW_VETO_HC = 0.85      # 改判为油气时 Sw 上限（铁证水点保护）
+        _RT_VETO_HC = 1.0       # 改判为油气时 RT 下限（ohm·m）
+
+        def _hc_veto(k):
+            """True=该点是水的铁证，禁止被整饰成油气。"""
+            if _sw_arr is not None:
+                _s = _sw_arr[k]
+                if np.isfinite(_s) and _s > _SW_VETO_HC:
+                    return True
+            if _rt_arr is not None:
+                _r = _rt_arr[k]
+                if np.isfinite(_r) and _r < _RT_VETO_HC:
+                    return True
+            return False
+
         edges = [0] + bounds + [nf]
         seg_fix = 0
+        seg_veto = 0
         for r, t in enumerate(types):
             tname = _GRAV_NAME[t]
             region = f_idx[edges[r]:edges[r + 1]]
@@ -3360,7 +3393,11 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
                 continue
             tgt_pts = [vals[k] for k in region if fam_arr[k] == tname]
             new_val = pd.Series(tgt_pts).mode().iloc[0] if tgt_pts else tname
+            _to_hc = tname in ('GAS', 'OIL')
             for k in wrong:
+                if _to_hc and _hc_veto(k):
+                    seg_veto += 1
+                    continue        # 物理下限保护：水的铁证不改判为油气
                 vals[k] = new_val
                 fam_arr[k] = tname   # 【2026-10-14 修复】同步家族数组，保证
                                      # 后续层间整饰的层块计数与 vals 一致
@@ -3368,6 +3405,11 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
                 if 'ITP' in data.columns:
                     data.iloc[k, data.columns.get_loc('ITP')] = new_val
                 seg_fix += 1
+        if seg_veto:
+            total_veto += seg_veto
+            logger.info('层内分异整饰 %.1f-%.1fft: 跳过 %d 点（Sw>%.2f 或 '
+                        'RT<%.2f，水的铁证不改判为油气）',
+                        md[s], md[e], seg_veto, _SW_VETO_HC, _RT_VETO_HC)
         if seg_fix:
             total_fix += seg_fix
             ifaces = ','.join('%.1f' % ((md[f_idx[b - 1]] + md[f_idx[b]]) / 2.0)
@@ -3394,13 +3436,21 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
     inter_fix = 0
     try:
         def _body_rejudge(_b, _tgt):
-            """砂体内非 _tgt 家族流体点改判为 _tgt 家族众数值。"""
+            """砂体内非 _tgt 家族流体点改判为 _tgt 家族众数值。
+
+            【R58】目标为油气家族时同样受物理下限保护（Sw>0.85 或
+            RT<1.0 的水铁证点不改判），与层内整饰同一口径——否则层间
+            整饰会把刚被保护下来的水点再次改回油气。
+            """
             _s, _e, _fidx, _cnt = _b
             _pts = [vals[k] for k in _fidx if fam_arr[k] == _tgt]
             _nv = pd.Series(_pts).mode().iloc[0] if _pts else _tgt
             _nf = 0
+            _to_hc = str(_tgt) in ('GAS', 'OIL')
             for k in _fidx:
                 if fam_arr[k] != _tgt:
+                    if _to_hc and _hc_veto(k):
+                        continue
                     vals[k] = _nv
                     fam_arr[k] = _tgt
                     data.iloc[k, idx_pos] = _nv
@@ -19389,6 +19439,34 @@ def rejudge_hc_below_seal(data, gas_data=None, por_hc=None):
                 _c2 = _col('C2')
                 _c3 = _col('C3')
         _rej = _wm & _below & _res & _show
+        # 【R58 2026-11-03 物理下限保护】盖层下气测异常补偿只证明"有烃类
+        # 垂向运移/聚集迹象"，不能推翻孔隙流体本身的电阻率/饱和度铁证。
+        # 实测 1-SPS-108 6298.8-6300.2m：4 个 Sw=1.000、RT=0.20~0.28 的
+        # WATER 点（水的铁证）被本补偿整段改成 OIL，直接违背"Sw=100% 含水
+        # 不可能是油层"。用户定案："判据不能反复，must/core/deny 要发挥
+        # 作用"——侧证不得覆盖正证。
+        # 修复：改判前剔除 Sw 过高（>0.85，远高于规则 deny 线 0.65）或
+        # RT 过低（<1.0 ohm·m，近绝缘体）的点，它们保持原 WATER 结论。
+        _sw_v = None
+        for _sc in ('Sw', 'SW'):
+            if _sc in data.columns:
+                _sw_v = pd.to_numeric(data[_sc], errors='coerce')
+                break
+        _rt_v = None
+        for _rc in ('RT', 'RT_LAS'):
+            if _rc in data.columns:
+                _rt_v = pd.to_numeric(data[_rc], errors='coerce')
+                break
+        _veto = pd.Series(False, index=data.index)
+        if _sw_v is not None:
+            _veto = _veto | (_sw_v > 0.85)
+        if _rt_v is not None:
+            _veto = _veto | (_rt_v < 1.0)
+        _n_veto = int((_rej & _veto).sum())
+        if _n_veto:
+            _rej = _rej & (~_veto)
+            logger.info("盖层下油气补偿: %d 点因 Sw>0.85 或 RT<1.0（水的铁证）"
+                        "被保护，保持原水层结论", _n_veto)
         n = int(_rej.sum())
         if n == 0:
             logger.info("盖层下油气补偿: 无满足条件点(盖层下WATER储层+气测异常)")
