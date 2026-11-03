@@ -152,6 +152,8 @@ def _frames_to_dataframe(logical_files) -> pd.DataFrame:
     - **数据唯读入口就是 frame.curves()**
     """
     frames_data: List[pd.DataFrame] = []
+    _n_skip_multidim = 0      # 跳过的多维通道数（NMR 回波/直方图等，属正常）
+    _n_frame_fail = 0         # 整帧构造失败数（异常，必须留痕）
     for lf in logical_files:
         frames = getattr(lf, "frames", None)
         if callable(frames):
@@ -187,15 +189,32 @@ def _frames_to_dataframe(logical_files) -> pd.DataFrame:
                     # 声波与各元素矿物体积全缺席，碳酸盐 must 因缺 DT 整条失败、
                     # 矿物主控因 VOL_* 缺失无法启用。仅保留 1-D 通道。
                     if getattr(arr, "ndim", 0) != 1:
+                        # 【R58】多维通道跳过要留痕——此前静默 continue 是
+                        # "声波/元素矿物整帧消失"的隐蔽根源之一。计数只记录、
+                        # 不阻断（NMR 回波等本就该跳）。
+                        _n_skip_multidim += 1
                         continue
                     curves_dict[name] = arr
                 if not curves_dict:
                     continue
                 df = pd.DataFrame(curves_dict)
-            except Exception:
+            except Exception as _fe:
+                # 【R58】帧构造失败必须留痕：此前 except: continue 会让整帧
+                # 曲线无声消失（SPS-108 声波帧即如此），故障现场无从追查。
+                _n_frame_fail += 1
+                if _n_frame_fail <= 3:
+                    import traceback as _tb
+                    print("[DlisTool] 帧转 DataFrame 失败，该帧曲线被跳过: %s"
+                          % _fe)
+                    _tb.print_exc(limit=2)
                 continue
             if len(df):
                 frames_data.append(df)
+
+    if _n_skip_multidim or _n_frame_fail:
+        print("[DlisTool] 帧解析统计: 跳过多维通道 %d 个, 整帧失败 %d 个, "
+              "成功帧 %d 个" % (_n_skip_multidim, _n_frame_fail,
+                                len(frames_data)))
 
     if not frames_data:
         return pd.DataFrame()

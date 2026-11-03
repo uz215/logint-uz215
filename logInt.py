@@ -13946,8 +13946,20 @@ class WellLogProcessor:
                 # 【R32】缓存的掩码可能是 ndarray（"套管顶以上扩展"分支把
                 # mask 变成 ndarray 存进 attrs），直接 _cm.values 会
                 # AttributeError（本井"套管/剖面预判失败"告警根因）
+                # 【R58 2026-11-03 根因修复】原写作 np.asarray(...)，但
+                # `import numpy as np` 在本方法内出现在第14588行——Python
+                # 编译期即把 np 判定为本函数局部变量，此处引用直接抛
+                # UnboundLocalError，被本段最外层 except 吞成
+                # "套管/剖面预判失败（不影响主流程）"告警 →
+                # _profile_type 恒为初始值 'mixed'、profile_type_detected
+                # 恒缺失。后果：整条井级剖面约束（碳酸盐 GR 放宽 _cb_gr_relax、
+                # PTI 判别结果）从未进入岩性识别器，1-SPS-108 这类碳酸盐井
+                # 按砂泥岩口径识别，与"全判泥岩"直接相关。
+                # 修复：不依赖函数局部 np（改用 numpy 模块本身），并把套管
+                # 掩码转换独立成一行，避免再被局部导入遮蔽。
+                import numpy as _np_local_mask
                 _cm_v = (_cm.values if isinstance(_cm, pd.Series)
-                         else np.asarray(_cm, dtype=bool))
+                         else _np_local_mask.asarray(_cm, dtype=bool))
                 _d2 = (self.data_processor.data.loc[~_cm_v].copy()
                        if _casing_mask is not None
                        else self.data_processor.data)
