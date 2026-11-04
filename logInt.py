@@ -3074,9 +3074,11 @@ def load_interpretation_cutoffs(well_dir, well_name='', src_dir=None):
     """读 <井名>info.json「解释截止值」组 → cutoffs dict（无文件/无组=全默认）。
 
     候选位置: well_dir/<井名>info.json 与 well_dir 父目录同名文件，以及
-    src_dir/<井名>info.json（输入数据所在目录，用户维护的权威配置常放此处），
-    各试一次，先命中先用；候选文件存在但缺该组时继续尝试下一候选（不提前
-    返回，避免丢失其它候选里的配置）。找不到 → 返回全 None（用内联默认）。
+    src_dir/<井名>info.json（输入数据所在目录，用户维护的权威配置常放此处）；
+    【R59b 修复】跨候选合并（后序候选覆盖前序），不再遇首个含「解释截止值」
+    组的候选即返回——程序生成的 output 副本常覆盖用户井文件夹权威配置。
+    优先级: 井文件夹 < 父目录 < src_dir（用户配置最后、最强）。找不到 → 返回
+    全 None（用内联默认）。
     """
     _name = str(well_name or '').strip() or 'well'
     _cands = []
@@ -3088,6 +3090,7 @@ def load_interpretation_cutoffs(well_dir, well_name='', src_dir=None):
             _cands.append(Path(src_dir) / (_name + 'info.json'))
     except Exception:
         pass
+    merged = dict(DEFAULT_CUTOFFS)
     for p in _cands:
         try:
             if not p.exists():
@@ -3095,23 +3098,22 @@ def load_interpretation_cutoffs(well_dir, well_name='', src_dir=None):
             cfg = json.loads(p.read_text(encoding='utf-8'))
             sec = cfg.get('解释截止值') if isinstance(cfg, dict) else None
             if not isinstance(sec, dict):
-                print('  解释截止值: %s 无该组，尝试下一候选位置' % p.name)
                 continue
-            cut = _norm_cutoffs(sec)
-            _ov = [k for k in DEFAULT_CUTOFFS if cut[k] is not None]
-            if _ov:
-                print('  解释截止值: %s 覆盖 %s' % (
-                    p.name, ', '.join('%s=%g' % (k, cut[k]) for k in _ov)))
-            else:
-                print('  解释截止值: %s 未配置（默认=巴西海上深水经验值, '
-                      '可在该 json「解释截止值」组分井覆盖）' % p.name)
-            return cut
+            _cut = _norm_cutoffs(sec)
+            for k in merged:
+                if _cut[k] is not None:
+                    merged[k] = _cut[k]   # 后序候选覆盖前序
         except Exception as e:
             logger.warning("解释截止值读取失败 %s: %s", p, e)
-    print('  解释截止值: 未找到 <井名>info.json 配置（默认=巴西海上深水经验值: '
-          'por_hc 0.06 / por_dry_max 0.10 / sw_hc 0.5 / sw_deny 0.65 / '
-          'rt_gas 50 / rt_oil 30 / rt_water 20）')
-    return dict(DEFAULT_CUTOFFS)
+    _ov = [k for k in DEFAULT_CUTOFFS if merged[k] is not None]
+    if _ov:
+        print('  解释截止值: 合并候选覆盖 %s' % (
+            ', '.join('%s=%g' % (k, merged[k]) for k in _ov)))
+    else:
+        print('  解释截止值: 未找到 <井名>info.json 配置（默认=巴西海上深水经验值: '
+              'por_hc 0.06 / por_dry_max 0.10 / sw_hc 0.5 / sw_deny 0.65 / '
+              'rt_gas 50 / rt_oil 30 / rt_water 20）')
+    return merged
 
 
 # 【2026-10-28 R36 用户定案】区域知识结构化配置：区域级地质认识（砂泥岩剖面/
@@ -3121,6 +3123,7 @@ _REGIONAL_KN_ALLOWED = {
     '剖面类型': ('', 'sand_shale', 'carbonate', 'mixed'),
     '煤层': ('', '有', '无'),
     '碳质泥岩': ('', '有', '无'),
+    '无水层': ('', '是', '否'),
 }
 
 _REGIONAL_KNOWLEDGE_DOCS = {
@@ -3130,6 +3133,10 @@ _REGIONAL_KNOWLEDGE_DOCS = {
     '煤层': '该区域是否有煤层：有/无/空。空=不约束；无=单点判据命中的煤'
             '改归泥岩并留痕（区域认识优先于单点判据）；有=正常判煤',
     '碳质泥岩': '该区域是否有碳质泥岩：有/无/空。语义同煤层',
+    '无水层': '该井是否确认无水层：是/否/空。是=区域地质确认本井无水层'
+              '（如该区火成岩不可能含水层），单点统计判据误判的 WATER '
+              '点改归非储层(NonReservoir)，使解释结论与"本井无水层"一致；'
+              '否/空=不约束（走正常水层判据）。区域认识优先于单点判据(R36)',
 }
 
 # 当前井生效的区域知识（run_workflow 读取 info.json 后设置；模块级单井缓存）
@@ -3150,8 +3157,12 @@ def load_regional_knowledge(well_dir, well_name='', src_dir=None):
 
     候选位置与 load_interpretation_cutoffs 相同：well_dir/<井名>info.json
     与 well_dir 父目录同名文件，以及 src_dir/<井名>info.json（输入数据所在
-    目录，用户维护的权威配置常放此处）；值域校验失败忽略该项。候选文件存在
-    但缺该组时继续尝试下一候选（不提前返回，避免丢失其它候选里的配置）。
+    目录，用户维护的权威配置常放此处）；值域校验失败忽略该项。
+    【R59b 修复】跨候选合并（后序候选覆盖前序），不再遇首个含「区域知识」
+    组的候选即返回——程序生成的 output/<井名>/info.json 副本区域知识常为
+    空，用户权威配置(src_dir/井文件夹)的键(如 无水层)须能补入，否则被
+    "未配置"覆盖。优先级: 井文件夹 < 父目录 < src_dir（用户权威配置最后、
+    最强）。
     """
     reg = {k: '' for k in _REGIONAL_KN_ALLOWED}
     _name = str(well_name or '').strip() or 'well'
@@ -3171,7 +3182,6 @@ def load_regional_knowledge(well_dir, well_name='', src_dir=None):
             cfg = json.loads(p.read_text(encoding='utf-8'))
             sec = cfg.get('区域知识') if isinstance(cfg, dict) else None
             if not isinstance(sec, dict):
-                print('  区域知识: %s 无该组，尝试下一候选位置' % p.name)
                 continue
             for k, allowed in _REGIONAL_KN_ALLOWED.items():
                 v = str(sec.get(k) or '').strip()
@@ -3179,17 +3189,17 @@ def load_regional_knowledge(well_dir, well_name='', src_dir=None):
                     logger.warning("区域知识 %s=%r 非法（允许 %s）, 忽略",
                                    k, v, '/'.join(allowed))
                     continue
-                reg[k] = v
-            _ov = {k: v for k, v in reg.items() if v}
-            if _ov:
-                print('  区域知识: %s → %s' % (p.name, _ov))
-            else:
-                print('  区域知识: %s 未配置（空=不约束）' % p.name)
-            return reg
+                # 【R59b 修复】后序候选覆盖前序（src_dir 用户配置最强）
+                if v:
+                    reg[k] = v
         except Exception as e:
             logger.warning("区域知识读取失败 %s: %s", p, e)
-    print('  区域知识: 未找到 <井名>info.json（空=不约束, 区域认识可在该 '
-          'json「区域知识」组填写：剖面类型/煤层/碳质泥岩）')
+    _ov = {k: v for k, v in reg.items() if v}
+    if _ov:
+        print('  区域知识: 合并候选 → %s' % _ov)
+    else:
+        print('  区域知识: 未找到 <井名>info.json（空=不约束, 区域认识可在该 '
+              'json「区域知识」组填写：剖面类型/煤层/碳质泥岩/无水层）')
     return reg
 
 
@@ -3206,10 +3216,11 @@ def load_archie_params(well_dir, well_name='', src_dir=None):
 
     候选位置与 load_interpretation_cutoffs 相同：well_dir/<井名>info.json
     与 well_dir 父目录同名文件，以及 src_dir/<井名>info.json（输入数据所在
-    目录，用户维护的权威配置常放此处），先命中先用。只读 Rw/a/m/n/Rsh 五个键，
-    其余键忽略。用于覆盖程序默认的 Rw（如高矿化度地层需显式指定低 Rw：
-    本井无水层可反算，自动检测必高估→伪水层）。候选文件存在但缺该组时继续
-    尝试下一候选（不提前返回，避免丢失其它候选里的配置）。
+    目录，用户维护的权威配置常放此处）。只读 Rw/a/m/n/Rsh 五个键，其余键忽略。
+    【R59b 修复】跨候选合并（后序候选覆盖前序），不再遇首个含「archie」组的
+    候选即返回——程序生成的 output 副本常覆盖用户井文件夹权威配置。用于覆盖
+    程序默认的 Rw（如高矿化度地层需显式指定低 Rw：本井无水层可反算，自动
+    检测必高估→伪水层）。
 
     【R59 用户定案】含水饱和度一律用阿尔奇公式重算（a·Rw/(φ^m·RT)）^(1/n)，
     绝不直接采用测井提供的 SW/SWE/SWT（现场算的，未考虑岩性/泥质/油气影响）。
@@ -3226,6 +3237,7 @@ def load_archie_params(well_dir, well_name='', src_dir=None):
             _cands.append(Path(src_dir) / (_name + 'info.json'))
     except Exception:
         pass
+    out = {}
     for p in _cands:
         try:
             if not p.exists():
@@ -3233,25 +3245,20 @@ def load_archie_params(well_dir, well_name='', src_dir=None):
             cfg = json.loads(p.read_text(encoding='utf-8'))
             sec = cfg.get('archie') if isinstance(cfg, dict) else None
             if not isinstance(sec, dict):
-                print('  archie参数: %s 无该组，尝试下一候选位置' % p.name)
                 continue
-            out = {}
             for k in _allowed:
                 if k in sec and sec[k] is not None:
                     try:
-                        out[k] = float(sec[k])
+                        out[k] = float(sec[k])   # 后序候选覆盖前序
                     except (TypeError, ValueError):
                         logger.warning("archie.%s=%r 非数值, 忽略", k, sec[k])
-            if out:
-                print('  archie参数: %s → %s（显式指定, 不触发自动Rw检测）'
-                      % (p.name, out))
-            else:
-                print('  archie参数: %s 未配置（用程序默认 Rw=0.05）' % p.name)
-            return out
         except Exception as e:
             logger.warning("archie参数读取失败 %s: %s", p, e)
-    print('  archie参数: 未找到 <井名>info.json（用程序默认 Rw=0.05）')
-    return {}
+    if out:
+        print('  archie参数: 合并候选 → %s（显式指定, 不触发自动Rw检测）' % out)
+    else:
+        print('  archie参数: 未找到 <井名>info.json（用程序默认 Rw=0.05）')
+    return out
 
 
 def build_interpretation_rules(cut=None):
@@ -3623,6 +3630,38 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
         logger.warning('层间油水分布规律整饰失败(跳过): %s', _e_ie)
 
     return total_fix
+
+
+def apply_regional_no_water_veto(data):
+    """【R59b 区域知识否决】区域声明"无水层=是"时，任何被单点判据判为 WATER
+    的点改判为 NonReservoir（非储层），使本井解释结论与"本井无水层"的区域
+    地质认识一致。
+
+    背景：1-SPS-108 6889~6891m 段元素测井明显为火成岩(辉绿岩/玄武岩)，该区
+    火成岩不可能含水层；但阿尔奇重算因其电阻率偏低、Sw 偏高而误判 WATER。
+    区域知识优先于单点统计判据(R36)，故在流体分类后统一否决。
+
+    仅当区域知识 无水层==是 时生效；其它井无此键→不约束→零回归。
+    被否决点仅改 INTERPRETATION/ITP，保留原始 PHI/SW（非储层不清孔隙/饱和）。
+    """
+    if data is None or 'INTERPRETATION' not in data.columns:
+        return 0
+    if get_active_regional().get('无水层') != '是':
+        return 0
+    itp = data['INTERPRETATION'].astype(str).str.upper().str.strip()
+    mask = itp == 'WATER'
+    if not mask.any():
+        return 0
+    idx_pos = data.columns.get_loc('INTERPRETATION')
+    n = int(mask.sum())
+    data.iloc[np.where(mask.values)[0], idx_pos] = 'NonReservoir'
+    if 'ITP' in data.columns:
+        itp_pos = data.columns.get_loc('ITP')
+        data.iloc[np.where(mask.values)[0], itp_pos] = 'NonReservoir'
+    logger.info('区域知识[无水层=是]否决 %d 个 WATER 点 → NonReservoir（非储层，'
+                '与"本井无水层"区域认识一致）', n)
+    return n
+
 
 # ========== 全局缺测标记规则(2026-10-15 用户定案) ==========
 # -999/-999.25/-9999等"前3个9"的负大值是缺测标记(NULL marker)不是有效值，
@@ -15379,7 +15418,9 @@ class WellLogProcessor:
                         # 分异，自上而下 气→油→水 单调叠置。逐点独立判定产生的
                         # 油水交错（"一会油一会水"）在此按流动单元统一重整
                         # （一处一功能：enforce_fluid_segregation）。
+                        # 【R59b】区域知识否决：本井无水层声明生效时，先清 WATER
                         enforce_fluid_segregation(data)
+                        apply_regional_no_water_veto(data)
 
                         # 【2026-10-08】非储层不再清 PHI/PORD —— 孔隙度是
                         # calculate_porosity 的计算成果，全井有效（泥岩也有总孔隙度）；
