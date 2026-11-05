@@ -13117,11 +13117,14 @@ class LithologyRecognizer:
              净泥基线，中值线(与分界取小)作夹层检测线；
           2. 检测线以上连续段(≥3点)且两侧为砂岩=泥岩夹层候选；
              检测线以下连续段且两侧为泥岩=砂岩夹层候选；
-          3. 幅度守卫(≥30%净砂-净泥幅度)防弱起伏成层；密度守卫(局部化)：
-             夹层中位DEN与**局部围岩**(段±32点对侧岩性中位)对比——泥岩
-             夹层比邻近砂岩致密+0.02、砂岩夹层比邻近泥岩轻-0.02（全局
-             P20在砂岩占比高的井会落进砂岩密度区间内误拦真夹层），无
-             局部围岩回退全局P20/P50混合值；
+          3. 幅度守卫(≥30%净砂-净泥幅度)防弱起伏成层；密度守卫(局部化
+             +井径门控)：夹层中位DEN与**局部围岩**(段±32点对侧岩性中位)
+             对比——泥岩夹层比邻近砂岩致密+0.02、砂岩夹层比邻近泥岩轻
+             -0.02（全局P20在砂岩占比高的井会落进砂岩密度区间内误拦真
+             夹层），无局部围岩回退全局P20/P50混合值。【2026-11-05 井径
+             门控】用户定案"+0.02无依据，密度受井径失真"——扩径段DEN
+             读数偏低，密度证据只采信 CALR<=1.20 的点/段，扩径不参与
+             否决/参考/扩展；CALR 无法计算(缺CAL/BIT)视同在径=原口径。
           4. 夹层界面向两侧扩展到半幅度处（GR越过半幅值或遇非砂/泥点
              停止，密度守卫逐点同样生效，限8ft），扩展重叠取中点；
           5. 仅改写 sandstone/shale 两类点，同步 why/conf。
@@ -13172,6 +13175,19 @@ class LithologyRecognizer:
             _mud = np.zeros(n, dtype=bool)
             _mud[(np.isfinite(rt) & np.isfinite(dt)
                   & (rt < _rt_mud_max) & (dt > 80.0))] = True
+        # 【2026-11-05 井径门控】用户定案："要求夹层比围岩砂岩致密+0.02
+        # 这个没依据，本井密度受井径影响有失真之处"——扩径段 DEN 读数
+        # 偏低（冲洗扩大），真泥岩夹层被误判"不够致密"遭否决。按 R35
+        # 原则（排除性证据必须带井径条件）：密度守卫只采信 CALR<=1.20
+        # （在井径）的点；扩径点密度不参与否决/参考/扩展约束。CALR 缺
+        # 测点视同在径（无失真证据不擅改口径）；CALR 整体无法计算（缺
+        # CAL/BIT，如老井无井径曲线）时全 True=维持原口径。
+        _den_ok = np.ones(n, dtype=bool)
+        calr = self.series.get('CALR')
+        if calr is not None and len(calr) == n:
+            _cfin = np.isfinite(calr)
+            _den_ok[_cfin] = calr[_cfin] <= 1.20
+
         den_lo = den_hi = None
         if den is not None and len(den) == n:
             p20 = (self.stats or {}).get('DEN_p20')
@@ -13226,17 +13242,27 @@ class LithologyRecognizer:
             # 占比高的井会落进砂岩密度区间内部(BET-1 P20=2.478 vs 砂岩群
             # 2.31-2.47)，真泥岩夹层(中位2.448)被当海绿石砂岩拦下——改为
             # 段两侧32点内对侧岩性DEN中位作基线(泥夹层+0.02余量/砂夹层
-            # -0.02余量)，无局部围岩时回退全局P20/P50混合值。
+            # -0.02余量)，无局部围岩时回退全局P20/P50混合值。【2026-11-05
+            # 井径门控】段内在径点占比<50% 时密度失真，整个密度否决让位
+            # （R63 泥质响应逃生门保留，仍适用于在径段）。
             opp_lith = 'sandstone' if m else 'shale'
             den_ref = None
             if den is not None and len(den) == n:
-                _lv = [den[kk] for kk in range(max(0, a - 32), a)
-                       if refinable[kk] and lith[kk] == opp_lith
-                       and np.isfinite(den[kk])]
-                _rv = [den[kk] for kk in range(b + 1, min(n, b + 33))
-                       if refinable[kk] and lith[kk] == opp_lith
-                       and np.isfinite(den[kk])]
-                _all = _lv + _rv
+                def _opp_vals(gauge_only):
+                    _lv = [den[kk] for kk in range(max(0, a - 32), a)
+                           if refinable[kk] and lith[kk] == opp_lith
+                           and np.isfinite(den[kk])
+                           and (not gauge_only or _den_ok[kk])]
+                    _rv = [den[kk] for kk in range(b + 1, min(n, b + 33))
+                           if refinable[kk] and lith[kk] == opp_lith
+                           and np.isfinite(den[kk])
+                           and (not gauge_only or _den_ok[kk])]
+                    return _lv + _rv
+                # 参考窗优先取在径点（扩径点DEN偏低会拉低参考基线，
+                # 让真泥岩夹层显得"不够致密"）；在径点不足5个回退全窗
+                _all = _opp_vals(True)
+                if len(_all) < 5:
+                    _all = _opp_vals(False)
                 if len(_all) >= 5:
                     den_ref = float(np.median(_all))
                 else:
@@ -13244,7 +13270,7 @@ class LithologyRecognizer:
             if den is not None and den_ref is not None:
                 dseg = den[a:b + 1]
                 dseg = dseg[np.isfinite(dseg)]
-                if len(dseg) >= 3:
+                if len(dseg) >= 3 and _den_ok[a:b + 1].mean() >= 0.5:
                     dmed = float(np.median(dseg))
                     if m and dmed <= den_ref + 0.02:
                         # 【R63 2026-11-05 密度守卫逃生门】疏松砂岩剖面薄泥岩
@@ -13272,12 +13298,14 @@ class LithologyRecognizer:
                 continue
             half = base + 0.5 * (ext - base)
             # 向两侧扩展到半幅度点（遇非可重划点/越界/超8ft停止，
-            # 密度守卫逐点同样生效——与核心守卫同一局部基线）
+            # 密度守卫逐点同样生效——与核心守卫同一局部基线；扩径点
+            # 密度失真豁免该约束）
             L = a
             while L - 1 >= 0 and refinable[L - 1] and _fin[L - 1] \
                     and (gr[L - 1] > half if m else gr[L - 1] < half) \
                     and (a - (L - 1)) < 32 \
                     and (den is None or den_ref is None or not m
+                         or not _den_ok[L - 1]
                          or (np.isfinite(den[L - 1]) and den[L - 1] > den_ref)) \
                     and (m or _mud is None or not _mud[L - 1]):
                 L -= 1
@@ -13286,6 +13314,7 @@ class LithologyRecognizer:
                     and (gr[R + 1] > half if m else gr[R + 1] < half) \
                     and ((R + 1) - b) < 32 \
                     and (den is None or den_ref is None or m
+                         or not _den_ok[R + 1]
                          or (np.isfinite(den[R + 1]) and den[R + 1] < den_ref)) \
                     and (m or _mud is None or not _mud[R + 1]):
                 R += 1
