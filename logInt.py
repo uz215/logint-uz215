@@ -3261,6 +3261,65 @@ def load_archie_params(well_dir, well_name='', src_dir=None):
     return out
 
 
+def persist_auto_rw(well_dir, well_name='', src_dir=None, rw=None, rw_stats=None):
+    """【R62 用户定案 2026-11-05】把自动检测的 Rw 沉淀回 <井名>info.json「archie」组。
+
+    背景：Rw 定值此前只存在于对话/参数报告中，重跑随口径漂移（XIMENIA-5
+    历史反算 0.75-1.3 → 本轮 0.3019）。沉淀后下次运行 load_archie_params
+    读到 archie.Rw → rw_explicit=True 显式采用、不再自动检测；人工编辑
+    info.json 的 Rw 即更新知识（"判据不能反复"的 Rw 版）。
+    目标文件已有 archie.Rw（人工或历史沉淀）时不覆盖——本函数是唯一写入口。
+    """
+    if rw is None:
+        return False
+    _name = str(well_name or '').strip() or 'well'
+    _cands = []
+    try:
+        wd = Path(well_dir)
+        _cands = [wd / (_name + 'info.json'), wd.parent / (_name + 'info.json')]
+        if src_dir:
+            _cands.append(Path(src_dir) / (_name + 'info.json'))
+    except Exception:
+        return False
+    _target = next((p for p in _cands if p.exists()), None)
+    if _target is None:
+        _target = _cands[0]
+    try:
+        cfg = {}
+        if _target.exists():
+            cfg = json.loads(_target.read_text(encoding='utf-8'))
+        if not isinstance(cfg, dict):
+            cfg = {}
+        sec = cfg.get('archie')
+        if not isinstance(sec, dict):
+            sec = {}
+        if sec.get('Rw') is not None:
+            logger.info("Rw 沉淀跳过: %s archie.Rw 已有值 %s（不覆盖）",
+                        _target.name, sec['Rw'])
+            return False
+        sec['Rw'] = float(rw)
+        _note = ('Rw=%.4f 为程序自动检测沉淀(%s, 用户拍板固化); '
+                 '修改Rw请直接编辑本值'
+                 % (float(rw), pd.Timestamp.today().strftime('%Y-%m-%d')))
+        if isinstance(rw_stats, dict):
+            _note += ('; 水层反算候选点%s个, Rw中位%.4f, 范围[%.4f-%.4f]'
+                      % (rw_stats.get('n_candidates', '?'),
+                         rw_stats.get('rw_median', float(rw)),
+                         rw_stats.get('rw_p10', 0.0),
+                         rw_stats.get('rw_p90', 0.0)))
+        sec['_Rw来源'] = _note
+        cfg['archie'] = sec
+        _target.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
+                           encoding='utf-8')
+        logger.info("Rw 知识沉淀: %.4f 已写入 %s「archie」组，"
+                    "下次运行显式采用不再自动检测（人工改 info.json 即更新知识）",
+                    float(rw), _target)
+        return True
+    except Exception as e:
+        logger.warning("Rw 沉淀写入失败 %s: %s", _target, e)
+        return False
+
+
 def build_interpretation_rules(cut=None):
     """按分井截止值构建解释规则表（cut 全空 → 直接返回默认 INTERPRETATION_RULES）。
 
@@ -15280,6 +15339,27 @@ class WellLogProcessor:
                                 else:
                                     data['Sw'] = 1.0
                                     logger.warning("自算Sw仍缺且无SW列，Sw兜底=1.0")
+                        
+                        # 【R62 用户定案 2026-11-05】Rw 知识沉淀：自动检测成功的 Rw
+                        # 回写 <井名>info.json「archie」组——此前定值只存在于对话/
+                        # 参数报告，重跑随口径漂移（XIMENIA-5 历史反算 0.75-1.3 →
+                        # 本轮 0.3019，用户拍板固化）。沉淀后下次运行显式采用；
+                        # 显式指定（含沉淀值）时不再回写，人工编辑 info.json 即更新知识。
+                        try:
+                            if not _ARCHIE_EXPLICIT_OVERRIDE:
+                                _ma_p = getattr(
+                                    getattr(self, 'facies_analyzer', None),
+                                    'mineral_analyzer', None)
+                                _ac_p = (getattr(_ma_p, 'config', {}) or {}).get(
+                                    'archie', {}) if _ma_p is not None else {}
+                                _rw_p = _ac_p.get('Rw') if _ac_p else None
+                                if _rw_p:
+                                    persist_auto_rw(str(well_output_dir),
+                                                    str(getattr(self, 'well_name', '')),
+                                                    _src_dir, _rw_p,
+                                                    _ac_p.get('rw_stats'))
+                        except Exception as _rwe:
+                            logger.warning("Rw 沉淀回写失败（不影响主流程）: %s", _rwe)
                         
                         # 生成INTERPRETATION列
                         import numpy as np
