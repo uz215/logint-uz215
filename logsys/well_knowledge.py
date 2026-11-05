@@ -5,7 +5,7 @@
 按大致井段总结岩性、矿物/元素数值范围，供 logInt/logKnow 调用。
 """
 from __future__ import annotations
-import json, logging
+import io, json, logging
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -45,7 +45,128 @@ def _xrd_type(cal, dol, qtz):
     return 'mixed'
 
 
-def build_well_knowledge(well_dir, well_name=None, bin_m=50.0):
+def _read_well_info(well_dir, well_name):
+    import glob
+    wd = Path(str(well_dir))
+    cands = [wd / f'{well_name}info.json'] if well_name else []
+    cands += [Path(x) for x in glob.glob(str(wd / '*info.json'))]
+    for p in cands:
+        try:
+            if p.exists():
+                return json.loads(p.read_text(encoding='utf-8'))
+        except Exception:
+            pass
+    return {}
+
+
+def _parse_plt(well_dir):
+    import glob
+    out = []
+    for p in glob.glob(str(Path(well_dir) / '*Plt*')) + glob.glob(str(Path(well_dir) / '*PLT*')):
+        if p.lower().endswith('.txt'):
+            try:
+                raw = io.open(p, 'rb').read()
+                try:
+                    txt = raw.decode('utf-16')
+                except Exception:
+                    txt = raw.decode('latin-1', errors='ignore')
+                lines = [ln.strip() for ln in txt.splitlines() if ln.strip()]
+                for ln in lines:
+                    parts = ln.replace('\t', ' ').split()
+                    if len(parts) >= 3:
+                        try:
+                            a, b = float(parts[0]), float(parts[1])
+                            out.append({'file': Path(p).name, 'top': a, 'base': b,
+                                        'values': parts[2:]})
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+    return out
+
+
+def _gas_anomalies(well_dir, well_name, top_n=20):
+    import glob
+    try:
+        import lasio
+    except Exception:
+        return []
+    res = []
+    for p in glob.glob(str(Path(well_dir) / '*.las')):
+        if not any(k in Path(p).name.lower() for k in ('gas', 'crom', 'analise')):
+            continue
+        try:
+            las = lasio.read(p)
+            df = las.df().reset_index()
+            cs = [str(c) for c in df.columns]
+            mcol = next((c for c in cs if c.upper() in ('MD', 'DEPT', 'DEPTH')), None)
+            gcol = next((c for c in cs if c.upper() in ('C1', 'TGAS', 'TG', 'C1TG', 'TOTALGAS')), None)
+            if not mcol or not gcol or len(df) < 20:
+                continue
+            md = pd.to_numeric(df[mcol], errors='coerce')
+            g = pd.to_numeric(df[gcol], errors='coerce')
+            v = g.dropna()
+            if len(v) < 10:
+                continue
+            thr = float(np.nanpercentile(v.values, 90))
+            m = (g >= thr) & g.notna() & md.notna()
+            if not m.any():
+                continue
+            idx = np.where(m.values)[0]
+            groups = []
+            start = idx[0]; prev = idx[0]
+            for i in idx[1:]:
+                if i <= prev + 2:
+                    prev = i
+                else:
+                    groups.append((start, prev)); start = i; prev = i
+            groups.append((start, prev))
+            for a, b in groups[:top_n]:
+                sub = df.iloc[a:b + 1]
+                res.append({'file': Path(p).name, 'curve': gcol,
+                            'top': round(float(md.iloc[a]), 1),
+                            'base': round(float(md.iloc[b]), 1),
+                            'max': round(float(g.iloc[a:b + 1].max()), 3),
+                            'median': round(float(g.iloc[a:b + 1].median()), 3),
+                            'depth_basis': 'gas/mud logging (approx)',
+                            'note': f'≥P90 {thr:.3f}'})
+        except Exception:
+            pass
+    return res
+
+
+def _layers_summary(well_name, results=None):
+    import glob
+    out = {'layers': 0, 'lithology': {}, 'interpretation': {}, 'fluid_intervals': []}
+    cands = []
+    if isinstance(results, dict):
+        od = results.get('output_dir')
+        if od:
+            cands += glob.glob(str(Path(od) / '*_interpretation_layers.csv'))
+    if not cands:
+        cands = glob.glob(str(Path(__file__).resolve().parent.parent / 'output' / well_name / '*_interpretation_layers.csv'))
+    if not cands:
+        return out
+    try:
+        df = pd.read_csv(sorted(cands, key=lambda x: Path(x).stat().st_mtime)[-1], encoding='utf-8-sig')
+    except Exception:
+        return out
+    out['layers'] = int(len(df))
+    if 'LITHOLOGY' in df.columns:
+        out['lithology'] = {str(k): int(v) for k, v in df['LITHOLOGY'].value_counts().items()}
+    if 'INTERPRETATION' in df.columns:
+        out['interpretation'] = {str(k): int(v) for k, v in df['INTERPRETATION'].value_counts().items()}
+        for _, r in df.iterrows():
+            if str(r.get('INTERPRETATION')) in ('OIL', 'GAS', 'GAS_OIL', 'WATER', 'DRY'):
+                out['fluid_intervals'].append({
+                    'top': round(float(r.get('TOP_MD')), 1),
+                    'base': round(float(r.get('BASE_MD')), 1),
+                    'lith': str(r.get('LITHOLOGY') or ''),
+                    'interp': str(r.get('INTERPRETATION') or '')})
+    return out
+
+
+def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     """读取井目录标定表，生成结构化知识摘要 dict。"""
     from .core_calib import read_well_calibration
     wd = Path(str(well_dir))
@@ -53,7 +174,42 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0):
     out = {'well': wn, 'well_dir': str(wd), 'bin_m': bin_m,
            'sources': [], 'depth_note': '', 'lithology_zones': [],
            'xrd_bins': [], 'xrf_bins': [], 'swc_core': [], 'drill_core': [],
-           'mudlog': {}, 'usage': []}
+           'mudlog': {}, 'usage': [], 'hierarchy': {}, 'basic_data': {},
+           'stratigraphy': {}, 'testing': {}, 'log_interpretation': {},
+           'gas_show': [], 'categories': {}}
+    # 层级/基础数据/试油/气测（优先井信息+井目录文件）
+    info = _read_well_info(wd, wn)
+    h = info.get('井信息') or {}
+    coords = info.get('坐标') or {}
+    meas = info.get('测量记录') or {}
+    dates = info.get('日期') or {}
+    design = info.get('地质设计') or {}
+    country = str(h.get('country') or '').strip()
+    if country.lower() in ('br', 'brazil'):
+        country = 'Brazil'
+    hierarchy = {'country': country or '未填写', 'basin': str(h.get('basin') or design.get('basin') or '未填写'),
+                 'sag': str(h.get('sag') or design.get('sag') or '未填写'),
+                 'structure': str(h.get('structure') or design.get('structure') or '未填写'),
+                 'field': str(h.get('field_name') or h.get('field') or '未填写'),
+                 'well': wn}
+    out['hierarchy'] = hierarchy
+    out['basic_data'] = {
+        'country': hierarchy['country'], 'field': hierarchy['field'],
+        'well': wn, 'company': h.get('company') or '',
+        'coordinates': {k: coords.get(k) for k in ('latitude', 'longitude', 'x_coordinate', 'y_coordinate') if coords.get(k)},
+        'bit_size': meas.get('bit_size') or '',
+        'casing_record': meas.get('casing_record') or '',
+        'borehole_record': meas.get('borehole_record') or '',
+        'spud_date': dates.get('spud_date') or '', 'td_date': dates.get('td_date') or '',
+        'well_type': design.get('well_type') or '',
+        'note': '坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。'}
+    out['testing'] = {'intervals': _parse_plt(wd), 'files': []}
+    import glob as _glob
+    out['testing']['files'] = [Path(x).name for x in _glob.glob(str(wd / '*'))
+                               if any(k in Path(x).name.lower() for k in ('plt', 'dst', 'test', '试油', '试采', 'mdt', 'rft'))]
+    out['gas_show'] = _gas_anomalies(wd, wn)
+    out['log_interpretation'] = _layers_summary(wn, results)
+    out['stratigraphy'] = {'note': '地层/层位知识：优先 masterlog/地质设计；本井未提供时留空，不臆造。'}
     try:
         cal = read_well_calibration(wd)
     except Exception as e:
@@ -148,6 +304,18 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0):
         out['mudlog'] = {'found': False, 'note': f'录井图读取跳过: {e}'}
     out['depth_note'] = ('录井/XRD/XRF 为录井深度，本摘要按大致井段统计，不强制与测井深度对齐；'
                          'SWC 为测井深度。用于 logInt 检索时按井段/岩性/数值范围引用。')
+    out['categories'] = {
+        'basic_data': out.get('basic_data') or {},
+        'stratigraphy': out.get('stratigraphy') or {},
+        'lithology': {'zones': out.get('lithology_zones') or [],
+                      'xrd_bins': out.get('xrd_bins') or [],
+                      'xrf_bins': out.get('xrf_bins') or [],
+                      'swc_core': out.get('swc_core') or [],
+                      'drill_core': out.get('drill_core') or []},
+        'testing': out.get('testing') or {},
+        'log_interpretation': out.get('log_interpretation') or {},
+        'gas_show': out.get('gas_show') or [],
+    }
     out['usage'] = [f'{wn} XRD 方解石/白云石 数值范围', f'{wn} 录井岩性段',
                     f'{wn} 井壁取芯岩性', '巴西 Aram 碳酸盐岩 酸解 CO2']
     return out
@@ -155,12 +323,25 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0):
 
 def render_well_knowledge_md(k):
     """结构化知识 → 可入库 Markdown。"""
-    L = [f"# {k.get('well')} 井目录知识摘要（录井/岩心/XRD/XRF）", '']
+    h = k.get('hierarchy') or {}
+    _path = '/'.join(str(h.get(x) or '未分') for x in
+                     ('country', 'basin', 'sag', 'structure', 'field', 'well'))
+    L = [f"# {h.get('well') or k.get('well')} 井目录知识（{_path}）", '']
+    L.append(f"- 知识层级: {_path}")
     L.append(f"- 井目录: {k.get('well_dir')}")
     L.append(f"- 来源: {', '.join(k.get('sources') or []) or '标定表'}")
     L.append(f"- 深度说明: {k.get('depth_note')}")
     if k.get('error'):
         L.append(f"- 错误: {k['error']}")
+    b = k.get('basic_data') or {}
+    if b:
+        L += ['', '## 0. 基础数据', '| 项 | 值 |', '|---|---|']
+        for _k, _v in b.items():
+            if _v not in (None, '', {}, []):
+                L.append(f"| {_k} | {_v} |")
+    st = k.get('stratigraphy') or {}
+    if st:
+        L += ['', '## 0b. 地层', f"- {st.get('note') or st}"]
     zones = k.get('lithology_zones') or []
     if zones:
         L += ['', '## 1. 大致岩性段（录井/岩性大段）', '| 顶 | 底 | 岩性 | 来源 |', '|---|---|---|---|']
@@ -199,6 +380,27 @@ def render_well_knowledge_md(k):
     if k.get('drill_core_phi'):
         p = k['drill_core_phi']
         L += ['', f"## 6. 钻井取芯孔隙度范围: {p.get('min')}–{p.get('max')}（中位 {p.get('median')}，n={p.get('n')}）"]
+    tst = k.get('testing') or {}
+    if tst and (tst.get('intervals') or tst.get('files')):
+        L += ['', '## 6b. 试油/测试', '| 文件 | 顶 | 底 | 数值 |', '|---|---|---|---|']
+        for x in (tst.get('intervals') or [])[:20]:
+            L.append(f"| {x.get('file')} | {x.get('top')} | {x.get('base')} | {x.get('values')} |")
+        if tst.get('files'):
+            L.append(f"- 相关文件: {', '.join(tst.get('files')[:10])}")
+    li = k.get('log_interpretation') or {}
+    if li:
+        L += ['', '## 6c. 测井解释', f"- 层数: {li.get('layers')}；岩性: {li.get('lithology')}；流体: {li.get('interpretation')}"]
+        fi = li.get('fluid_intervals') or []
+        if fi:
+            L.append('| 顶 | 底 | 岩性 | 解释 |')
+            L.append('|---|---|---|---|')
+            for x in fi[:15]:
+                L.append(f"| {x.get('top')} | {x.get('base')} | {x.get('lith')} | {x.get('interp')} |")
+    gs = k.get('gas_show') or []
+    if gs:
+        L += ['', '## 6d. 气测异常（含深度）', '| 文件 | 顶 | 底 | 峰值 | 中位 | 依据 |', '|---|---|---|---|---|---|']
+        for x in gs[:20]:
+            L.append(f"| {x.get('file')} | {x.get('top')} | {x.get('base')} | {x.get('max')} | {x.get('median')} | {x.get('note')} |")
     ml = k.get('mudlog') or {}
     L += ['', '## 7. 录井图']
     if ml.get('found'):
@@ -210,9 +412,9 @@ def render_well_knowledge_md(k):
 
 
 def save_well_knowledge(well_dir, well_name=None, bin_m=50.0,
-                        out_dir=None, write_well_dir=False):
+                        out_dir=None, write_well_dir=False, results=None):
     """生成并保存 JSON/Markdown，返回 (dict, md_path, json_path)。"""
-    k = build_well_knowledge(well_dir, well_name, bin_m)
+    k = build_well_knowledge(well_dir, well_name, bin_m, results=results)
     md = render_well_knowledge_md(k)
     if out_dir is None:
         out_dir = Path(__file__).resolve().parent.parent / 'data' / 'kb' / 'well_knowledge'
@@ -223,6 +425,28 @@ def save_well_knowledge(well_dir, well_name=None, bin_m=50.0,
     mp = out_dir / f'{wn}_knowledge_summary.md'
     jp.write_text(json.dumps(k, ensure_ascii=False, indent=2), encoding='utf-8')
     mp.write_text(md, encoding='utf-8')
+    # 按国家/盆地/凹陷/构造/油田/井 + 分类落盘
+    try:
+        h = k.get('hierarchy') or {}
+        _clean = lambda x: ''.join(ch for ch in str(x or '未分')
+                                   if ch not in '\\/:*?"<>|').strip() or '未分'
+        tax = out_dir.joinpath(*[_clean(h.get(x)) for x in
+                                ('country', 'basin', 'sag', 'structure', 'field', 'well')])
+        tax.mkdir(parents=True, exist_ok=True)
+        _cats = k.get('categories') or {}
+        for cname, cval in _cats.items():
+            if not cval:
+                continue
+            (tax / f'{cname}.md').write_text(
+                f"# {wn} / {cname}\n\n```json\n" +
+                json.dumps(cval, ensure_ascii=False, indent=2)[:20000] + "\n```\n",
+                encoding='utf-8')
+        (tax / 'taxonomy.json').write_text(
+            json.dumps({'hierarchy': h, 'categories': list(_cats.keys()),
+                        'summary': str(mp)}, ensure_ascii=False, indent=2),
+            encoding='utf-8')
+    except Exception:
+        pass
     if write_well_dir:
         try:
             Path(well_dir, f'{wn}_knowledge_summary.md').write_text(md, encoding='utf-8')

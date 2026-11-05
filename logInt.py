@@ -17682,7 +17682,7 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
     try:
         from logsys.well_knowledge import save_well_knowledge
         _wk, _wk_md, _wk_json = save_well_knowledge(
-            well_dir, well_name=well_name, write_well_dir=True)
+            well_dir, well_name=well_name, write_well_dir=True, results=results)
         _wk_text = _wk_md.read_text(encoding='utf-8')
         kb_md_parts.append(_wk_text)
         results['well_knowledge'] = _wk

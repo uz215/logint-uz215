@@ -42,3 +42,9 @@ python -c "from logsys.well_knowledge import save_well_knowledge; save_well_know
 ```
 - 录井/XRD/XRF 不要求与测井深度精确对齐，按约50m井段汇总岩性/矿物/元素范围；
 - quicklook 自动生成并并入 logKnow 摘要。
+
+
+## 知识层级
+- 目录：`data/kb/well_knowledge/<国家>/<盆地>/<凹陷>/<构造>/<油田>/<井>/<分类>.md`；
+- 分类：basic_data / stratigraphy / lithology / testing / log_interpretation / gas_show；
+- 录井岩性→地层/岩性；气测异常→gas_show；钻头/套管/坐标/井别→basic_data。

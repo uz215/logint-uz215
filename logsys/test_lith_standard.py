@@ -8,7 +8,7 @@ def chk(n,c,d=''):
     global ok,fail
     if c: ok+=1; print('  PASS ',n)
     else: fail+=1; print('  FAIL ',n,d)
-chk('标准版本', ls.STANDARD_ID=='LITH-2026-11-02-v2.4', ls.STANDARD_ID)
+chk('标准版本', ls.STANDARD_ID=='LITH-2026-11-02-v2.5', ls.STANDARD_ID)
 chk('证据优先级 core>element>curve', ls.EVIDENCE_PRIORITY[:3]==('core','element','curve'), ls.EVIDENCE_PRIORITY)
 chk('GR不作绝对否决', ls.GR_POLICY.get('absolute_veto') is False, ls.GR_POLICY)
 chk('CALC1=灰岩', ls.CALC_SEMANTICS['CALC1']['indicator']=='limestone')
@@ -20,6 +20,7 @@ chk('XRD/XRF逐样本局部配准+锚点', ls.DEPTH_BASIS.get('xrd_xrf_shift_mod
 chk('点级计数不能覆盖剖面', ls.PROFILE_ARBITRATION['point_count_can_override'] is False)
 chk('Unknown缓存禁用', ls.PROFILE_ARBITRATION['cache']['unknown_well_cache'] is False)
 chk('录井/XRD知识不强制对齐测井深度', ls.WELL_KNOWLEDGE_POLICY.get('depth_alignment_required') is False and ls.WELL_KNOWLEDGE_POLICY.get('summary_bin_m',0)>0)
+chk('井知识层级/分类齐全', ls.WELL_KNOWLEDGE_POLICY.get('taxonomy') and {'basic_data','stratigraphy','lithology','testing','log_interpretation','gas_show'} <= set(ls.WELL_KNOWLEDGE_POLICY.get('categories') or []))
 df=pd.DataFrame({'MD':[1,2,3],'CALC1':[0.4,0.8,0.0],'CALC3':[0.3,0.2,0.0],'CALC5':[0.2,0.2,0.0]})
 out=ls.annotate_calc_curves(df.copy())
 chk('派生CALC_LIME_CO2', abs(float(out['CALC_LIME_CO2'].iloc[0])-0.4)<1e-9)

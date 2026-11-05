@@ -10,7 +10,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-STANDARD_ID = 'LITH-2026-11-02-v2.4'
+STANDARD_ID = 'LITH-2026-11-02-v2.5'
 STANDARD_DATE = '2026-11-02'
 
 # 证据优先级：取芯/岩心（最高）> 元素测井 > 曲线特征 > 点级统计
@@ -72,7 +72,10 @@ WELL_KNOWLEDGE_POLICY = {
     'summary_bin_m': 50.0,
     'kb_category': 'well_material',
     'sections': ('lithology_zones', 'xrd_bins', 'xrf_bins', 'swc_core', 'drill_core'),
-    'note': '按大致井段总结岩性/矿物/元素范围，供 logInt 检索；不替代点级深度标定。',
+    'taxonomy': ('country', 'basin', 'sag', 'structure', 'field', 'well'),
+    'categories': ('basic_data', 'stratigraphy', 'lithology', 'testing',
+                   'log_interpretation', 'gas_show'),
+    'note': '按国家/盆地/凹陷/构造/油田/井分层；井下面按基础数据/地层/岩性/试油/测井解释/气测分类。',
 }
 
 # 本井验证案例（1-SPS-108，2026-11-02）
