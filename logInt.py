@@ -3770,6 +3770,178 @@ def reconcile_vsh_with_gr(data):
                 '取较低值，%d点被GR泥质调低', sand_base, shale_base, n_low)
     return data
 
+def audit_vsh_methods(data):
+    """【2026-11-05 R61 用户定案】砂泥岩剖面 VSH 试听择优（恢复 Sep-24 口径）。
+
+    做法（Sep-24 XIMENIA-5 interpretation_parameters.md 第二章）：把所有可
+    获得的独立方法都算一遍，用统一的、不依赖地面真值的物理/统计指标打分，
+    选最合适的一条作为权威泥质曲线；元素测井标定（apply_elemental_vsh）
+    与既定定源规则不变。
+
+    指标(权重): 与伽玛族主通道(GR)相关系数 r(0.35)、随自身驱动通道单调
+    非降步占比(0.20)、动态范围 P90-P10(0.15)、端部饱和占比取反(0.15)、
+    覆盖率(0.15)。硬门槛: 覆盖>=30%、动态范围>=0.08、端部饱和<=30%、
+    r>=0.30(须为正)、单调>=75%。
+    择优纪律=在位者优先: 初始在位=GR-Larionov(老地层 C=2, Sep-24 实测
+    胜出)，挑战者得分须超过在位者 (1+0.1) 倍才替换——防止「指标相近却
+    整体平移 VSH 尺度」造成泥岩/非储层判定回归。
+
+    返回 (胜出 VSH Series, audit dict)；GR 缺失/样本不足返回 (None, None)。
+    """
+    if data is None or len(data) == 0 or 'GR' not in data.columns:
+        return None, None
+    gr = pd.to_numeric(data['GR'], errors='coerce')
+    gv = gr[gr.between(0, 500)].dropna()
+    if len(gv) < 50:
+        return None, None
+    p10, p90 = gv.quantile(0.10), gv.quantile(0.90)
+    if not (np.isfinite(p10) and np.isfinite(p90)) or p90 <= p10:
+        return None, None
+    dgr = ((gr - p10) / (p90 - p10)).clip(0.0, 1.0)
+
+    def _first_col(names):
+        for c in names:
+            if c in data.columns:
+                s = pd.to_numeric(data[c], errors='coerce')
+                if s.notna().sum() >= 50:
+                    return s
+        return None
+
+    def _rel(s):
+        v = s.dropna()
+        if len(v) < 50:
+            return None
+        lo, hi = v.quantile(0.10), v.quantile(0.90)
+        if not np.isfinite(lo) or not np.isfinite(hi) or hi <= lo:
+            return None
+        return ((s - lo) / (hi - lo)).clip(0.0, 1.0)
+
+    cands = []
+    d2 = 2.0 ** 2.0
+    cands.append(('GR-Larionov(老地层 C=2)', 'gr', gr,
+                  ((2.0 ** (2.0 * dgr) - 1.0) / (d2 - 1.0)).clip(0.0, 1.0)))
+    cands.append(('GR-线性(Vsh=IGR)', 'gr', gr, dgr))
+    cands.append(('GR-Stieber', 'gr', gr, (dgr / (3.0 - 2.0 * dgr)).clip(0, 1)))
+    c37 = 2.0 ** 3.7
+    cands.append(('GR-Larionov(第三系 C=3.7)', 'gr', gr,
+                  ((2.0 ** (3.7 * dgr) - 1.0) / (c37 - 1.0)).clip(0.0, 1.0)))
+    _sp = _first_col(('SP', 'SP_LOG', 'PSP'))
+    if _sp is not None:
+        _r1 = _sp.corr(gr)
+        _spv = _rel(-_sp) if (_r1 is not None and _r1 < 0) else _rel(_sp)
+        if _spv is not None:
+            cands.append(('自然电位(SP)', 'sp', _sp, _spv))
+    _rt = _first_col(('LLD', 'LLD_', 'ILD', 'RT', 'RD', 'LLS'))
+    if _rt is not None:
+        _rtv = _rt.clip(lower=0.01)
+        _rsh = _rtv.quantile(0.90)
+        _rmax = _rtv.quantile(0.995)
+        if np.isfinite(_rsh) and np.isfinite(_rmax) and _rmax > _rsh * 1.05:
+            _b = 2.0
+            _v = ((_rsh / _rtv) * ((_rmax - _rtv) / (_rmax - _rsh))) ** (1.0 / _b)
+            cands.append(('电阻率上限法(LLD)', 'rt', _rt,
+                          _v.clip(0.0, 1.0)))
+    _dt = _first_col(('DT', 'AC', 'DTC', 'DTTC'))
+    if _dt is not None:
+        _dv = _rel(_dt)
+        if _dv is not None:
+            cands.append(('声波(DT)-相对值法', 'dt', _dt, _dv))
+    _np = _first_col(('NPHI', 'CNL', 'CNCF', 'NPOR'))
+    if _np is not None:
+        _nv = _rel(_np)
+        if _nv is not None:
+            cands.append(('中子单法(NPHI)', 'nphi', _np, _nv))
+    _den = _first_col(('RHOB', 'ZDEN', 'DEN', 'RHOZ'))
+    if _den is not None and _np is not None:
+        _npd = _np.where((_np > -0.15) & (_np < 1.5))
+        _npd = _npd / 100.0 if (_npd.dropna() > 1.0).mean() > 0.5 else _npd
+        _rmaa = (_den - 1.0 * _npd) / (1.0 - _npd).replace(0.0, np.nan)
+        _rmaa = _rmaa.where((_rmaa > 1.5) & (_rmaa < 3.5))
+        _rv = _rel(_rmaa)
+        if _rv is not None:
+            cands.append(('密度-中子交汇(DN)', 'dn', _rmaa, _rv))
+
+    def _metrics(driver, vsh):
+        m = vsh.notna() & gr.notna()
+        cov = float(m.mean())
+        fails = []
+        if cov < 0.30:
+            fails.append('覆盖%.0f%%<30%%' % (cov * 100))
+        if not m.any():
+            return None, fails
+        vv, gv2 = vsh[m], gr[m]
+        rng = float(vv.quantile(0.90) - vv.quantile(0.10))
+        if rng < 0.08:
+            fails.append('动态范围%.3f<0.08' % rng)
+        sat = float((vv <= 1e-6).mean() + (vv >= 1.0 - 1e-6).mean())
+        if sat > 0.30:
+            fails.append('端部饱和%.0f%%>30%%' % (sat * 100))
+        if vv.std() <= 0 or gv2.std() <= 0:
+            r = 0.0
+        else:
+            r = float(np.corrcoef(vv.values, gv2.values)[0, 1])
+        if not (r >= 0.30):
+            fails.append('r=%.2f<0.3' % r)
+        md = vsh.notna() & driver.notna()
+        dv = driver[md]
+        vs = vsh[md]
+        if len(vs) > 2:
+            _o = np.argsort(dv.values, kind='stable')
+            _vs = vs.values[_o]
+            _mono = float((np.diff(_vs) >= -1e-9).mean())
+        else:
+            _mono = 0.0
+        if _mono < 0.75:
+            fails.append('单调%.0f%%<75%%' % (_mono * 100))
+        score = (0.35 * max(r, 0.0) + 0.20 * _mono + 0.15 * min(rng, 1.0)
+                 + 0.15 * (1.0 - sat) + 0.15 * cov)
+        return {'cov': cov, 'r': r, 'mono': _mono, 'range': rng,
+                'sat': sat, 'score': score, 'fails': fails}, fails
+
+    table = []
+    incumbent = None
+    winner_vsh = None
+    for name, fam, drv, vsh in cands:
+        vsh = vsh.reindex(data.index)
+        met, fails = _metrics(drv, vsh)
+        if met is None:
+            table.append({'name': name, 'family': fam, 'score': None,
+                          'verdict': 'x; '.join(fails) if fails else '不可用'})
+            continue
+        if not met['fails']:
+            if incumbent is None:
+                incumbent, winner_vsh = name, vsh
+                verdict = '胜出(初始在位)'
+            elif met['score'] > table_inc_score * 1.1:
+                verdict = '胜出(超在位者1.1倍)'
+                incumbent, winner_vsh = name, vsh
+            else:
+                verdict = '未换用(未超1.1倍门槛)'
+        else:
+            verdict = 'x ' + '; '.join(met['fails'])
+        table.append({'name': name, 'family': fam,
+                      'cov': round(met['cov'], 2), 'r': round(met['r'], 3),
+                      'mono': round(met['mono'], 2),
+                      'range': round(met['range'], 3),
+                      'sat': round(met['sat'], 2),
+                      'score': round(met['score'], 3),
+                      'verdict': verdict})
+        if 'score' in table[-1] and table[-1]['score'] is not None                 and incumbent == name:
+            table_inc_score = met['score']
+
+    if winner_vsh is None:
+        logger.info('VSH 试听择优: 无候选通过硬门槛, 保持现行泥质')
+        return None, {'table': table, 'winner': None}
+    logger.info('VSH 试听择优(砂泥岩剖面): 在位者=%s 共%d候选', incumbent,
+                len(table))
+    for _r in table:
+        logger.info('  VSH择优 | %s | score=%s | %s',
+                    _r['name'], _r.get('score'), _r['verdict'])
+    return winner_vsh.fillna(0.0).clip(0.0, 1.0), {
+        'winner': incumbent, 'table': table,
+        'formula': 'larionov' if 'Larionov' in incumbent else incumbent,
+        'channel': 'GR'}
+
 def apply_elemental_vsh(data):
     """【2026-10-20 用户定案】元素泥质定源：VSH ← 元素测井泥质体积。
 
@@ -14600,6 +14772,29 @@ class WellLogProcessor:
             else:
                 logger.info("未找到MSFL或RHOB曲线，跳过弹簧段校正")
             
+            # 【2026-11-05 R61 用户定案】砂泥岩剖面恢复 VSH 试听择优
+            # （Sep-24 口径：9 候选打分、在位者优先、Larionov C=2 实测胜出）。
+            # 仅砂泥岩剖面生效；碳酸盐/蒸发岩剖面维持现行泥质（元素定源不变）。
+            # 【R61b】必须在弹簧段校正**之后**调用——弹簧校正会用
+            # data_processor.data 副本整体替换 results['processed_data']，
+            # 在此之前择优的结果会被丢弃（R61 实测 CSV 无 VSH_GR_CAL）。
+            if _profile_type == 'sand_shale' \
+                    and self.results.get('processed_data') is not None:
+                try:
+                    _vsh_win, _vsh_audit = audit_vsh_methods(
+                        self.results['processed_data'])
+                    if _vsh_win is not None:
+                        _pd61 = self.results['processed_data']
+                        if 'VSH' in _pd61.columns:
+                            _pd61['VSH_PREV'] = pd.to_numeric(
+                                _pd61['VSH'], errors='coerce')
+                        _pd61['VSH'] = _vsh_win.values
+                        _pd61['VSH_GR_CAL'] = _vsh_win.values
+                        self.results['vsh_audit'] = _vsh_audit
+                except Exception as _va:
+                    logger.warning("VSH 试听择优失败（保持现行泥质）: %s", _va)
+                    logger.warning('VSH 择优 traceback:\n%s',
+                                   __import__('traceback').format_exc())
             # 3. 岩性识别和沉积相分析
             logger.info("Step 2: Lithology识别和沉积相分析")
             try:
