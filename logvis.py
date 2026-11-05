@@ -7832,7 +7832,40 @@ def _fuse_fluid_segments_by_reservoir_unit(segments, data):
     #      同口径) 再合并——图面框与解释层表严格同源（层表怎么分层图怎么画）；
     #   ④ 簇顶底 = 簇内结论点首末深度（不再 PHI_DISP>0 外扩覆盖低孔段）；
     #   ⑤ 簇标签 = 簇内流体结论多数票（油气优先于水），与层表多数票同口径。
-    _gap_break57c = 0.5
+    # 【2026-11-05 R60 用户"层要合并"】夹层合并容差 0.5 → 1.5m：
+    # 与 logInt 层表 _INTERP_MERGE_GAP_M 同口径（层表怎么并层图就怎么
+    # 并框）——<=1.5m 的低孔/留空夹层视为层内夹层，不再切断解释框；
+    # 更厚的低孔段、岩性屏障仍照 R57c 断簇（截止值能分开的必分开）
+    # 【2026-11-05 R60c】层表唯一源：logInt 已把 LAYER_ID 回写到逐点数据，
+    # 图面直接按层表出框（同一层=一个框，标签=层内多数票，顶底=层内结论点
+    # 首末深度），不再自行按标签聚类——否则框数与标签都和层表对不上
+    if 'LAYER_ID' in data.columns and 'LAYER_LABEL' in data.columns:
+        # 【2026-11-05 R60c2】标签=层表 LAYER_LABEL（严格同源，不做图面多数票
+        # ——DRY 层内少数流体点曾被多数票画成框）；顶底=层内点首末深度
+        _lid = pd.to_numeric(data['LAYER_ID'], errors='coerce').to_numpy()
+        _lab_np = (data['LAYER_LABEL'].fillna('').astype(str).str.upper()
+                   .str.strip().to_numpy())
+        if np.isfinite(_lid).sum() > 0:
+            _by = {}
+            for _k in np.nonzero(np.isfinite(_lid))[0]:
+                _by.setdefault(int(_lid[_k]), []).append(int(_k))
+            _res_lid = []
+            for _v in sorted(_by):
+                _ks = _by[_v]
+                _lab = ''
+                for _k in _ks:
+                    if _lab_np[_k]:
+                        _lab = _lab_np[_k]
+                        break
+                if _lab not in _FLUID_TAGS:
+                    continue    # DRY/非流体层不绘框（与层表口径一致）
+                _t0, _b0 = float(_md[_ks[0]]), float(_md[_ks[-1]])
+                if _b0 > _t0:
+                    _res_lid.append((_t0, _b0, _lab))
+            if _res_lid:
+                _res_lid.sort(key=lambda t: t[0])
+                return _res_lid
+    _gap_break57c = 1.5
     _concl57c = set(_FLUID_TAGS) | {'DRY'}
     _itp_arr57c = _itp.to_numpy()
     out = []

@@ -19583,6 +19583,124 @@ _SEAL_CN = {'halite': '盐岩', 'salt': '盐岩', '盐岩': '盐岩',
             'gypsum': '石膏', '石膏': '石膏'}
 
 
+# ===== 【2026-11-05 R60】小层合并（用户："层要合并"）=================
+# 现层表 159 层中 84 层薄于 2m、57 层薄于 1m（最小 0.0m/2 点），同一砂体被
+# 低孔薄夹层切成碎框。合并只改"层"的归集，不改逐点判据（判据不能反复）：
+#   ① 同结论相邻层、层间夹层 <= merge_gap(1.5m) → 合并为一层（夹层=层内
+#      夹层，THICKNESS 记毛厚，POINTS 记结论点数）；
+#   ② 层厚 < min_layer(1.0m) 或点数 < 3 → 并入同结论邻层（优先更厚者）；
+#   ③ < hard_absorb(0.6m) 的采样噪声层并入异结论邻层时，若目标为油气层，
+#      被并入层 Sw 中位 > 0.85 或 RT 中位 < 1.0（水的铁证）→ 拒绝合并并
+#      留痕（R58b 铁律：升级为油气不得违背水铁证）。
+_INTERP_MERGE_GAP_M = 1.5
+_INTERP_MIN_LAYER_M = 1.0
+_INTERP_HARD_ABSORB_M = 0.6
+
+
+def _merge_interpretation_layers(layers, merge_gap=None, min_layer=None,
+                                 hard_absorb=None):
+    """把小层按物理口径合并（同结论夹薄层合并 / 薄层归并）。返回新列表。"""
+    if not layers:
+        return layers
+    merge_gap = (_INTERP_MERGE_GAP_M if merge_gap is None else merge_gap)
+    min_layer = (_INTERP_MIN_LAYER_M if min_layer is None else min_layer)
+    hard_absorb = (_INTERP_HARD_ABSORB_M
+                   if hard_absorb is None else hard_absorb)
+    _hc = {'OIL', 'GAS', 'OIL_POSSIBLE', 'GAS_POSSIBLE',
+           'CONDENSATE', 'OIL_PROBABLE', 'GAS_PROBABLE'}
+
+    def _absorb(tgt, src):
+        """把 src 并入 tgt（tgt 结论/岩性保留），中值按点数加权近似。"""
+        _n0 = tgt.get('n', 0)
+        _n1 = src.get('n', 0)
+        _tot = _n0 + _n1
+        if _tot > 0:
+            for _k in ('phi', 'rt', 'sw'):
+                if _k in tgt or _k in src:
+                    tgt[_k] = (float(tgt.get(_k) or 0.0) * _n0
+                               + float(src.get(_k) or 0.0) * _n1) / _tot
+        tgt['top'] = min(float(tgt['top']), float(src['top']))
+        tgt['bot'] = max(float(tgt['bot']), float(src['bot']))
+        tgt['n'] = _tot
+
+    def _pass_same(_ls):
+        out = []
+        for _L in _ls:
+            if out and out[-1].get('gi') == _L.get('gi') \
+                    and out[-1].get('lab') == _L.get('lab') \
+                    and float(_L['top']) - float(out[-1]['bot']) <= merge_gap:
+                _absorb(out[-1], _L)
+            else:
+                out.append(dict(_L))
+        return out
+
+    def _pass_thin(_ls):
+        out = [dict(x) for x in _ls]
+        i = 0
+        guard = 0
+        while i < len(out) and guard < 20000:
+            guard += 1
+            _L = out[i]
+            _th = float(_L['bot']) - float(_L['top'])
+            if _th >= min_layer and int(_L.get('n', 0)) >= 3:
+                i += 1
+                continue
+            # 【R60b】只与"深度邻接"的邻层归并：此前只看相邻下标，薄层会被
+            # 并入几十米外的同结论层，_absorb 的 min/max 把中间非储层整段吃进
+            # 顶底（111D 6703.92-6755.13 毛厚 51m 却只有 36 个结论点）
+            _cand = [j for j in (i - 1, i + 1)
+                     if 0 <= j < len(out) and out[j].get('gi') == _L.get('gi')
+                     and ((0.0 <= float(out[j]['top']) - float(_L['bot'])
+                           <= merge_gap)
+                          or (0.0 <= float(_L['top']) - float(out[j]['bot'])
+                              <= merge_gap))]
+            _same = [j for j in _cand if out[j].get('lab') == _L.get('lab')]
+            _tgt = None
+            if _same:
+                _tgt = max(_same, key=lambda j: float(out[j]['bot'])
+                           - float(out[j]['top']))
+            elif _th < hard_absorb and _cand:
+                _j = max(_cand, key=lambda j: float(out[j]['bot'])
+                         - float(out[j]['top']))
+                if out[_j].get('lab') in _hc:
+                    _sw = float(_L.get('sw') or 0.0)
+                    _rt = float(_L.get('rt') or 0.0)
+                    if _sw > 0.85 or (0.0 < _rt < 1.0):
+                        logger.info(
+                            'R60 薄层保留: %.1f-%.1fm %s 有水的铁证'
+                            '(Sw=%.2f RT=%.2f)，不并入 %s',
+                            float(_L['top']), float(_L['bot']),
+                            _L.get('lab'), _sw, _rt, out[_j].get('lab'))
+                        i += 1
+                        continue
+                _tgt = _j
+            if _tgt is None:
+                # 【R60b】孤立薄层（无深度邻接的同结论层、且 < 0.6m）不成层：
+                # 它是非储层段内的单点噪声，不是可解释层（逐点结论仍保留）
+                if _th < hard_absorb:
+                    logger.info('R60 剔除孤立薄层: %.2f-%.2fm %s（%.2fm/%d点）',
+                                float(_L['top']), float(_L['bot']),
+                                _L.get('lab'), _th, int(_L.get('n', 0)))
+                    out.pop(i)
+                    i = max(i - 1, 0)
+                    continue
+                i += 1
+                continue
+            _absorb(out[_tgt], _L)
+            out.pop(i)
+            i = max(_tgt - 1, 0)
+        return out
+
+    _cur = [dict(x) for x in layers]
+    for _ in range(6):
+        _n0 = len(_cur)
+        _cur = _pass_same(_cur)
+        _cur = _pass_thin(_cur)
+        if len(_cur) == _n0:
+            break
+    return _cur
+
+
 def build_interpretation_layer_table(data, well_name, output_dir,
                                      gap_break=0.5,
                                      min_group_seal_thick=0.5):
@@ -19725,6 +19843,16 @@ def build_interpretation_layer_table(data, well_name, output_dir,
         pass
     _layers.sort(key=lambda _L: (_L['gi'], _L['top']))
 
+    # 【2026-11-05 R60】小层合并（用户："层要合并"）——同结论夹层<=1.5m 并层、
+    # 薄层<1.0m 归并；逐点结论不变，只改层表归集口径
+    _n_layers_before = len(_layers)
+    _layers = _merge_interpretation_layers(_layers)
+    if _n_layers_before != len(_layers):
+        logger.info('解释层表: 小层合并 %d → %d 层'
+                    '（同结论夹层<=%.1fm 并层 / 薄层<%.1fm 归并）',
+                    _n_layers_before, len(_layers),
+                    _INTERP_MERGE_GAP_M, _INTERP_MIN_LAYER_M)
+
     # ---- 归集输出（盖层行插在大层之前, 全井连续编号）----
     recs = []
     _lid = 0
@@ -19758,6 +19886,25 @@ def build_interpretation_layer_table(data, well_name, output_dir,
                          'PHI_MEAN': round(_L['phi'], 4),
                          'RT_MEAN': round(_L['rt'], 2),
                          'SW_MEAN': round(_L['sw'], 3)})
+    # 【2026-11-05 R60c】把 LAYER_ID 回写到逐点数据：综合图解释道框按层表出框
+    # （此前图面聚类与层表各算一次，框数量与标签都不一致）
+    if recs:
+        _lid_col = np.full(len(data), np.nan)
+        _lab_col = np.full(len(data), '', dtype=object)
+        for _r in recs:
+            if _r['POINTS'] <= 0:
+                continue
+            _m = ((_mdv >= _r['TOP_MD'] - 1e-6)
+                  & (_mdv <= _r['BASE_MD'] + 1e-6)
+                  & ~np.isin(_lv, ('NONRESERVOIR', 'UNDEFINED', 'TIGHT',
+                                   'NAN', 'NONE', '')))
+            _lid_col[_m] = float(_r['LAYER_ID'])
+            _lab_col[_m] = str(_r['INTERPRETATION'])
+        data['LAYER_ID'] = _lid_col
+        # 【2026-11-05 R60c2】层表最终标签一并回写：图面框标签=层表标签
+        # （不再图面自行多数票——DRY 层内少数流体点曾被画成框，75≠72）
+        data['LAYER_LABEL'] = _lab_col
+
     if not recs:
         logger.info('解释层表: 无可归集层, 跳过')
         return None
