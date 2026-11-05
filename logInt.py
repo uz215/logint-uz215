@@ -11643,8 +11643,11 @@ COL_CANDIDATES = {
     'CNL':  ['CNL_LAS', 'CNL', 'CNCF', 'NPHI', 'CNC', 'NPOR', 'NPH', 'NEU',
               'NEUT', 'PHIN', 'TNPH', 'PHI_N', 'NEUTRON', 'PORN'],
     'DT':   ['DT', 'DTC', 'DTTC', 'DTCO', 'AC'],  # DTTC=纵波时差(R-13)
-    'RT':   ['RT_LAS', 'RT', 'RMSL', 'RD', 'MSFL', 'RAL5', 'RAL4', 'RAL3', 'RAL2', 'RAL1', 'LLD', 'LLS', 'ILD',
-             'AT90', 'AT60', 'AT30', 'AT20', 'AT10'],  # RAL1-5=阵列电阻率(R-13)；AT10-90=Schlumberger阵列电阻率(深探优先)
+    # 【R65 用户定案】RT 一律取最深探测：候选序按深→浅排列，浅探测
+    # （LLS/MSFL/RMSL）只作兜底。RAL1=阵列最深（与 RESISTIVITY_CANDIDATES
+    # 及 Sw 阶段 RAL1 优先口径一致）；AT90>AT60>...>AT10。
+    'RT':   ['RT_LAS', 'RT', 'RD', 'LLD', 'ILD', 'RAL1', 'RAL2', 'RAL3', 'RAL4', 'RAL5',
+             'AT90', 'AT60', 'AT30', 'AT20', 'AT10', 'LLS', 'MSFL', 'RMSL'],
     'PE':   ['PE', 'PEF'],
     # 【R35】补 CALS/BS：XIMENIA-5 用 CALS+BS 命名，此前没映射到
     # CAL/BIT → 派生扩径比 CALR 缺失，煤 deny 的井径条件无从判定
