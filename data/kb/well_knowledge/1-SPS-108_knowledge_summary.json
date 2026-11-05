@@ -1843,9 +1843,9 @@
   ],
   "hierarchy": {
     "country": "Brazil",
-    "basin": "未填写",
+    "basin": "Santos",
     "sag": "未填写",
-    "structure": "未填写",
+    "structure": "Curacao",
     "field": "Aram",
     "well": "1-SPS-108"
   },
@@ -2043,7 +2043,22 @@
       "巴西阿拉姆项目Curacao-1井DST日报-20221016.pdf",
       "第11期—古拉绍-1井试油进展周报20221005.pdf",
       "（CNLC）巴西古拉绍-1井DST（与PLT&MDT结合）初步分析.pptx"
-    ]
+    ],
+    "contacts": [
+      {
+        "type": "OWC",
+        "depth": 6422.6,
+        "source": "log_interpretation(candidate)",
+        "confidence": "low"
+      }
+    ],
+    "owc": {
+      "type": "OWC",
+      "depth": 6422.6,
+      "source": "log_interpretation(candidate)",
+      "confidence": "low"
+    },
+    "gwc": null
   },
   "log_interpretation": {
     "layers": 140,
@@ -5119,7 +5134,22 @@
         "巴西阿拉姆项目Curacao-1井DST日报-20221016.pdf",
         "第11期—古拉绍-1井试油进展周报20221005.pdf",
         "（CNLC）巴西古拉绍-1井DST（与PLT&MDT结合）初步分析.pptx"
-      ]
+      ],
+      "contacts": [
+        {
+          "type": "OWC",
+          "depth": 6422.6,
+          "source": "log_interpretation(candidate)",
+          "confidence": "low"
+        }
+      ],
+      "owc": {
+        "type": "OWC",
+        "depth": 6422.6,
+        "source": "log_interpretation(candidate)",
+        "confidence": "low"
+      },
+      "gwc": null
     },
     "log_interpretation": {
       "layers": 140,
@@ -6175,6 +6205,10 @@
       }
     ]
   },
+  "hierarchy_evidence": [
+    "Curacao-1井阶段汇报（测井）.pptx: 桑托斯(Santos)盆地盐下地层综合柱状图"
+  ],
+  "geo_scan_contacts": [],
   "drill_core_phi": {
     "n": 121,
     "min": 0.4,

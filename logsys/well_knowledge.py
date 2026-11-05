@@ -166,6 +166,112 @@ def _layers_summary(well_name, results=None):
     return out
 
 
+def _scan_geo_docs(well_dir, well_name):
+    """从井目录日报/设计/阶段汇报中提取盆地、构造、凹陷及界面证据。"""
+    import glob, os, re
+    wd = Path(str(well_dir))
+    basin_names = ('Santos', 'Campos', 'Espirito Santo', 'Espírito Santo', 'Sergipe', 'Alagoas', 'Potiguar', 'Recôncavo', 'Solimões')
+    struct_names = ('Curacao', 'Curaçao', 'Aruba', 'Tortuga', 'Libra', 'BVE')
+    out = {'basin': '', 'sag': '', 'structure': '', 'evidence': [],
+           'contacts': []}
+    files = []
+    for p in sorted(wd.rglob('*')):
+        if p.suffix.lower() not in ('.pdf', '.pptx'):
+            continue
+        low = p.name.lower()
+        if any(k in low for k in ('日报', '跟踪', '阶段', 'dst', 'drilling', 'design',
+                                  'workshop', 'report', '分析', '解释')):
+            if '20140225' in str(p):
+                continue
+            files.append(p)
+    for p in files[:12]:
+        try:
+            txt = ''
+            if p.suffix.lower() == '.pdf':
+                import fitz
+                doc = fitz.open(str(p))
+                for i in range(min(5, doc.page_count)):
+                    txt += (doc[i].get_text() or '') + '\n'
+                doc.close()
+            else:
+                from pptx import Presentation
+                prs = Presentation(str(p))
+                for s in list(prs.slides)[:20]:
+                    for sh in s.shapes:
+                        if hasattr(sh, 'text'):
+                            txt += sh.text + '\n'
+            if not txt:
+                continue
+            if well_name not in txt and '1-SPS-108' not in txt and 'Curacao' not in txt and 'Curaçao' not in txt:
+                continue
+            for name in basin_names:
+                if name.lower() in txt.lower() and not out['basin']:
+                    out['basin'] = 'Santos' if name.lower() == 'santos' else name
+                    for ln in txt.splitlines():
+                        if name.lower() in ln.lower():
+                            out['evidence'].append(f'{p.name}: {ln.strip()[:200]}')
+                            break
+            for name in struct_names:
+                if name.lower() in txt.lower() and not out['structure']:
+                    out['structure'] = 'Curacao' if name.lower() in ('curacao', 'curaçao') else name
+                    for ln in txt.splitlines():
+                        if name.lower() in ln.lower() and ('构造' in ln or 'structure' in ln.lower()):
+                            out['evidence'].append(f'{p.name}: {ln.strip()[:200]}')
+                            break
+            for pat, typ in (
+                (r'(?:OWC|O/W\s*contact|oil[- ]water\s*contact|油水界面)', 'OWC'),
+                (r'(?:GWC|G/W\s*contact|gas[- ]water\s*contact|气水界面)', 'GWC')):
+                for m in re.finditer(pat, txt, re.I):
+                    tail = txt[m.end():m.end() + 120]
+                    dm = re.search(r'(-?\d{3,5}(?:\.\d+)?)\s*(m|ft|米|英尺)?', tail)
+                    if dm:
+                        try:
+                            val = float(dm.group(1))
+                            unit = (dm.group(2) or 'm').lower()
+                            if unit in ('ft', '英尺'):
+                                val = val * 0.3048
+                            out['contacts'].append({'type': typ, 'depth': round(val, 1),
+                                                    'unit': 'm', 'source': p.name,
+                                                    'confidence': 0.6,
+                                                    'evidence': (m.group(0) + tail[:80]).strip()})
+                        except Exception:
+                            pass
+        except Exception:
+            continue
+    seen = set(); contacts = []
+    for c in out['contacts']:
+        k = (c['type'], c['depth'], c['source'])
+        if k not in seen:
+            seen.add(k); contacts.append(c)
+    out['contacts'] = contacts
+    return out
+
+
+def _candidate_contacts(interp):
+    """无试油明确界面时，从解释层表生成候选界面（低置信度，明确标注）。"""
+    out = {'owc': None, 'gwc': None, 'contacts': []}
+    fi = (interp or {}).get('fluid_intervals') or []
+    oils = [x for x in fi if x.get('interp') in ('OIL', 'GAS_OIL')]
+    gases = [x for x in fi if x.get('interp') in ('GAS', 'GAS_OIL')]
+    waters = [x for x in fi if x.get('interp') == 'WATER']
+    for name, src in (('owc', oils), ('gwc', gases)):
+        if not src or not waters:
+            continue
+        shal_water = min(waters, key=lambda x: x.get('top') or 1e9)
+        _above = [x for x in src if (x.get('base') or 0) <= (shal_water.get('top') or 1e9)]
+        if not _above:
+            continue
+        deep_hc = max(_above, key=lambda x: x.get('base') or 0)
+        if (deep_hc.get('base') or 0) <= (shal_water.get('top') or 1e9):
+            dz = round(((deep_hc.get('base') or 0) + (shal_water.get('top') or 0)) / 2.0, 1)
+            out[name] = {'depth': dz, 'unit': 'm', 'source': 'log_interpretation',
+                         'confidence': 'low', 'note': '候选界面，非试油实测'}
+            out['contacts'].append({'type': name.upper(), 'depth': dz,
+                                    'source': 'log_interpretation(candidate)',
+                                    'confidence': 'low'})
+    return out
+
+
 def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     """读取井目录标定表，生成结构化知识摘要 dict。"""
     from .core_calib import read_well_calibration
@@ -187,12 +293,17 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     country = str(h.get('country') or '').strip()
     if country.lower() in ('br', 'brazil'):
         country = 'Brazil'
-    hierarchy = {'country': country or '未填写', 'basin': str(h.get('basin') or design.get('basin') or '未填写'),
-                 'sag': str(h.get('sag') or design.get('sag') or '未填写'),
-                 'structure': str(h.get('structure') or design.get('structure') or '未填写'),
+    _geo = _scan_geo_docs(wd, wn)
+    _basin = str(h.get('basin') or design.get('basin') or _geo.get('basin') or '未填写')
+    _sag = str(h.get('sag') or design.get('sag') or _geo.get('sag') or '未填写')
+    _struct = str(h.get('structure') or design.get('structure') or _geo.get('structure') or '未填写')
+    hierarchy = {'country': country or '未填写', 'basin': _basin,
+                 'sag': _sag, 'structure': _struct,
                  'field': str(h.get('field_name') or h.get('field') or '未填写'),
                  'well': wn}
     out['hierarchy'] = hierarchy
+    out['hierarchy_evidence'] = _geo.get('evidence') or []
+    out['geo_scan_contacts'] = _geo.get('contacts') or []
     out['basic_data'] = {
         'country': hierarchy['country'], 'field': hierarchy['field'],
         'well': wn, 'company': h.get('company') or '',
@@ -209,6 +320,16 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
                                if any(k in Path(x).name.lower() for k in ('plt', 'dst', 'test', '试油', '试采', 'mdt', 'rft'))]
     out['gas_show'] = _gas_anomalies(wd, wn)
     out['log_interpretation'] = _layers_summary(wn, results)
+    _cand = _candidate_contacts(out['log_interpretation'])
+    _explicit = out.get('geo_scan_contacts') or []
+    _allc = list(_explicit)
+    for _c in (_cand.get('contacts') or []):
+        if not any(x.get('type') == _c.get('type') and abs(float(x.get('depth', 0)) - _c['depth']) < 2.0
+                   for x in _allc):
+            _allc.append(_c)
+    out['testing']['contacts'] = _allc
+    out['testing']['owc'] = next((x for x in _allc if x.get('type') == 'OWC'), None) or _cand.get('owc')
+    out['testing']['gwc'] = next((x for x in _allc if x.get('type') == 'GWC'), None) or _cand.get('gwc')
     out['stratigraphy'] = {'note': '地层/层位知识：优先 masterlog/地质设计；本井未提供时留空，不臆造。'}
     try:
         cal = read_well_calibration(wd)
@@ -328,6 +449,8 @@ def render_well_knowledge_md(k):
                      ('country', 'basin', 'sag', 'structure', 'field', 'well'))
     L = [f"# {h.get('well') or k.get('well')} 井目录知识（{_path}）", '']
     L.append(f"- 知识层级: {_path}")
+    if k.get('hierarchy_evidence'):
+        L.append(f"- 层级依据: {'；'.join(str(x) for x in (k.get('hierarchy_evidence') or [])[:3])}")
     L.append(f"- 井目录: {k.get('well_dir')}")
     L.append(f"- 来源: {', '.join(k.get('sources') or []) or '标定表'}")
     L.append(f"- 深度说明: {k.get('depth_note')}")
@@ -387,6 +510,11 @@ def render_well_knowledge_md(k):
             L.append(f"| {x.get('file')} | {x.get('top')} | {x.get('base')} | {x.get('values')} |")
         if tst.get('files'):
             L.append(f"- 相关文件: {', '.join(tst.get('files')[:10])}")
+        for _ck, _cn in (('owc', 'OWC 油水界面'), ('gwc', 'GWC 气水界面')):
+            _cv = tst.get(_ck)
+            if _cv:
+                L.append(f"- {_cn}: {_cv.get('depth')} {_cv.get('unit', 'm')}"
+                         f"（来源 {_cv.get('source')}，置信度 {_cv.get('confidence')}）")
     li = k.get('log_interpretation') or {}
     if li:
         L += ['', '## 6c. 测井解释', f"- 层数: {li.get('layers')}；岩性: {li.get('lithology')}；流体: {li.get('interpretation')}"]

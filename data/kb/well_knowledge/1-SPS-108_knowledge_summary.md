@@ -1,6 +1,7 @@
-# 1-SPS-108 井目录知识（Brazil/未填写/未填写/未填写/Aram/1-SPS-108）
+# 1-SPS-108 井目录知识（Brazil/Santos/未填写/Curacao/Aram/1-SPS-108）
 
-- 知识层级: Brazil/未填写/未填写/未填写/Aram/1-SPS-108
+- 知识层级: Brazil/Santos/未填写/Curacao/Aram/1-SPS-108
+- 层级依据: Curacao-1井阶段汇报（测井）.pptx: 桑托斯(Santos)盆地盐下地层综合柱状图
 - 井目录: D:\360\Brasil\Curacao-1
 - 来源: LOG, MUD
 - 深度说明: 录井/XRD/XRF 为录井深度，本摘要按大致井段统计，不强制与测井深度对齐；SWC 为测井深度。用于 logInt 检索时按井段/岩性/数值范围引用。
@@ -112,6 +113,7 @@
 | Plt分层产量.txt | 6424.5 | 6429.4 | ['1762.82', '16.24'] |
 | Plt分层产量.txt | 6437.4 | 6441.9 | ['257.3', '2.37'] |
 - 相关文件: MDT取样流体分析.png, Plt分层产量.txt, Plt分层产量.xls, PreRead - Aram - WS8 DST Design.pdf, 古拉绍-1＃PLT初步解释结果-02.pptx, 巴西阿拉姆项目Curacao-1井DST日报-20221016.pdf, 第11期—古拉绍-1井试油进展周报20221005.pdf, （CNLC）巴西古拉绍-1井DST（与PLT&MDT结合）初步分析.pptx
+- OWC 油水界面: 6422.6 m（来源 log_interpretation(candidate)，置信度 low）
 
 ## 6c. 测井解释
 - 层数: 140；岩性: {'limestone': 76, 'dolomite': 60, 'sandstone': 3, 'anhydrite': 1}；流体: {'DRY': 84, 'WATER': 31, 'OIL': 24, 'NonReservoir': 1}
