@@ -13247,7 +13247,20 @@ class LithologyRecognizer:
                 if len(dseg) >= 3:
                     dmed = float(np.median(dseg))
                     if m and dmed <= den_ref + 0.02:
-                        continue   # 密度与围岩砂岩相当 → 更像砂岩(海绿石等)
+                        # 【R63 2026-11-05 密度守卫逃生门】疏松砂岩剖面薄泥岩
+                        # 夹层与围岩砂岩密度几乎无差（XIMENIA-5 实测 5 处
+                        # <1m 夹层 DEN 差 -0.05~+0.01，全被此守卫拦下）。
+                        # 用户定案：本井泥岩=较高伽玛+低电阻，很好分辨——
+                        # 段内泥质双响应(_mud: RT<RT_mud_max 且 DT>80，
+                        # 与砂岩 deny 规则同一口径)占比>=60% 时，密度不再
+                        # 一票拦下。高伽玛海绿石砂岩 RT 为储层高值，不触发
+                        # 逃生门，BET-1 行为不变。
+                        _esc = False
+                        if _mud is not None:
+                            _nmud = int(_mud[a:b + 1].sum())
+                            _esc = _nmud >= 0.6 * (b - a + 1)
+                        if not _esc:
+                            continue   # 密度与围岩砂岩相当 → 更像砂岩(海绿石等)
                     if (not m) and dmed >= den_ref - 0.02:
                         continue   # 密度与围岩泥岩相当 → 更像粉砂质泥岩
             # 上下文：两侧最近砂/泥点（夹层必须嵌在对侧岩性中）
@@ -14872,6 +14885,23 @@ class WellLogProcessor:
                             if not _nphi_ok:
                                 logger.info("中子曲线质量不合格(%s)，岩性识别将忽略全部CNL判据",
                                             self.results.get('neutron_quality', ''))
+                            # 【R63 2026-11-05 薄泥岩误判根因修复】岩性识别
+                            # 必须用有效深电阻率：此前 RT 列在 Sw 计算阶段
+                            # (calculate_saturation)才回填，识别器按候选序
+                            # 解析到 MSFL(浅探测)——RT_mud_max 被算成
+                            # MSFL P50(本井 4.79 vs LLD 11.43)，砂岩 deny 的
+                            # "GR高+RT低+DT高"泥岩否决大面积失效，薄泥岩
+                            # 夹层被误判砂岩（XIMENIA-5 实测 11 处 <1m）。
+                            # 识别前先回填标准 RT 列（与 calculate_saturation
+                            # 8249 行同一 select_resistivity_column 口径）。
+                            if 'RT' not in data.columns:
+                                _rt_src_lith = select_resistivity_column(data)
+                                if _rt_src_lith:
+                                    data['RT'] = data[_rt_src_lith]
+                                    logger.info(
+                                        "岩性识别前回填标准RT列: %s"
+                                        "（此前识别器会误用浅探测曲线）",
+                                        _rt_src_lith)
                             _rec = LithologyRecognizer(
                                 data, depth_unit=_unit,
                                 casing_mask=_casing_mask,
