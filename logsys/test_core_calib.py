@@ -15,7 +15,10 @@ if cal is not None and len(cal):
     chk('含 SWC 岩性', 'CORE_LITH' in cal and cal['CORE_LITH'].notna().any())
     chk('含 XRD 方解石/白云石', 'XRD_CAL' in cal and 'XRD_DOL' in cal)
     chk('含 XRF 元素', 'XRF_FE' in cal or 'XRF_AL' in cal)
-    chk('含岩心孔隙度', 'CORE_PHIE' in cal)
+    chk('含钻井取芯孔隙度(DRILL_CORE_PHIE)', 'DRILL_CORE_PHIE' in cal or 'CORE_PHIE' in cal)
+if 'DRILL_CORE_PHIE' in cal:
+    _m=cal['DRILL_CORE_PHIE'].notna() & cal['DEPTH_BASIS'].eq('MUD')
+    chk('钻井取芯深度基准=MUD', bool(_m.any()), int(_m.sum()))
     chk('区分取芯(LOG)/XRD-XRF(MUD)深度基准', set(cal.get('DEPTH_BASIS', [])) >= {'LOG','MUD'}, cal.get('DEPTH_BASIS').value_counts().to_dict() if 'DEPTH_BASIS' in cal else None)
     _xrd=cal[cal['DEPTH_BASIS'].eq('MUD')].dropna(subset=['MD'])
     _d0=pd.DataFrame({'MD':[6300,6310,6320],'CALCITE_QE':[0.3,0.5,0.2]})

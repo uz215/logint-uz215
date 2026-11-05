@@ -8453,6 +8453,18 @@ class MineralAnalyzer:
             # mixed profile: load all
             relevant = knowledge
         
+        # 井目录知识摘要（录井/岩心/XRD/XRF，按大致井段；若已生成）
+        try:
+            from logsys.well_knowledge import load_well_knowledge, render_well_knowledge_md
+            _wk = load_well_knowledge(well_name)
+            if _wk:
+                relevant['well_knowledge_summary'] = render_well_knowledge_md(_wk)
+                logger.info('[%s] 已加载井目录知识摘要: 岩性段%d/XRD段%d/XRF段%d',
+                            well_name, len(_wk.get('lithology_zones') or []),
+                            len(_wk.get('xrd_bins') or []), len(_wk.get('xrf_bins') or []))
+        except Exception as _wke:
+            logger.warning('[%s] 井目录知识摘要加载失败: %s', well_name, _wke)
+
         # 记录加载的知识
         logger.info(f"[{well_name}] 知识库已加载 {len(relevant)} 个相关文档: {list(relevant.keys())}")
         
@@ -17666,6 +17678,19 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
         f"- 解释深度范围: {las_well.get('start_depth', '')} - "
         f"{las_well.get('stop_depth', '')} {las_well.get('depth_unit', '')}\n"
     )
+    # 井目录知识总结：录井/岩心/XRD/XRF 按大致井段+数值范围整理入 KB
+    try:
+        from logsys.well_knowledge import save_well_knowledge
+        _wk, _wk_md, _wk_json = save_well_knowledge(
+            well_dir, well_name=well_name, write_well_dir=True)
+        _wk_text = _wk_md.read_text(encoding='utf-8')
+        kb_md_parts.append(_wk_text)
+        results['well_knowledge'] = _wk
+        results['well_knowledge_md'] = str(_wk_md)
+        print(f"  井目录知识摘要: {_wk_md}（录井/XRD 按大致井段，已并入 KB）")
+    except Exception as _wke:
+        logger.warning('井目录知识总结失败（不影响主流程）: %s', _wke)
+
     knowledge_md = header + '\n\n' + '\n\n'.join(kb_md_parts)
 
     # ---- 4. 知识入库 logKnow ----

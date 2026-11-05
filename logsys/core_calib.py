@@ -63,6 +63,10 @@ def read_well_calibration(well_dir):
     # 读取所有井数据/标定工作簿（主簿 SWC + XRD/XRF，可能分多个 xlsx）
     xlsx_files = [p for p in sorted(wd.rglob('*.xlsx'))
                   if ('井数据' in p.name or 'xrd_xrf' in p.name.lower())]
+    # 主工作簿（井数据）已含 SWC+XRD+XRF；避免同时读取 xrd_xrf 附表导致重复
+    _main_xlsx = [p for p in xlsx_files if '井数据' in p.name]
+    if _main_xlsx:
+        xlsx_files = _main_xlsx
     for xlsx in xlsx_files:
         try:
             sheets = _read_xlsx_sheets(xlsx)
@@ -82,14 +86,31 @@ def read_well_calibration(well_dir):
                         if '岩性-English' in h or h == '岩性':
                             li = j
                             break
+                    ti = None
+                    for j, h in enumerate(hdr):
+                        if str(h).strip().lower() == 'type':
+                            ti = j
+                            break
                     if di is None or li is None: continue
+                    _is_core_final = ('core final' in low)
                     for r in srows[1:]:
                         dep = _num(r[di]) if di < len(r) else np.nan
                         lith = normalize_core_lith(r[li] if li < len(r) else '')
-                        if np.isfinite(dep) and lith:
+                        if not (np.isfinite(dep) and lith):
+                            continue
+                        _typ = (str(r[ti]).strip().lower()
+                                if ti is not None and ti < len(r) else '')
+                        # SWC=井壁取芯=测井深度；plug/空类型=钻井取芯=录井深度
+                        _is_swc = (not _is_core_final) or ('swc' in _typ)
+                        if _is_swc:
                             rows.append({'MD': dep, 'CORE_LITH': lith,
                                          'CORE_SOURCE': sname,
                                          'DEPTH_BASIS': 'LOG'})
+                        else:
+                            rows.append({'MD': dep,
+                                         'DRILL_CORE_LITH': lith,
+                                         'DRILL_CORE_SOURCE': sname + ':' + (_typ or 'core'),
+                                         'DEPTH_BASIS': 'MUD'})
                 elif low == 'xrd':
                     if not srows: continue
                     hdr = [str(x or '').strip() for x in srows[0]]
@@ -154,10 +175,10 @@ def read_well_calibration(well_dir):
             for ln in txt[1:]:
                 parts = ln.strip().split('\t')
                 if len(parts) < 3: continue
-                rec = {'MD': _num(parts[0]), 'DEPTH_BASIS': 'LOG'}
+                rec = {'MD': _num(parts[0]), 'DEPTH_BASIS': 'MUD'}
                 for j, h in enumerate(hdr[1:], 1):
                     if j < len(parts):
-                        rec['CORE_' + h.strip().upper()] = _num(parts[j])
+                        rec['DRILL_CORE_' + h.strip().upper()] = _num(parts[j])
                 if np.isfinite(rec.get('MD', np.nan)): recs.append(rec)
             if recs:
                 df = pd.concat([df, pd.DataFrame(recs)], ignore_index=True, sort=False)
@@ -169,6 +190,7 @@ def read_well_calibration(well_dir):
     # 同一深度多行合并：岩性优先取非空，数值取均值
     agg = {}
     _text_cols = {'CORE_LITH', 'CORE_SOURCE', 'CORE_ZONE_LITH',
+                  'DRILL_CORE_LITH', 'DRILL_CORE_SOURCE',
                   'XRD_SOURCE', 'XRF_SOURCE', 'Remarks'}
     if 'DEPTH_BASIS' not in df.columns:
         df['DEPTH_BASIS'] = 'LOG'
@@ -184,7 +206,8 @@ def read_well_calibration(well_dir):
     df = df.groupby([df['MD'].round(3), 'DEPTH_BASIS'], as_index=False).agg(agg)
     df = df.rename(columns={'MD': 'MD'})
     # 文本空串统一为 NaN，避免“有标定”假计数
-    for _c in ('CORE_LITH', 'CORE_SOURCE', 'CORE_ZONE_LITH', 'XRD_SOURCE', 'XRF_SOURCE'):
+    for _c in ('CORE_LITH', 'CORE_SOURCE', 'CORE_ZONE_LITH', 'DRILL_CORE_LITH',
+               'DRILL_CORE_SOURCE', 'XRD_SOURCE', 'XRF_SOURCE'):
         if _c in df.columns:
             df[_c] = df[_c].replace('', np.nan)
     return df
@@ -392,7 +415,7 @@ def attach_core_calibration(data, well_dir, tolerance=0.30):
                 d[c] = merged[c].values
         n_core = int(d['CORE_LITH'].notna().sum()) if 'CORE_LITH' in d.columns else 0
         if n_core:
-            logger.info('岩心标定挂接: %d/%d 点有井壁取芯岩性（测井深度直挂）',
+            logger.info('取芯标定挂接: %d/%d 点有井壁取芯SWC岩性（测井深度直挂）',
                         n_core, len(d))
     # 2) XRD/XRF：录井深度，分段局部配准后再挂（不是全井固定偏移）
     xrd = cal[cal.get('DEPTH_BASIS', 'MUD').eq('MUD')].dropna(subset=['MD']).copy()
@@ -414,7 +437,8 @@ def attach_core_calibration(data, well_dir, tolerance=0.30):
             _ok = np.abs(_xmd[_use] - _dmd) <= 0.75
             for c in xrd.columns:
                 if c in ('MD', 'MD_LOG', 'DEPTH_BASIS') or not (
-                        c.startswith('XRD_') or c.startswith('XRF_')):
+                        c.startswith('XRD_') or c.startswith('XRF_')
+                        or c.startswith('DRILL_CORE_')):
                     continue
                 _arr = pd.to_numeric(xrd[c], errors='coerce').values
                 d[c] = np.where(_ok, _arr[_use], np.nan)
@@ -424,6 +448,9 @@ def attach_core_calibration(data, well_dir, tolerance=0.30):
                         len(_det.get('segments') or []),
                         _det.get('shift_min', 0.0), _det.get('shift_max', 0.0),
                         _det.get('mode', ''))
+            _n_dc = int(d['DRILL_CORE_LITH'].notna().sum()) if 'DRILL_CORE_LITH' in d.columns else 0
+            if _n_dc:
+                logger.info('钻井取芯挂接: %d 点 DRILL_CORE_LITH（录井深度，已局部配准）', _n_dc)
             try:
                 d.attrs['xrd_depth_shift_details'] = _det
             except Exception:

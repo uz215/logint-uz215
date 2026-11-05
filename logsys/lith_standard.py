@@ -10,7 +10,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-STANDARD_ID = 'LITH-2026-11-02-v2.2'
+STANDARD_ID = 'LITH-2026-11-02-v2.4'
 STANDARD_DATE = '2026-11-02'
 
 # 证据优先级：取芯/岩心（最高）> 元素测井 > 曲线特征 > 点级统计
@@ -37,7 +37,7 @@ CALC_SEMANTICS = {
 # 深度基准（用户 2026-11-02 定案）
 DEPTH_BASIS = {
     'SWC': 'logging_depth',
-    'core': 'logging_depth',
+    'drilling_core': 'mud_logging_depth',
     'XRD': 'mud_logging_depth',
     'XRF': 'mud_logging_depth',
     'xrd_xrf_max_shift_m': 10.0,
@@ -45,7 +45,7 @@ DEPTH_BASIS = {
     'xrd_xrf_shift_mode': 'per_sample_local_anchored',
     'xrd_xrf_window_m': 100.0,
     'xrd_xrf_anchor_m': 150.0,
-    'note': '取芯/岩心按测井深度直挂；XRD/XRF 不是全井固定偏移：换钻具/'
+    'note': '井壁取芯SWC按测井深度直挂；钻井取芯、XRD/XRF为录井深度，不是全井固定偏移：换钻具/'
             '起下钻都可能变，通常 3–5m、上限 10m；逐样本滑动窗+局部锚点配准后再挂。',
 }
 
@@ -64,6 +64,15 @@ CARBONATE_RULES = {
     'element_clay_max': 0.45,
     'notes': '元素方解石+白云石≥0.45 且泥质<0.45 可直接定碳酸盐；'
              'GR 只作井内分位参考；密度/声波/中子/电阻率为第二证据。',
+}
+
+# 井目录知识总结（2026-11-02/05 用户定案）：录井/XRD/XRF 不要求与测井深度精确对齐
+WELL_KNOWLEDGE_POLICY = {
+    'depth_alignment_required': False,
+    'summary_bin_m': 50.0,
+    'kb_category': 'well_material',
+    'sections': ('lithology_zones', 'xrd_bins', 'xrf_bins', 'swc_core', 'drill_core'),
+    'note': '按大致井段总结岩性/矿物/元素范围，供 logInt 检索；不替代点级深度标定。',
 }
 
 # 本井验证案例（1-SPS-108，2026-11-02）

@@ -8,6 +8,8 @@ data/kb/*
 !data/kb/topics/**
 !data/kb/kb_manifest.json
 !data/kb/README.md
+!data/kb/well_knowledge/
+!data/kb/well_knowledge/**
 !data/knowledge_summary/
 !data/knowledge_summary/**
 !data/exported_experiences/
