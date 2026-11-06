@@ -758,9 +758,35 @@ def _lith_ink_tile(ref_file, tpx=None):
             im = Image.open(os.path.join(SYMBOL_DIR, ref_file)).convert('RGB')
             _ux, _uy, _uw, _uh = _unit[0], _unit[1], _unit[2], _unit[3]
             _tw, _th = int(_unit[4]), int(_unit[5])
-            _cell = im.crop((_ux, _uy, _ux + _uw, _uy + _uh)).resize(
-                (_tw, _th), Image.LANCZOS)
-            a = np.asarray(_cell).astype(np.float64)
+            _cell = im.crop((_ux, _uy, _ux + _uw, _uy + _uh))
+            # 【R67c/d 硬边掩膜重采样】LANCZOS 降采样在亚像素处留下光晕/
+            # 渐变尾（瓦片右缘半黑半绿、砂岩点带灰边），平铺后每行符号
+            # 深浅不一、长短不一（用户反馈）。改为：原始分辨率裁剪 →
+            # 相对底色阈值的二值掩膜 → 掩膜 BOX 面积平均缩到 (tw,th) →
+            # 0.5 阈值 ⇒ 点/短线形状对称、逐格大小完全一致，墨色统一。
+            try:
+                _fa = np.asarray(im).astype(np.float64)
+                _cc, _nn = np.unique(_fa.reshape(-1, 3).astype(np.int16),
+                                     axis=0, return_counts=True)
+                _bgc = _cc[int(_nn.argmax())].astype(np.float64)
+                _dist = np.abs(_fa - _bgc).sum(axis=2)
+                _inkm = _dist > 60
+                _ic, _in = np.unique(
+                    _fa[_inkm].astype(np.int16), axis=0,
+                    return_counts=True)
+                _inkc = _ic[int(_in.argmax())].astype(np.float64)
+                _cm = np.abs(np.asarray(_cell).astype(np.float64) - _bgc)
+                _cm = _cm.sum(axis=2) > 60
+                _msk = Image.fromarray((_cm * 255).astype(np.uint8)).resize(
+                    (_tw, _th), Image.BOX)
+                _m = np.asarray(_msk).astype(np.float64) >= 127.5
+                a = np.empty((_th, _tw, 3), dtype=np.float64)
+                a[_m] = _inkc
+                a[~_m] = _bgc
+            except Exception as exc:
+                logger.warning('motif 单元硬边化失败 %s: %s', ref_file, exc)
+                _cell = _cell.resize((_tw, _th), Image.LANCZOS)
+                a = np.asarray(_cell).astype(np.float64)
             rgba = np.zeros((_th, _tw, 4), dtype=np.float32)
             rgba[..., :3] = a / 255.0
             rgba[..., 3] = 1.0
@@ -1375,7 +1401,11 @@ def draw_lithology_pattern(ax, lith_name, z0, z1, x0=0.0, x1=None,
             _im_interp = 'nearest'
         else:
             _tile = _lith_ink_tile(ref, tpx=_tpx)
-            _im_interp = 'antialiased'
+            # 【R67c】砂/泥 motif 单元瓦片 1:1 硬边贴图：antialiased 在
+            # 最终 150dpi 栅格下二次重采样（R25 同症状）——1-2px 的短线/
+            # 点被亚像素相位交替成大小深浅不一。整图参考瓦片维持原口径。
+            _im_interp = ('nearest' if str(ref) in _SYMBOL_REF_UNIT
+                          else 'antialiased')
         if _tile is None:
             return
         # 【2026-10-23 R21】栅格换算一律用**实际瓦片像素数**（_hpx/_vpx），

@@ -12601,10 +12601,31 @@ class LithologyRecognizer:
         # 中子门控（2026-10-08）：QC判定中子与孔隙度体系矛盾时跳过CNL判据
         _skip_nphi = not self.neutron_reliable
 
+        # 【R67 用户定案】密度井径门控：扩径点（CALR>1.20）密度失真，
+        # DEN 判据不作数——must 跳过、core 不计分、deny 组不触发。
+        # 密度的变化必须对照井径判真伪（用户："砂泥岩剖面以伽玛为准确定
+        # 泥质含量，密度的变化要看井径的变化，不真实的不能使用"）；
+        # CALR 缺失/缺测视同在径=原口径（与 R64 _den_ok 同口径）
+        _den_bad = False
+        # 【R67b 回归收缩】门控只作用于"低密度作证据"的岩性
+        # （泥岩/煤/碳质泥岩）：扩径只让密度偏低失真，防"密度降低判
+        # 泥岩/煤"；盐岩等低密度骨架岩性的 DEN must（盐段必然扩径
+        # 溶解）不受门控（111D 回归教训：331 点 halite->limestone），
+        # 高密度证据（DEN>）型条件同样保留原口径
+        if rule['key'] in ('shale', 'coal', 'carbonaceous_shale'):
+            _s_calr = getattr(self, 'series', None)
+            if _s_calr is not None and _s_calr.get('CALR') is not None:
+                try:
+                    _cv = float(np.asarray(_s_calr['CALR']).ravel()[i])
+                    _den_bad = bool(np.isfinite(_cv) and _cv > 1.20)
+                except Exception:
+                    _den_bad = False
+
         def _skipped(col):
             """该列的判据是否因曲线质量不可信而失效"""
             return ((_skip_pe and col == 'PE') or
-                    (_skip_nphi and col in ('CNL', 'NPHI')))
+                    (_skip_nphi and col in ('CNL', 'NPHI')) or
+                    (_den_bad and col == 'DEN'))
         # 井级剖面约束：砂泥岩剖面下判碳酸盐需要更多一致性项
         _ss_profile = (self.profile_type == 'sand_shale')
         # 镜像守门【2026-10-15】：碳酸盐岩剖面下判砂岩同样要求更多一致性项
@@ -14958,8 +14979,14 @@ class WellLogProcessor:
                             # 相似但较缓。段内响应与邻近围岩无突变对比
                             # （渐变一致，如整段扩径坏井眼）→ 改归泥岩
                             # （deny 式后置过滤，不依赖门控副作用）
+                            # 【R67 用户定案】降级/区域知识改判去向按伽玛裁决
                             try:
-                                _n_spk = _demote_coal_without_spike(data)
+                                _gr_bnd = _rec.stats.get('GR_sand_max')
+                            except Exception:
+                                _gr_bnd = None
+                            try:
+                                _n_spk = _demote_coal_without_spike(
+                                    data, gr_boundary=_gr_bnd)
                                 if _n_spk:
                                     logger.info("无尖峰煤/碳质泥岩降级: %d 点"
                                                 "改归泥岩（段内响应与邻近围岩"
@@ -14968,7 +14995,8 @@ class WellLogProcessor:
                                 logger.warning("尖峰校验降级失败"
                                                "（不影响主流程）: %s", _spe)
                             try:
-                                _n_coal = _demote_coal_in_enlarged_hole(data)
+                                _n_coal = _demote_coal_in_enlarged_hole(
+                                    data, gr_boundary=_gr_bnd)
                                 if _n_coal:
                                     logger.info("扩径段煤/碳质泥岩降级: %d 点改归泥岩"
                                                 "（扩径 CAL/BIT>1.20 且 RT 无高尖）",
@@ -14982,7 +15010,8 @@ class WellLogProcessor:
                             # 优先于单点统计判据（deny 式后置过滤，不依赖
                             # 任何门控副作用，判据不反复）
                             try:
-                                _nk, _nc = _apply_regional_lith_knowledge(data)
+                                _nk, _nc = _apply_regional_lith_knowledge(
+                                    data, gr_boundary=_gr_bnd)
                                 if _nk or _nc:
                                     logger.info("区域知识: 煤 %d 点/碳质泥岩 %d 点"
                                                 "改归泥岩（info.json「区域知识」"
@@ -19039,7 +19068,7 @@ def rejudge_gas_by_reg_below_seal(data):
     return out, n_demoted
 
 
-def _demote_coal_without_spike(data):
+def _demote_coal_without_spike(data, gr_boundary=None):
     """【2026-10-28 R38 用户知识定案】无尖峰状突变的煤/碳质泥岩降级。
 
     用户知识（知识条目 K-LITH-001，正本 knowledge/entries/K-LITH-001_煤碳质泥岩泥岩判别.md）：
@@ -19154,13 +19183,32 @@ def _demote_coal_without_spike(data):
     if _cnt:
         _mask = np.zeros(n, dtype=bool)
         _mask[np.array(_demote_idx, dtype=int)] = True
+        # 【R67 用户定案】去向按伽玛裁决：砂泥岩剖面以伽玛为准确定泥质
+        # 含量——降级点 GR<GR_sand_max（砂岩群）→ sandstone（上下皆砂
+        # 岩的低伽玛井眼失真点回归砂体），否则 shale；无分界/GR 缺失
+        # → 维持原口径 shale
+        _gr = None
+        for _gc in COL_CANDIDATES.get('GR', ['GR']):
+            if _gc in data.columns:
+                _gr = pd.to_numeric(data[_gc], errors='coerce')
+                break
+        _ms = None
+        _mh = _mask
+        if _gr is not None and gr_boundary is not None \
+                and np.isfinite(gr_boundary):
+            _low = (_gr < float(gr_boundary)).fillna(False).values
+            _ms = _mask & _low
+            _mh = _mask & ~_low
         for _c in ('LITHOLOGY', 'LITHOLOGY_MC'):
             if _c in data.columns:
-                data.loc[_mask, _c] = 'shale'
+                if _ms is not None and _ms.any():
+                    data.loc[_ms, _c] = 'sandstone'
+                data.loc[_mh, _c] = 'shale'
     return _cnt
 
 
-def _demote_coal_in_enlarged_hole(data, cal_ratio_thr=1.20):
+def _demote_coal_in_enlarged_hole(data, cal_ratio_thr=1.20,
+                                  gr_boundary=None):
     """【2026-10-27 R33 用户定案】扩径段煤/碳质泥岩降级。
 
     煤判据（DEN<2.0+DT>100+CNL高+GR低）会被井眼效应整段满足：扩径→
@@ -19201,10 +19249,24 @@ def _demote_coal_in_enlarged_hole(data, cal_ratio_thr=1.20):
              & ~(rt >= rt_p90))
     n = int(_mask.sum())
     if n:
-        data.loc[_mask, 'LITHOLOGY'] = 'shale'
-        # 【R36】LITHOLOGY_MC 同步（下游 10418 行优先读 MC，只改一列会分叉）
-        if 'LITHOLOGY_MC' in data.columns:
-            data.loc[_mask, 'LITHOLOGY_MC'] = 'shale'
+        # 【R67 用户定案】去向按伽玛裁决（同 _demote_coal_without_spike）
+        _gr = None
+        for _gc in COL_CANDIDATES.get('GR', ['GR']):
+            if _gc in data.columns:
+                _gr = pd.to_numeric(data[_gc], errors='coerce')
+                break
+        if _gr is not None and gr_boundary is not None \
+                and np.isfinite(gr_boundary):
+            _low = (_gr < float(gr_boundary)).fillna(False)
+            _ms = _mask & _low
+            _mh = _mask & ~_low
+        else:
+            _ms, _mh = None, _mask
+        for _c in ('LITHOLOGY', 'LITHOLOGY_MC'):
+            if _c in data.columns:
+                if _ms is not None and _ms.any():
+                    data.loc[_ms, _c] = 'sandstone'
+                data.loc[_mh, _c] = 'shale'
     return n
 
 
@@ -19667,7 +19729,7 @@ def _iterative_lith_review(data, profile_type='mixed'):
     return (_n_ok, _n_pend, _n_dem, _n_calc)
 
 
-def _apply_regional_lith_knowledge(data):
+def _apply_regional_lith_knowledge(data, gr_boundary=None):
     """【2026-10-28 R36 用户定案】区域知识岩性约束。
 
     info.json「区域知识」组标注 煤层=无 / 碳质泥岩=无 时，单点判据命中的
@@ -19687,18 +19749,46 @@ def _apply_regional_lith_knowledge(data):
     n_coal = n_carb = 0
     _cols = [c for c in ('LITHOLOGY', 'LITHOLOGY_MC') if c in data.columns]
     _lith = data[_col].astype(str).str.lower()
+    # 【R67 用户定案】改判去向按伽玛裁决：砂泥岩剖面以伽玛为准确定泥质
+    # 含量——命中点 GR<GR_sand_max（砂岩群）→ sandstone（上下皆砂岩的
+    # 低伽玛井眼失真点回归砂体，如 XIMENIA-5 515.5-516.1/679.8-680.4m），
+    # 否则 shale；无分界/GR 缺失 → 维持原口径 shale
+    _grb = None
+    try:
+        _grb = float(gr_boundary) if gr_boundary is not None else None
+    except Exception:
+        _grb = None
+    _gr = None
+    for _gc in COL_CANDIDATES.get('GR', ['GR']):
+        if _gc in data.columns:
+            _gr = pd.to_numeric(data[_gc], errors='coerce')
+            break
+
+    def _gr_split(_m):
+        """按伽玛把命中点拆成 (sandstone, shale) 掩码；无法裁决→全 shale"""
+        if _gr is None or _grb is None or not np.isfinite(_grb):
+            return None, _m
+        _low = (_gr < _grb).fillna(False)
+        return (_m & _low), (_m & ~_low)
+
     if str(reg.get('煤层', '')).strip() == '无':
         _m = (_lith == 'coal')
         n_coal = int(_m.sum())
         if n_coal:
+            _ms, _mh = _gr_split(_m)
             for _c in _cols:
-                data.loc[_m, _c] = 'shale'
+                if _ms is not None and _ms.any():
+                    data.loc[_ms, _c] = 'sandstone'
+                data.loc[_mh, _c] = 'shale'
     if str(reg.get('碳质泥岩', '')).strip() == '无':
         _m = _lith.isin(('carbonaceous_shale', 'carbonaceous mudstone'))
         n_carb = int(_m.sum())
         if n_carb:
+            _ms, _mh = _gr_split(_m)
             for _c in _cols:
-                data.loc[_m, _c] = 'shale'
+                if _ms is not None and _ms.any():
+                    data.loc[_ms, _c] = 'sandstone'
+                data.loc[_mh, _c] = 'shale'
     return n_coal, n_carb
 
 
@@ -19919,7 +20009,9 @@ _SEAL_CN = {'halite': '盐岩', 'salt': '盐岩', '盐岩': '盐岩',
 #   ① 同结论相邻层、层间夹层 <= merge_gap(1.5m) → 合并为一层（夹层=层内
 #      夹层，THICKNESS 记毛厚，POINTS 记结论点数）；
 #   ② 层厚 < min_layer(1.0m) 或点数 < 3 → 并入同结论邻层（优先更厚者）；
-#   ③ < hard_absorb(0.6m) 的采样噪声层并入异结论邻层时，若目标为油气层，
+#   ③ < min_layer(1.0m) 的异结论薄层并入深度邻接邻层（R67 用户定案：
+#      同一砂体内无泥岩隔层、无低于截止值孔隙度砂岩隔开应并为一层；
+#      旧口径 <0.6m 才并，0.6m 恰卡边界漏并）时，若目标为油气层，
 #      被并入层 Sw 中位 > 0.85 或 RT 中位 < 1.0（水的铁证）→ 拒绝合并并
 #      留痕（R58b 铁律：升级为油气不得违背水铁证）。
 _INTERP_MERGE_GAP_M = 1.5
@@ -19928,7 +20020,7 @@ _INTERP_HARD_ABSORB_M = 0.6
 
 
 def _merge_interpretation_layers(layers, merge_gap=None, min_layer=None,
-                                 hard_absorb=None):
+                                 hard_absorb=None, diff_absorb=None):
     """把小层按物理口径合并（同结论夹薄层合并 / 薄层归并）。返回新列表。"""
     if not layers:
         return layers
@@ -19936,6 +20028,9 @@ def _merge_interpretation_layers(layers, merge_gap=None, min_layer=None,
     min_layer = (_INTERP_MIN_LAYER_M if min_layer is None else min_layer)
     hard_absorb = (_INTERP_HARD_ABSORB_M
                    if hard_absorb is None else hard_absorb)
+    # 【R67e】异结论薄层并入阈值：砂泥岩剖面=min_layer(1.0m)，
+    # 其它剖面维持 hard_absorb(0.6m)
+    diff_absorb = (hard_absorb if diff_absorb is None else diff_absorb)
     _hc = {'OIL', 'GAS', 'OIL_POSSIBLE', 'GAS_POSSIBLE',
            'CONDENSATE', 'OIL_PROBABLE', 'GAS_PROBABLE'}
 
@@ -19989,7 +20084,11 @@ def _merge_interpretation_layers(layers, merge_gap=None, min_layer=None,
             if _same:
                 _tgt = max(_same, key=lambda j: float(out[j]['bot'])
                            - float(out[j]['top']))
-            elif _th < hard_absorb and _cand:
+            # 【R67 用户定案】异结论薄层并入阈值=min_layer(1.0m)：同一砂体
+            # 内无泥岩隔层、无低于截止值孔隙度砂岩隔开，OIL-DRY-OIL 应合并
+            # 为一层（0.6m 恰卡旧边界 0.6<0.6=False 漏并，XIMENIA-5 层 14）；
+            # 水铁证否决保留。0.6m 仍作孤立噪声剔除线
+            elif _th < diff_absorb and _cand:
                 _j = max(_cand, key=lambda j: float(out[j]['bot'])
                          - float(out[j]['top']))
                 if out[_j].get('lab') in _hc:
@@ -20176,7 +20275,18 @@ def build_interpretation_layer_table(data, well_name, output_dir,
     # 【2026-11-05 R60】小层合并（用户："层要合并"）——同结论夹层<=1.5m 并层、
     # 薄层<1.0m 归并；逐点结论不变，只改层表归集口径
     _n_layers_before = len(_layers)
-    _layers = _merge_interpretation_layers(_layers)
+    # 【R67e】异结论薄层并入阈值按剖面：砂泥岩剖面 1.0m（用户经验：同一
+    # 砂体内无泥岩隔层、无低于截止值孔隙度砂岩隔开的 OIL-DRY-OIL 应并为
+    # 一层）；其它剖面维持 0.6m
+    _ss_prof = (str(_ACTIVE_REGIONAL.get('剖面类型') or '').strip()
+                == 'sand_shale')
+    if not _ss_prof and 'LITHOLOGY' in data.columns:
+        _ls_share = data['LITHOLOGY'].astype(str).str.lower().isin(
+            ('sandstone', 'shale', 'sandy_shale', 'shaly_sand')).mean()
+        _ss_prof = bool(_ls_share > 0.6)
+    _layers = _merge_interpretation_layers(
+        _layers, diff_absorb=(_INTERP_MIN_LAYER_M if _ss_prof
+                              else _INTERP_HARD_ABSORB_M))
     if _n_layers_before != len(_layers):
         logger.info('解释层表: 小层合并 %d → %d 层'
                     '（同结论夹层<=%.1fm 并层 / 薄层<%.1fm 归并）',
