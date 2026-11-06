@@ -16082,7 +16082,8 @@ class WellLogProcessor:
                     build_interpretation_layer_table(
                         self.results['processed_data'],
                         getattr(self, 'well_name', 'Well'),
-                        well_output_dir)
+                        well_output_dir,
+                        profile_type=_profile_type)
             except Exception as _lt57:
                 logger.warning("解释层表生成失败（不影响主流程）: %s", _lt57)
 
@@ -20132,7 +20133,8 @@ def _merge_interpretation_layers(layers, merge_gap=None, min_layer=None,
 
 def build_interpretation_layer_table(data, well_name, output_dir,
                                      gap_break=0.5,
-                                     min_group_seal_thick=0.5):
+                                     min_group_seal_thick=0.5,
+                                     profile_type=None):
     """盐岩/硬石膏下大层划分 + 分层解释统一归集层表【2026-10-30 R57】。
 
     用户要求："按解释逻辑总纲的要求，按截止值0.06能分开层的一定要
@@ -20278,12 +20280,16 @@ def build_interpretation_layer_table(data, well_name, output_dir,
     # 【R67e】异结论薄层并入阈值按剖面：砂泥岩剖面 1.0m（用户经验：同一
     # 砂体内无泥岩隔层、无低于截止值孔隙度砂岩隔开的 OIL-DRY-OIL 应并为
     # 一层）；其它剖面维持 0.6m
-    _ss_prof = (str(_ACTIVE_REGIONAL.get('剖面类型') or '').strip()
-                == 'sand_shale')
-    if not _ss_prof and 'LITHOLOGY' in data.columns:
-        _ls_share = data['LITHOLOGY'].astype(str).str.lower().isin(
-            ('sandstone', 'shale', 'sandy_shale', 'shaly_sand')).mean()
-        _ss_prof = bool(_ls_share > 0.6)
+    _pt = str(profile_type or '').strip()
+    if _pt:
+        _ss_prof = (_pt == 'sand_shale')
+    else:
+        _ss_prof = (str(_ACTIVE_REGIONAL.get('剖面类型') or '').strip()
+                    == 'sand_shale')
+        if not _ss_prof and 'LITHOLOGY' in data.columns:
+            _ls_share = data['LITHOLOGY'].astype(str).str.lower().isin(
+                ('sandstone', 'shale', 'sandy_shale', 'shaly_sand')).mean()
+            _ss_prof = bool(_ls_share > 0.6)
     _layers = _merge_interpretation_layers(
         _layers, diff_absorb=(_INTERP_MIN_LAYER_M if _ss_prof
                               else _INTERP_HARD_ABSORB_M))
