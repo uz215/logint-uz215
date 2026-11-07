@@ -10,7 +10,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-STANDARD_ID = 'LITH-2026-11-02-v2.8'
+STANDARD_ID = 'LITH-2026-11-02-v2.9'
 STANDARD_DATE = '2026-11-02'
 
 # 证据优先级：取芯/岩心（最高）> 元素测井 > 曲线特征 > 点级统计
