@@ -17640,6 +17640,65 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
     if gas_files:
         kb_md_parts.append("### 气测/录井数据文件\n"
                            + '\n'.join(f"- {p.name}" for p in gas_files[:10]))
+    # ---- 2b. 地质设计/录井图结构化知识（提供给 quicklook/KB/解释） ----
+    _pre_docs = {}
+    try:
+        from logsys import well_docs as _wdocs
+        _design = _wdocs.read_design(well_dir)
+        _pre_docs['design'] = _design
+        _ml_file = _wdocs.find_masterlog_file(well_dir)
+        _ml = {}
+        _mlh = {}
+        _mudlog_k = {}
+        if _ml_file:
+            try:
+                _ml = _wdocs.read_masterlog(well_dir)
+            except Exception as _mle:
+                logger.warning('录井图结构化读取失败: %s', _mle)
+            try:
+                _mlh = _wdocs.read_masterlog_header(well_dir)
+            except Exception as _mlhe:
+                logger.warning('录井图表头读取失败: %s', _mlhe)
+            try:
+                from logsys.mudlog_knowledge import extract_mudlog_knowledge
+                _mudlog_k = extract_mudlog_knowledge(_ml_file)
+            except Exception as _mke:
+                logger.warning('录井图五类知识提取失败: %s', _mke)
+        _pre_docs['masterlog'] = _ml
+        _pre_docs['masterlog_header'] = _mlh
+        _pre_docs['mudlog_knowledge'] = _mudlog_k
+        _lines = ['### 井目录结构化资料（地质设计/录井图）']
+        _lines.append(f"- 地质设计: {'; '.join(str(x.get('file')) for x in (_design.get('sources') or [])) or '未找到'}")
+        for _k in ('well', 'well_type', 'designed_td_m', 'structure', 'target_formation',
+                   'country', 'interval'):
+            if _design.get(_k):
+                _lines.append(f"- 设计.{_k}: {_design.get(_k)}")
+        if _design.get('formation_tops'):
+            _lines.append('- 设计地层顶: ' + '; '.join(
+                f"{x.get('formation')}@{x.get('depth')}" for x in _design['formation_tops'][:20]))
+        if _design.get('casing'):
+            _lines.append('- 设计套管: ' + str(_design['casing'])[:500])
+        if _design.get('contacts'):
+            _lines.append('- 设计界面: ' + str(_design['contacts'])[:500])
+        if _ml_file:
+            _lines.append(f"- 录井图: {Path(_ml_file).name}")
+            if _ml:
+                _lines.append(f"- 录井岩性层: {len(_ml.get('lith') or [])}; 气测事件: {len(_ml.get('gas') or [])}")
+            if _mlh:
+                for _k, _v in (_mlh.get('fields') or {}).items():
+                    if _v:
+                        _lines.append(f"- 图头.{_k}: {_v}")
+            if _mudlog_k:
+                for _k in ('basic_data', 'lithology', 'gas_show', 'oil_gas_show', 'engineering'):
+                    _v = _mudlog_k.get(_k)
+                    if _v:
+                        _lines.append(f"- 录井知识.{_k}: {str(_v)[:800]}")
+        else:
+            _lines.append('- 录井图: 井目录未发现 masterlog/录井图')
+        kb_md_parts.append('\n'.join(_lines))
+    except Exception as _pde:
+        logger.warning('井目录结构化资料读取失败（跳过）: %s', _pde)
+
     _region, _well_extra = _guess_region(well_dir, None)
     # 注意: 图头字段补充(_enrich_well_info)需在 run_workflow 解释完成后、
     # 出图前执行（results 此时才有 las_info），见下文第5步前。
@@ -17662,6 +17721,11 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
         print("✗ 解释流程失败")
         return None
 
+    # 井目录结构化知识挂到 results（设计/录井图/五类）
+    try:
+        results['well_docs_extract'] = _pre_docs
+    except Exception:
+        pass
     # 用解释结果里的 LAS 井信息补全知识摘要
     las_info = results.get('las_info') or {}
     _region, _well_extra = _guess_region(well_dir, las_info)

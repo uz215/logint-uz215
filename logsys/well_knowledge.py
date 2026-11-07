@@ -316,6 +316,21 @@ def _read_formation_tops(well_dir):
             wb.close()
         except Exception:
             pass
+    # 主簿无 Fm 表时，回退地质设计 formation_tops
+    if not out:
+        try:
+            from .well_docs import read_design
+            _des = read_design(wd)
+            for _x in (_des.get('formation_tops') or []):
+                try:
+                    out.append({'formation': str(_x.get('formation') or _x.get('name')),
+                                'top': float(_x.get('depth') or _x.get('top')),
+                                'base': np.nan,
+                                'source': f'design:{(_des.get("sources") or [{}])[0].get("file", "design")}'})
+                except Exception:
+                    pass
+        except Exception:
+            pass
     # 去重/排序
     seen = set(); res = []
     for x in sorted(out, key=lambda z: z.get('top', 0)):
