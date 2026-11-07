@@ -15,6 +15,8 @@
 | company | Petrobras |
 | coordinates | {'latitude': '-25.639973', 'longitude': '-44.653793'} |
 | bit_size | 8.5 |
+| bit_program | 8.5 |
+| mud_density | 1.46 |
 | note | 坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。 |
 
 ## 0b. 地层

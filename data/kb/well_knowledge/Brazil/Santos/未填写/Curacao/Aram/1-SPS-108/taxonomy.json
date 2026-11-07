@@ -13,7 +13,9 @@
     "lithology",
     "testing",
     "log_interpretation",
-    "gas_show"
+    "gas_show",
+    "oil_gas_show",
+    "engineering"
   ],
   "summary": "D:\\360\\src\\data\\kb\\well_knowledge\\1-SPS-108_knowledge_summary.md"
 }

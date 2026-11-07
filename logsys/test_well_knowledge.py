@@ -30,6 +30,6 @@ chk('基础数据(坐标/钻头)', bool((k.get('basic_data') or {}).get('coordin
 chk('试油分类', bool((k.get('testing') or {}).get('files')), k.get('testing'))
 chk('测井解释分类', int((k.get('log_interpretation') or {}).get('layers') or 0)>=0, k.get('log_interpretation'))
 chk('气测异常含深度', all(('top' in x and 'base' in x) for x in (k.get('gas_show') or [])), (k.get('gas_show') or [])[:1])
-chk('分类齐全', {'basic_data','stratigraphy','lithology','testing','log_interpretation','gas_show'} <= set((k.get('categories') or {}).keys()), list((k.get('categories') or {}).keys()))
+chk('分类齐全', {'basic_data','stratigraphy','lithology','testing','log_interpretation','gas_show','oil_gas_show','engineering'} <= set((k.get('categories') or {}).keys()), list((k.get('categories') or {}).keys()))
 print('\n结果: %d 通过, %d 失败'%(ok,fail))
 sys.exit(0 if fail==0 else 1)

@@ -17686,6 +17686,13 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
         _wk_text = _wk_md.read_text(encoding='utf-8')
         kb_md_parts.append(_wk_text)
         results['well_knowledge'] = _wk
+        try:
+            from logsys.well_knowledge import ingest_well_knowledge_db
+            ingest_well_knowledge_db(well_dir, well_name=well_name,
+                                     results=results, md_path=str(_wk_md))
+            results['well_knowledge_db'] = 'data/kb/kb.db'
+        except Exception as _wkdb:
+            logger.warning('井知识写入 kb.db 失败（保留文件/索引）: %s', _wkdb)
         results['well_knowledge_md'] = str(_wk_md)
         print(f"  井目录知识摘要: {_wk_md}（录井/XRD 按大致井段，已并入 KB）")
     except Exception as _wke:

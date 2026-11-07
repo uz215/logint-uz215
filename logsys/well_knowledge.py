@@ -282,7 +282,8 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
            'xrd_bins': [], 'xrf_bins': [], 'swc_core': [], 'drill_core': [],
            'mudlog': {}, 'usage': [], 'hierarchy': {}, 'basic_data': {},
            'stratigraphy': {}, 'testing': {}, 'log_interpretation': {},
-           'gas_show': [], 'categories': {}}
+           'gas_show': [], 'oil_gas_show': [], 'engineering': [],
+           'categories': {}}
     # 层级/基础数据/试油/气测（优先井信息+井目录文件）
     info = _read_well_info(wd, wn)
     h = info.get('井信息') or {}
@@ -309,7 +310,12 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
         'well': wn, 'company': h.get('company') or '',
         'coordinates': {k: coords.get(k) for k in ('latitude', 'longitude', 'x_coordinate', 'y_coordinate') if coords.get(k)},
         'bit_size': meas.get('bit_size') or '',
+        'bit_program': meas.get('bit_program') or meas.get('bit_size') or '',
         'casing_record': meas.get('casing_record') or '',
+        'mud_type': (info.get('泥浆信息') or {}).get('drilling_fluid_type') or '',
+        'mud_density': (info.get('泥浆信息') or {}).get('drilling_fluid_density') or '',
+        'mud_viscosity': (info.get('泥浆信息') or {}).get('drilling_fluid_viscosity') or '',
+        'fluid_loss': (info.get('泥浆信息') or {}).get('drilling_fluid_loss') or '',
         'borehole_record': meas.get('borehole_record') or '',
         'spud_date': dates.get('spud_date') or '', 'td_date': dates.get('td_date') or '',
         'well_type': design.get('well_type') or '',
@@ -425,6 +431,32 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
         out['mudlog'] = {'found': False, 'note': f'录井图读取跳过: {e}'}
     out['depth_note'] = ('录井/XRD/XRF 为录井深度，本摘要按大致井段统计，不强制与测井深度对齐；'
                          'SWC 为测井深度。用于 logInt 检索时按井段/岩性/数值范围引用。')
+    # 录井图知识（若有 masterlog）：五类知识补充/合并
+    try:
+        from .well_docs import find_masterlog_file
+        from .mudlog_knowledge import extract_mudlog_knowledge
+        _mp = find_masterlog_file(wd)
+        if _mp:
+            _mk = extract_mudlog_knowledge(_mp)
+            out['mudlog'] = {'found': True, 'file': Path(_mp).name,
+                             'basic_data': _mk.get('basic_data') or {},
+                             'lithology': _mk.get('lithology') or [],
+                             'gas_show': _mk.get('gas_show') or [],
+                             'oil_gas_show': _mk.get('oil_gas_show') or [],
+                             'engineering': _mk.get('engineering') or []}
+            for _k, _v in (_mk.get('basic_data') or {}).items():
+                if _v and not out['basic_data'].get(_k):
+                    out['basic_data'][_k] = _v
+            for _z in (_mk.get('lithology') or []):
+                out['lithology_zones'].append({
+                    'top': _z.get('depth'), 'base': _z.get('depth'),
+                    'lith': _z.get('lith'), 'source': 'masterlog'})
+            out['gas_show'].extend(_mk.get('gas_show') or [])
+            out['oil_gas_show'] = _mk.get('oil_gas_show') or []
+            out['engineering'] = _mk.get('engineering') or []
+    except Exception as _mle:
+        logger.warning('录井图知识提取失败（跳过）: %s', _mle)
+
     out['categories'] = {
         'basic_data': out.get('basic_data') or {},
         'stratigraphy': out.get('stratigraphy') or {},
@@ -436,6 +468,8 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
         'testing': out.get('testing') or {},
         'log_interpretation': out.get('log_interpretation') or {},
         'gas_show': out.get('gas_show') or [],
+        'oil_gas_show': out.get('oil_gas_show') or [],
+        'engineering': out.get('engineering') or [],
     }
     out['usage'] = [f'{wn} XRD 方解石/白云石 数值范围', f'{wn} 录井岩性段',
                     f'{wn} 井壁取芯岩性', '巴西 Aram 碳酸盐岩 酸解 CO2']
@@ -529,6 +563,16 @@ def render_well_knowledge_md(k):
         L += ['', '## 6d. 气测异常（含深度）', '| 文件 | 顶 | 底 | 峰值 | 中位 | 依据 |', '|---|---|---|---|---|---|']
         for x in gs[:20]:
             L.append(f"| {x.get('file')} | {x.get('top')} | {x.get('base')} | {x.get('max')} | {x.get('median')} | {x.get('note')} |")
+    ogs = k.get('oil_gas_show') or []
+    if ogs:
+        L += ['', '## 6e. 油气显示/油砂/级别', '| 深度 | 级别 | 原文 |', '|---|---|---|']
+        for x in ogs[:20]:
+            L.append(f"| {x.get('depth')} | {x.get('grade')} | {x.get('text')} |")
+    eng = k.get('engineering') or []
+    if eng:
+        L += ['', '## 6f. 工程情况', '| 深度 | 原文 |', '|---|---|']
+        for x in eng[:20]:
+            L.append(f"| {x.get('depth')} | {x.get('text')} |")
     ml = k.get('mudlog') or {}
     L += ['', '## 7. 录井图']
     if ml.get('found'):
@@ -607,3 +651,53 @@ def query_well_knowledge(well_name, keyword=''):
     if keyword and str(keyword) not in md:
         return ''
     return md
+
+
+def ingest_well_knowledge_db(well_dir, well_name=None, results=None,
+                             db_path=None, md_path=None):
+    """把井目录知识摘要写入 kb.db（文档/FTS/实体），并更新 manifest。"""
+    import hashlib, json, os, time
+    from .knowledge.db import connect
+    from .knowledge.ingest import ingest_markdown
+    if md_path:
+        mp = Path(md_path)
+        k = load_well_knowledge(well_name) or {}
+    else:
+        k, mp, jp = save_well_knowledge(well_dir, well_name=well_name, results=results)
+    if db_path is None:
+        db_path = Path(__file__).resolve().parent.parent / 'data' / 'kb' / 'kb.db'
+    conn = connect(str(db_path))
+    doc_id = ingest_markdown(conn, str(mp), force=True)
+    conn.commit()
+    try:
+        conn.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+    except Exception:
+        pass
+    try:
+        _st = {
+            'doc': int(conn.execute('SELECT count(*) FROM doc').fetchone()[0]),
+            'chunk': int(conn.execute('SELECT count(*) FROM chunk').fetchone()[0]),
+            'entity': int(conn.execute('SELECT count(*) FROM entity').fetchone()[0]),
+            'fact': int(conn.execute('SELECT count(*) FROM fact').fetchone()[0]),
+            'case_layer': int(conn.execute('SELECT count(*) FROM case_layer').fetchone()[0]),
+            'clause': int(conn.execute('SELECT count(*) FROM clause').fetchone()[0]),
+            'doubt': int(conn.execute('SELECT count(*) FROM doubt').fetchone()[0]),
+        }
+    except Exception:
+        _st = {}
+    conn.close()
+    # manifest 在 DB 关闭后计算，确保 hash 是最终文件
+    try:
+        man = Path(__file__).resolve().parent.parent / 'data' / 'kb' / 'kb_manifest.json'
+        data = json.loads(man.read_text(encoding='utf-8')) if man.exists() else {}
+        p = Path(db_path)
+        data['size_bytes'] = p.stat().st_size
+        data['sha256'] = hashlib.sha256(p.read_bytes()).hexdigest()
+        data['generated_at'] = time.strftime('%Y-%m-%d %H:%M:%S')
+        data['doc_count'] = _st.get('doc')
+        if _st:
+            data['stats'] = _st
+        man.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding='utf-8')
+    except Exception as e:
+        logger.warning('kb_manifest 更新失败: %s', e)
+    return doc_id, k, mp

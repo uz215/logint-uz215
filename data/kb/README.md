@@ -48,3 +48,12 @@ python -c "from logsys.well_knowledge import save_well_knowledge; save_well_know
 - 目录：`data/kb/well_knowledge/<国家>/<盆地>/<凹陷>/<构造>/<油田>/<井>/<分类>.md`；
 - 分类：basic_data / stratigraphy / lithology / testing / log_interpretation / gas_show；
 - 录井岩性→地层/岩性；气测异常→gas_show；钻头/套管/坐标/井别→basic_data。
+
+
+## 录井图五类知识
+- basic_data（井名/井位/井别/钻头/套管/泥浆类型性能）
+- lithology（岩性）
+- gas_show（气测异常含深度）
+- oil_gas_show（油气显示/油砂级别/气泡）
+- engineering（井漏/溢流/卡钻等）
+- 程序：`logsys/mudlog_knowledge.py`；知识同时写入 kb.db 与 well_knowledge 分类文件。

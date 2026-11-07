@@ -1859,7 +1859,12 @@
       "longitude": "-44.653793"
     },
     "bit_size": "8.5",
+    "bit_program": "8.5",
     "casing_record": "",
+    "mud_type": "",
+    "mud_density": "1.46",
+    "mud_viscosity": "",
+    "fluid_loss": "",
     "borehole_record": "",
     "spud_date": "",
     "td_date": "",
@@ -3113,6 +3118,8 @@
       "note": "≥P90 113.030"
     }
   ],
+  "oil_gas_show": [],
+  "engineering": [],
   "categories": {
     "basic_data": {
       "country": "Brazil",
@@ -3124,7 +3131,12 @@
         "longitude": "-44.653793"
       },
       "bit_size": "8.5",
+      "bit_program": "8.5",
       "casing_record": "",
+      "mud_type": "",
+      "mud_density": "1.46",
+      "mud_viscosity": "",
+      "fluid_loss": "",
       "borehole_record": "",
       "spud_date": "",
       "td_date": "",
@@ -6203,7 +6215,9 @@
         "depth_basis": "gas/mud logging (approx)",
         "note": "≥P90 113.030"
       }
-    ]
+    ],
+    "oil_gas_show": [],
+    "engineering": []
   },
   "hierarchy_evidence": [
     "Curacao-1井阶段汇报（测井）.pptx: 桑托斯(Santos)盆地盐下地层综合柱状图"

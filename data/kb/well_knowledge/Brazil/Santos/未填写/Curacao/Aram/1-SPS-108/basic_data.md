@@ -11,7 +11,12 @@
     "longitude": "-44.653793"
   },
   "bit_size": "8.5",
+  "bit_program": "8.5",
   "casing_record": "",
+  "mud_type": "",
+  "mud_density": "1.46",
+  "mud_viscosity": "",
+  "fluid_loss": "",
   "borehole_record": "",
   "spud_date": "",
   "td_date": "",
