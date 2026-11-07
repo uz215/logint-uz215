@@ -8,7 +8,7 @@ def chk(n,c,d=''):
     global ok,fail
     if c: ok+=1; print('  PASS ',n)
     else: fail+=1; print('  FAIL ',n,d)
-chk('标准版本', ls.STANDARD_ID=='LITH-2026-11-02-v2.9', ls.STANDARD_ID)
+chk('标准版本', ls.STANDARD_ID=='LITH-2026-11-02-v2.10', ls.STANDARD_ID)
 chk('证据优先级 core>element>curve', ls.EVIDENCE_PRIORITY[:3]==('core','element','curve'), ls.EVIDENCE_PRIORITY)
 chk('GR不作绝对否决', ls.GR_POLICY.get('absolute_veto') is False, ls.GR_POLICY)
 chk('CALC1=灰岩', ls.CALC_SEMANTICS['CALC1']['indicator']=='limestone')

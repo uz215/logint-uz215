@@ -828,3 +828,36 @@ def ingest_well_knowledge_db(well_dir, well_name=None, results=None,
     except Exception as e:
         logger.warning('kb_manifest 更新失败: %s', e)
     return doc_id, k, mp
+
+
+def ingest_well_knowledge_logknow(well_dir, well_name=None, results=None, md_path=None):
+    """把井目录知识摘要写入 logKnow（本地文档 + Whoosh 索引）。
+
+    与 kb.db 入库互补：logInt 的 logKnow.search 可直接检索本井层级/分类知识。
+    """
+    if md_path:
+        mp = Path(md_path)
+        k = load_well_knowledge(well_name) or {}
+    else:
+        k, mp, jp = save_well_knowledge(well_dir, well_name=well_name, results=results)
+    text = mp.read_text(encoding='utf-8')
+    try:
+        import logKnow
+        kb = logKnow.WellLogKnowledgeBase(auto_scan=False)
+        h = k.get('hierarchy') or {}
+        title = f"{h.get('well') or well_name} 井目录知识（{h.get('country','')}/{h.get('basin','')}/{h.get('structure','')}/{h.get('field','')}）"
+        kb.indexer.add_document(
+            title=title,
+            content=text,
+            source=str(mp),
+            category='well_material',
+            well_name=str(k.get('well') or well_name or ''),
+            region=str(h.get('basin') or ''),
+            oil_field=str(h.get('field') or ''),
+            structure=str(h.get('structure') or ''),
+            depth_range='',
+            file_type='md')
+        return title, mp
+    except Exception as e:
+        logger.warning('井知识写入 logKnow 失败: %s', e)
+        return None, mp
