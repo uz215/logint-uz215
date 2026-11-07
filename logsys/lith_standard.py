@@ -10,7 +10,7 @@ import logging
 import numpy as np
 import pandas as pd
 
-STANDARD_ID = 'LITH-2026-11-02-v2.7'
+STANDARD_ID = 'LITH-2026-11-02-v2.8'
 STANDARD_DATE = '2026-11-02'
 
 # 证据优先级：取芯/岩心（最高）> 元素测井 > 曲线特征 > 点级统计
@@ -76,6 +76,9 @@ WELL_KNOWLEDGE_POLICY = {
     'categories': ('basic_data', 'stratigraphy', 'lithology', 'testing',
                    'log_interpretation', 'gas_show', 'oil_gas_show', 'engineering'),
     'db_ingest': True,
+    'formation_required': True,
+    'formation_fields': ('lithology', 'xrd_bins', 'swc_core', 'drill_core',
+                         'gas_show', 'oil_gas_show', 'engineering'),
     'hierarchy_autofill': True,
     'contacts': {'owc_gwc_fields': ('owc', 'gwc'),
                  'candidate_allowed': True,

@@ -272,6 +272,69 @@ def _candidate_contacts(interp):
     return out
 
 
+def _read_formation_tops(well_dir):
+    """从井数据工作簿 Fm/Formation 表读取地层顶底。"""
+    import glob
+    try:
+        import openpyxl
+    except Exception:
+        return []
+    wd = Path(str(well_dir))
+    xls = [p for p in sorted(wd.rglob('*.xlsx')) if '井数据' in p.name]
+    if not xls:
+        xls = sorted(wd.rglob('*.xlsx'))
+    out = []
+    for p in xls[:3]:
+        try:
+            wb = openpyxl.load_workbook(p, data_only=True, read_only=True)
+            for ws in wb.worksheets:
+                if str(ws.title).lower() not in ('fm', 'formation', 'formations', '地层', '地层表', 'tops'):
+                    continue
+                rows = [list(r) for r in ws.iter_rows(values_only=True)]
+                if not rows:
+                    continue
+                hdr = [str(x or '').strip().lower() for x in rows[0]]
+                def idx(*names):
+                    for n in names:
+                        if n in hdr:
+                            return hdr.index(n)
+                    return None
+                ti = idx('top'); bi = idx('bottom', 'base'); fi = idx('zonename', 'formation', 'name', '地层')
+                if ti is None or fi is None:
+                    continue
+                for r in rows[1:]:
+                    try:
+                        top = float(r[ti])
+                        base = float(r[bi]) if bi is not None and bi < len(r) and r[bi] is not None else np.nan
+                        name = str(r[fi] or '').strip()
+                        if name:
+                            out.append({'formation': name, 'top': round(top, 1),
+                                        'base': (round(base, 1) if np.isfinite(base) else np.nan),
+                                        'source': f'{p.name}:{ws.title}'})
+                    except Exception:
+                        pass
+            wb.close()
+        except Exception:
+            pass
+    # 去重/排序
+    seen = set(); res = []
+    for x in sorted(out, key=lambda z: z.get('top', 0)):
+        k = (x.get('formation'), x.get('top'))
+        if k not in seen:
+            seen.add(k); res.append(x)
+    return res
+
+
+def _formation_at(depth, tops):
+    try:
+        d = float(depth)
+    except Exception:
+        return '未提供'
+    hits = [t for t in (tops or []) if t.get('top') is not None and float(t['top']) <= d
+            and (not np.isfinite(t.get('base', np.nan)) or d < float(t['base']))]
+    return (hits[-1].get('formation') if hits else '未提供')
+
+
 def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     """读取井目录标定表，生成结构化知识摘要 dict。"""
     from .core_calib import read_well_calibration
@@ -324,7 +387,10 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     import glob as _glob
     out['testing']['files'] = [Path(x).name for x in _glob.glob(str(wd / '*'))
                                if any(k in Path(x).name.lower() for k in ('plt', 'dst', 'test', '试油', '试采', 'mdt', 'rft'))]
+    _tops = _read_formation_tops(wd)
     out['gas_show'] = _gas_anomalies(wd, wn)
+    for _g in out['gas_show']:
+        _g['formation'] = _formation_at(_g.get('top'), _tops)
     out['log_interpretation'] = _layers_summary(wn, results)
     _cand = _candidate_contacts(out['log_interpretation'])
     _explicit = out.get('geo_scan_contacts') or []
@@ -336,7 +402,21 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     out['testing']['contacts'] = _allc
     out['testing']['owc'] = next((x for x in _allc if x.get('type') == 'OWC'), None) or _cand.get('owc')
     out['testing']['gwc'] = next((x for x in _allc if x.get('type') == 'GWC'), None) or _cand.get('gwc')
-    out['stratigraphy'] = {'note': '地层/层位知识：优先 masterlog/地质设计；本井未提供时留空，不臆造。'}
+    _tops = _read_formation_tops(wd)
+    if not _tops:
+        for _src in (info.get('地层顶'), (info.get('地质设计') or {}).get('formation_tops')):
+            if isinstance(_src, list):
+                for _x in _src:
+                    if isinstance(_x, dict) and _x.get('formation') and _x.get('depth') is not None:
+                        _tops.append({'formation': str(_x['formation']),
+                                      'top': float(_x['depth']), 'base': np.nan,
+                                      'source': 'info/design'})
+    out['stratigraphy'] = {
+        'formation_tops': _tops,
+        'target_formation': (info.get('地质设计') or {}).get('target_formation') or '',
+        'formation_names': [x.get('formation') for x in _tops],
+        'note': ('地层顶来自井数据 Fm/Formation 表或地质设计；逐条岩性知识带 formation；'
+                 '无地层顶时标“未提供”。')}
     try:
         cal = read_well_calibration(wd)
     except Exception as e:
@@ -352,11 +432,19 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
         z = cal[cal['CORE_ZONE_LITH'].notna()].copy()
         for _, r in z.iterrows():
             try:
-                out['lithology_zones'].append({
-                    'top': round(float(r['CORE_ZONE_TOP']), 1),
-                    'base': round(float(r['CORE_ZONE_BASE']), 1),
-                    'lith': str(r['CORE_ZONE_LITH']),
-                    'source': 'lithall/录井-岩性大段'})
+                _top = round(float(r['CORE_ZONE_TOP']), 1)
+                _base = round(float(r['CORE_ZONE_BASE']), 1)
+                _cuts = sorted(set([_top, _base] +
+                                   [float(t['top']) for t in (_tops or [])
+                                    if _top < float(t['top']) < _base]))
+                for _a, _b in zip(_cuts[:-1], _cuts[1:]):
+                    if _b <= _a:
+                        continue
+                    out['lithology_zones'].append({
+                        'top': round(_a, 1), 'base': round(_b, 1),
+                        'lith': str(r['CORE_ZONE_LITH']),
+                        'formation': _formation_at((_a + _b) / 2.0, _tops),
+                        'source': 'lithall/录井-岩性大段'})
             except Exception:
                 pass
     # 2) XRD 按录井深度 50m 段汇总（不做测井深度强制对齐）
@@ -379,6 +467,7 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
             out['xrd_bins'].append({
                 'top': round(float(top), 1), 'base': round(float(top + bin_m), 1),
                 'n': int(len(sub)), 'minerals': st,
+                'formation': _formation_at(top + bin_m / 2.0, _tops),
                 'lith_inferred': _xrd_type(_cal, _dol, _qtz),
                 'depth_basis': 'mud_logging(approx)'})
     # 3) XRF 按录井深度 50m 段汇总
@@ -401,17 +490,25 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     swc = cal[cal.get('DEPTH_BASIS', 'LOG').eq('LOG') & cal.get('CORE_LITH').notna()] \
         if 'CORE_LITH' in cal.columns else pd.DataFrame()
     if not swc.empty:
-        for lith, g in swc.groupby('CORE_LITH'):
+        swc = swc.copy()
+        swc['_FM'] = swc['MD'].map(lambda d: _formation_at(d, _tops))
+        for (lith, fm), g in swc.groupby(['CORE_LITH', '_FM']):
+            _t0 = round(float(pd.to_numeric(g['MD'], errors='coerce').min()), 1)
             out['swc_core'].append({'lith': str(lith), 'n': int(len(g)),
-                                    'top': round(float(pd.to_numeric(g['MD'], errors='coerce').min()), 1),
+                                    'top': _t0,
                                     'base': round(float(pd.to_numeric(g['MD'], errors='coerce').max()), 1),
+                                    'formation': str(fm),
                                     'depth_basis': 'logging_depth'})
     if 'DRILL_CORE_LITH' in cal.columns and cal['DRILL_CORE_LITH'].notna().any():
         dc = cal[cal['DRILL_CORE_LITH'].notna()]
-        for lith, g in dc.groupby('DRILL_CORE_LITH'):
+        dc = dc.copy()
+        dc['_FM'] = dc['MD'].map(lambda d: _formation_at(d, _tops))
+        for (lith, fm), g in dc.groupby(['DRILL_CORE_LITH', '_FM']):
+            _t0 = round(float(pd.to_numeric(g['MD'], errors='coerce').min()), 1)
             out['drill_core'].append({'lith': str(lith), 'n': int(len(g)),
-                                      'top': round(float(pd.to_numeric(g['MD'], errors='coerce').min()), 1),
+                                      'top': _t0,
                                       'base': round(float(pd.to_numeric(g['MD'], errors='coerce').max()), 1),
+                                      'formation': str(fm),
                                       'depth_basis': 'mud_logging'})
     if 'DRILL_CORE_PHIE' in cal.columns:
         out['drill_core_phi'] = _stats(cal['DRILL_CORE_PHIE'])
@@ -450,10 +547,21 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
             for _z in (_mk.get('lithology') or []):
                 out['lithology_zones'].append({
                     'top': _z.get('depth'), 'base': _z.get('depth'),
-                    'lith': _z.get('lith'), 'source': 'masterlog'})
-            out['gas_show'].extend(_mk.get('gas_show') or [])
-            out['oil_gas_show'] = _mk.get('oil_gas_show') or []
-            out['engineering'] = _mk.get('engineering') or []
+                    'lith': _z.get('lith'),
+                    'formation': _formation_at(_z.get('depth'), _tops),
+                    'source': 'masterlog'})
+            _mg = _mk.get('gas_show') or []
+            for _x in _mg:
+                _x['formation'] = _formation_at(_x.get('depth') or _x.get('top'), _tops)
+            out['gas_show'].extend(_mg)
+            _mo = _mk.get('oil_gas_show') or []
+            for _x in _mo:
+                _x['formation'] = _formation_at(_x.get('depth'), _tops)
+            out['oil_gas_show'] = _mo
+            _me = _mk.get('engineering') or []
+            for _x in _me:
+                _x['formation'] = _formation_at(_x.get('depth'), _tops)
+            out['engineering'] = _me
     except Exception as _mle:
         logger.warning('录井图知识提取失败（跳过）: %s', _mle)
 
@@ -498,23 +606,27 @@ def render_well_knowledge_md(k):
                 L.append(f"| {_k} | {_v} |")
     st = k.get('stratigraphy') or {}
     if st:
-        L += ['', '## 0b. 地层', f"- {st.get('note') or st}"]
+        L += ['', '## 0b. 地层', f"- {st.get('note') or ''}"]
+        if st.get('formation_tops'):
+            L += ['| 地层 | 顶 | 底 | 来源 |', '|---|---|---|---|']
+            for _t in st.get('formation_tops')[:30]:
+                L.append(f"| {_t.get('formation')} | {_t.get('top')} | {_t.get('base')} | {_t.get('source')} |")
     zones = k.get('lithology_zones') or []
     if zones:
-        L += ['', '## 1. 大致岩性段（录井/岩性大段）', '| 顶 | 底 | 岩性 | 来源 |', '|---|---|---|---|']
+        L += ['', '## 1. 大致岩性段（录井/岩性大段）', '| 顶 | 底 | 地层 | 岩性 | 来源 |', '|---|---|---|---|---|']
         for z in zones:
-            L.append(f"| {z.get('top')} | {z.get('base')} | {z.get('lith')} | {z.get('source')} |")
+            L.append(f"| {z.get('top')} | {z.get('base')} | {z.get('formation', '未提供')} | {z.get('lith')} | {z.get('source')} |")
     xb = k.get('xrd_bins') or []
     if xb:
         L += ['', '## 2. XRD 矿物（录井深度，按约 %.0fm 段，不强制对齐测井）' % k.get('bin_m', 50),
-              '| 顶 | 底 | n | 方解石(min/中/max) | 白云石 | 石英 | 推断岩性 |',
-              '|---|---|---|---|---|---|---|']
+              '| 顶 | 底 | 地层 | n | 方解石(min/中/max) | 白云石 | 石英 | 推断岩性 |',
+              '|---|---|---|---|---|---|---|---|']
         for b in xb:
             m = b.get('minerals') or {}
             def _r(key):
                 s = m.get(key) or {}
                 return f"{s.get('min')}/{s.get('median')}/{s.get('max')}" if s else '-'
-            L.append(f"| {b.get('top')} | {b.get('base')} | {b.get('n')} | {_r('XRD_CAL')} | {_r('XRD_DOL')} | {_r('XRD_QTZ')} | {b.get('lith_inferred')} |")
+            L.append(f"| {b.get('top')} | {b.get('base')} | {b.get('formation', '未提供')} | {b.get('n')} | {_r('XRD_CAL')} | {_r('XRD_DOL')} | {_r('XRD_QTZ')} | {b.get('lith_inferred')} |")
     xf = k.get('xrf_bins') or []
     if xf:
         L += ['', '## 3. XRF 元素（录井深度，按约 %.0fm 段）' % k.get('bin_m', 50),
@@ -527,13 +639,13 @@ def render_well_knowledge_md(k):
                 return f"{s.get('min')}/{s.get('median')}/{s.get('max')}" if s else '-'
             L.append(f"| {b.get('top')} | {b.get('base')} | {b.get('n')} | {_r2('XRF_AL')} | {_r2('XRF_FE')} | {_r2('XRF_K')} | {_r2('XRF_CA')} |")
     if k.get('swc_core'):
-        L += ['', '## 4. 井壁取芯（测井深度）', '| 岩性 | 点数 | 顶 | 底 |', '|---|---|---|---|']
+        L += ['', '## 4. 井壁取芯（测井深度）', '| 地层 | 岩性 | 点数 | 顶 | 底 |', '|---|---|---|---|---|']
         for s in k['swc_core']:
-            L.append(f"| {s.get('lith')} | {s.get('n')} | {s.get('top')} | {s.get('base')} |")
+            L.append(f"| {s.get('formation', '未提供')} | {s.get('lith')} | {s.get('n')} | {s.get('top')} | {s.get('base')} |")
     if k.get('drill_core'):
-        L += ['', '## 5. 钻井取芯（录井深度）', '| 岩性 | 点数 | 顶 | 底 |', '|---|---|---|---|']
+        L += ['', '## 5. 钻井取芯（录井深度）', '| 地层 | 岩性 | 点数 | 顶 | 底 |', '|---|---|---|---|---|']
         for s in k['drill_core']:
-            L.append(f"| {s.get('lith')} | {s.get('n')} | {s.get('top')} | {s.get('base')} |")
+            L.append(f"| {s.get('formation', '未提供')} | {s.get('lith')} | {s.get('n')} | {s.get('top')} | {s.get('base')} |")
     if k.get('drill_core_phi'):
         p = k['drill_core_phi']
         L += ['', f"## 6. 钻井取芯孔隙度范围: {p.get('min')}–{p.get('max')}（中位 {p.get('median')}，n={p.get('n')}）"]
@@ -560,19 +672,19 @@ def render_well_knowledge_md(k):
                 L.append(f"| {x.get('top')} | {x.get('base')} | {x.get('lith')} | {x.get('interp')} |")
     gs = k.get('gas_show') or []
     if gs:
-        L += ['', '## 6d. 气测异常（含深度）', '| 文件 | 顶 | 底 | 峰值 | 中位 | 依据 |', '|---|---|---|---|---|---|']
+        L += ['', '## 6d. 气测异常（含深度/地层）', '| 地层 | 文件 | 顶 | 底 | 峰值 | 中位 | 依据 |', '|---|---|---|---|---|---|---|']
         for x in gs[:20]:
-            L.append(f"| {x.get('file')} | {x.get('top')} | {x.get('base')} | {x.get('max')} | {x.get('median')} | {x.get('note')} |")
+            L.append(f"| {x.get('formation', '未提供')} | {x.get('file')} | {x.get('top')} | {x.get('base')} | {x.get('max')} | {x.get('median')} | {x.get('note')} |")
     ogs = k.get('oil_gas_show') or []
     if ogs:
-        L += ['', '## 6e. 油气显示/油砂/级别', '| 深度 | 级别 | 原文 |', '|---|---|---|']
+        L += ['', '## 6e. 油气显示/油砂/级别', '| 地层 | 深度 | 级别 | 原文 |', '|---|---|---|---|']
         for x in ogs[:20]:
-            L.append(f"| {x.get('depth')} | {x.get('grade')} | {x.get('text')} |")
+            L.append(f"| {x.get('formation', '未提供')} | {x.get('depth')} | {x.get('grade')} | {x.get('text')} |")
     eng = k.get('engineering') or []
     if eng:
-        L += ['', '## 6f. 工程情况', '| 深度 | 原文 |', '|---|---|']
+        L += ['', '## 6f. 工程情况', '| 地层 | 深度 | 原文 |', '|---|---|---|']
         for x in eng[:20]:
-            L.append(f"| {x.get('depth')} | {x.get('text')} |")
+            L.append(f"| {x.get('formation', '未提供')} | {x.get('depth')} | {x.get('text')} |")
     ml = k.get('mudlog') or {}
     L += ['', '## 7. 录井图']
     if ml.get('found'):

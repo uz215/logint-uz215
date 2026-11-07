@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-11-07 19:16:26",
+  "generated_at": "2026-11-07 19:31:18",
   "db": "data/kb/kb.db",
   "size_bytes": 116805632,
-  "sha256": "814c1950e252cf1fc21f5cfca260984ee0879dea7da1752e5e3caef0b9f6f898",
+  "sha256": "0a613db49bc27cc344c0b63d914e9f5d71b668ceb371d2d2a614e6fd50e25606",
   "stats": {
     "doc": 1357,
-    "chunk": 30055,
+    "chunk": 30057,
     "entity": 1231,
     "fact": 172,
     "case_layer": 494,

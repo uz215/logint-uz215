@@ -5,32 +5,72 @@
   "zones": [
     {
       "top": 6300.0,
+      "base": 6302.0,
+      "lith": "An,calcite,Dolo,Qz,Halite",
+      "formation": "未提供",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6302.0,
       "base": 6310.0,
       "lith": "An,calcite,Dolo,Qz,Halite",
+      "formation": "M Lula",
       "source": "lithall/录井-岩性大段"
     },
     {
       "top": 6310.0,
+      "base": 6319.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "M Lula",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6319.0,
+      "base": 6350.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE110",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6350.0,
+      "base": 6420.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE120",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6420.0,
+      "base": 6439.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE130",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6439.0,
       "base": 6476.0,
       "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE200",
       "source": "lithall/录井-岩性大段"
     },
     {
       "top": 6476.0,
       "base": 6978.0,
       "lith": "Ca_Spar，cal",
+      "formation": "未提供",
       "source": "lithall/录井-岩性大段"
     },
     {
       "top": 6978.0,
       "base": 7040.0,
       "lith": "Carbonate,dolo,Qz,Clay",
+      "formation": "未提供",
       "source": "lithall/录井-岩性大段"
     },
     {
       "top": 7040.0,
       "base": 7130.0,
       "lith": "Ca_Spar，cal",
+      "formation": "未提供",
       "source": "lithall/录井-岩性大段"
     }
   ],
@@ -71,6 +111,7 @@
           "max": 0.0
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -110,6 +151,7 @@
           "max": 0.0
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -149,6 +191,7 @@
           "max": 0.0
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -188,6 +231,7 @@
           "max": 0.0
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -227,6 +271,7 @@
           "max": 0.419
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -266,6 +311,7 @@
           "max": 0.137
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -305,6 +351,7 @@
           "max": 0.0
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -344,6 +391,7 @@
           "max": 0.257
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -383,6 +431,7 @@
           "max": 0.0995
         }
       },
+      "formation": "未提供",
       "lith_inferred": "clastic(quartz-rich)",
       "depth_basis": "mud_logging(approx)"
     },
@@ -422,6 +471,7 @@
           "max": 0.188
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -461,6 +511,7 @@
           "max": 0.104
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -500,6 +551,7 @@
           "max": 0.066
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -539,6 +591,7 @@
           "max": 0.248
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -578,6 +631,7 @@
           "max": 0.1445
         }
       },
+      "formation": "未提供",
       "lith_inferred": "clastic(quartz-rich)",
       "depth_basis": "mud_logging(approx)"
     },
@@ -617,6 +671,7 @@
           "max": 0.188
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -656,6 +711,7 @@
           "max": 0.285
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -695,6 +751,7 @@
           "max": 0.139
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -734,6 +791,7 @@
           "max": 0.088
         }
       },
+      "formation": "未提供",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -773,6 +831,7 @@
           "max": 0.0
         }
       },
+      "formation": "BVE110",
       "lith_inferred": "limestone",
       "depth_basis": "mud_logging(approx)"
     },
@@ -812,6 +871,7 @@
           "max": 0.0
         }
       },
+      "formation": "BVE120",
       "lith_inferred": "limestone",
       "depth_basis": "mud_logging(approx)"
     },
@@ -851,6 +911,7 @@
           "max": 0.0
         }
       },
+      "formation": "BVE130",
       "lith_inferred": "carbonate(mixed)",
       "depth_basis": "mud_logging(approx)"
     },
@@ -890,6 +951,7 @@
           "max": 0.324
         }
       },
+      "formation": "BVE200",
       "lith_inferred": "mixed",
       "depth_basis": "mud_logging(approx)"
     },
@@ -924,84 +986,5 @@
         },
         "XRD_PLG": {
           "n": 1,
-          "min": 0.196,
-          "median": 0.196,
-          "max": 0.196
-        }
-      },
-      "lith_inferred": "mixed",
-      "depth_basis": "mud_logging(approx)"
-    }
-  ],
-  "xrf_bins": [
-    {
-      "top": 4700.0,
-      "base": 4750.0,
-      "n": 3,
-      "elements": {
-        "XRF_AL": {
-          "n": 3,
-          "min": 4.2335,
-          "median": 4.668,
-          "max": 4.757
-        },
-        "XRF_FE": {
-          "n": 3,
-          "min": 3.4815,
-          "median": 3.683,
-          "max": 4.296
-        },
-        "XRF_K": {
-          "n": 3,
-          "min": 2.321,
-          "median": 2.373,
-          "max": 2.603
-        },
-        "XRF_CA": {
-          "n": 3,
-          "min": 2.703,
-          "median": 2.986,
-          "max": 3.877
-        },
-        "XRF_SI": {
-          "n": 3,
-          "min": 19.195,
-          "median": 22.52,
-          "max": 22.81
-        }
-      },
-      "depth_basis": "mud_logging(approx)"
-    },
-    {
-      "top": 4750.0,
-      "base": 4800.0,
-      "n": 6,
-      "elements": {
-        "XRF_AL": {
-          "n": 6,
-          "min": 2.035,
-          "median": 2.1955,
-          "max": 3.15
-        },
-        "XRF_FE": {
-          "n": 6,
-          "min": 1.857,
-          "median": 2.1755,
-          "max": 2.825
-        },
-        "XRF_K": {
-          "n": 6,
-          "min": 1.585,
-          "median": 1.669,
-          "max": 2.1775
-        },
-        "XRF_CA": {
-          "n": 6,
-          "min": 4.49,
-          "median": 16.7675,
-          "max": 18.0
-        },
-        "XRF_SI": {
-          "n": 6,
-    
+          "min":
 ```

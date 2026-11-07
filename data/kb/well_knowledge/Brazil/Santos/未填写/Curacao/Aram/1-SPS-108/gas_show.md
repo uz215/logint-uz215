@@ -10,7 +10,8 @@
     "max": 121.21,
     "median": 121.21,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -20,7 +21,8 @@
     "max": 1551.01,
     "median": 608.32,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -30,7 +32,8 @@
     "max": 128.95,
     "median": 128.95,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -40,7 +43,8 @@
     "max": 168.19,
     "median": 133.34,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -50,7 +54,8 @@
     "max": 191.78,
     "median": 173.195,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -60,7 +65,8 @@
     "max": 192.28,
     "median": 159.98,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -70,7 +76,8 @@
     "max": 475.37,
     "median": 162.49,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -80,7 +87,8 @@
     "max": 285.35,
     "median": 164.32,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -90,7 +98,8 @@
     "max": 228.05,
     "median": 228.05,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -100,7 +109,8 @@
     "max": 117.19,
     "median": 117.19,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -110,7 +120,8 @@
     "max": 166.4,
     "median": 149.98,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -120,7 +131,8 @@
     "max": 115.48,
     "median": 115.48,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -130,7 +142,8 @@
     "max": 133.1,
     "median": 128.675,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -140,7 +153,8 @@
     "max": 143.79,
     "median": 129.79,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -150,7 +164,8 @@
     "max": 119.27,
     "median": 117.125,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -160,7 +175,8 @@
     "max": 164.39,
     "median": 141.24,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -170,7 +186,8 @@
     "max": 142.14,
     "median": 118.58,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -180,7 +197,8 @@
     "max": 125.39,
     "median": 125.39,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -190,7 +208,8 @@
     "max": 127.15,
     "median": 123.115,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   },
   {
     "file": "1-SPS-108_DDP_AnaliseAvGas.las",
@@ -200,7 +219,8 @@
     "max": 122.15,
     "median": 118.11,
     "depth_basis": "gas/mud logging (approx)",
-    "note": "≥P90 113.030"
+    "note": "≥P90 113.030",
+    "formation": "未提供"
   }
 ]
 ```
