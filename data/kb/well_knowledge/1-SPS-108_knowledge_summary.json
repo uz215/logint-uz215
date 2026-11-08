@@ -6627,7 +6627,8 @@
       }
     ],
     "oil_gas_show": [],
-    "engineering": []
+    "engineering": [],
+    "core_descriptions": []
   },
   "hierarchy_evidence": [
     "Curacao-1井阶段汇报（测井）.pptx: 桑托斯(Santos)盆地盐下地层综合柱状图"
@@ -6638,5 +6639,6 @@
     "min": 0.4,
     "median": 4.4,
     "max": 17.6
-  }
+  },
+  "core_descriptions": []
 }

@@ -350,6 +350,38 @@ def _formation_at(depth, tops):
     return (hits[-1].get('formation') if hits else '未提供')
 
 
+def _read_core_docs(well_dir):
+    """读取井目录 .doc 岩心描述（俄文/英文）→ 结构化摘要。"""
+    import glob
+    res = []
+    try:
+        from .mudlog_knowledge import extract_core_doc_knowledge
+        for p in sorted(Path(str(well_dir)).rglob('*.doc')):
+            if p.name.startswith('~$'):
+                continue
+            try:
+                k = extract_core_doc_knowledge(p)
+                if k:
+                    res.append(k)
+            except Exception:
+                pass
+    except Exception:
+        pass
+    return res
+
+
+def _parse_interval(text):
+    import re
+    m = re.search(r'(\d+(?:[.,]\d+)?)\s*[-–]\s*(\d+(?:[.,]\d+)?)', str(text or ''))
+    if not m:
+        return (np.nan, np.nan)
+    try:
+        return (float(m.group(1).replace(',', '.')),
+                float(m.group(2).replace(',', '.')))
+    except Exception:
+        return (np.nan, np.nan)
+
+
 def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     """读取井目录标定表，生成结构化知识摘要 dict。"""
     from .core_calib import read_well_calibration
@@ -372,6 +404,12 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
     country = str(h.get('country') or '').strip()
     if country.lower() in ('br', 'brazil'):
         country = 'Brazil'
+    _wlow = str(wd).lower()
+    if not country:
+        if 'kazakhstan' in _wlow or 'казахстан' in _wlow:
+            country = 'Kazakhstan'
+        elif 'brazil' in _wlow or 'brasil' in _wlow:
+            country = 'Brazil'
     _geo = _scan_geo_docs(wd, wn)
     _basin = str(h.get('basin') or design.get('basin') or _geo.get('basin') or '未填写')
     _sag = str(h.get('sag') or design.get('sag') or _geo.get('sag') or '未填写')
@@ -438,8 +476,10 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
         out['error'] = f'标定表读取失败: {e}'
         return out
     if cal is None or cal.empty:
-        out['error'] = '未找到井目录标定表（SWC/XRD/XRF/Coredata）'
-        return out
+        # 无标定表也允许从设计/录井图/井信息生成井知识（如 P19）
+        out['error'] = '未找到井目录标定表（SWC/XRD/XRF/Coredata）；将用设计/录井图/井信息生成知识'
+        import pandas as _pd
+        cal = _pd.DataFrame()
     out['sources'] = sorted(set(str(x) for x in cal.get('DEPTH_BASIS', [])
                                 if str(x).strip()))
     # 1) 岩性大段（lithall）
@@ -543,6 +583,62 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
         out['mudlog'] = {'found': False, 'note': f'录井图读取跳过: {e}'}
     out['depth_note'] = ('录井/XRD/XRF 为录井深度，本摘要按大致井段统计，不强制与测井深度对齐；'
                          'SWC 为测井深度。用于 logInt 检索时按井段/岩性/数值范围引用。')
+    # 岩心描述 .doc（俄文/英文）：补基础数据/地层/岩性/油气显示
+    out['core_descriptions'] = []
+    try:
+        _cores = _read_core_docs(wd)
+        for _c in _cores:
+            _b = _c.get('basic_data') or {}
+            _top, _base = _parse_interval(_b.get('drilled_interval') or '')
+            _fm = _b.get('formation') or '未提供'
+            out['core_descriptions'].append({
+                'file': _c.get('file'), 'well': _b.get('well') or '',
+                'field': _b.get('field') or '', 'formation': _fm,
+                'top': (round(_top, 1) if np.isfinite(_top) else None),
+                'base': (round(_base, 1) if np.isfinite(_base) else None),
+                'gas_avg': _b.get('gas_avg') or '',
+                'description': (_c.get('description') or next((x.get('text') for x in (_c.get('lithology') or [])
+                                     if x.get('text')), ''))[:500],
+                'lithology': _c.get('lithology') or [],
+                'gas_show': _c.get('gas_show') or [],
+                'oil_gas_show': _c.get('oil_gas_show') or []})
+            # 基础数据补充
+            for _k in ('field', 'well', 'rig'):
+                if _b.get(_k) and out['basic_data'].get(_k) in (None, '', '未填写'):
+                    out['basic_data'][_k] = _b[_k]
+            if _b.get('field') and out['hierarchy'].get('field') in ('', '未填写'):
+                out['hierarchy']['field'] = _b['field']
+            # 地层顶（岩心 Горизонт + 井段）
+            if np.isfinite(_top) and _fm not in ('', '未提供'):
+                if not any(t.get('formation') == _fm for t in (out['stratigraphy'].get('formation_tops') or [])):
+                    out['stratigraphy'].setdefault('formation_tops', []).append({
+                        'formation': _fm, 'top': round(_top, 1),
+                        'base': (round(_base, 1) if np.isfinite(_base) else np.nan),
+                        'source': _c.get('file')})
+            # 岩性段
+            for _l in (_c.get('lithology') or []):
+                if np.isfinite(_top):
+                    out['lithology_zones'].append({
+                        'top': round(_top, 1),
+                        'base': (round(_base, 1) if np.isfinite(_base) else round(_top, 1)),
+                        'lith': _l.get('lith'), 'formation': _fm,
+                        'source': _c.get('file')})
+            for _x in (_c.get('gas_show') or []):
+                _x['formation'] = _fm; _x['top'] = _x.get('top', (_top if np.isfinite(_top) else None)); _x['base'] = _x.get('base', (_base if np.isfinite(_base) else None)); _x['file'] = _c.get('file'); _x['curve'] = 'core gas'
+            for _x in (_c.get('oil_gas_show') or []):
+                _x['formation'] = _fm; _x['top'] = _x.get('top', (_top if np.isfinite(_top) else None)); _x['base'] = _x.get('base', (_base if np.isfinite(_base) else None)); _x['file'] = _c.get('file')
+            out['gas_show'].extend(_c.get('gas_show') or [])
+            out['oil_gas_show'].extend(_c.get('oil_gas_show') or [])
+            # 同一岩心多行岩性去重（按 顶/底/岩性/地层）
+            _seen = set(); _z2 = []
+            for _z in out['lithology_zones']:
+                _kk = (_z.get('top'), _z.get('base'), _z.get('lith'), _z.get('formation'))
+                if _kk not in _seen:
+                    _seen.add(_kk); _z2.append(_z)
+            out['lithology_zones'] = _z2
+    except Exception as _ce:
+        logger.warning('岩心.doc知识提取失败: %s', _ce)
+
     # 录井图知识（若有 masterlog）：五类知识补充/合并
     try:
         from .well_docs import find_masterlog_file
@@ -565,20 +661,33 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
                     'lith': _z.get('lith'),
                     'formation': _formation_at(_z.get('depth'), _tops),
                     'source': 'masterlog'})
-            _mg = _mk.get('gas_show') or []
+            _mg = [x for x in (_mk.get('gas_show') or [])
+                   if x.get('depth') is not None or x.get('top') is not None]
             for _x in _mg:
                 _x['formation'] = _formation_at(_x.get('depth') or _x.get('top'), _tops)
             out['gas_show'].extend(_mg)
-            _mo = _mk.get('oil_gas_show') or []
+            _mo = [x for x in (_mk.get('oil_gas_show') or [])
+                   if x.get('depth') is not None]
             for _x in _mo:
                 _x['formation'] = _formation_at(_x.get('depth'), _tops)
             out['oil_gas_show'] = _mo
-            _me = _mk.get('engineering') or []
+            _me = [x for x in (_mk.get('engineering') or [])
+                   if x.get('depth') is not None]
             for _x in _me:
                 _x['formation'] = _formation_at(_x.get('depth'), _tops)
             out['engineering'] = _me
     except Exception as _mle:
         logger.warning('录井图知识提取失败（跳过）: %s', _mle)
+
+    # 去重（同一岩心/录井文本行）
+    for _key in ('gas_show', 'oil_gas_show', 'engineering'):
+        _seen = set(); _vals = []
+        for _x in (out.get(_key) or []):
+            _kk = (_x.get('top'), _x.get('base'), _x.get('depth'),
+                   str(_x.get('text'))[:80], _x.get('type'))
+            if _kk not in _seen:
+                _seen.add(_kk); _vals.append(_x)
+        out[_key] = _vals
 
     out['categories'] = {
         'basic_data': out.get('basic_data') or {},
@@ -593,6 +702,7 @@ def build_well_knowledge(well_dir, well_name=None, bin_m=50.0, results=None):
         'gas_show': out.get('gas_show') or [],
         'oil_gas_show': out.get('oil_gas_show') or [],
         'engineering': out.get('engineering') or [],
+        'core_descriptions': out.get('core_descriptions') or [],
     }
     out['usage'] = [f'{wn} XRD 方解石/白云石 数值范围', f'{wn} 录井岩性段',
                     f'{wn} 井壁取芯岩性', '巴西 Aram 碳酸盐岩 酸解 CO2']
@@ -700,6 +810,11 @@ def render_well_knowledge_md(k):
         L += ['', '## 6f. 工程情况', '| 地层 | 深度 | 原文 |', '|---|---|---|']
         for x in eng[:20]:
             L.append(f"| {x.get('formation', '未提供')} | {x.get('depth')} | {x.get('text')} |")
+    cds = k.get('core_descriptions') or []
+    if cds:
+        L += ['', '## 6g. 岩心描述（.doc）', '| 文件 | 地层 | 顶 | 底 | 含气 | 岩性/描述 |', '|---|---|---|---|---|---|']
+        for c in cds[:30]:
+            L.append(f"| {c.get('file')} | {c.get('formation')} | {c.get('top')} | {c.get('base')} | {c.get('gas_avg')} | {str(c.get('description') or c.get('lithology'))[:300]} |")
     ml = k.get('mudlog') or {}
     L += ['', '## 7. 录井图']
     if ml.get('found'):

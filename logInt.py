@@ -3556,6 +3556,850 @@ def load_regional_knowledge(well_dir, well_name=''):
     return reg
 
 
+# =============================================================================
+# 知识库调用层（kb.db 统一入口）【2026-11-08 R50】
+# 目的：解释现场直接调知识——不是"再查一堆方法条目"，而是回答三件事：
+#   1) 这口井这个层，库里有哪些可比证据：区域标定（截止值来源）/机读条款
+#      （判据 rule_json）/邻井层段案例（横向对比）/可校正判据条目/本井六类
+#      事实/区域知识（info.json）；
+#   2) 证据够不够解释：分项加权 score（满分 100），不足列缺口；
+#   3) 每条证据在哪：source（文档/文件/表-行）+ conf，可人工复核。
+# 只读：连接开 query_only，绝不写生产库；任何异常降级 ok=False，不阻断解释。
+# =============================================================================
+KB_ROOT = Path(__file__).resolve().parent
+KB_DB_PATH = KB_ROOT / 'data' / 'kb' / 'kb.db'
+KB_ENTRIES_DIR = KB_ROOT / 'knowledge' / 'entries'
+KB_WELL_KN_DIR = KB_ROOT / 'data' / 'kb' / 'well_knowledge'
+
+KB_GATE_MIN = 55           # 解释前闸门阈值（分项合计 100）
+KB_W = {'region': 30, 'clause': 25, 'cases': 20, 'entry': 15, 'well': 10}
+_KB_LITH_KW = ('岩性', '剖面', '碳酸盐', '砂泥岩', '煤', '蒸发岩', '灰岩', '白云岩')
+_KB_FLUID_KW = ('流体', '气层', '油层', '水层', '干层', '混合')
+KB_WELL_KINDS = ('basic_data', 'stratigraphy', 'lithology', 'testing',
+                 'log_interpretation', 'gas_show', 'oil_gas_show', 'engineering')
+# 国家 → 区域岩性条款关键词（条款按国别收敛，避免把别国剖面判据灌进来）
+_KB_COUNTRY_CN = {'brazil': ('巴西',), 'indonesia': ('印尼',), 'bangladesh': ('孟加拉',),
+                  'chad': ('乍得',), 'niger': ('尼日尔',), 'kuwait': ('科威特',)}
+
+_KB_CONN = None
+_KB_ENTRIES = None
+_KB_CASES = None
+
+
+# ---- 知识框架（国家→盆地→凹陷→构造→油田→井）与分类（logKnow 口径）----
+# 框架：与 data/kb/well_knowledge 的目录层级、taxonomy.json 的 hierarchy 同构；
+# 分类：与井知识文件的 kind（basic_data/stratigraphy/lithology/testing/
+#       log_interpretation/gas_show/oil_gas_show/engineering）一一对应，
+#       中文名对齐 logKnow 的业务分类（基础数据/地质·地层/地层岩性/试油/
+#       测井/气测异常/油气显示/工程）。
+KB_FRAME_KEYS = ('country', 'basin', 'sag', 'structure', 'field', 'well')
+KB_FRAME_LABELS = {'country': '国家', 'basin': '盆地', 'sag': '凹陷',
+                   'structure': '构造', 'field': '油田', 'well': '井'}
+KB_CAT_ORDER = ('basic_data', 'stratigraphy', 'lithology', 'testing',
+                'log_interpretation', 'gas_show', 'oil_gas_show', 'engineering')
+KB_CAT_LABELS = {'basic_data': '基础数据', 'stratigraphy': '地质·地层',
+                 'lithology': '地层岩性', 'testing': '试油',
+                 'log_interpretation': '测井', 'gas_show': '气测异常',
+                 'oil_gas_show': '油气显示', 'engineering': '工程'}
+KB_CAT_CORE = ('basic_data', 'lithology', 'log_interpretation', 'testing')
+
+# 文档分类关键词（按 doc.path 命中即归入该分类；顺序在前者优先）
+_KB_CAT_KW = {
+    'testing': ('试油', 'DST', '测试', 'WellTest', 'well_test', '试采'),
+    'gas_show': ('气测', 'gas_show', 'GasShow', '录井图', 'mudlog'),
+    'oil_gas_show': ('油气显示', '油显示', 'oil_gas_show'),
+    'lithology': ('岩性', 'lith', 'XRD', 'XRF', 'SWC', '岩心', 'lithall'),
+    'stratigraphy': ('地层', 'strat', '分层', '层位'),
+    'log_interpretation': ('解释', 'interp', '综合', '成果'),
+    'engineering': ('工程', '套管', '固井', '水泥', '井身'),
+    'basic_data': ('基础', '井信息', 'basic', 'info'),
+}
+
+_KB_CFG = None
+_KB_CAT_COVER = None
+
+
+def kb_cfg():
+    """知识框架/分类配置（logint.json「kb_framework」段，缺省=内置默认）。
+
+    外置项：框架层级名、分类名、解释必需分类、闸门阈值 gate_min、分项权重。
+    配置缺失或损坏一律回落默认，不影响解释；改配置无需动代码。
+    """
+    global _KB_CFG
+    if _KB_CFG is None:
+        d = {'enabled': True, 'gate_min': KB_GATE_MIN, 'weights': dict(KB_W),
+             'levels': [KB_FRAME_LABELS[k] for k in KB_FRAME_KEYS],
+             'categories': dict(KB_CAT_LABELS),
+             'core_categories': list(KB_CAT_CORE)}
+        try:
+            p = KB_ROOT / 'logint.json'
+            if p.exists():
+                sec = (json.loads(p.read_text(encoding='utf-8')) or {}).get('kb_framework')
+                if isinstance(sec, dict):
+                    for k, v in sec.items():
+                        if isinstance(d.get(k), dict) and isinstance(v, dict):
+                            d[k].update(v)
+                        else:
+                            d[k] = v
+        except Exception:
+            pass
+        _KB_CFG = d
+    return _KB_CFG
+
+
+def _kb_cat_cover():
+    """kb.db 各分类文档数（按 doc.path 关键词归类，缓存）。"""
+    global _KB_CAT_COVER
+    if _KB_CAT_COVER is not None:
+        return _KB_CAT_COVER
+    out = {}
+    try:
+        for r in _kb_conn().execute('SELECT path FROM doc'):
+            _p = str(r[0] or '')
+            for _k, _kws in _KB_CAT_KW.items():
+                if any(x in _p for x in _kws):
+                    out[_k] = out.get(_k, 0) + 1
+                    break
+    except Exception:
+        out = {}
+    _KB_CAT_COVER = out
+    return out
+
+
+def kb_categories():
+    """分类清单（logKnow 口径）：kind / 中文名 / 是否解释必需 / kb.db 覆盖数。"""
+    cfg = kb_cfg()
+    labels = cfg.get('categories') or KB_CAT_LABELS
+    core = tuple(cfg.get('core_categories') or KB_CAT_CORE)
+    cov = _kb_cat_cover()
+    return [{'kind': k, 'label': labels.get(k, k), 'core': k in core,
+             'docs': cov.get(k, 0)} for k in KB_CAT_ORDER]
+
+
+def kb_well_taxonomy(well):
+    """井的六层框架 + 分类清单（国家/盆地/凹陷/构造/油田/井）。
+
+    优先级：well_knowledge/<井>/taxonomy.json → 目录层级 → kb.db 事实（国家）。
+    缺项填「未填写」并计入 filled，不猜；来源写进 source 便于复核。
+    """
+    out = {'well': str(well or ''), 'path': '', 'source': '',
+           'hierarchy': {k: '' for k in KB_FRAME_KEYS},
+           'levels': {KB_FRAME_LABELS[k]: '' for k in KB_FRAME_KEYS},
+           'categories': [], 'filled': 0}
+
+    def _put(h):
+        for k in KB_FRAME_KEYS:
+            v = str((h or {}).get(k) or '').strip()
+            if v and v not in ('未填写', '未知', '-'):
+                out['hierarchy'][k] = v
+                out['levels'][KB_FRAME_LABELS[k]] = v
+
+    wd = kb_find_well_dir(well)
+    if wd:
+        out['path'] = str(wd)
+        try:
+            tp = wd / 'taxonomy.json'
+            if tp.exists():
+                tx = json.loads(tp.read_text(encoding='utf-8'))
+                _put(tx.get('hierarchy'))
+                out['categories'] = list(tx.get('categories') or [])
+                out['source'] = 'taxonomy.json'
+            if not any(out['hierarchy'].values()):
+                _put(dict(zip(KB_FRAME_KEYS,
+                              Path(wd).relative_to(KB_WELL_KN_DIR).parts)))
+                out['source'] = out['source'] or '目录层级'
+        except Exception:
+            pass
+        out['hierarchy']['well'] = out['hierarchy']['well'] or wd.name
+        out['levels']['井'] = out['levels']['井'] or wd.name
+    if not out['hierarchy']['country']:
+        _c = kb_well_location(str(well or ''))
+        out['hierarchy']['country'] = _c
+        out['levels']['国家'] = _c
+        out['source'] = out['source'] or 'kb.db 事实'
+    out['filled'] = sum(1 for v in out['hierarchy'].values() if v)
+    return out
+
+
+def kb_well_coverage(well):
+    """本井分类覆盖：每类有没有文件、多大、是否解释必需。"""
+    cfg = kb_cfg()
+    labels = cfg.get('categories') or KB_CAT_LABELS
+    core = tuple(cfg.get('core_categories') or KB_CAT_CORE)
+    wd = kb_find_well_dir(well)
+    rows, present = [], []
+    for kind in KB_CAT_ORDER:
+        p, size = None, 0
+        if wd:
+            for ext in ('.md', '.json'):
+                q = wd / (kind + ext)
+                if q.exists():
+                    p, size = q, q.stat().st_size
+                    break
+        rows.append({'kind': kind, 'label': labels.get(kind, kind),
+                     'core': kind in core, 'present': bool(p), 'bytes': size,
+                     'path': str(p) if p else ''})
+        if p:
+            present.append(kind)
+    return {'rows': rows, 'present': present,
+            'missing_core': [r['label'] for r in rows
+                             if r['core'] and not r['present']]}
+
+
+def kb_well_dirs(limit=None):
+    """well_knowledge 下的井目录（含 taxonomy.json 或任一分类 md 的叶子）。"""
+    out = []
+    try:
+        for root, dirs, files in os.walk(str(KB_WELL_KN_DIR)):
+            _fs = [f.lower() for f in files]
+            if 'taxonomy.json' in _fs or any(
+                    any(f.startswith(k) for k in KB_WELL_KINDS) and f.endswith('.md')
+                    for f in _fs):
+                out.append(Path(root))
+                dirs[:] = []
+                if limit and len(out) >= limit:
+                    break
+    except Exception:
+        pass
+    return out
+
+
+def kb_frame_tree(level='国家', limit=30):
+    """按框架层级聚合井知识（哪个层级有资料可直接支撑解释、缺在哪）。"""
+    key = next((k for k in KB_FRAME_KEYS if KB_FRAME_LABELS[k] == level), 'country')
+    depth = KB_FRAME_KEYS.index(key) + 1
+    agg = {}
+    for wd in kb_well_dirs():
+        try:
+            parts = Path(wd).relative_to(KB_WELL_KN_DIR).parts
+        except Exception:
+            continue
+        if len(parts) < depth:
+            continue
+        v = parts[depth - 1] or '（空）'
+        if v in ('未填写', '未知'):
+            v = '（未填写）'
+        row = agg.setdefault(v, {'level': level, 'value': v, 'wells': 0,
+                                 'files': 0, 'cats': {}})
+        row['wells'] += 1
+        for kind in KB_CAT_ORDER:
+            for ext in ('.md', '.json'):
+                if (wd / (kind + ext)).exists():
+                    row['cats'][kind] = row['cats'].get(kind, 0) + 1
+                    row['files'] += 1
+                    break
+    return sorted(agg.values(), key=lambda r: (-r['wells'], r['value']))[:limit]
+
+
+
+def _kb_conn():
+    """只读连接 kb.db（懒加载单例）。库不存在 → 抛给调用方降级处理。"""
+    global _KB_CONN
+    if _KB_CONN is None:
+        import sqlite3
+        if not KB_DB_PATH.exists():
+            raise FileNotFoundError('kb.db 不存在: %s' % KB_DB_PATH)
+        c = sqlite3.connect(str(KB_DB_PATH), timeout=10)
+        c.row_factory = sqlite3.Row
+        c.execute('PRAGMA query_only=1')      # 只读，防误写生产库
+        _KB_CONN = c
+    return _KB_CONN
+
+
+def kb_close():
+    """用完即关（长驻进程可不关；退出时调用）。"""
+    global _KB_CONN
+    if _KB_CONN is not None:
+        try:
+            _KB_CONN.close()
+        except Exception:
+            pass
+        _KB_CONN = None
+
+
+def _kb_json(s, default=None):
+    try:
+        return json.loads(s) if s else (default if default is not None else {})
+    except Exception:
+        return default if default is not None else {}
+
+
+def _kb_short(s, n=220):
+    import re as _re
+    t = _re.sub(r'\s+', ' ', str(s or '')).strip()
+    return t if len(t) <= n else t[:n] + '…'
+
+
+def kb_stats():
+    """库资产统计（doc/chunk/案例/条款/区域标定/条目）。"""
+    try:
+        c = _kb_conn()
+        q = lambda sql: c.execute(sql).fetchone()[0]
+        return {'ok': True, 'db': str(KB_DB_PATH),
+                'doc': q('SELECT COUNT(*) FROM doc'),
+                'chunk': q('SELECT COUNT(*) FROM chunk'),
+                'case_layer': q('SELECT COUNT(*) FROM case_layer'),
+                'clause': q('SELECT COUNT(*) FROM clause'),
+                'fact': q('SELECT COUNT(*) FROM fact'),
+                'entity': q('SELECT COUNT(*) FROM entity'),
+                'region_calib': q('SELECT COUNT(*) FROM region_calib'),
+                'entries': len(kb_entries())}
+    except Exception as e:
+        return {'ok': False, 'reason': '%s: %s' % (type(e).__name__, e)}
+
+
+def kb_region_calib(country='', region=''):
+    """区域参数标定（cutoffs_json = 解释截止值的区域来源，替代"全局默认值"）。"""
+    out = []
+    try:
+        c = _kb_conn()
+        sql = ('SELECT country, region, wells, n_wells, n_points, cutoffs_json, '
+               'metrics_json, source_doc, conf FROM region_calib WHERE 1=1')
+        args = []
+        if country:
+            sql += ' AND (country LIKE ? OR region LIKE ?)'
+            args += ['%%%s%%' % country, '%%%s%%' % country]
+        if region:
+            sql += ' AND (region LIKE ? OR country LIKE ?)'
+            args += ['%%%s%%' % region, '%%%s%%' % region]
+        for r in c.execute(sql, args):
+            out.append({'kind': 'region_calib', 'country': r['country'],
+                        'region': r['region'], 'wells': r['wells'],
+                        'n_wells': r['n_wells'], 'n_points': r['n_points'],
+                        'cutoffs': _kb_json(r['cutoffs_json']),
+                        'metrics': _kb_json(r['metrics_json']),
+                        'source': r['source_doc'], 'conf': r['conf']})
+    except Exception:
+        return []
+    return out
+
+
+def kb_clauses(rule_type='', keywords=None, limit=12):
+    """机读条款：流体判据（FLUID-*）/区域岩性（LITH-*）/层表（QL-STD-01）等。"""
+    out = []
+    try:
+        c = _kb_conn()
+        sql = ('SELECT std_no, section, text, rule_type, rule_json, source_doc '
+               'FROM clause WHERE 1=1')
+        args = []
+        if rule_type:
+            sql += ' AND rule_type=?'
+            args.append(rule_type)
+        if keywords:
+            sql += ' AND (' + ' OR '.join(['section LIKE ? OR text LIKE ?'] * len(keywords)) + ')'
+            for k in keywords:
+                args += ['%%%s%%' % k, '%%%s%%' % k]
+        sql += ' LIMIT ?'
+        args.append(int(limit))
+        for r in c.execute(sql, args):
+            out.append({'kind': 'clause', 'std_no': r['std_no'],
+                        'section': r['section'], 'rule_type': r['rule_type'],
+                        'rule': _kb_json(r['rule_json']), 'text': r['text'],
+                        'source': r['source_doc'], 'conf': 0.9})
+    except Exception:
+        return []
+    return out
+
+
+def kb_all_cases():
+    """全部层段案例（一次读入缓存；横向对比的基础数据）。"""
+    global _KB_CASES
+    if _KB_CASES is not None:
+        return _KB_CASES
+    rows = []
+    try:
+        c = _kb_conn()
+        for r in c.execute('SELECT well_id, top_m, base_m, formation, lithology, '
+                           'fluid, evidence_json, source_doc, conf FROM case_layer'):
+            rows.append({'well': r['well_id'], 'top_m': r['top_m'], 'base_m': r['base_m'],
+                         'formation': r['formation'] or '', 'lithology': r['lithology'] or '',
+                         'fluid': (r['fluid'] or '').upper(), 'extra': _kb_json(r['evidence_json']),
+                         'source': r['source_doc'], 'conf': r['conf'], 'kind': 'case'})
+    except Exception:
+        rows = []
+    _KB_CASES = rows
+    return rows
+
+
+def kb_cases(fluid='', exclude_well='', region_wells=None, limit=8):
+    """邻井层段案例：同流体/同区井优先（跨井才是横向对比价值）。"""
+    rows = kb_all_cases()
+    pool = [x for x in rows if not exclude_well or x['well'] != exclude_well]
+    if region_wells:
+        same = [x for x in pool if x['well'] in region_wells]
+        other = [x for x in pool if x['well'] not in region_wells]
+    else:
+        same, other = pool, []
+    if fluid:
+        f = str(fluid).upper()
+        same = [x for x in same if x['fluid'] == f] + [x for x in same if x['fluid'] != f]
+    return (same + other)[:limit]
+
+
+def kb_fluid_mix(exclude_well=''):
+    """横向流体基线：库里其他井的流体分布，给解释一个先验（油/水/干层占比）。"""
+    out = {}
+    for x in kb_all_cases():
+        if exclude_well and x['well'] == exclude_well:
+            continue
+        out[x['fluid']] = out.get(x['fluid'], 0) + 1
+    return dict(sorted(out.items(), key=lambda kv: -kv[1]))
+
+
+def _kb_tokens(text):
+    """FTS5 索引是 jieba 预分词建的 → 查询必须同样分词，否则中文检索为 0。"""
+    import re as _re
+    try:
+        import jieba
+        toks = [t.strip() for t in jieba.lcut(str(text or '')) if t.strip()]
+    except Exception:
+        toks = [t for t in _re.split(r'[\s,，、;；]+', str(text or '')) if t.strip()]
+    return [t for t in toks if not _re.fullmatch(r'[\W_]+', t)]
+
+
+def kb_search(q, limit=8):
+    """kb.db 全文检索（FTS5+bm25），返回带文件路径的片段（可溯源）。"""
+    fq = ' OR '.join('"%s"' % t.replace('"', '""') for t in _kb_tokens(q))
+    if not fq:
+        return []
+    try:
+        c = _kb_conn()
+        sql = ('SELECT f.doc_id, f.title, d.path, d.region, d.well, '
+               'snippet(doc_fts, 2, "[", "]", "…", 16) AS snip, bm25(doc_fts) AS rank '
+               'FROM doc_fts f JOIN doc d ON d.id = f.doc_id '
+               'WHERE doc_fts MATCH ? ORDER BY rank LIMIT ?')
+        return [{'kind': 'doc', 'title': r['title'], 'path': r['path'], 'region': r['region'],
+                 'well': r['well'], 'snippet': _kb_short(r['snip'], 300),
+                 'rank': round(float(r['rank']), 4)}
+                for r in c.execute(sql, [fq, int(limit)])]
+    except Exception:
+        return []
+
+
+def kb_entries():
+    """可校正知识条目（knowledge/entries/*.md）：元数据 + 判据表（不依赖 frontmatter 库）。"""
+    global _KB_ENTRIES
+    if _KB_ENTRIES is not None:
+        return _KB_ENTRIES
+    import re as _re
+    items = []
+    try:
+        if KB_ENTRIES_DIR.exists():
+            for fn in sorted(os.listdir(str(KB_ENTRIES_DIR))):
+                if not fn.endswith('.md'):
+                    continue
+                p = KB_ENTRIES_DIR / fn
+                text = p.read_text(encoding='utf-8')
+                meta, body = {}, text
+                m = _re.match(r'^---\s*\n(.*?)\n---\s*\n', text, _re.S)
+                if m:
+                    body = text[m.end():]
+                    for line in m.group(1).splitlines():
+                        if ':' not in line:
+                            continue
+                        k, v = line.split(':', 1)
+                        k, v = k.strip(), v.strip()
+                        if v.startswith('[') and v.endswith(']'):
+                            v = [x.strip() for x in v[1:-1].split(',') if x.strip()]
+                        meta[k] = v
+                rows = []
+                for line in body.splitlines():
+                    s = line.strip()
+                    if not s.startswith('|'):
+                        continue
+                    cells = [x.strip() for x in s.strip('|').split('|')]
+                    if len(cells) < 3:
+                        continue
+                    if set(cells[0]) <= set('-: ') or cells[0] in ('知识点', '特征', '知识点 '):
+                        continue
+                    rows.append({'point': cells[0], 'rule': cells[1], 'level': cells[2]})
+                items.append({'id': meta.get('id', fn[:12]), 'title': meta.get('title', fn),
+                              'scope': meta.get('scope', ''), 'status': meta.get('status', ''),
+                              'version': meta.get('version', ''), 'date': meta.get('date', ''),
+                              'tags': meta.get('tags', []), 'path': str(p),
+                              'rules': rows, 'body': body})
+    except Exception:
+        items = []
+    _KB_ENTRIES = items
+    return items
+
+
+def kb_lith_rules(profile=''):
+    """按剖面挑可校正判据条目（岩性识别器的依据来源）。"""
+    kws = []
+    if profile:
+        kws.append('碳酸盐' if 'carbon' in str(profile).lower() else '砂泥')
+    res = []
+    for e in kb_entries():
+        hay = ' '.join([str(e.get('title', '')), str(e.get('scope', '')),
+                        str(e.get('tags', '')), str(e.get('body', ''))[:600]])
+        if kws and not any(k in hay for k in kws):
+            continue
+        res.append({'kind': 'entry', 'id': e['id'], 'title': e['title'],
+                    'status': e['status'], 'version': e['version'],
+                    'scope': _kb_short(e['scope'], 120), 'rules': e['rules'][:12],
+                    'source': Path(e['path']).name, 'conf': 0.85})
+    return res
+
+
+def kb_find_well_dir(well):
+    """在 well_knowledge 层级目录（国家/盆地/凹陷/构造/油田/井）里按井名定位。"""
+    try:
+        if not well or not KB_WELL_KN_DIR.exists():
+            return None
+        want = str(well).strip().lower()
+        for root, dirs, _files in os.walk(str(KB_WELL_KN_DIR)):
+            for d in dirs:
+                if d.strip().lower() == want:
+                    return Path(root) / d
+    except Exception:
+        pass
+    return None
+
+
+def kb_well_facts(well, max_chars=1200):
+    """本井分类事实：按框架定位井目录，按 logKnow 分类取各类文件正文。
+
+    返回 {kind: {kind, label, path, text, note, bytes}}。本井已试油/已有结论
+    时优先复用，不重复解释；分类缺项由 kb_well_coverage 报缺口。
+    """
+    cfg = kb_cfg()
+    labels = cfg.get('categories') or KB_CAT_LABELS
+    out = {}
+    wd = kb_find_well_dir(well)
+    if not wd:
+        return out
+    for kind in KB_CAT_ORDER:
+        for ext in ('.md', '.json'):
+            p = wd / (kind + ext)
+            if not p.exists():
+                continue
+            try:
+                if ext == '.json':
+                    txt = json.dumps(json.loads(p.read_text(encoding='utf-8')),
+                                     ensure_ascii=False)[:max_chars]
+                    note = 'JSON 结构化分类'
+                else:
+                    txt = p.read_text(encoding='utf-8')[:max_chars]
+                    note = ''
+                out[kind] = {'kind': kind, 'label': labels.get(kind, kind),
+                             'path': str(p), 'text': txt, 'note': note,
+                             'bytes': p.stat().st_size}
+            except Exception:
+                continue
+            break
+    return out
+
+
+
+def kb_well_location(well):
+    """井所在国家：先查 kb.db 事实（精确→模糊），再回退 well_knowledge 目录层级
+    （国家/盆地/凹陷/构造/油田/井）的首层；区域标定与条款都靠它收敛。"""
+    try:
+        c = _kb_conn()
+        for sql, arg in (("SELECT obj FROM fact WHERE subj=? AND rel='LOCATED_IN' LIMIT 1",
+                          str(well)),
+                         ("SELECT obj FROM fact WHERE subj LIKE ? AND rel='LOCATED_IN' "
+                          "LIMIT 1", '%%%s%%' % well)):
+            r = c.execute(sql, [arg]).fetchone()
+            if r and str(r[0] or '').strip():
+                return str(r[0]).strip()
+    except Exception:
+        pass
+    try:
+        wd = kb_find_well_dir(well)
+        if wd:
+            top = Path(wd).relative_to(KB_WELL_KN_DIR).parts[0]
+            if top and top not in ('未填写', 'unknown', 'Unknown'):
+                return top
+    except Exception:
+        pass
+    return ''
+
+
+def kb_evidence(well, formation='', depth=None, fluid='', profile='', country=''):
+    """解释现场证据卡：有什么依据 / 缺什么 / 够不够解释。
+
+    返回 dict：ok / score / items / by_kind / missing / sources / text / fluid_baseline
+    失败（库缺失/表缺失）→ ok=False + reason，调用方按"不阻断"处理。
+    """
+    ev = {'ok': True, 'well': str(well or ''), 'formation': str(formation or ''),
+          'depth': depth, 'fluid': str(fluid or ''), 'profile': str(profile or ''),
+          'items': [], 'by_kind': {}, 'missing': [], 'score': 0, 'sources': [], 'text': ''}
+    try:
+        if not profile:      # 未指定剖面 → 取当前生效区域知识，避免口径不一致
+            profile = str((get_active_regional() or {}).get('剖面类型') or '')
+        ev['profile'] = profile
+        _w = kb_cfg().get('weights') or KB_W
+        if not country:
+            country = kb_well_location(ev['well'])
+        ev['country'] = country or ''
+
+        # 1) 区域标定：参数的"区域来源"（30 分；国家不明=不算数，列缺口）
+        calibs = kb_region_calib(country=country) if country else []
+        _cc = str(country or '').strip().lower()
+        if _cc:
+            calibs = [c for c in calibs
+                      if _cc in str(c.get('country') or '').lower()]
+        if calibs:
+            ev['score'] += _w['region']
+            for c in calibs[:2]:
+                ev['items'].append({
+                    'kind': 'region_calib',
+                    'title': '区域标定 %s/%s（%s 井 %s 点）' % (c['country'], c['region'],
+                                                          c['n_wells'], c['n_points']),
+                    'text': '截止值: ' + ', '.join('%s=%s' % (k, v)
+                                              for k, v in (c['cutoffs'] or {}).items()),
+                    'source': c['source'], 'conf': c['conf']})
+        else:
+            ev['missing'].append('区域标定（region_calib 无 %s）'
+                                 % (country or '未知国家'))
+        ev['calib'] = calibs[0]['cutoffs'] if calibs else {}
+
+        # 2) 机读条款：通用岩性/流体判据 + 本井所在国的区域岩性条款（25 分）
+        _cn = _KB_COUNTRY_CN.get(_cc, ())
+        _lith_all = kb_clauses(keywords=list(_KB_LITH_KW), limit=40)
+        if _cn:
+            lith_cl = [c for c in _lith_all
+                       if c.get('rule_type') != 'lithology_region'
+                       or any(k in ((c.get('section') or '') +
+                                    (c.get('text') or '')) for k in _cn)]
+        else:
+            lith_cl = [c for c in _lith_all
+                       if c.get('rule_type') != 'lithology_region']
+        fluid_cl = kb_clauses(keywords=list(_KB_FLUID_KW), limit=6)
+        if lith_cl and fluid_cl:
+            ev['score'] += _w['clause']
+        elif lith_cl or fluid_cl:
+            ev['score'] += int(_w['clause'] * 0.5)
+            ev['missing'].append('机读条款不全（岩性%d/流体%d）'
+                                 % (len(lith_cl), len(fluid_cl)))
+        else:
+            ev['missing'].append('机读条款（clause 未命中岩性/流体）')
+        if not _cn:
+            ev['missing'].append('区域岩性条款（国家未知，仅用通用判据）')
+        for c in (lith_cl[:3] + fluid_cl[:3])[:5]:
+            ev['items'].append({'kind': 'clause',
+                                'title': '%s %s（%s）' % (c['std_no'], c['section'],
+                                                       c['rule_type']),
+                                'text': _kb_short(c['text'], 300),
+                                'source': c['source'], 'conf': c['conf']})
+
+        # 3) 邻井层段案例：横向对比（20 分）
+        import re as _re
+        rw = []
+        for c in calibs:
+            rw += [x.strip() for x in _re.split(r'[,;，；\s]+', str(c.get('wells') or ''))
+                   if x.strip()]
+        cases = kb_cases(fluid=fluid, exclude_well=ev['well'],
+                         region_wells=rw or None, limit=6)
+        cross = [x for x in cases if x['well'] != ev['well']]
+        if len(cross) >= 3:
+            ev['score'] += _w['cases']
+        elif cross:
+            ev['score'] += int(_w['cases'] * 0.5)
+            ev['missing'].append('邻井案例偏少（%d 条）' % len(cross))
+        else:
+            ev['missing'].append('邻井层段案例（case_layer 无他井可比）')
+        for x in cases[:4]:
+            ev['items'].append({'kind': 'case',
+                                'title': '%s %.1f-%.1f m %s' % (x['well'], x['top_m'] or 0,
+                                                               x['base_m'] or 0,
+                                                               x['fluid'] or '-'),
+                                'text': '层段案例（conf %.2f）' % (x['conf'] or 0),
+                                'source': x['source'], 'conf': x['conf']})
+        ev['fluid_baseline'] = kb_fluid_mix(exclude_well=ev['well'])
+
+        # 4) 可校正判据条目（15 分）
+        ents = kb_lith_rules(profile=profile)
+        if ents:
+            ev['score'] += _w['entry']
+            for e in ents[:2]:
+                ev['items'].append({'kind': 'entry',
+                                    'title': '%s %s（%s v%s）' % (e['id'], e['title'],
+                                                               e['status'], e['version']),
+                                    'text': '；'.join('%s→%s' % (r['point'], r['rule'])
+                                                    for r in e['rules'][:4]) or e['scope'],
+                                    'source': e['source'], 'conf': e['conf']})
+        else:
+            ev['missing'].append('可校正判据（entries 未命中本剖面）')
+
+        # 5) 框架定位 + 分类覆盖 + 区域知识（10 分）
+        #    按框架（国家-盆地-凹陷-构造-油田-井）定位本井，按 logKnow 分类
+        #    （基础数据/地质·地层/地层岩性/试油/测井/气测异常/油气显示/工程）
+        #    点覆盖：哪类有据可依、哪类缺。缺口即下一轮补资料清单。
+        tx = kb_well_taxonomy(ev['well'])
+        ev['frame'] = tx['levels']
+        ev['frame_source'] = tx.get('source')
+        ev['frame_filled'] = tx.get('filled', 0)
+        cov = kb_well_coverage(ev['well'])
+        ev['coverage'] = {r['label']: bool(r['present']) for r in cov['rows']}
+        ev['coverage_detail'] = cov['rows']
+        _ncat = len(cov['present'])
+        _pts = 0
+        if _ncat >= 4:
+            _pts = _w['well']
+        elif _ncat >= 2:
+            _pts = int(_w['well'] * 0.6)
+        elif _ncat == 1:
+            _pts = int(_w['well'] * 0.3)
+        if _ncat:
+            ev['items'].append({'kind': 'well_fact',
+                                'title': '本井知识 %d/%d 类' % (_ncat, len(cov['rows'])),
+                                'text': '框架 ' + '/'.join(
+                                    (tx['levels'].get(k) or '-')
+                                    for k in (kb_cfg().get('levels') or [])) +
+                                        '；已有: ' + '、'.join(
+                                            (kb_cfg().get('categories') or {}).get(k, k)
+                                            for k in cov['present']),
+                                'source': '、'.join(Path(r['path']).name
+                                                    for r in cov['rows']
+                                                    if r['present'])[:180]
+                                          or 'well_knowledge',
+                                'conf': 0.8})
+        else:
+            ev['missing'].append('本井分类知识（well_knowledge 无任何分类文件）')
+        for _lb in cov['missing_core']:
+            ev['missing'].append('分类缺口：缺 %s' % _lb)
+        rk = get_active_regional()
+        _rk = {k: v for k, v in (rk or {}).items() if v}
+        if _rk:
+            _pts = max(_pts, _w['well'])       # 区域知识齐全视同本井知识满分
+            ev['items'].append({'kind': 'region_knowledge',
+                                'title': '区域知识（info.json）',
+                                'text': ', '.join('%s=%s' % (k, v)
+                                                  for k, v in _rk.items()),
+                                'source': 'info.json', 'conf': 0.95})
+        ev['score'] += _pts
+
+
+        for it in ev['items']:
+            ev['by_kind'].setdefault(it['kind'], []).append(it)
+            if it.get('source'):
+                ev['sources'].append(it['source'])
+        ev['score'] = int(min(100, ev['score']))
+        ev['text'] = kb_text(ev)
+    except Exception as e:
+        ev['ok'] = False
+        ev['reason'] = '%s: %s' % (type(e).__name__, e)
+    return ev
+
+
+def kb_gate(well, formation='', depth=None, fluid='', profile='',
+            min_score=None, country=''):
+    """解释前闸门：证据不足不放行，缺口随返回值一起给（便于补资料）。"""
+    ms = (int(kb_cfg().get('gate_min') or KB_GATE_MIN)
+          if min_score is None else int(min_score))
+    ev = kb_evidence(well, formation=formation, depth=depth, fluid=fluid,
+                     profile=profile, country=country)
+    allow = bool(ev.get('ok')) and ev.get('score', 0) >= ms
+    return {'ok': bool(ev.get('ok')), 'allow': allow, 'score': ev.get('score', 0),
+            'min_score': ms, 'missing': ev.get('missing', []), 'well': well,
+            'formation': formation,
+            'reason': ('证据足够（%d/%d）' % (ev.get('score', 0), ms) if allow else
+                       '证据不足（%d/%d）：%s' % (ev.get('score', 0), ms,
+                                              '、'.join(ev.get('missing', [])[:3]))),
+            'evidence': ev}
+
+
+def kb_text(ev):
+    """证据卡文本（写日志/界面右栏，无 emoji）：框架 + 分类覆盖 + 逐条依据。"""
+    lines = ['[知识证据] %s%s%s  score=%d' % (
+        ev.get('well') or '?',
+        (' / ' + ev['formation']) if ev.get('formation') else '',
+        (' @%.1fm' % ev['depth']) if ev.get('depth') else '', ev.get('score', 0))]
+    _fr = ev.get('frame') or {}
+    if _fr:
+        lines.append('  框架: ' + ' / '.join('%s:%s' % (k, v or '-')
+                                            for k, v in _fr.items()) +
+                     ('（来源 %s）' % ev['frame_source']
+                      if ev.get('frame_source') else ''))
+    _cov = ev.get('coverage') or {}
+    if _cov:
+        lines.append('  分类: ' + '、'.join('%s%s' % (k, '' if v else '(缺)')
+                                          for k, v in _cov.items()))
+    for it in ev.get('items', []):
+        lines.append('  [%s] %s ← %s' % (it['kind'], _kb_short(it['title'], 90),
+                                        Path(str(it.get('source') or '-')).name))
+    if ev.get('fluid_baseline'):
+        lines.append('  横向流体基线: ' + ', '.join('%s=%d' % (k, v)
+                                              for k, v in ev['fluid_baseline'].items()))
+    if ev.get('missing'):
+        lines.append('  缺口: ' + '、'.join(ev['missing']))
+    return '\n'.join(lines)
+
+
+
+def kb_selftest(verbose=True):
+    """调用层自检：配置/框架/分类/库连通/各数据源/证据卡/闸门。返回失败项数。"""
+    fails = []
+
+    def chk(name, cond, detail=''):
+        if cond:
+            if verbose:
+                print('PASS  %-24s %s' % (name, detail))
+        else:
+            fails.append(name)
+            print('FAIL  %-24s %s' % (name, detail))
+
+    cfg = kb_cfg()
+    chk('配置可读(logint.json)', bool(cfg.get('weights')) and bool(cfg.get('gate_min')),
+        'gate_min=%s 权重=%s' % (
+            cfg.get('gate_min'),
+            {k: (cfg.get('weights') or {}).get(k)
+             for k in ('region', 'clause', 'cases', 'entry', 'well')}))
+    chk('框架六层', len(cfg.get('levels') or []) == 6 and
+        (cfg.get('levels') or [''])[0] == '国家', '/'.join(cfg.get('levels') or []))
+    chk('分类词表(logKnow)', all(k in (cfg.get('categories') or {}) for k in
+                                ('stratigraphy', 'lithology', 'testing',
+                                 'gas_show', 'log_interpretation')),
+        '、'.join((cfg.get('categories') or {}).values()))
+    st = kb_stats()
+    chk('kb.db 可连', st.get('ok'),
+        str({k: st.get(k) for k in ('doc', 'chunk', 'case_layer', 'clause',
+                                    'region_calib')} if st.get('ok') else st.get('reason')))
+    chk('条目可读', len(kb_entries()) > 0, '%d 条' % len(kb_entries()))
+    chk('区域标定非空', len(kb_region_calib()) > 0, '%d 条' % len(kb_region_calib()))
+    chk('条款非空', len(kb_clauses()) > 0, '%d 条' % len(kb_clauses()))
+    chk('全文检索可用', len(kb_search('蒸发岩 硬石膏')) > 0,
+        '命中 %d' % len(kb_search('蒸发岩 硬石膏')))
+    chk('层段案例非空', len(kb_all_cases()) > 0, '%d 条' % len(kb_all_cases()))
+    chk('判据条目机读', any(e['rules'] for e in kb_lith_rules()),
+        str([e['id'] for e in kb_lith_rules()]))
+
+    _well = next((x for x in ('1-SPS-108', 'P19', 'BET-1')
+                  if kb_find_well_dir(x)), '')
+    tx = kb_well_taxonomy(_well) if _well else {'levels': {}, 'hierarchy': {},
+                                                'filled': 0, 'source': ''}
+    chk('井框架可解析', bool(_well) and bool(tx['hierarchy'].get('country')) and
+        bool(tx['hierarchy'].get('well')),
+        ('%s（来源 %s，%d/6 层）' % ('/'.join(tx['levels'].get(k) or '-'
+                                           for k in (cfg.get('levels') or [])),
+                                   tx.get('source'), tx.get('filled')) if _well else '无井目录'))
+    cov = kb_well_coverage(_well)
+    chk('分类覆盖可读', bool(_well) and len(cov['rows']) >= 6 and
+        len(cov['present']) >= 2,
+        '已有 %d 类（%s）；缺解释必需: %s' % (
+            len(cov['present']),
+            '、'.join(r['label'] for r in cov['rows'] if r['present']),
+            '、'.join(cov['missing_core']) or '无'))
+    chk('框架聚合', len(kb_frame_tree('国家')) > 0,
+        str([r['value'] for r in kb_frame_tree('国家')]))
+    chk('分类统计', len(kb_categories()) == len(KB_CAT_ORDER),
+        '、'.join('%s=%s' % (c['label'], c['docs']) for c in kb_categories()))
+
+    ev = kb_evidence('BET-1', country='Indonesia')
+    chk('证据卡生成', bool(ev.get('ok')) and bool(ev.get('items')),
+        'score=%s items=%d 框架=%s' % (
+            ev.get('score'), len(ev.get('items') or []),
+            '/'.join(v or '-' for v in (ev.get('frame') or {}).values())))
+    chk('闸门放行(阈0)', kb_gate('BET-1', min_score=0).get('allow') is True, '')
+    chk('闸门拦截(阈100)', kb_gate('BET-1', min_score=100).get('allow') is False, '')
+    print('\n自检结果: %s（失败 %d 项）' % ('PASS' if not fails else 'FAIL', len(fails)))
+    return len(fails)
+
+
+
 def build_interpretation_rules(cut=None):
     """按分井截止值构建解释规则表（cut 全空 → 直接返回默认 INTERPRETATION_RULES）。
 
@@ -9659,40 +10503,52 @@ def detect_well_profile_type(data, well_name='Unknown',
     cnl = pick('NPHI', 'CNL', 'CNCF')
 
     def _kb_enrich(_info, _ptype):
-        """知识库联动【2026-10-15】：查询地区岩性知识交叉验证剖面判定。
-        用户质疑"知识库没用"——巴西蒸发岩-碳酸盐岩序列知识在
-        BuiltInKnowledge(brazil_evaporite_sequence)里，此前从未参与
-        剖面判定。此处把KB命中记入info['kb_hits']；若KB含巴西碳酸盐
-        知识而本井判成砂泥岩，打冲突告警提示人工复核。"""
-        # source_file 守卫【2026-10-15】：合成/自检数据无源文件时跳过KB
-        # 查询（BuiltInKnowledge 索引构建约8秒/次，自检多场景调用会拖慢
-        # --selftest；生产数据经 DataLoader 均有 source_file 不受影响）
+        """知识库联动【2026-10-15 / 2026-11-08 kb.db 版】：剖面判定后立即取
+        "解释现场证据"——区域标定（截止值来源）/机读条款（判据）/邻井层段
+        案例/可校正判据/本井事实，写入 info['kb'] 并保留 kb_hits 兼容旧报告
+        字段。用户口径：知识要能直接用于解释，不看"入库多少条"。"""
+        # source_file 守卫【2026-10-15】：合成/自检数据无源文件时跳过（自检
+        # 多场景不拖慢；生产数据经 DataLoader 均有 source_file 不受影响）
         _src = None
         try:
             _src = data.attrs.get('source_file')
         except Exception:
             _src = None
         if not _src:
-            logger.debug(f"[{well_name}] 知识库联动跳过: 数据无 source_file"
+            logger.debug(f"[{well_name}] 知识证据跳过: 数据无 source_file"
                          f"（合成/自检数据）")
             return _info
         try:
-            import logKnow as _lkw
-            _kb = _lkw.WellLogKnowledgeBase(auto_scan=False)
-            _hits = _kb.search('巴西 碳酸盐岩 硬石膏 蒸发岩 地层序列 剖面',
-                               top_n=3)
-            _names = [h.get('title', '?') for h in (_hits or [])]
+            _ev = kb_evidence(well_name, profile=_ptype)
+            if not _ev.get('ok'):
+                raise RuntimeError(_ev.get('reason') or 'kb.db 不可用')
+            _info['kb'] = {
+                'score': _ev.get('score', 0),
+                'country': _ev.get('country', ''),
+                'calib': _ev.get('calib', {}),
+                'by_kind': {k: len(v) for k, v in (_ev.get('by_kind') or {}).items()},
+                'missing': list(_ev.get('missing') or []),
+                'fluid_baseline': _ev.get('fluid_baseline', {}),
+                'sources': list(dict.fromkeys(_ev.get('sources') or []))[:8],
+            }
+            _names = [_kb_short(it.get('title', ''), 60) for it in _ev.get('items', [])
+                      if it.get('kind') in ('entry', 'clause', 'region_calib')]
             if _names:
-                _info['kb_hits'] = _names
-                logger.info(f"[{well_name}] 知识库联动: 命中知识条目 {_names}")
-                if (_ptype == 'sand_shale'
-                        and any('brazil' in str(n).lower() or '巴西' in str(n)
-                                for n in _names)):
-                    logger.warning(
-                        f"[{well_name}] 知识库冲突: KB含巴西碳酸盐岩/蒸发岩知识"
-                        f"但本井判定为砂泥岩剖面，建议人工复核剖面类型")
+                _info['kb_hits'] = _names[:5]
+            logger.info(f"[{well_name}] 知识证据: score={_ev.get('score')}"
+                        f" 依据{len(_ev.get('items') or [])}条"
+                        f" 缺口{len(_ev.get('missing') or [])}项")
+            if _ev.get('missing'):
+                logger.info(f"[{well_name}] 知识缺口: "
+                            f"{'、'.join(_ev['missing'][:3])}")
+            # 冲突：该国库内主要为碳酸盐/蒸发岩序列，本井却判砂泥岩剖面
+            _ctry = str(_ev.get('country') or '')
+            if _ptype == 'sand_shale' and (_ctry.lower() == 'brazil' or '巴西' in _ctry):
+                logger.warning(
+                    f"[{well_name}] 知识库冲突: 区域（{_ctry}）库内以碳酸盐岩-蒸发岩"
+                    f"序列为主，本井判定为砂泥岩剖面，建议人工复核剖面类型")
         except Exception as _e:   # 知识库不可用不阻断主流程
-            logger.debug(f"[{well_name}] 知识库联动跳过: {_e}")
+            logger.debug(f"[{well_name}] 知识证据跳过: {_e}")
         return _info
 
     # ---- 0. 元素测井矿物含量（VOL_*）第一优先判据【2026-10-15】----
@@ -14407,6 +15263,52 @@ class WellLogProcessor:
                     "PTI 灰区(%.3f∈[0.42,0.50])且区域知识无剖面类型——"
                     "保留 %s（core 裁决口径），建议人工目检密度-中子"
                     "交会图", _pti_main, _profile_type)
+            # 【2026-11-08 R50】解释前知识证据卡 + 闸门：把"依据/缺口"落到日志
+            # 与 self.results，解释不再只靠单点阈值。库不可用或证据不足一律降级
+            # 提示，不阻断解释（用户口径：结论先给，缺口随附，能补则补）。
+            try:
+                if not isinstance(getattr(self, 'results', None), dict):
+                    self.results = {}
+                _kb_min = int(kb_cfg().get('gate_min') or KB_GATE_MIN)
+                _kb_ev = kb_evidence(
+                    str(getattr(self, 'well_name', '') or ''), profile=_profile_type)
+                if _kb_ev.get('ok'):
+                    _kb_score = int(_kb_ev.get('score') or 0)
+                    _kb_allow = _kb_score >= _kb_min
+                    self.results['kb_evidence'] = {
+                        'score': _kb_score,
+                        'frame': _kb_ev.get('frame') or {},
+                        'frame_source': _kb_ev.get('frame_source'),
+                        'coverage': _kb_ev.get('coverage') or {},
+                        'country': _kb_ev.get('country'),
+                        'calib': _kb_ev.get('calib') or {},
+                        'items': [{'kind': it.get('kind'), 'title': it.get('title'),
+                                   'source': it.get('source'), 'conf': it.get('conf')}
+                                  for it in (_kb_ev.get('items') or [])],
+                        'missing': list(_kb_ev.get('missing') or []),
+                        'fluid_baseline': _kb_ev.get('fluid_baseline') or {},
+                        'sources': list(_kb_ev.get('sources') or []),
+                    }
+                    self.results['kb_gate'] = {
+                        'allow': _kb_allow, 'score': _kb_score,
+                        'min_score': _kb_min,
+                        'missing': list(_kb_ev.get('missing') or []),
+                        'reason': ('证据足够（%d/%d）' % (_kb_score, _kb_min)
+                                   if _kb_allow else
+                                   '证据不足（%d/%d）：%s' % (
+                                       _kb_score, _kb_min,
+                                       '、'.join((_kb_ev.get('missing') or [])[:3]))),
+                    }
+                    logger.info("%s", _kb_ev.get('text'))
+                    if not _kb_allow:
+                        logger.warning("知识闸门: %s",
+                                       self.results['kb_gate']['reason'])
+                else:
+                    logger.info("知识证据不可用（不阻断解释）: %s",
+                                _kb_ev.get('reason'))
+            except Exception as _kbe:
+                logger.warning("知识证据卡生成失败（不阻断解释）: %s", _kbe)
+
             logger.info("Step 2: Spring segment correction")
 
             # 检测时只用密度曲线，但校正时同时校正密度和电阻率曲线
@@ -17617,8 +18519,32 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None):
     # ---- 1. 文件发现 ----
     las_main = _find_main_las(well_dir)
     if las_main is None:
-        print("✗ 未找到主测井 LAS 文件，退出 quick look")
-        return None
+        # 无 LAS 的井目录：用 quicklook 同一套知识搜集逻辑入库（不做曲线解释）
+        print("⚠ 未找到主测井 LAS：转入井目录知识搜集/入库模式")
+        try:
+            from logsys.well_knowledge import (save_well_knowledge,
+                                               ingest_well_knowledge_db,
+                                               ingest_well_knowledge_logknow)
+            _wk, _wk_md, _wk_json = save_well_knowledge(
+                well_dir, well_name=well_dir.name, write_well_dir=True)
+            try:
+                ingest_well_knowledge_db(well_dir, well_name=well_dir.name,
+                                         md_path=str(_wk_md))
+            except Exception as _e_db:
+                logger.warning('P19知识写入kb.db失败: %s', _e_db)
+            try:
+                ingest_well_knowledge_logknow(well_dir, well_name=well_dir.name,
+                                              md_path=str(_wk_md))
+            except Exception as _e_lk:
+                logger.warning('P19知识写入logKnow失败: %s', _e_lk)
+            print(f"✓ 井目录知识已入库: {_wk_md}")
+            return {'well_name': _wk.get('well'), 'well_dir': str(well_dir),
+                    'well_knowledge': _wk, 'well_knowledge_md': str(_wk_md),
+                    'knowledge_only': True,
+                    'output_dir': str(_wk_md.parent)}
+        except Exception as _e_ko:
+            logger.warning('井目录知识搜集失败: %s', _e_ko)
+            return None
     md_files = sorted(well_dir.rglob('*.md'))
     pdf_files = sorted(well_dir.rglob('*.pdf'))
     xls_files = sorted(p for p in well_dir.rglob('*') if p.suffix.lower() in ('.xls', '.xlsx'))
