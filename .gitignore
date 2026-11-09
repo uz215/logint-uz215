@@ -9,7 +9,8 @@ graph/
 backup/
 Claw/
 config/
-docs/
+# docs/ 定案/正本文档纳入版本管理（R68 后解禁，两机一致性靠 git 同步）；
+# 临时草稿仍由下方 *.pdf / *.drawio / _report_* 等规则排除
 interpretation/
 test_crawl_result/
 tmp_chad/
