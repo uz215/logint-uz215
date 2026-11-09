@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "也门",
-    "basin": "Marib 盆地",
-    "sag": "Marib 主凹陷",
-    "block": "Block 18",
-    "oilfield": "Alif 油田",
+    "basin": "Marib–Al Jawf 盆地",
+    "sag": "Marib 凹陷",
+    "block": "Marib 陆上区块",
+    "oilfield": "Marib 油田",
     "structure": "断块隆起",
-    "well": "ALIF-01",
-    "formation": "Qishn",
+    "well": "YEM-01",
+    "formation": "Jurassic Sand",
     "strata_meta": {
-      "sub_layer": "下白垩统陆相砂岩",
-      "lithology": ["石英砂岩", "长石砂岩", "湖相泥岩"],
+      "sub_layer": "侏罗系陆相、浅海相石英砂岩",
+      "lithology": ["石英砂岩", "长石砂岩", "粉砂岩", "页岩"],
       "log_response": {
-        "reservoir": {"GR": "21–56", "RT": "13–70", "DEN": "2.34–2.48", "CNL": "13–23", "AC": "75–89"},
-        "non_reservoir": {"GR": "81–132", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+        "reservoir": {"GR": "18–50", "RT": "14–72", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–3.2", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
       },
       "hydrocarbon_type": "原油、伴生气"
     },
-    "method_name": "Marib 盆地白垩系砂岩解释法",
+    "method_name": "Marib 侏罗系砂岩解释法",
     "method_meta": {
-      "applicable_condition": "白垩系陆相河道砂，干旱成岩环境",
+      "applicable_condition": "裂谷盆地砂岩，局部裂缝发育",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，高矿化度地层水校正",
-      "threshold": {"sw_max": "0.59"},
-      "limitation": "硬石膏胶结段物性急剧变差",
-      "reference_case": "Alif, Habban"
+      "formula": "泥质 Archie，裂缝电阻率校正",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "断层切割破碎，同一地层多套压力系统",
+      "reference_case": "Marib, Alif"
     },
-    "gwc": {"Qishn": "断块分隔，油水界面差异明显"}
+    "gwc": {"Jurassic Sand": "断块独立油水界面"}
   }
 ]

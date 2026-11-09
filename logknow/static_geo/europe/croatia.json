@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "克罗地亚",
+    "basin": "Pannonian 盆地",
+    "sag": "Sava 凹陷",
+    "block": "Sava 陆上区块",
+    "oilfield": "Ivanić 油田",
+    "structure": "断块背斜",
+    "well": "HRV-01",
+    "formation": "Pliocene Sand",
+    "strata_meta": {
+      "sub_layer": "上新统湖相三角洲砂岩",
+      "lithology": ["长石岩屑砂岩", "粉砂岩", "湖相泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "21–57", "RT": "12–65", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
+        "non_reservoir": {"GR": "80–131", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "Pannonian 上新统三角洲砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "内陆湖盆三角洲，薄互层发育",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质 Archie，薄层校正",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "单层厚度薄，测井分辨率受限；泥质含量波动大",
+      "reference_case": "Ivanić, Žutica"
+    },
+    "gwc": {"Pliocene Sand": "砂组独立油水界面"}
+  }
+]

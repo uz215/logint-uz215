@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "罗马尼亚",
+    "basin": "Moesian 盆地",
+    "sag": "中央凹陷",
+    "block": "Ploiesti 区块",
+    "oilfield": "Ploiesti 油田群",
+    "structure": "断块背斜",
+    "well": "ROU-01",
+    "formation": "Oligocene–Miocene Sand",
+    "strata_meta": {
+      "sub_layer": "渐新统—中新统陆相、浅海相砂岩",
+      "lithology": ["长石砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "22–58", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
+        "non_reservoir": {"GR": "81–133", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "原油为主，伴生气"
+    },
+    "method_name": "Ploiesti 渐新—中新统砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "浅层碎屑岩，部分稠油",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie，稠油低阻校正",
+      "threshold": {"sw_max": "0.59"},
+      "limitation": "稠油段电阻率偏低，容易误判水层；砂体薄互层",
+      "reference_case": "Ploiesti, Moreni"
+    },
+    "gwc": {"Oligocene–Miocene Sand": "断块、砂组各自油水界面"}
+  }
+]

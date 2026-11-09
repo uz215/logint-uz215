@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "尼日尔",
+    "basin": "Illizi / Termit 盆地",
+    "sag": "Termit 凹陷",
+    "block": "Termit 陆上区块",
+    "oilfield": "Agadem 油田",
+    "structure": "断块隆起、背斜",
+    "well": "NER-01",
+    "formation": "Cretaceous Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系陆相、浅海相砂岩",
+      "lithology": ["石英—长石砂岩", "粉砂岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–55", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "Termit 白垩系砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷盆地，砂体受断层控制",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "埋深差异大，成岩作用变化快",
+      "reference_case": "Agadem, Tchizalalit"
+    },
+    "gwc": {"Cretaceous Sand": "断块独立油水界面"}
+  }
+]

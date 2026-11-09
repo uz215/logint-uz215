@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "南苏丹",
+    "basin": "Muglad 盆地",
+    "sag": "Unity 凹陷",
+    "block": "Unity 区块",
+    "oilfield": "Unity 油田",
+    "structure": "断块背斜",
+    "well": "SSD-01",
+    "formation": "Cretaceous Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系河流三角洲砂岩，和苏丹 Muglad 同源地层",
+      "lithology": ["长石岩屑砂岩", "粉砂岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "22–58", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
+        "non_reservoir": {"GR": "81–133", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "Unity 白垩系陆相砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "Muglad 裂谷陆相砂体，继承区域地层框架",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质 Archie，河道砂边界识别",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "断层复杂，砂体连续性差；部分低阻油层",
+      "reference_case": "Unity, Bentiu"
+    },
+    "gwc": {"Cretaceous Sand": "断块独立油水界面"}
+  }
+]

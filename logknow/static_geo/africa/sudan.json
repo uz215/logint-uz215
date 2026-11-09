@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "苏丹",
+    "basin": "Muglad 盆地",
+    "sag": "Central Muglad 凹陷",
+    "block": "Muglad 区块",
+    "oilfield": "Heglig 油田",
+    "structure": "断块背斜",
+    "well": "SDN-01",
+    "formation": "Cretaceous Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系陆相河流—三角洲砂岩",
+      "lithology": ["长石砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "22–58", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
+        "non_reservoir": {"GR": "81–133", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "原油为主，伴生气"
+    },
+    "method_name": "Muglad 白垩系陆相砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷陆相砂体，河道砂孤立叠置",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie，河道砂识别",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "砂体呈条带状，侧向快速尖灭；局部高矿化水",
+      "reference_case": "Heglig, Unity"
+    },
+    "gwc": {"Cretaceous Sand": "断块、河道砂各自油水界面"}
+  }
+]
