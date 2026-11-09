@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "塞内加尔",
+    "basin": "塞内加尔近海盆地",
+    "sag": "近海主凹陷",
+    "block": "Sangomar 区块",
+    "oilfield": "Sangomar 油田",
+    "structure": "盐相关背斜",
+    "well": "SGM-01",
+    "formation": "Cenomanian Turonian Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系海相砂岩",
+      "lithology": ["石英砂岩", "浊积砂岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–54", "RT": "11–64", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "塞内加尔近海白垩系浊积砂解释法",
+    "method_meta": {
+      "applicable_condition": "盐构造改造下海相浊积扇砂体",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "盐丘扰动校正，泥质 Archie",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "盐刺穿切割储层，薄层发育",
+      "reference_case": "Sangomar, Yakaar"
+    },
+    "gwc": {"Cenomanian Turonian Sand": "扇体单元各自油水界面"}
+  }
+]

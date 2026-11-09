@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "沙特阿拉伯",
+        "basin": "波斯湾盆地",
+        "sag": "东部凹陷",
+        "block": "Arab 区块",
+        "oilfield": "Arab 油田",
+        "structure": "台地粒屑滩构造",
+        "well": "ARB-01",
+        "formation": "Arab",
+        "strata_meta": {
+            "sub_layer": "白垩系碳酸盐岩",
+            "lithology": ["粒屑灰岩、藻灰岩"],
+            "log_response": {
+                "reservoir": {"GR": "3–19", "RT": "22–220", "DEN": "2.43–2.58", "CNL": "3–10", "DT": "43–63"},
+                "non_reservoir": {"GR": "1–8", "RT": "1100+", "DEN": "2.90–2.98", "CNL": "-1~2", "DT": "32–40"}
+            },
+            "hydrocarbon_type": "原油"
+        },
+        "method_name": "Arab 组碳酸盐岩解释法",
+        "method_meta": {
+            "applicable_condition": "白垩系台地粒屑灰岩",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "粒间孔隙 Archie",
+            "threshold": {"sw_max": 0.55},
+            "limitation": "石膏夹层干扰孔隙计算",
+            "reference_case": "沙特陆上巨型油田"
+        },
+        "gwc": {"Arab": "不同油田独立油水界面"}
+    }
+]

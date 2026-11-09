@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "阿尔及利亚",
+        "basin": "伊利济盆地",
+        "sag": "中央凹陷",
+        "block": "Hassi R'Mel 区块",
+        "oilfield": "Hassi R'Mel 气田",
+        "structure": "古生界台地隆起",
+        "well": "HRM-01",
+        "formation": "Hassi R'Mel",
+        "strata_meta": {
+            "sub_layer": "三叠系砂岩储层",
+            "lithology": ["石英砂岩，分选较好", "泥岩、盐岩盖层"],
+            "log_response": {
+                "reservoir": {"GR": "18–48", "RT": "15–80", "DEN": "2.33–2.47", "CNL": "12–22", "DT": "74–88"},
+                "non_reservoir": {"GR": "76–128", "RT": "1–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "DT": "91–106"}
+            },
+            "hydrocarbon_type": "天然气、凝析油"
+        },
+        "method_name": "阿尔及利亚三叠系砂岩气层法",
+        "method_meta": {
+            "applicable_condition": "古生界—三叠系碎屑岩，盐岩盖层",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "中子密度挖掘效应判气 + Archie",
+            "threshold": {"gas_cut": 0.042, "sw_max": 0.55},
+            "limitation": "盐层、硬石膏干扰密度曲线",
+            "reference_case": "Hassi R'Mel、Hassi Messaoud"
+        },
+        "gwc": {"Hassi R'Mel": "隆起分区气水界面"}
+    }
+]

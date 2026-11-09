@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "巴布亚新几内亚",
+    "basin": "Papuan 前陆盆地",
+    "sag": "Fly River 凹陷",
+    "block": "Hides 区块",
+    "oilfield": "Hides 气田",
+    "structure": "逆冲背斜",
+    "well": "HDS-01",
+    "formation": "Jurassic Sand",
+    "strata_meta": {
+      "sub_layer": "侏罗系陆相石英砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "煤系泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "18–50", "RT": "15–82", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
+      },
+      "hydrocarbon_type": "天然气、凝析油"
+    },
+    "method_name": "Papuan 侏罗系砂岩气层解释法",
+    "method_meta": {
+      "applicable_condition": "前陆逆冲带煤系河道砂",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "碳质夹层识别，泥质校正 Archie，气挖掘校正",
+      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
+      "limitation": "逆冲断层复杂，煤层干扰电阻率",
+      "reference_case": "Hides, Moran"
+    },
+    "gwc": {"Jurassic Sand": "逆冲断块独立气水界面"}
+  }
+]

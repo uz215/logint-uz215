@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "科威特",
+        "basin": "大布尔干盆地",
+        "sag": "南部凹陷",
+        "block": "Burgan 区块",
+        "oilfield": "Burgan 油田",
+        "structure": "大型平缓背斜构造",
+        "well": "BUR-01",
+        "formation": "Burgan",
+        "strata_meta": {
+            "sub_layer": "白垩统砂岩",
+            "lithology": ["石英砂岩", "泥质砂岩"],
+            "log_response": {
+                "reservoir": {"GR": "15–45", "RT": "6–40", "DEN": "2.32–2.46", "CNL": "12–22", "DT": "74–88"},
+                "non_reservoir": {"GR": "75–130", "RT": "1–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "DT": "91–106"}
+            },
+            "hydrocarbon_type": "原油"
+        },
+        "method_name": "滨岸砂岩油层解释法",
+        "method_meta": {
+            "applicable_condition": "滨岸滩坝纯净砂岩",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "Archie 饱和度计算",
+            "threshold": {"sw_max": 0.55},
+            "limitation": "含硬石膏夹层干扰",
+            "reference_case": "科威特布尔干油田"
+        },
+        "gwc": {"Burgan": "区域统一油水界面，局部构造微调"}
+    }
+]

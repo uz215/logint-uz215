@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "布基纳法索",
+    "basin": "Volta 盆地",
+    "sag": "中央凹陷",
+    "block": "Volta 陆上区块",
+    "oilfield": "Volta 远景区",
+    "structure": "断块隆起",
+    "well": "VLT-01",
+    "formation": "Paleozoic Sand",
+    "strata_meta": {
+      "sub_layer": "古生界河流砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "页岩夹层"],
+      "log_response": {
+        "reservoir": {"GR": "20–54", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "远景油气，以气为主"
+    },
+    "method_name": "Volta 盆地古生界砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "陆相河道砂，勘探程度低",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie",
+      "threshold": {"sw_max": "0.59"},
+      "limitation": "实钻井极少，参数不确定性高",
+      "reference_case": "Volta prospect"
+    },
+    "gwc": {"Paleozoic Sand": "以单井标定，无统一区域界面"}
+  }
+]

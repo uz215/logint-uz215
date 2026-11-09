@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "科特迪瓦",
+    "basin": "科特迪瓦近海盆地",
+    "sag": "近海凹陷",
+    "block": "Baobab 区块",
+    "oilfield": "Baobab 油田",
+    "structure": "盐相关滚动背斜",
+    "well": "BAB-01",
+    "formation": "Cenomanian Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系海相砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–54", "RT": "11–64", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "科特迪瓦近海白垩系砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "盐构造改造的海相分流砂体",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "盐影响校正，泥质 Archie",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "盐丘刺穿造成储层切割，薄层多",
+      "reference_case": "Baobab, Espoir"
+    },
+    "gwc": {"Cenomanian Sand": "盐块分割，各自油水界面"}
+  }
+]

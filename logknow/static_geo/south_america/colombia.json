@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "哥伦比亚",
+    "basin": "Llanos 盆地",
+    "sag": "东部凹陷",
+    "block": "Block 31",
+    "oilfield": "Cusiana 油田",
+    "structure": "挤压背斜",
+    "well": "CUS-01",
+    "formation": "Mirador",
+    "strata_meta": {
+      "sub_layer": "古近系河流三角洲砂岩",
+      "lithology": ["石英砂岩", "岩屑砂岩", "碳质泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–55", "RT": "11–64", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "原油"
+    },
+    "method_name": "Llanos 盆地 Mirador 砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "古近系河流砂体，中低泥质",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie，碳质夹层识别",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "碳质泥岩造成电阻率假高",
+      "reference_case": "Cusiana, Cupiagua"
+    },
+    "gwc": {"Mirador": "构造控制油水界面"}
+  }
+]

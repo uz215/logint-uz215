@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "马来西亚",
+    "basin": "马来盆地",
+    "sag": "中央凹陷",
+    "block": "Central Luconia 区块",
+    "oilfield": "Central Luconia 碳酸盐岩气田群",
+    "structure": "孤立礁块",
+    "well": "MLY-01",
+    "formation": "Miocene Carbonate",
+    "strata_meta": {
+      "sub_layer": "中新统孤立生物礁碳酸盐岩",
+      "lithology": ["礁灰岩", "白云岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "4–26", "RT": "22–220", "DEN": "2.40–2.56", "CNL": "3–12", "AC": "43–65"},
+        "non_reservoir": {"GR": "1–8", "RT": "700+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "天然气、凝析油，少量原油"
+    },
+    "method_name": "Luconia 中新统生物礁气层解释法",
+    "method_meta": {
+      "applicable_condition": "孤立台地礁体，礁内溶孔、粒间孔发育",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "礁体边界识别，白云岩校正，Archie，气挖掘效应",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
+      "limitation": "礁体互相独立，非均质性极强，礁间泥岩隔层",
+      "reference_case": "Central Luconia, Bintulu offshore"
+    },
+    "gwc": {"Miocene Carbonate": "每一个独立礁块拥有独立气水界面"}
+  }
+]

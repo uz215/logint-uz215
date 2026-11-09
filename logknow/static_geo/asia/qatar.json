@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "卡塔尔",
+        "basin": "波斯湾盆地",
+        "sag": "北部凹陷",
+        "block": "Khuff 区块",
+        "oilfield": "Khuff 气田",
+        "structure": "巨型台地构造",
+        "well": "KHF-01",
+        "formation": "Khuff",
+        "strata_meta": {
+            "sub_layer": "二叠系碳酸盐岩",
+            "lithology": ["白云岩，孔洞储层"],
+            "log_response": {
+                "reservoir": {"GR": "4–20", "RT": "40–350", "DEN": "2.41–2.56", "CNL": "3–10", "DT": "43–63"},
+                "non_reservoir": {"GR": "1–7", "RT": "1200+", "DEN": "2.91–2.99", "CNL": "-2~2", "DT": "31–39"}
+            },
+            "hydrocarbon_type": "天然气"
+        },
+        "method_name": "Khuff 白云岩气层解释法",
+        "method_meta": {
+            "applicable_condition": "二叠系台地白云岩孔洞储层",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "孔洞孔隙度 + 烃类识别",
+            "threshold": {"por_min": 0.055},
+            "limitation": "硬石膏层挤占孔隙空间",
+            "reference_case": "卡塔尔北部气田"
+        },
+        "gwc": {"Khuff": "巨型台地，分区气水界面"}
+    }
+]

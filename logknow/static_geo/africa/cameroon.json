@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "喀麦隆",
+    "basin": "杜阿拉盆地",
+    "sag": "近海主凹陷",
+    "block": "Kribi 区块",
+    "oilfield": "Kribi 油田",
+    "structure": "滚动背斜",
+    "well": "KRI-01",
+    "formation": "Mundeck",
+    "strata_meta": {
+      "sub_layer": "白垩系三角洲砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "21–56", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–23", "AC": "75–89"},
+        "non_reservoir": {"GR": "81–132", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "杜阿拉盆地白垩系三角洲砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "近海三角洲分流河道砂",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie，海相地层水矿化度校正",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "薄层、砂体尖灭快，浊积砂混杂",
+      "reference_case": "Kribi, Lokele"
+    },
+    "gwc": {"Mundeck": "每个砂体各自油水界面"}
+  }
+]

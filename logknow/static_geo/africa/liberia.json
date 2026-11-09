@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "利比里亚",
+    "basin": "利比里亚近海盆地",
+    "sag": "近海主凹陷",
+    "block": "LB-15 区块",
+    "oilfield": "Montserrado 远景区",
+    "structure": "滚动背斜",
+    "well": "MNT-01",
+    "formation": "Cenomanian Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系深水浊积砂岩",
+      "lithology": ["石英砂岩", "浊积粉砂", "海相泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "19–52", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "78–128", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "原油、伴生气远景"
+    },
+    "method_name": "利比里亚近海白垩系浊积砂解释法",
+    "method_meta": {
+      "applicable_condition": "被动陆缘深水扇",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "勘探程度低，砂体预测难度大",
+      "reference_case": "Montserrado prospect"
+    },
+    "gwc": {"Cenomanian Sand": "扇体各自油水界面，缺少标定"}
+  }
+]

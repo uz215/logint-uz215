@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "意大利",
+    "basin": "Po 平原盆地",
+    "sag": "Po 主凹陷",
+    "block": "Po Valley 区块",
+    "oilfield": "Malossa 气田",
+    "structure": "挤压背斜",
+    "well": "MLS-01",
+    "formation": "Pliocene Sand",
+    "strata_meta": {
+      "sub_layer": "上新统三角洲砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "21–55", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–23", "AC": "75–89"},
+        "non_reservoir": {"GR": "80–130", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "天然气、凝析油"
+    },
+    "method_name": "Po 平原上新统砂岩气层解释法",
+    "method_meta": {
+      "applicable_condition": "前陆盆地三角洲砂，埋深中等",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "气层挖掘效应识别，泥质 Archie",
+      "threshold": {"sw_max": "0.58", "gas_cut": "0.04"},
+      "limitation": "砂泥互层密集，横向相变快",
+      "reference_case": "Malossa, Ravenna"
+    },
+    "gwc": {"Pliocene Sand": "背斜砂组独立气水界面"}
+  }
+]

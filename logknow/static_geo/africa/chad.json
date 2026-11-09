@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "乍得",
+        "basin": "Doba 盆地",
+        "sag": "中部凹陷",
+        "block": "Doba 主区块",
+        "oilfield": "Kome 油田",
+        "structure": "断块背斜",
+        "well": "KOM-01",
+        "formation": "Kome",
+        "strata_meta": {
+            "sub_layer": "白垩系陆相三角洲砂岩",
+            "lithology": ["岩屑砂岩", "粉砂岩", "泥岩夹层"],
+            "log_response": {
+                "reservoir": {"GR": "22–58", "RT": "12–65", "DEN": "2.35–2.49", "CNL": "13–24", "DT": "75–90"},
+                "non_reservoir": {"GR": "82–135", "RT": "1–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "DT": "92–108"}
+            },
+            "hydrocarbon_type": "原油、伴生气"
+        },
+        "method_name": "Doba 陆相砂岩解释法",
+        "method_meta": {
+            "applicable_condition": "乍得 Doba 盆地白垩系陆相三角洲，中泥质",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "泥质校正 Archie，地层水矿化度分区校正",
+            "threshold": {"sw_max": 0.60},
+            "limitation": "局部含盐夹层、黄铁矿拉低电阻率",
+            "reference_case": "Kome、Moundou 油田群"
+        },
+        "gwc": {"Kome": "各断块独立油水界面，差异大"}
+    }
+]

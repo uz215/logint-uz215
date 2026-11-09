@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "危地马拉",
+    "basin": "Petén 盆地",
+    "sag": "Petén 中央凹陷",
+    "block": "Petén 陆上区块",
+    "oilfield": "Rubelsanto 油田",
+    "structure": "断块背斜",
+    "well": "GTM-01",
+    "formation": "Cretaceous Carbonate",
+    "strata_meta": {
+      "sub_layer": "白垩系台地碳酸盐岩",
+      "lithology": ["粒屑灰岩", "白云岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "5–28", "RT": "22–215", "DEN": "2.41–2.57", "CNL": "4–13", "AC": "44–66"},
+        "non_reservoir": {"GR": "1–9", "RT": "680+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "Petén 白垩系碳酸盐岩解释法",
+    "method_meta": {
+      "applicable_condition": "浅海台地滩相储层",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "白云岩化校正，Archie",
+      "threshold": {"sw_max": "0.56"},
+      "limitation": "孔洞分布不均，构造破碎",
+      "reference_case": "Rubelsanto"
+    },
+    "gwc": {"Cretaceous Carbonate": "滩体独立油水界面"}
+  }
+]

@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "哈萨克斯坦",
+    "basin": "滨里海盆地",
+    "sag": "北里海凹陷",
+    "block": "Kashagan 区块",
+    "oilfield": "Kashagan 油田",
+    "structure": "盐下碳酸盐岩台地",
+    "well": "KSH-01",
+    "formation": "Carboniferous Carbonate",
+    "strata_meta": {
+      "sub_layer": "石炭系盐下礁滩碳酸盐岩",
+      "lithology": ["礁灰岩", "白云岩", "泥灰岩", "厚层盐岩"],
+      "log_response": {
+        "reservoir": {"GR": "3–24", "RT": "28–260", "DEN": "2.39–2.55", "CNL": "3–11", "AC": "42–64"},
+        "non_reservoir": {"GR": "1–7", "RT": "800+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "原油、伴生气、高含硫"
+    },
+    "method_name": "滨里海盐下石炭系碳酸盐岩解释法",
+    "method_meta": {
+      "applicable_condition": "巨厚盐岩之下礁滩溶孔储层，高矿化度地层水",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "盐层屏蔽校正、礁滩识别、Archie",
+      "threshold": {"sw_max": "0.54"},
+      "limitation": "孔洞分布极不均匀，盐丘形变复杂，硫化氢风险",
+      "reference_case": "Kashagan, Tengiz"
+    },
+    "gwc": {"Carboniferous Carbonate": "独立礁滩体各自油水界面"}
+  }
+]

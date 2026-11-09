@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "埃及",
+        "basin": "苏伊士湾盆地",
+        "sag": "中央凹陷",
+        "block": "Belayim 区块",
+        "oilfield": "Belayim 油田",
+        "structure": "滚动背斜",
+        "well": "BEL-01",
+        "formation": "Belayim",
+        "strata_meta": {
+            "sub_layer": "中新统滨岸砂岩",
+            "lithology": ["石英砂岩", "泥岩互层", "局部礁灰岩"],
+            "log_response": {
+                "reservoir": {"GR": "20–55", "RT": "10–60", "DEN": "2.34–2.48", "CNL": "13–23", "DT": "75–89"},
+                "non_reservoir": {"GR": "79–131", "RT": "1–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "DT": "92–107"}
+            },
+            "hydrocarbon_type": "原油、天然气"
+        },
+        "method_name": "苏伊士湾滨岸砂岩解释法",
+        "method_meta": {
+            "applicable_condition": "中新统滨岸、三角洲砂岩，高矿化度地层水",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "高矿化度校正 Archie",
+            "threshold": {"sw_max": 0.60},
+            "limitation": "薄层、生物碎屑灰岩夹层干扰",
+            "reference_case": "Belayim、Ras Budran"
+        },
+        "gwc": {"Belayim": "滚动背斜分区油水界面"}
+    }
+]

@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "坦桑尼亚",
+    "basin": "Ruvuma 盆地",
+    "sag": "Ruvuma 近海凹陷",
+    "block": "Ruvuma 区块",
+    "oilfield": "Mzia 气田",
+    "structure": "滚动背斜",
+    "well": "TNZ-01",
+    "formation": "Cretaceous Turonian Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系深水浊积石英砂岩",
+      "lithology": ["纯净石英砂岩", "细粒浊积砂", "深海泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "18–49", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
+      },
+      "hydrocarbon_type": "天然气、凝析油"
+    },
+    "method_name": "Ruvuma 深水浊积砂岩气层解释法",
+    "method_meta": {
+      "applicable_condition": "低泥质深水浊积扇",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "低泥质 Archie，气挖掘校正",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.041"},
+      "limitation": "砂体孤立，缺少区域标志层",
+      "reference_case": "Mzia, Ntorya"
+    },
+    "gwc": {"Cretaceous Turonian Sand": "单个扇体独立气水界面"}
+  }
+]

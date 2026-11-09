@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "苏里南",
+    "basin": "苏里南近海盆地",
+    "sag": "近海主凹陷",
+    "block": "Block 58",
+    "oilfield": "Maka 油田",
+    "structure": "断块背斜",
+    "well": "MKA-01",
+    "formation": "Campanian Turonian Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系深水浊积砂岩",
+      "lithology": ["石英砂岩", "粉砂质浊积岩", "深海泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "19–51", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "77–127", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "苏里南近海白垩系浊积砂解释法",
+    "method_meta": {
+      "applicable_condition": "深水扇，低—中泥质石英砂",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie",
+      "threshold": {"sw_max": "0.56"},
+      "limitation": "砂体分散，扇体边界难追踪",
+      "reference_case": "Maka, Sapakara"
+    },
+    "gwc": {"Campanian Turonian Sand": "扇体独立油水界面"}
+  }
+]

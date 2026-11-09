@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "加拿大",
+    "basin": "阿尔伯塔盆地",
+    "sag": "南部凹陷",
+    "block": "Athabasca 区块",
+    "oilfield": "Athabasca 油砂矿",
+    "structure": "地层岩性圈闭",
+    "well": "ATH-01",
+    "formation": "McMurray",
+    "strata_meta": {
+      "sub_layer": "下白垩统河流砂岩（油砂）",
+      "lithology": ["石英砂岩", "含沥青砂岩", "粉砂质泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "18–52", "RT": "20–300", "DEN": "2.28–2.44", "CNL": "16–28", "AC": "80–96"},
+        "non_reservoir": {"GR": "76–126", "RT": "0.8–3.0", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "90–105"}
+      },
+      "hydrocarbon_type": "沥青油砂、原油"
+    },
+    "method_name": "McMurray 油砂识别解释法",
+    "method_meta": {
+      "applicable_condition": "白垩统疏松砂岩，沥青充填",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "沥青校正孔隙度，Archie",
+      "threshold": {"sw_max": "0.50"},
+      "limitation": "沥青电阻率变化极大，密度受沥青影响",
+      "reference_case": "Athabasca, Peace River"
+    },
+    "gwc": {"McMurray": "岩性控制，大面积含沥青，常规油水界面不明显"}
+  }
+]

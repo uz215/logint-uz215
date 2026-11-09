@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "刚果（金）",
+    "basin": "东非裂谷系 Albertine 盆地",
+    "sag": "Albert 凹陷",
+    "block": "Lake Albert 区块",
+    "oilfield": "Kigwa 油田",
+    "structure": "半地堑断块",
+    "well": "KGW-01",
+    "formation": "Albert Sand",
+    "strata_meta": {
+      "sub_layer": "上新统陆相三角洲砂岩",
+      "lithology": ["长石岩屑砂岩", "粉砂岩", "湖相泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "22–57", "RT": "12–67", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–90"},
+        "non_reservoir": {"GR": "82–134", "RT": "1.0–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "AC": "92–108"}
+      },
+      "hydrocarbon_type": "原油"
+    },
+    "method_name": "Albertine 裂谷盆地砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷湖盆三角洲、扇三角洲砂体",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie，淡水地层水校正",
+      "threshold": {"sw_max": "0.60"},
+      "limitation": "快速相变，火山碎屑局部混入",
+      "reference_case": "Kigwa, Ngaji"
+    },
+    "gwc": {"Albert Sand": "断块分隔，油水界面差异巨大"}
+  }
+]

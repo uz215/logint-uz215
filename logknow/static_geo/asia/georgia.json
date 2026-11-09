@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "格鲁吉亚",
+    "basin": "黑海东岸盆地",
+    "sag": "近海凹陷",
+    "block": "Black Sea 近海区块",
+    "oilfield": "Shuakhevi 油气田",
+    "structure": "挤压背斜",
+    "well": "SHV-01",
+    "formation": "Miocene Clastics",
+    "strata_meta": {
+      "sub_layer": "中新统碎屑岩",
+      "lithology": ["岩屑砂岩", "粉砂岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "23–61", "RT": "13–72", "DEN": "2.35–2.49", "CNL": "14–24", "AC": "76–90"},
+        "non_reservoir": {"GR": "84–137", "RT": "1.0–3.5", "DEN": "2.55–2.65", "CNL": "25–36", "AC": "93–109"}
+      },
+      "hydrocarbon_type": "原油、天然气"
+    },
+    "method_name": "黑海东岸中新统碎屑岩解释法",
+    "method_meta": {
+      "applicable_condition": "中新统近海三角洲砂体，高构造挤压",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie，挤压裂缝识别",
+      "threshold": {"sw_max": "0.60"},
+      "limitation": "挤压裂缝随机分布，矿化度横向变化大",
+      "reference_case": "Shuakhevi"
+    },
+    "gwc": {"Miocene Clastics": "断块各自油水界面"}
+  }
+]

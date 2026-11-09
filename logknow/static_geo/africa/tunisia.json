@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "突尼斯",
+    "basin": "Gulf of Gabes 盆地",
+    "sag": "Gabes 凹陷",
+    "block": "Gabes 近海区块",
+    "oilfield": "Ashtart 油田",
+    "structure": "断块背斜",
+    "well": "TUN-01",
+    "formation": "Eocene Carbonate",
+    "strata_meta": {
+      "sub_layer": "始新统台地碳酸盐岩",
+      "lithology": ["粒屑灰岩", "白云岩", "膏岩夹层"],
+      "log_response": {
+        "reservoir": {"GR": "5–28", "RT": "21–210", "DEN": "2.41–2.57", "CNL": "4–13", "AC": "44–66"},
+        "non_reservoir": {"GR": "1–9", "RT": "680+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "Gabes 始新统碳酸盐岩解释法",
+    "method_meta": {
+      "applicable_condition": "浅海台地滩相，膏盐夹层发育",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "膏盐校正，滩相识别，Archie",
+      "threshold": {"sw_max": "0.56"},
+      "limitation": "膏盐干扰密度曲线，裂缝随机分布",
+      "reference_case": "Ashtart, El Borma"
+    },
+    "gwc": {"Eocene Carbonate": "断块独立油水界面"}
+  }
+]

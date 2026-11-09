@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "智利",
+    "basin": "Magallanes 盆地",
+    "sag": "南部凹陷",
+    "block": "Magallanes 陆上区块",
+    "oilfield": "Cerro Dragon 油气田",
+    "structure": "逆冲背斜",
+    "well": "CDR-01",
+    "formation": "Springhill Sandstone",
+    "strata_meta": {
+      "sub_layer": "下白垩统河流三角洲砂岩",
+      "lithology": ["石英砂岩", "长石砂岩", "煤系泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–54", "RT": "13–70", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "原油、天然气、凝析油"
+    },
+    "method_name": "Magallanes Springhill 砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "前陆逆冲带，煤系河道砂",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "碳质夹层识别，泥质 Archie",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "逆冲断裂复杂，煤层造成电阻率假高",
+      "reference_case": "Cerro Dragon, Punta Delgada"
+    },
+    "gwc": {"Springhill Sandstone": "逆冲断块各自油水界面"}
+  }
+]

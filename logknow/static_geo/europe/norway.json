@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "挪威",
+        "basin": "北海盆地",
+        "sag": "中央地堑",
+        "block": "Gullfaks 区块",
+        "oilfield": "Gullfaks 油田",
+        "structure": "旋转断块",
+        "well": "NOR-GUL-01",
+        "formation": "Brent",
+        "strata_meta": {
+            "sub_layer": "侏罗系滨岸三角洲砂岩",
+            "lithology": ["石英砂岩，纯净滩坝砂", "泥岩"],
+            "log_response": {
+                "reservoir": {"GR": "17–48", "RT": "9–55", "DEN": "2.32–2.46", "CNL": "12–22", "DT": "74–88"},
+                "non_reservoir": {"GR": "75–128", "RT": "1–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "DT": "91–106"}
+            },
+            "hydrocarbon_type": "原油、伴生气"
+        },
+        "method_name": "Brent 组滨岸砂岩解释法",
+        "method_meta": {
+            "applicable_condition": "北海侏罗系 Brent 滨岸砂体",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "泥质校正 Archie，北海标准水电阻率",
+            "threshold": {"sw_max": 0.55},
+            "limitation": "薄互层、云母含量影响",
+            "reference_case": "Gullfaks、Statfjord"
+        },
+        "gwc": {"Brent": "旋转断块各自油水界面"}
+    }
+]

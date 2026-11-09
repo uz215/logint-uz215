@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "巴拿马",
+    "basin": "巴拿马近海盆地",
+    "sag": "太平洋侧近海凹陷",
+    "block": "Panama Pacific 区块",
+    "oilfield": "Panama 远景区",
+    "structure": "挤压断块",
+    "well": "PNM-01",
+    "formation": "Tertiary Clastics",
+    "strata_meta": {
+      "sub_layer": "古近—新近系海相碎屑岩",
+      "lithology": ["岩屑砂岩", "粉砂岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "22–58", "RT": "12–67", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
+        "non_reservoir": {"GR": "81–133", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "油气远景"
+    },
+    "method_name": "巴拿马近海第三系碎屑岩解释法",
+    "method_meta": {
+      "applicable_condition": "活动陆缘海相砂体",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie",
+      "threshold": {"sw_max": "0.59"},
+      "limitation": "构造复杂，火山碎屑混入，井控稀少",
+      "reference_case": "Panama Pacific prospect"
+    },
+    "gwc": {"Tertiary Clastics": "断块独立界面，缺少实钻标定"}
+  }
+]

@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "阿曼",
+        "basin": "阿曼盆地",
+        "sag": "北部凹陷",
+        "block": "Q 区块",
+        "oilfield": "Q 油田",
+        "structure": "古生界台地构造",
+        "well": "Q-01",
+        "formation": "Q",
+        "strata_meta": {
+            "sub_layer": "古生界碳酸盐岩",
+            "lithology": ["白云岩", "灰岩，溶孔发育"],
+            "log_response": {
+                "reservoir": {"GR": "3–18", "RT": "30–300", "DEN": "2.42–2.58", "CNL": "3–10", "DT": "42–62"},
+                "non_reservoir": {"GR": "2–12", "RT": "500+", "DEN": "2.62–2.71", "CNL": "0–3", "DT": "38–48"}
+            },
+            "hydrocarbon_type": "原油"
+        },
+        "method_name": "白云岩孔洞储层解释法",
+        "method_meta": {
+            "applicable_condition": "古生界白云岩，溶孔为主",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "孔洞孔隙度 + 烃类识别",
+            "threshold": {"por_min": 0.05},
+            "limitation": "大型溶洞容易造成测井失真",
+            "reference_case": "阿曼古生界油田"
+        },
+        "gwc": {"Q": "每个构造独立界面"}
+    }
+]

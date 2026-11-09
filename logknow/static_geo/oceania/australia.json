@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "澳大利亚",
+    "basin": "North West Shelf 盆地",
+    "sag": "Dampier 凹陷",
+    "block": "North West Shelf 区块",
+    "oilfield": "North West Shelf 油气田群",
+    "structure": "断块背斜、礁块",
+    "well": "AUS-01",
+    "formation": "Jurassic Sand / Cretaceous Carbonate",
+    "strata_meta": {
+      "sub_layer": "侏罗系陆相砂岩 + 白垩系碳酸盐岩",
+      "lithology": ["石英砂岩", "鲕粒灰岩", "白云岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "4–50", "RT": "15–230", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
+      },
+      "hydrocarbon_type": "天然气、凝析油、原油"
+    },
+    "method_name": "西北陆架侏罗砂岩 / 白垩礁灰岩解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷砂岩与台地生物礁两套储层，两套参数",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "岩相自动分支，砂岩用泥质 Archie；碳酸盐岩用礁滩校正 Archie，气挖掘",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
+      "limitation": "两套储层参数差异巨大，埋深跨度大，胶结多变",
+      "reference_case": "North West Shelf, Gorgon, Barrow Island"
+    },
+    "gwc": {"Jurassic Sand": "砂组独立气水/油水界面", "Cretaceous Carbonate": "礁块独立界面"}
+  }
+]

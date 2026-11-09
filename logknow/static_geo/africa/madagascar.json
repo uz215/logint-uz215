@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "马达加斯加",
+    "basin": "Morondava 盆地",
+    "sag": "Morondava 近海凹陷",
+    "block": "Morondava 区块",
+    "oilfield": "Morondava 远景区",
+    "structure": "断块隆起",
+    "well": "MDG-01",
+    "formation": "Jurassic Sand",
+    "strata_meta": {
+      "sub_layer": "侏罗系海相砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–54", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "油气远景"
+    },
+    "method_name": "Morondava 侏罗系砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "被动陆缘海相砂体，勘探程度偏低",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "实钻井稀少，参数外推风险高",
+      "reference_case": "Morondava prospect"
+    },
+    "gwc": {"Jurassic Sand": "以单井标定，无统一区域界面"}
+  }
+]

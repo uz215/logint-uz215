@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "西班牙",
+    "basin": "Ebro 盆地",
+    "sag": "中部凹陷",
+    "block": "Ebro 陆上区块",
+    "oilfield": "Ayoluengo 油田",
+    "structure": "断块背斜",
+    "well": "AYL-01",
+    "formation": "Jurassic Carbonate",
+    "strata_meta": {
+      "sub_layer": "侏罗系碳酸盐岩",
+      "lithology": ["鲕粒灰岩", "白云岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "5–28", "RT": "22–215", "DEN": "2.41–2.57", "CNL": "4–13", "AC": "44–66"},
+        "non_reservoir": {"GR": "1–9", "RT": "680+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "伊比利亚侏罗系碳酸盐岩解释法",
+    "method_meta": {
+      "applicable_condition": "台地滩相溶孔灰岩、白云岩",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "白云岩化校正，灰岩 Archie",
+      "threshold": {"sw_max": "0.56"},
+      "limitation": "孔洞分布不均，裂缝电阻率跳变",
+      "reference_case": "Ayoluengo"
+    },
+    "gwc": {"Jurassic Carbonate": "滩体独立油水界面"}
+  }
+]

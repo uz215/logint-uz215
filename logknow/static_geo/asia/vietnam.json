@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "越南",
+        "basin": "湄公盆地",
+        "sag": "基底凹陷",
+        "block": "White Tiger 区块",
+        "oilfield": "White Tiger 油田",
+        "structure": "基底风化隆起构造",
+        "well": "WT-01",
+        "formation": "White Tiger",
+        "strata_meta": {
+            "sub_layer": "前第三系基底花岗岩风化壳",
+            "lithology": ["风化花岗岩、碎裂花岗岩，裂缝溶孔"],
+            "log_response": {
+                "reservoir": {"GR": "40–90", "RT": "20–200", "DEN": "2.48–2.62", "CNL": "6–16", "DT": "55–75"},
+                "non_reservoir": {"GR": "10–30", "RT": "500+", "DEN": "2.66–2.74", "CNL": "0–4", "DT": "42–50"}
+            },
+            "hydrocarbon_type": "原油"
+        },
+        "method_name": "花岗岩风化壳解释法",
+        "method_meta": {
+            "applicable_condition": "基底花岗岩风化壳裂缝-溶孔储层",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "裂缝孔隙度估算 + 烃类判识",
+            "threshold": {"frac_por_min": 0.02},
+            "limitation": "致密无风化段无效，裂缝非均质性极强",
+            "reference_case": "越南白虎油田"
+        },
+        "gwc": {"White Tiger": "风化壳分块油水界面"}
+    }
+]

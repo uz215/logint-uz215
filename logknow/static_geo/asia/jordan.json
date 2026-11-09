@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "约旦",
+    "basin": "Risha 盆地",
+    "sag": "东部凹陷",
+    "block": "Risha 区块",
+    "oilfield": "Risha 气田",
+    "structure": "断背斜",
+    "well": "RSH-01",
+    "formation": "Risha Sandstone",
+    "strata_meta": {
+      "sub_layer": "古生界石英砂岩",
+      "lithology": ["石英砂岩", "硅质砂岩", "页岩夹层"],
+      "log_response": {
+        "reservoir": {"GR": "17–48", "RT": "16–90", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "75–124", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
+      },
+      "hydrocarbon_type": "天然气"
+    },
+    "method_name": "Risha 古生界砂岩气层解释法",
+    "method_meta": {
+      "applicable_condition": "古生界致密—中孔石英砂岩，硅质胶结",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "硅质胶结校正，中子密度气识别，Archie",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
+      "limitation": "硅质胶结降低孔隙，局部黄铁矿导电",
+      "reference_case": "Risha"
+    },
+    "gwc": {"Risha Sandstone": "构造控制气水界面"}
+  }
+]

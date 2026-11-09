@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "秘鲁",
+    "basin": "Ucayali 前陆盆地",
+    "sag": "Ucayali 凹陷",
+    "block": "Ucayali 陆上区块",
+    "oilfield": "Camisea 气田",
+    "structure": "逆冲背斜",
+    "well": "CMS-01",
+    "formation": "Cretaceous Quartz Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系石英砂岩",
+      "lithology": ["石英砂岩", "硅质砂岩", "页岩"],
+      "log_response": {
+        "reservoir": {"GR": "17–49", "RT": "16–88", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "75–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
+      },
+      "hydrocarbon_type": "天然气、凝析油"
+    },
+    "method_name": "Camisea 白垩系石英砂岩气层解释法",
+    "method_meta": {
+      "applicable_condition": "前陆逆冲带，纯净石英砂，硅质胶结",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "挖掘效应气识别，硅质校正 Archie",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
+      "limitation": "逆冲断裂发育，裂缝串层",
+      "reference_case": "Camisea"
+    },
+    "gwc": {"Cretaceous Quartz Sand": "逆冲断块独立气水界面"}
+  }
+]

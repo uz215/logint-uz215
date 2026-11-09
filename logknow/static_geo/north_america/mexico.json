@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "墨西哥",
+    "basin": "Sureste 盆地",
+    "sag": "Reforma 凹陷",
+    "block": "Reforma 区块",
+    "oilfield": "Cantarell 油田",
+    "structure": "断块背斜、碳酸盐岩台地",
+    "well": "CNT-01",
+    "formation": "Kimmeridgian Carbonate",
+    "strata_meta": {
+      "sub_layer": "侏罗系—白垩系礁灰岩、白云岩",
+      "lithology": ["礁灰岩", "白云岩", "泥灰岩", "硬石膏夹层"],
+      "log_response": {
+        "reservoir": {"GR": "4–26", "RT": "25–240", "DEN": "2.40–2.56", "CNL": "3–12", "AC": "43–65"},
+        "non_reservoir": {"GR": "1–8", "RT": "750+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "墨西哥 Sureste 礁相碳酸盐岩解释法",
+    "method_meta": {
+      "applicable_condition": "生物礁、滩相溶孔白云岩，膏盐伴生",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "礁体识别、白云岩校正、Archie",
+      "threshold": {"sw_max": "0.55"},
+      "limitation": "孔洞非均质性极强，膏盐段干扰曲线",
+      "reference_case": "Cantarell, Ku-Maloob-Zaap"
+    },
+    "gwc": {"Kimmeridgian Carbonate": "礁块独立油水界面"}
+  }
+]

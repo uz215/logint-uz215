@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "阿拉伯联合酋长国",
+        "basin": "鲁卜哈利盆地",
+        "sag": "陆上凹陷",
+        "block": "Thamama 区块",
+        "oilfield": "Thamama 油田",
+        "structure": "台地粒屑滩构造",
+        "well": "THA-01",
+        "formation": "Thamama",
+        "strata_meta": {
+            "sub_layer": "白垩系碳酸盐岩",
+            "lithology": ["灰岩、粒屑灰岩"],
+            "log_response": {
+                "reservoir": {"GR": "4–22", "RT": "25–250", "DEN": "2.44–2.59", "CNL": "4–11", "DT": "44–64"},
+                "non_reservoir": {"GR": "1–8", "RT": "1000+", "DEN": "2.90–2.98", "CNL": "-1~2", "DT": "32–40"}
+            },
+            "hydrocarbon_type": "原油"
+        },
+        "method_name": "碳酸盐岩粒屑滩解释法",
+        "method_meta": {
+            "applicable_condition": "白垩系粒屑滩灰岩储层",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "粒间孔隙饱和度模型",
+            "threshold": {"sw_max": 0.60},
+            "limitation": "硬石膏层干扰孔隙计算",
+            "reference_case": "阿联酋海上、陆上碳酸盐岩油田"
+        },
+        "gwc": {"Thamama": "不同构造油水界面分开"}
+    }
+]

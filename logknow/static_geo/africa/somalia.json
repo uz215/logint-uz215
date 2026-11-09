@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "索马里",
+    "basin": "索马里近海盆地",
+    "sag": "Obbia 凹陷",
+    "block": "Obbia 近海区块",
+    "oilfield": "Obbia 远景区",
+    "structure": "断块隆起",
+    "well": "OBB-01",
+    "formation": "Cretaceous Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系海相砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "21–55", "RT": "12–65", "DEN": "2.34–2.48", "CNL": "13–23", "AC": "75–89"},
+        "non_reservoir": {"GR": "80–130", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+      },
+      "hydrocarbon_type": "天然气、少量原油"
+    },
+    "method_name": "索马里近海白垩系砂岩解释法",
+    "method_meta": {
+      "applicable_condition": "被动陆缘海相砂体，勘探程度偏低",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "泥质校正 Archie",
+      "threshold": {"sw_max": "0.58"},
+      "limitation": "井控稀少，参数外推风险高",
+      "reference_case": "Obbia"
+    },
+    "gwc": {"Cretaceous Sand": "断块分隔，界面不确定，以单井标定为准"}
+  }
+]

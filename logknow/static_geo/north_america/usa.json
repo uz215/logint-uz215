@@ -1,0 +1,31 @@
+﻿[
+    {
+        "country": "美国",
+        "basin": "二叠盆地",
+        "sag": "Midland 凹陷",
+        "block": "Midland 区块",
+        "oilfield": "Midland 页岩油区",
+        "structure": "平缓台地",
+        "well": "US-MID-01",
+        "formation": "Wolfcamp",
+        "strata_meta": {
+            "sub_layer": "二叠系页岩、致密灰岩",
+            "lithology": ["富有机质页岩", "致密泥灰岩", "粉砂岩夹层"],
+            "log_response": {
+                "reservoir": {"GR": "100–180", "RT": "8–40", "DEN": "2.45–2.60", "CNL": "8–18", "DT": "60–80"},
+                "non_reservoir": {"GR": "40–80", "RT": "2–6", "DEN": "2.62–2.72", "CNL": "2–7", "DT": "44–54"}
+            },
+            "hydrocarbon_type": "页岩油、页岩气"
+        },
+        "method_name": "Wolfcamp 致密页岩解释法",
+        "method_meta": {
+            "applicable_condition": "二叠盆地富有机质页岩，压裂开发",
+            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
+            "formula": "TOC 估算 + 总孔隙度，自由烃指数",
+            "threshold": {"toc_min": 2.0, "por_min": 0.04},
+            "limitation": "黏土、黄铁矿影响电阻率；不适用常规饱和度模型",
+            "reference_case": "Midland、Delaware 凹陷"
+        },
+        "gwc": {"Wolfcamp": "无传统统一油水界面，烃源岩连续充注"}
+    }
+]

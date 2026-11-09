@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "斯里兰卡",
+    "basin": "Mannar 盆地",
+    "sag": "Mannar 主凹陷",
+    "block": "Mannar 近海区块",
+    "oilfield": "Barracuda 气田",
+    "structure": "滚动背斜",
+    "well": "BRD-01",
+    "formation": "Miocene Sand",
+    "strata_meta": {
+      "sub_layer": "中新统海相砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–53", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "天然气、凝析油"
+    },
+    "method_name": "Mannar 盆地中新统海相砂岩气层解释法",
+    "method_meta": {
+      "applicable_condition": "近海三角洲、浊积砂体，海相高矿化度",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "气层挖掘效应识别 + 泥质校正 Archie",
+      "threshold": {"sw_max": "0.57", "gas_cut": "0.04"},
+      "limitation": "砂体薄，非均质性强，泥质夹层多",
+      "reference_case": "Barracuda, Dorado"
+    },
+    "gwc": {"Miocene Sand": "单个砂体独立气水界面"}
+  }
+]
