@@ -517,8 +517,15 @@ _LITH_REF_MAX_PIX = 4_000_000
 # 单位：原生像素 / 屏幕像素。
 # ---------------------------------------------------------------------------
 _SYMBOL_REF_UNIT = {
-    'Shale.png': (13, 53, 73, 128, 10, 18),
-    'Sandstone.png': (10, 15, 96, 96, 36, 36),
+    # 【R68 用户反馈"2440m 这一排泥岩小短线看得很模糊、各行大小/深浅不一"】
+    # 整页 150dpi 栅格嵌入 200in 页（PDF 上限），屏幕 100% 时整页被压缩
+    # ~3.7 倍 → 10x18 单元里 1.4px 的横线间隙、3px 的线厚被插值糊成一整条，
+    # 逐行看即"深浅不一"。按**参考图原始 motif 比例**放大单元（Shale.png
+    # 512²：一格 73x128，短线 63x23、列隙 10 → 20x30 单元得线长 17px/线厚
+    # 5.4px/列隙 2.7px；Sandstone.png 128²：点 Φ10/格 16 → 54x54 单元得点
+    # Φ6.4px/隙 3.2px），使短线、点阵在被压缩显示后仍可分辨。
+    'Shale.png': (13, 53, 73, 128, 20, 30),
+    'Sandstone.png': (10, 15, 96, 96, 54, 54),
     # 【2026-10-30 R54】basalt 原生 motif 单元：96px 参考图含 2×2 个 Γ
     # （单元 48px）——旧链路整图压进 28px 瓦片 → Γ 间距仅 14px（0.49m），
     # 用户反馈"6914m 火成岩纹理较密呈现明显的深色"。裁 1 个 Γ 单元缩到
@@ -779,7 +786,15 @@ def _lith_ink_tile(ref_file, tpx=None):
                 _cm = _cm.sum(axis=2) > 60
                 _msk = Image.fromarray((_cm * 255).astype(np.uint8)).resize(
                     (_tw, _th), Image.BOX)
-                _m = np.asarray(_msk).astype(np.float64) >= 127.5
+                _cov = np.asarray(_msk).astype(np.float64) / 255.0
+                # 【R68】阈值由固定 0.5 改为**墨量守恒分位**：矩元缩到
+                # tw×th 后按"单元内墨迹占比"取分位阈值 ⇒ 瓦片墨量与参考图
+                # 同比例，点/短线不会因相位不同在 0.5 阈值上忽粗忽细
+                # （旧口径下同一行内短线长度 4/8/12px 混现 = 用户所说
+                # "各行大小不一、深浅不一"）。
+                _frac = float(_cm.mean())
+                _frac = min(max(_frac, 0.01), 0.6)
+                _m = _cov >= float(np.quantile(_cov, 1.0 - _frac))
                 a = np.empty((_th, _tw, 3), dtype=np.float64)
                 a[_m] = _inkc
                 a[~_m] = _bgc

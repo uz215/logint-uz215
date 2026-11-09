@@ -3375,6 +3375,121 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
     md = pd.to_numeric(data['MD'], errors='coerce').values.astype(float)
     n = len(data)
 
+    idx_pos = data.columns.get_loc('INTERPRETATION')
+
+    # ---- 【R68 用户定案】砂体一致性回填 ----
+    # 用户："51号层解释很怪，在一个大砂层上部解释一个水层，砂岩下部和上部
+    # 没有隔层，那下部是啥……水不能在上部"；"13和14号层为什么不合并，都是
+    # 同一层砂岩"。根因：统一储层过滤（VSH>0.40 / POR<截止）把同一砂体的
+    # 中下部留空（1853.7-1861.7m VSH=0.42-0.54、POR=0.20-0.29），流动单元
+    # 因此被切成"顶部 1.5m 水层 + 以下空白"，分异整饰看不到砂体全貌。
+    # 规则：同一连续**储层岩性**体内已解释点给出砂体结论，体内留空点随砂体
+    # 结论回填（不另立结论、不跨越泥岩隔层）。
+    # 闸门＝**总孔隙度 PHI >= 孔隙度截止**：真致密段才算隔段；有效孔隙度
+    # POR 受泥质校正归零 ≠ 致密（639.8-642.9m PHI=0.20 而 POR=0，正是用户
+    # 要求合并的 13/14 层间隔段）。
+    # 方向＝回填为油气时受 Sw>0.85 / RT<1.0 物理下限否决（R58 同口径）。
+    _fill_n = 0
+    try:
+        _f_lith_c = next((c for c in ('LITHOLOGY', 'LITHOLOGY_MC')
+                          if c in data.columns), None)
+        _f_phi_c = next((c for c in ('PHI', 'PORT', 'PHIT', 'POR_TOTAL')
+                         if c in data.columns), None)
+        _f_por_c = next((c for c in ('POR', 'PHIE') if c in data.columns), None)
+        _f_sw_c = next((c for c in ('Sw', 'SW') if c in data.columns), None)
+        _f_rt_c = next((c for c in ('RT', 'RT_LAS') if c in data.columns), None)
+        if _f_lith_c and _f_phi_c:
+            _f_lith = (data[_f_lith_c].fillna('').astype(str)
+                       .str.lower().str.strip().values)
+            _f_phi = pd.to_numeric(data[_f_phi_c], errors='coerce').values
+            _f_por = (pd.to_numeric(data[_f_por_c], errors='coerce').values
+                      if _f_por_c else _f_phi)
+            _f_sw = (pd.to_numeric(data[_f_sw_c], errors='coerce').values
+                     if _f_sw_c else np.full(n, np.nan))
+            _f_rt = (pd.to_numeric(data[_f_rt_c], errors='coerce').values
+                     if _f_rt_c else np.full(n, np.nan))
+            _f_isres = np.array([bool(s) and not any(
+                k in s for k in _NON_RESERVOIR_KEYWORDS) for s in _f_lith])
+            _f_cut = 0.06
+            _f_runs = []
+            i = 0
+            while i < n:
+                if not _f_isres[i]:
+                    i += 1
+                    continue
+                j = i
+                while j + 1 < n and _f_isres[j + 1]:
+                    j += 1
+                _f_runs.append((i, j))
+                i = j + 1
+            for (rs, re) in _f_runs:
+                _lab = [k for k in range(rs, re + 1) if fam_arr[k]]
+                if not _lab:
+                    continue
+                # 结论传承方向＝**向上就近继承**：同一岩性体内未解释点随其
+                # 上方最近的已解释点结论（下部随上部 ⇒ 不会出现"水在上、
+                # 油在下"的倒置）；体内首个解释点之上若还有空白，取其下方
+                # 最近解释点结论。
+                _cur_v, _cur_f = '', ''
+                for k in range(rs, re + 1):
+                    if fam_arr[k]:
+                        _cur_f = fam_arr[k]
+                        _cur_v = vals[k]
+                        continue
+                    if _cur_f == '':
+                        continue
+                    _vk = str(vals[k]).upper()
+                    if _vk in ('DRY', 'TIGHT', 'NONRESERVOIR', 'UNDEFINED'):
+                        continue
+                    # 闸门：总孔隙度达标（真致密才算隔段）
+                    if not (np.isfinite(_f_phi[k]) and _f_phi[k] >= _f_cut):
+                        continue
+                    if _cur_f in ('GAS', 'OIL'):
+                        if (np.isfinite(_f_sw[k]) and _f_sw[k] > 0.85) or \
+                                (np.isfinite(_f_rt[k]) and _f_rt[k] < 1.0):
+                            continue
+                    vals[k] = _cur_v
+                    fam_arr[k] = _cur_f
+                    data.iloc[k, idx_pos] = _cur_v
+                    if 'ITP' in data.columns:
+                        data.iloc[k, data.columns.get_loc('ITP')] = _cur_v
+                    _fill_n += 1
+                # 体内首解释点之上的空白（少见）：继承下方首个解释点结论
+                _fv = _ff = None
+                for k in _lab[:1]:
+                    _ff = fam_arr[k]
+                    _fv = vals[k]
+                if _ff is not None:
+                    _k0 = _lab[0]
+                    for k in range(rs, _k0):
+                        if fam_arr[k]:
+                            continue
+                        _vk = str(vals[k]).upper()
+                        if _vk in ('DRY', 'TIGHT', 'NONRESERVOIR', 'UNDEFINED'):
+                            continue
+                        if not (np.isfinite(_f_phi[k]) and _f_phi[k] >= _f_cut):
+                            continue
+                        if _ff in ('GAS', 'OIL'):
+                            if (np.isfinite(_f_sw[k]) and _f_sw[k] > 0.85) or \
+                                    (np.isfinite(_f_rt[k]) and _f_rt[k] < 1.0):
+                                continue
+                        vals[k] = _fv
+                        fam_arr[k] = _ff
+                        data.iloc[k, idx_pos] = _fv
+                        if 'ITP' in data.columns:
+                            data.iloc[k, data.columns.get_loc('ITP')] = _fv
+                        _fill_n += 1
+            if _fill_n:
+                logger.info('砂体一致性回填: %d 点（同一储层岩性体留空点随砂体'
+                            '结论归并，闸门 PHI>=%.2f）', _fill_n, _f_cut)
+    except Exception as _fe:
+        logger.warning('砂体一致性回填失败(跳过): %s', _fe)
+    # 【R68】回填后重算流动单元资格：回填点必须进入后续重力分异整饰的
+    # 流动单元，否则"水在油上"这类倒置无法被分异规则纠正（回填只补
+    # 结论、顺序仍由分异整饰统管）。
+    is_res = np.array([bool(f) or str(v).upper() in ('DRY', 'TIGHT')
+                       for f, v in zip(fam_arr, vals)])
+
     # ---- 流动单元划分：连续储层点（索引 gap≤max_gap 容忍小缺口）----
     segs = []
     i = 0
@@ -3400,6 +3515,7 @@ def enforce_fluid_segregation(data, min_fluid_pts=4, max_gap=3):
     total_fix = 0
     total_veto = 0          # 【R58】被物理下限保护拦下、未改判为油气的点数
     idx_pos = data.columns.get_loc('INTERPRETATION')
+
     for (s, e) in segs:
         f_idx = np.array([k for k in range(s, e + 1) if fam_arr[k]])
         if len(f_idx) < min_fluid_pts:
@@ -15780,6 +15896,76 @@ class WellLogProcessor:
                         # 【R59b】区域知识否决：本井无水层声明生效时，先清 WATER
                         enforce_fluid_segregation(data)
                         apply_regional_no_water_veto(data)
+
+                        # 【R68 用户定案】解释底界：孔隙度/饱和度链失效（POR/
+                        # PHI 无有效值）以下不再解释。用户："2830米以下没有有效
+                        # 曲线就别解释了，解释出来一看都是怪怪的"。XIMENIA-5
+                        # POR/Sw 止于 2827.8m 而数据到 2849.5m，旧口径在 PHI=0
+                        # 段上仍按 Sw/RT 出油水结论（2832-2840m OIL 是伪结论）。
+                        # 位置：两个解释引擎（高级/规则）之后、按层聚合之前，
+                        # 一处生效。判据=列级择优（fix5）：按优先级取第一个
+                        # 存在有效正值的列，不做跨列并集——深部 RHOB 死值会使
+                        # PORD/PHI 饱和在 0.4 上限（XIMENIA-5 实测拖到 2849.1m），
+                        # 有效孔隙度 POR 才能测出真实底界。
+                        try:
+                            import numpy as _np68
+                            # 有效孔隙度列优先（POR/PORD）；全程无该列时才退回
+                            # 总孔隙度 PHI —— PHI 由 RHOB 计算，深部曲线失效后
+                            # 仍可能给出非零值（XIMENIA-5 PHI 有效到 2849.1m，
+                            # 而 POR/Sw 止于 2827.8m，用 PHI 判底界测不出来）
+                            _pcols68 = [c for c in ('POR', 'POR_EFF')
+                                        if c in data.columns]
+                            if not _pcols68:
+                                _pcols68 = [c for c in ('PORD', 'PHI')
+                                            if c in data.columns]
+                            _scols68 = [c for c in ('Sw', 'SW')
+                                        if c in data.columns]
+                            if _pcols68 and _scols68:
+                                _pok68 = None
+                                for _c68 in _pcols68:
+                                    _v68 = (pd.to_numeric(data[_c68],
+                                            errors='coerce')
+                                            .values.astype(float))
+                                    _fin68 = _np68.isfinite(_v68)
+                                    if _fin68.any() and (_v68[_fin68] > 0).any():
+                                        _pok68 = _v68 > 0
+                                        break
+                                if _pok68 is None:
+                                    _pok68 = _np68.zeros(len(data), dtype=bool)
+                                _sok68 = _np68.isfinite(pd.to_numeric(
+                                    data[_scols68[0]], errors='coerce').values)
+                                _okm68 = _pok68 & _sok68
+                                if _okm68.any():
+                                    _stop68 = int(_np68.where(_okm68)[0][-1])
+                                    _tail68 = len(data) - 1 - _stop68
+                                    if _tail68 > 0:
+                                        _r68 = _np68.arange(_stop68 + 1, len(data))
+                                        _ip68 = data.columns.get_loc(
+                                            'INTERPRETATION')
+                                        data.iloc[_r68, _ip68] = ''
+                                        for _c68 in ('ITP', 'INTERPRETATION_SCORE',
+                                                     'DIRECTION_SCORE', 'HIT_RATE'):
+                                            if _c68 in data.columns:
+                                                _j68 = data.columns.get_loc(_c68)
+                                                data.iloc[_r68, _j68] = (
+                                                    0.0 if _c68.endswith('SCORE')
+                                                    or _c68 in ('HIT_RATE',)
+                                                    else '')
+                                        logger.info(
+                                            '解释底界 %.1fm：以下无有效孔隙度/'
+                                            '饱和度（%d 点）结论留空，数据到 '
+                                            '%.1fm',
+                                            float(data['MD'].iloc[_stop68]),
+                                            _tail68,
+                                            float(data['MD'].iloc[-1]))
+                                    else:
+                                        logger.info('解释底界：全井孔隙度/饱和度'
+                                                    '有效，无需截断')
+                                else:
+                                    logger.info('解释底界：未找到有效孔隙度+饱和度'
+                                                '点，不截断')
+                        except Exception as _ie68:
+                            logger.warning('解释底界判定失败(不启用): %s', _ie68)
 
                         # 【2026-10-08】非储层不再清 PHI/PORD —— 孔隙度是
                         # calculate_porosity 的计算成果，全井有效（泥岩也有总孔隙度）；
