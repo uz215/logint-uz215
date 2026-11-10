@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "加拿大",
-    "basin": "阿尔伯塔盆地",
-    "sag": "南部凹陷",
-    "block": "Athabasca 区块",
-    "oilfield": "Athabasca 油砂矿",
-    "structure": "地层岩性圈闭",
-    "well": "ATH-01",
-    "formation": "McMurray",
+    "basin": "Western Canada Sedimentary Basin",
+    "sag": "Deep Basin 凹陷",
+    "block": "Alberta 中部区块",
+    "oilfield": "Athabasca 油砂、Montney 致密油气区",
+    "structure": "平缓单斜、地层圈闭",
+    "well": "CAN-01",
+    "formation": "Montney / McMurray",
     "strata_meta": {
-      "sub_layer": "下白垩统河流砂岩（油砂）",
-      "lithology": ["石英砂岩", "含沥青砂岩", "粉砂质泥岩"],
+      "sub_layer": "McMurray 油砂；Montney 致密粉砂岩、页岩，非常规为主",
+      "lithology": ["疏松砂岩", "致密粉砂岩", "页岩", "白云岩夹层"],
       "log_response": {
-        "reservoir": {"GR": "18–52", "RT": "20–300", "DEN": "2.28–2.44", "CNL": "16–28", "AC": "80–96"},
-        "non_reservoir": {"GR": "76–126", "RT": "0.8–3.0", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "90–105"}
+        "reservoir": {"GR": "30–105", "RT": "5–90", "DEN": "2.34–2.56", "CNL": "12–28", "AC": "64–96"},
+        "non_reservoir": {"GR": "85–130", "RT": "1–4", "DEN": "2.56–2.70", "CNL": "25–35", "AC": "90–110"}
       },
-      "hydrocarbon_type": "沥青油砂、原油"
+      "hydrocarbon_type": "油砂、致密油、致密气、页岩气"
     },
-    "method_name": "McMurray 油砂识别解释法",
+    "method_name": "西加盆地非常规储层解释法",
     "method_meta": {
-      "applicable_condition": "白垩统疏松砂岩，沥青充填",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "沥青校正孔隙度，Archie",
-      "threshold": {"sw_max": "0.50"},
-      "limitation": "沥青电阻率变化极大，密度受沥青影响",
-      "reference_case": "Athabasca, Peace River"
+      "applicable_condition": "地层圈闭，油砂、致密砂、页岩连续聚集",
+      "input_curves": ["GR","RT","DEN","CNL","AC","TOC"],
+      "formula": "油砂黏度校正；非常规饱和度模型，TOC 估算",
+      "threshold": {"sw_max": "0.65", "toc_min": "1.8"},
+      "limitation": "常规 Archie 适用性差，孔隙类型复杂，无统一界面",
+      "reference_case": "Athabasca, Montney"
     },
-    "gwc": {"McMurray": "岩性控制，大面积含沥青，常规油水界面不明显"}
+    "gwc": {"Montney": "连续型聚集，无统一油水界面", "McMurray": "局部底水"}
   }
 ]

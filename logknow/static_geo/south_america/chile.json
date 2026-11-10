@@ -2,30 +2,30 @@
   {
     "country": "智利",
     "basin": "Magallanes 盆地",
-    "sag": "南部凹陷",
-    "block": "Magallanes 陆上区块",
-    "oilfield": "Cerro Dragon 油气田",
+    "sag": "Magallanes 凹陷",
+    "block": "Magallanes 南部区块",
+    "oilfield": "Cerro Dragon 油田",
     "structure": "逆冲背斜",
-    "well": "CDR-01",
-    "formation": "Springhill Sandstone",
+    "well": "CHL-01",
+    "formation": "Cretaceous Sand",
     "strata_meta": {
-      "sub_layer": "下白垩统河流三角洲砂岩",
-      "lithology": ["石英砂岩", "长石砂岩", "煤系泥岩"],
+      "sub_layer": "白垩系海相三角洲砂岩",
+      "lithology": ["长石岩屑砂岩", "粉砂岩", "泥岩"],
       "log_response": {
-        "reservoir": {"GR": "20–54", "RT": "13–70", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+        "reservoir": {"GR": "22–59", "RT": "12–68", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
+        "non_reservoir": {"GR": "82–134", "RT": "1.0–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "AC": "92–108"}
       },
-      "hydrocarbon_type": "原油、天然气、凝析油"
+      "hydrocarbon_type": "原油、伴生气"
     },
-    "method_name": "Magallanes Springhill 砂岩解释法",
+    "method_name": "麦哲伦盆地白垩系砂岩解释法",
     "method_meta": {
-      "applicable_condition": "前陆逆冲带，煤系河道砂",
+      "applicable_condition": "前陆逆冲带，成岩压实较强",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "碳质夹层识别，泥质 Archie",
-      "threshold": {"sw_max": "0.58"},
-      "limitation": "逆冲断裂复杂，煤层造成电阻率假高",
-      "reference_case": "Cerro Dragon, Punta Delgada"
+      "formula": "压实校正，泥质 Archie",
+      "threshold": {"sw_max": "0.59"},
+      "limitation": "埋深大，致密化普遍；逆冲断层切割破坏圈闭",
+      "reference_case": "Cerro Dragon, Punta Baja"
     },
-    "gwc": {"Springhill Sandstone": "逆冲断块各自油水界面"}
+    "gwc": {"Cretaceous Sand": "逆冲断块各自油水界面"}
   }
 ]

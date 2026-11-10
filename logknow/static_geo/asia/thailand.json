@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "泰国",
+    "basin": "Gulf of Thailand 盆地",
+    "sag": "中央凹陷",
+    "block": "Gulf Thailand 近海区块",
+    "oilfield": "Erawan 气田",
+    "structure": "断块、滚动背斜",
+    "well": "THA-01",
+    "formation": "Miocene Fluvial Sand",
+    "strata_meta": {
+      "sub_layer": "中新统河流相砂岩，薄互层发育",
+      "lithology": ["石英砂岩", "粉砂岩", "湖相泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "20–53", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+      },
+      "hydrocarbon_type": "天然气、凝析油，伴生少量原油"
+    },
+    "method_name": "泰国湾中新统河流砂气层解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷湖盆，河道砂孤立叠置，薄层多",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "薄层校正，泥质 Archie，气挖掘",
+      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
+      "limitation": "单层薄，测井分辨率受限；砂体侧向尖灭快",
+      "reference_case": "Erawan, Bongkot"
+    },
+    "gwc": {"Miocene Fluvial Sand": "单个河道砂体独立气水界面"}
+  }
+]

@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "肯尼亚",
-    "basin": "Lamu 盆地",
+    "basin": "Lamu 拉穆盆地",
     "sag": "Lamu 近海凹陷",
-    "block": "Lamu 近海区块",
-    "oilfield": "Turkana 远景区 / Lamu 气藏",
-    "structure": "滚动背斜",
-    "well": "KNY-01",
-    "formation": "Cretaceous Sand",
+    "block": "拉穆近海区块",
+    "oilfield": "Kipini 油气发现区",
+    "structure": "断块、滚动背斜",
+    "well": "KEN-01",
+    "formation": "Cretaceous – Tertiary Delta Sand",
     "strata_meta": {
-      "sub_layer": "白垩系海相浊积砂岩",
+      "sub_layer": "白垩系—古近系三角洲砂岩，被动陆缘沉积",
       "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
       "log_response": {
-        "reservoir": {"GR": "20–53", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+        "reservoir": {"GR": "19–52", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "78–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
       },
-      "hydrocarbon_type": "天然气为主，少量原油远景"
+      "hydrocarbon_type": "天然气、凝析油，少量原油"
     },
-    "method_name": "Lamu 盆地白垩系浊积砂气层解释法",
+    "method_name": "拉穆盆地三角洲砂岩气层解释法",
     "method_meta": {
-      "applicable_condition": "被动陆缘深水扇砂体",
+      "applicable_condition": "被动陆缘三角洲体系",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.57", "gas_cut": "0.04"},
-      "limitation": "井控少，砂体横向变化剧烈",
-      "reference_case": "Lamu South, Kipini"
+      "formula": "泥质 Archie，气挖掘效应",
+      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
+      "limitation": "勘探程度偏低，储层预测不确定性高",
+      "reference_case": "Kipini"
     },
-    "gwc": {"Cretaceous Sand": "扇体单元独立气水界面"}
+    "gwc": {"Cretaceous-Tertiary Sand": "圈闭独立气水界面"}
   }
 ]

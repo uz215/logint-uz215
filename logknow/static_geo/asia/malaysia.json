@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "马来西亚",
-    "basin": "马来盆地",
+    "basin": "Malay 盆地",
     "sag": "中央凹陷",
-    "block": "Central Luconia 区块",
-    "oilfield": "Central Luconia 碳酸盐岩气田群",
-    "structure": "孤立礁块",
-    "well": "MLY-01",
-    "formation": "Miocene Carbonate",
+    "block": "马来盆地中部近海区块",
+    "oilfield": "Kikeh 油田",
+    "structure": "断块、滚动背斜",
+    "well": "MYS-01",
+    "formation": "Miocene Fluvial-Delta Sand",
     "strata_meta": {
-      "sub_layer": "中新统孤立生物礁碳酸盐岩",
-      "lithology": ["礁灰岩", "白云岩", "泥灰岩"],
+      "sub_layer": "中新统河流—三角洲砂岩，薄互层极其发育",
+      "lithology": ["石英砂岩", "岩屑砂岩", "粉砂岩", "湖相泥岩"],
       "log_response": {
-        "reservoir": {"GR": "4–26", "RT": "22–220", "DEN": "2.40–2.56", "CNL": "3–12", "AC": "43–65"},
-        "non_reservoir": {"GR": "1–8", "RT": "700+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+        "reservoir": {"GR": "20–54", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
       },
-      "hydrocarbon_type": "天然气、凝析油，少量原油"
+      "hydrocarbon_type": "原油、天然气、凝析油"
     },
-    "method_name": "Luconia 中新统生物礁气层解释法",
+    "method_name": "马来盆地中新统三角洲砂解释法",
     "method_meta": {
-      "applicable_condition": "孤立台地礁体，礁内溶孔、粒间孔发育",
+      "applicable_condition": "裂谷湖盆，多期河道砂叠置，薄层成群",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "礁体边界识别，白云岩校正，Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
-      "limitation": "礁体互相独立，非均质性极强，礁间泥岩隔层",
-      "reference_case": "Central Luconia, Bintulu offshore"
+      "formula": "薄层校正，泥质 Archie，气挖掘分支",
+      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
+      "limitation": "砂体侧向尖灭快，薄层低于仪器分辨率，局部黄铁矿低阻",
+      "reference_case": "Kikeh, Dulang"
     },
-    "gwc": {"Miocene Carbonate": "每一个独立礁块拥有独立气水界面"}
+    "gwc": {"Miocene Sand": "独立砂组、河道砂各自油水/气水界面"}
   }
 ]

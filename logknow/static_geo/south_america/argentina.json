@@ -2,30 +2,30 @@
   {
     "country": "阿根廷",
     "basin": "Neuquén 盆地",
-    "sag": "中部凹陷",
-    "block": "Loma La Lata 区块",
-    "oilfield": "Loma La Lata 油气田",
-    "structure": "背斜",
-    "well": "LLL-01",
-    "formation": "Lajas",
+    "sag": "Neuquén 中央凹陷",
+    "block": "Vaca Muerta 区块",
+    "oilfield": "Vaca Muerta 页岩油气区",
+    "structure": "平缓向斜、断块",
+    "well": "ARG-01",
+    "formation": "Vaca Muerta (Jurassic) / Lajas Sand",
     "strata_meta": {
-      "sub_layer": "侏罗系致密砂岩、碳酸盐岩夹层",
-      "lithology": ["长石砂岩", "岩屑砂岩", "泥灰岩"],
+      "sub_layer": "侏罗系富有机质页岩；配套 Lajas 致密砂岩",
+      "lithology": ["页岩", "泥灰岩", "粉砂岩", "致密石英砂岩"],
       "log_response": {
-        "reservoir": {"GR": "25–62", "RT": "15–80", "DEN": "2.36–2.50", "CNL": "15–26", "AC": "78–92"},
-        "non_reservoir": {"GR": "85–138", "RT": "1.0–3.6", "DEN": "2.56–2.66", "CNL": "26–37", "AC": "94–110"}
+        "reservoir": {"GR": "40–110", "RT": "8–80", "DEN": "2.35–2.55", "CNL": "12–28", "AC": "65–95"},
+        "non_reservoir": {"GR": "85–130", "RT": "1–4", "DEN": "2.55–2.70", "CNL": "25–35", "AC": "90–110"}
       },
-      "hydrocarbon_type": "致密油、天然气、凝析油"
+      "hydrocarbon_type": "页岩油、页岩气、致密油"
     },
-    "method_name": "Neuquén 盆地 Lajas 致密储层解释法",
+    "method_name": "Neuquén Vaca Muerta 页岩-致密砂解释法",
     "method_meta": {
-      "applicable_condition": "侏罗系低孔低渗致密储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "致密储层双水模型 + Archie",
-      "threshold": {"sw_max": "0.65"},
-      "limitation": "孔隙结构复杂，黏土附加导电严重",
-      "reference_case": "Loma La Lata, Vaca Muerta"
+      "applicable_condition": "富有机质页岩层系、相邻致密砂岩，非常规储层",
+      "input_curves": ["GR","RT","DEN","CNL","AC","TOC"],
+      "formula": "TOC 估算，有机质孔隙校正，非常规饱和度模型",
+      "threshold": {"sw_max": "0.65", "toc_min": "2.0"},
+      "limitation": "孔隙以纳米级为主，常规 Archie 偏差大；天然裂缝复杂",
+      "reference_case": "Vaca Muerta, Lajas"
     },
-    "gwc": {"Lajas": "受裂缝、局部构造控制，无统一界面"}
+    "gwc": {"Vaca Muerta": "无统一油水界面，为连续型聚集"}
   }
 ]

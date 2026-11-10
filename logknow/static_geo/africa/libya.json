@@ -1,31 +1,31 @@
 ﻿[
-    {
-        "country": "利比亚",
-        "basin": "锡尔特盆地",
-        "sag": "中央凹陷",
-        "block": "Nasser 区块",
-        "oilfield": "Nasser 油田",
-        "structure": "断块隆起",
-        "well": "NAS-01",
-        "formation": "Nasser",
-        "strata_meta": {
-            "sub_layer": "白垩系、古近系碳酸盐岩与砂岩互层",
-            "lithology": ["粒屑灰岩", "石英砂岩", "泥岩"],
-            "log_response": {
-                "reservoir": {"GR": "6–30", "RT": "20–220", "DEN": "2.41–2.57", "CNL": "5–14", "DT": "46–68"},
-                "non_reservoir": {"GR": "1–10", "RT": "600+", "DEN": "2.62–2.71", "CNL": "0–3", "DT": "38–48"}
-            },
-            "hydrocarbon_type": "原油、伴生气"
-        },
-        "method_name": "锡尔特盆地混相储层解释法",
-        "method_meta": {
-            "applicable_condition": "锡尔特盆地碳酸盐岩/砂岩复合储层",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "按岩性分支选择饱和度模型",
-            "threshold": {"sw_max": 0.58},
-            "limitation": "膏盐层发育，孔隙度容易算错",
-            "reference_case": "Nasser、Waha 油田"
-        },
-        "gwc": {"Nasser": "断块各自独立界面"}
-    }
+  {
+    "country": "利比亚",
+    "basin": "Sirte 锡尔特盆地",
+    "sag": "Sirte 中央凹陷",
+    "block": "锡尔特盆地核心区块",
+    "oilfield": "Sarir 油田",
+    "structure": "古隆起、断块、台地",
+    "well": "LBY-01",
+    "formation": "Cretaceous Sand / Paleocene Carbonate",
+    "strata_meta": {
+      "sub_layer": "白垩系河流砂岩、古新统碳酸盐岩台地储层",
+      "lithology": ["石英砂岩", "粒屑灰岩", "白云岩", "页岩"],
+      "log_response": {
+        "reservoir": {"GR": "4–52", "RT": "14–225", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–720+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "锡尔特盆地白垩系砂岩与古新统灰岩解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷盆地，古隆起控藏，灰岩孔洞发育",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "岩相分支，白云岩校正 Archie，砂岩泥质 Archie",
+      "threshold": {"sw_max": "0.55"},
+      "limitation": "风化壳、孔洞分布极不均匀，局部硬石膏干扰",
+      "reference_case": "Sarir, Nasser"
+    },
+    "gwc": {"Cretaceous Sand": "断块独立油水界面", "Paleocene Carbonate": "台地块独立界面"}
+  }
 ]

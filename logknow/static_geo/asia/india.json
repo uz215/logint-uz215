@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "印度",
+    "basin": "Mumbai Offshore 盆地",
+    "sag": "Mumbai 近海凹陷",
+    "block": "Mumbai High 区块",
+    "oilfield": "Mumbai High 油田",
+    "structure": "碳酸盐岩台地隆起",
+    "well": "IND-01",
+    "formation": "Miocene Limestone",
+    "strata_meta": {
+      "sub_layer": "中新统粒屑灰岩、白云岩化台地储层",
+      "lithology": ["粒屑灰岩", "白云岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "4–26", "RT": "20–220", "DEN": "2.40–2.56", "CNL": "3–12", "AC": "43–65"},
+        "non_reservoir": {"GR": "1–8", "RT": "700+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "Mumbai High 中新统台地灰岩解释法",
+    "method_meta": {
+      "applicable_condition": "浅海台地，白云岩化改造储层",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "白云岩校正 Archie，孔洞识别",
+      "threshold": {"sw_max": "0.55"},
+      "limitation": "孔洞分布不均，局部硬石膏夹层干扰密度",
+      "reference_case": "Mumbai High, Bassein"
+    },
+    "gwc": {"Miocene Limestone": "独立台地块体各自油水界面"}
+  }
+]

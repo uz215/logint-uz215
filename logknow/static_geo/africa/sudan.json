@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "苏丹",
-    "basin": "Muglad 盆地",
-    "sag": "Central Muglad 凹陷",
-    "block": "Muglad 区块",
+    "basin": "Muglad 穆格莱德盆地",
+    "sag": "Muglad 中央凹陷",
+    "block": "穆格莱德核心陆上区块",
     "oilfield": "Heglig 油田",
-    "structure": "断块背斜",
+    "structure": "断块、滚动背斜",
     "well": "SDN-01",
-    "formation": "Cretaceous Sand",
+    "formation": "Cretaceous Fluvial Sand",
     "strata_meta": {
-      "sub_layer": "白垩系陆相河流—三角洲砂岩",
-      "lithology": ["长石砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
+      "sub_layer": "白垩系河流相砂岩，多期河道叠置",
+      "lithology": ["石英砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
       "log_response": {
-        "reservoir": {"GR": "22–58", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "81–133", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+        "reservoir": {"GR": "20–53", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
       },
-      "hydrocarbon_type": "原油为主，伴生气"
+      "hydrocarbon_type": "原油、伴生气"
     },
-    "method_name": "Muglad 白垩系陆相砂岩解释法",
+    "method_name": "穆格莱德盆地白垩系河流砂岩解释法",
     "method_meta": {
-      "applicable_condition": "裂谷陆相砂体，河道砂孤立叠置",
+      "applicable_condition": "中非裂谷湖盆，河道砂孤立分布",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，河道砂识别",
-      "threshold": {"sw_max": "0.58"},
-      "limitation": "砂体呈条带状，侧向快速尖灭；局部高矿化水",
+      "formula": "泥质 Archie，薄层校正",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "砂体规模小、相变快，地层水矿化度变化明显",
       "reference_case": "Heglig, Unity"
     },
-    "gwc": {"Cretaceous Sand": "断块、河道砂各自油水界面"}
+    "gwc": {"Cretaceous Sand": "单河道砂、断块各自油水界面"}
   }
 ]

@@ -1,31 +1,31 @@
 ﻿[
-    {
-        "country": "安哥拉",
-        "basin": "下刚果盆地",
-        "sag": "近海凹陷",
-        "block": "Kizomba 区块",
-        "oilfield": "Kizomba 油田",
-        "structure": "盐下碳酸盐岩 / 砂岩构造",
-        "well": "KIZ-01",
-        "formation": "Toca",
-        "strata_meta": {
-            "sub_layer": "白垩系盐下碳酸盐岩与砂岩",
-            "lithology": ["藻灰岩", "粒屑灰岩", "石英砂岩"],
-            "log_response": {
-                "reservoir": {"GR": "5–28", "RT": "25–260", "DEN": "2.42–2.58", "CNL": "4–13", "DT": "45–67"},
-                "non_reservoir": {"GR": "1–9", "RT": "700+", "DEN": "2.62–2.71", "CNL": "0–3", "DT": "38–48"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "下刚果盐下储层解释法",
-        "method_meta": {
-            "applicable_condition": "白垩系盐下，受盐构造改造",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "岩性自动分支饱和度计算",
-            "threshold": {"sw_max": 0.56},
-            "limitation": "盐岩造成曲线畸变，储层非均质性极强",
-            "reference_case": "Kizomba、Dalia"
-        },
-        "gwc": {"Toca": "盐丘分割，各块界面差异巨大"}
-    }
+  {
+    "country": "安哥拉",
+    "basin": "Kwanza 盆地",
+    "sag": "Kwanza 近海凹陷",
+    "block": "Kwanza 盐下区块",
+    "oilfield": "Dalia 油田",
+    "structure": "盐下断块、盐上浊积扇",
+    "well": "AGO-01",
+    "formation": "Cretaceous Pre-Salt Carbonate / Post-Salt Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系盐下微生物碳酸盐岩；盐上深水浊积砂岩两套体系",
+      "lithology": ["微生物灰岩", "白云岩", "石英砂岩", "盐岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "3–51", "RT": "13–250", "DEN": "2.30–2.58", "CNL": "2–22", "AC": "42–88"},
+        "non_reservoir": {"GR": "76–128", "RT": "1.0–900+", "DEN": "2.52–2.72", "CNL": "0–33", "AC": "37–105"}
+      },
+      "hydrocarbon_type": "原油为主，伴生气、凝析油"
+    },
+    "method_name": "安哥拉盐下碳酸盐岩 / 盐上浊积砂双模式解释法",
+    "method_meta": {
+      "applicable_condition": "盐下微生物碳酸盐岩孔洞储层；盐上深水浊积砂",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "盐层屏蔽校正；盐下孔洞型 Archie，盐上泥质 Archie",
+      "threshold": {"sw_max": "0.54"},
+      "limitation": "盐岩强烈畸变曲线；盐下孔洞分布极不均，裂缝随机",
+      "reference_case": "Dalia, Girassol, Lula（邻区类比）"
+    },
+    "gwc": {"Pre-Salt Carbonate": "每个盐下圈闭独立油水界面", "Post-Salt Sand": "浊积扇独立界面"}
+  }
 ]

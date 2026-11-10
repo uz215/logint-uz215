@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "土耳其",
+    "basin": "Thrace / Southeast Anatolia 盆地",
+    "sag": "东南安纳托利亚凹陷",
+    "block": "东南安纳托利亚陆上区块",
+    "oilfield": "Batman 油田",
+    "structure": "逆冲断块、背斜",
+    "well": "TUR-01",
+    "formation": "Cretaceous Carbonate / Tertiary Sand",
+    "strata_meta": {
+      "sub_layer": "白垩系碳酸盐岩、古近系砂岩，前陆逆冲带",
+      "lithology": ["粒屑灰岩", "白云岩", "石英砂岩", "泥灰岩"],
+      "log_response": {
+        "reservoir": {"GR": "4–51", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
+      },
+      "hydrocarbon_type": "原油、伴生气"
+    },
+    "method_name": "东南安纳托利亚砂灰岩解释法",
+    "method_meta": {
+      "applicable_condition": "阿尔卑斯前陆逆冲带，裂缝型灰岩很常见",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "裂缝校正 Archie，砂岩泥质分支",
+      "threshold": {"sw_max": "0.56"},
+      "limitation": "逆冲断层密集，储层连续性差，裂缝非均质强",
+      "reference_case": "Batman, Raman"
+    },
+    "gwc": {"Carbonate": "逆冲块独立油水界面", "Tertiary Sand": "砂组独立界面"}
+  }
+]

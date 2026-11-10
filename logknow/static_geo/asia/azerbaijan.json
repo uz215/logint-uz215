@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "阿塞拜疆",
-    "basin": "里海盆地",
+    "basin": "South Caspian 南里海盆地",
     "sag": "巴库凹陷",
-    "block": "Azeri 区块",
-    "oilfield": "Azeri-Chirag-Guneshli 油田",
-    "structure": "背斜断块",
-    "well": "ACG-01",
-    "formation": "Productive Series",
+    "block": "Azeri-Chirag-Guneshli 区块",
+    "oilfield": "Azeri-Chirag-Guneshli 油田群",
+    "structure": "挤压背斜",
+    "well": "AZE-01",
+    "formation": "Pliocene Sand",
     "strata_meta": {
-      "sub_layer": "上新统陆相砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "泥岩夹层"],
+      "sub_layer": "上新统巨厚河流-三角洲砂岩，多套砂组叠置",
+      "lithology": ["岩屑砂岩", "长石砂岩", "粉砂岩", "泥岩"],
       "log_response": {
-        "reservoir": {"GR": "22–60", "RT": "12–68", "DEN": "2.35–2.49", "CNL": "14–24", "AC": "76–90"},
-        "non_reservoir": {"GR": "83–136", "RT": "1.0–3.5", "DEN": "2.55–2.65", "CNL": "25–36", "AC": "93–109"}
+        "reservoir": {"GR": "22–59", "RT": "12–68", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
+        "non_reservoir": {"GR": "82–134", "RT": "1.0–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "AC": "92–108"}
       },
       "hydrocarbon_type": "原油、伴生气"
     },
-    "method_name": "里海上新统产层系列解释法",
+    "method_name": "南里海上新统砂岩解释法",
     "method_meta": {
-      "applicable_condition": "上新统陆相多砂层，泥质含量变化大",
+      "applicable_condition": "挤压盆地，巨厚砂泥互层，高压地层",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "Vsh 泥质校正 Archie，分层矿化度",
-      "threshold": {"sw_max": "0.60"},
-      "limitation": "薄互层密集，黄铁矿局部压低电阻率",
-      "reference_case": "Azeri, Chirag, Guneshli"
+      "formula": "高压压实校正，泥质 Archie，薄层识别",
+      "threshold": {"sw_max": "0.59"},
+      "limitation": "地层超压普遍，砂泥薄互层，部分低阻油层",
+      "reference_case": "Azeri-Chirag-Guneshli, Shah Deniz"
     },
-    "gwc": {"Productive Series": "每个砂组独立油水界面"}
+    "gwc": {"Pliocene Sand": "每个背斜砂组各自油水/气水界面"}
   }
 ]

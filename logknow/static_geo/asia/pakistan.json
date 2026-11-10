@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "巴基斯坦",
+    "basin": "Indus 盆地",
+    "sag": "Lower Indus 凹陷",
+    "block": "Sindh 区块",
+    "oilfield": "Qadirpur 气田",
+    "structure": "断块背斜",
+    "well": "PAK-01",
+    "formation": "Eocene Limestone",
+    "strata_meta": {
+      "sub_layer": "始新统碳酸盐岩，生物碎屑灰岩",
+      "lithology": ["生物灰岩", "白云岩", "页岩夹层"],
+      "log_response": {
+        "reservoir": {"GR": "5–28", "RT": "22–230", "DEN": "2.41–2.57", "CNL": "4–13", "AC": "44–66"},
+        "non_reservoir": {"GR": "1–9", "RT": "680+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+      },
+      "hydrocarbon_type": "天然气为主，少量凝析油"
+    },
+    "method_name": "印度河盆地始新统灰岩气层解释法",
+    "method_meta": {
+      "applicable_condition": "陆表海碳酸盐岩，裂缝-孔洞复合储层",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "裂缝校正 Archie，气挖掘效应",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
+      "limitation": "裂缝非均质性极强，高渗条带孤立",
+      "reference_case": "Qadirpur, Sawan"
+    },
+    "gwc": {"Eocene Limestone": "断块独立气水界面"}
+  }
+]

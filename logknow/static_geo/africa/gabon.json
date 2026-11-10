@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "加蓬",
+    "basin": "Gabon Coastal 加蓬海岸盆地",
+    "sag": "近海中央凹陷",
+    "block": "加蓬近海区块",
+    "oilfield": "Rabi-Kounga 油田",
+    "structure": "盐相关断块、滚动背斜",
+    "well": "GAB-01",
+    "formation": "Cretaceous Sand & Carbonate",
+    "strata_meta": {
+      "sub_layer": "白垩系砂岩与碳酸盐岩，盐岩广泛发育",
+      "lithology": ["石英砂岩", "粒屑灰岩", "白云岩", "盐岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "4–52", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
+      },
+      "hydrocarbon_type": "原油、伴生气、凝析油"
+    },
+    "method_name": "加蓬海岸盆地盐控砂灰岩解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷被动陆缘，盐构造改造储层",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "盐畸变校正，灰岩孔洞 Archie，砂岩泥质 Archie",
+      "threshold": {"sw_max": "0.55"},
+      "limitation": "盐丘造成曲线畸变，孔洞分布不均",
+      "reference_case": "Rabi-Kounga"
+    },
+    "gwc": {"Cretaceous Carbonate": "滩块独立界面", "Cretaceous Sand": "断块独立油水界面"}
+  }
+]

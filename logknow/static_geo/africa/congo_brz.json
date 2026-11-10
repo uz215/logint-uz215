@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "刚果（布）",
+    "basin": "Congo Fan 刚果扇盆地",
+    "sag": "深水凹陷",
+    "block": "刚果扇深水区块",
+    "oilfield": "Moho 油田",
+    "structure": "浊积扇、断块",
+    "well": "COG-01",
+    "formation": "Tertiary Turbidite Sand",
+    "strata_meta": {
+      "sub_layer": "古近系—新近系深水浊积石英砂岩，大型复合扇体",
+      "lithology": ["纯净石英砂岩", "粉砂岩", "深海泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "18–49", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
+      },
+      "hydrocarbon_type": "原油、伴生气、凝析油"
+    },
+    "method_name": "刚果扇深水浊积砂解释法",
+    "method_meta": {
+      "applicable_condition": "大型深水复合浊积扇",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "低泥质 Archie，扇体相控阈值",
+      "threshold": {"sw_max": "0.55"},
+      "limitation": "扇体叠置复杂，薄层水道多",
+      "reference_case": "Moho, Nkossa"
+    },
+    "gwc": {"Tertiary Turbidite Sand": "单个扇体、水道砂独立油水界面"}
+  }
+]

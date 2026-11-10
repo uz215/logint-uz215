@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "墨西哥",
-    "basin": "Sureste 盆地",
-    "sag": "Reforma 凹陷",
-    "block": "Reforma 区块",
-    "oilfield": "Cantarell 油田",
-    "structure": "断块背斜、碳酸盐岩台地",
-    "well": "CNT-01",
-    "formation": "Kimmeridgian Carbonate",
+    "basin": "Gulf of Mexico 墨西哥次盆",
+    "sag": "Sureste 凹陷",
+    "block": "Sureste 陆上与近海区块",
+    "oilfield": "Ku-Maloob-Zaap 油田",
+    "structure": "盐丘相关断块、滚动背斜",
+    "well": "MEX-01",
+    "formation": "Cretaceous / Tertiary Sand & Carbonate",
     "strata_meta": {
-      "sub_layer": "侏罗系—白垩系礁灰岩、白云岩",
-      "lithology": ["礁灰岩", "白云岩", "泥灰岩", "硬石膏夹层"],
+      "sub_layer": "白垩系碳酸盐岩、古近系深水浊积砂岩，盐岩广泛发育",
+      "lithology": ["粒屑灰岩", "白云岩", "石英砂岩", "盐岩", "泥岩"],
       "log_response": {
-        "reservoir": {"GR": "4–26", "RT": "25–240", "DEN": "2.40–2.56", "CNL": "3–12", "AC": "43–65"},
-        "non_reservoir": {"GR": "1–8", "RT": "750+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+        "reservoir": {"GR": "4–52", "RT": "13–240", "DEN": "2.31–2.57", "CNL": "3–22", "AC": "42–87"},
+        "non_reservoir": {"GR": "76–128", "RT": "1.0–850+", "DEN": "2.52–2.72", "CNL": "0–33", "AC": "37–105"}
       },
-      "hydrocarbon_type": "原油、伴生气"
+      "hydrocarbon_type": "原油、伴生气、凝析油"
     },
-    "method_name": "墨西哥 Sureste 礁相碳酸盐岩解释法",
+    "method_name": "墨西哥湾盐相关储层解释法",
     "method_meta": {
-      "applicable_condition": "生物礁、滩相溶孔白云岩，膏盐伴生",
+      "applicable_condition": "盐下灰岩孔洞储层、盐上深水浊积砂",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "礁体识别、白云岩校正、Archie",
+      "formula": "盐层曲线畸变校正，灰岩孔洞 Archie，浊积砂泥质 Archie",
       "threshold": {"sw_max": "0.55"},
-      "limitation": "孔洞非均质性极强，膏盐段干扰曲线",
-      "reference_case": "Cantarell, Ku-Maloob-Zaap"
+      "limitation": "盐丘造成测井曲线严重畸变，储层非均质性极强",
+      "reference_case": "Ku-Maloob-Zaap, Cantarell"
     },
-    "gwc": {"Kimmeridgian Carbonate": "礁块独立油水界面"}
+    "gwc": {"Cretaceous Carbonate": "圈闭独立油水界面", "Tertiary Sand": "浊积扇独立界面"}
   }
 ]

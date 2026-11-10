@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "埃塞俄比亚",
+    "basin": "Ogaden 盆地",
+    "sag": "Ogaden 凹陷",
+    "block": "Ogaden 陆上区块",
+    "oilfield": "Calub 气田",
+    "structure": "断块背斜",
+    "well": "ETH-01",
+    "formation": "Jurassic Sand / Limestone",
+    "strata_meta": {
+      "sub_layer": "侏罗系砂岩与碳酸盐岩互层",
+      "lithology": ["石英砂岩", "粒屑灰岩", "泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "5–50", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
+      },
+      "hydrocarbon_type": "天然气、少量原油远景"
+    },
+    "method_name": "Ogaden 侏罗系砂灰岩互层解释法",
+    "method_meta": {
+      "applicable_condition": "裂谷盆地，两套储层叠置",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "岩相分支，砂岩泥质 Archie，灰岩孔洞校正",
+      "threshold": {"sw_max": "0.57", "gas_cut": "0.04"},
+      "limitation": "断层发育，地层连续性差",
+      "reference_case": "Calub, Hilala"
+    },
+    "gwc": {"Jurassic Sand": "砂组独立界面", "Jurassic Limestone": "滩块独立界面"}
+  }
+]

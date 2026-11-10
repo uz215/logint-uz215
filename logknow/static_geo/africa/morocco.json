@@ -2,30 +2,30 @@
   {
     "country": "摩洛哥",
     "basin": "Essaouira 盆地",
-    "sag": "西部近海凹陷",
+    "sag": "Essaouira 近海凹陷",
     "block": "Essaouira 近海区块",
     "oilfield": "Chinguetti 油田",
-    "structure": "断块背斜",
-    "well": "CHG-01",
-    "formation": "Jurassic Carbonate",
+    "structure": "滚动背斜",
+    "well": "MAR-01",
+    "formation": "Cretaceous Turonian Sand",
     "strata_meta": {
-      "sub_layer": "侏罗系台地碳酸盐岩",
-      "lithology": ["鲕粒灰岩", "白云岩", "泥灰岩"],
+      "sub_layer": "白垩系深水浊积石英砂岩",
+      "lithology": ["纯净石英砂岩", "细粒浊积砂", "深海泥岩"],
       "log_response": {
-        "reservoir": {"GR": "5–28", "RT": "22–220", "DEN": "2.41–2.57", "CNL": "4–13", "AC": "44–66"},
-        "non_reservoir": {"GR": "1–9", "RT": "700+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+        "reservoir": {"GR": "18–49", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
       },
       "hydrocarbon_type": "原油、伴生气"
     },
-    "method_name": "摩洛哥侏罗系碳酸盐岩解释法",
+    "method_name": "Essaouira 白垩系浊积砂解释法",
     "method_meta": {
-      "applicable_condition": "侏罗系台地鲕粒滩、溶孔储层",
+      "applicable_condition": "被动陆缘深水扇，低泥质储层",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "滩相识别，灰岩 Archie",
+      "formula": "低泥质 Archie",
       "threshold": {"sw_max": "0.56"},
-      "limitation": "白云岩化不均，裂缝段电阻率波动",
+      "limitation": "扇体孤立，埋深变化大",
       "reference_case": "Chinguetti"
     },
-    "gwc": {"Jurassic Carbonate": "滩体单元独立油水界面"}
+    "gwc": {"Cretaceous Turonian Sand": "独立扇体油水界面"}
   }
 ]

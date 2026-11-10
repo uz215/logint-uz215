@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "叙利亚",
-    "basin": "Palmyra 盆地",
-    "sag": "中部凹陷",
-    "block": "Block 9",
-    "oilfield": "Tanf 油田",
-    "structure": "断块隆起",
-    "well": "TAN-01",
-    "formation": "Palmyra Limestone",
+    "basin": "Euphrates 裂谷盆地",
+    "sag": "Deir ez-Zor 凹陷",
+    "block": "Deir ez-Zor 陆上区块",
+    "oilfield": "Omar 油田",
+    "structure": "断块背斜",
+    "well": "SYR-01",
+    "formation": "Cretaceous Sand / Carbonate",
     "strata_meta": {
-      "sub_layer": "古近系台地碳酸盐岩",
-      "lithology": ["粒屑灰岩", "白云岩", "膏岩夹层"],
+      "sub_layer": "白垩系砂岩与台地碳酸盐岩互层",
+      "lithology": ["石英砂岩", "粒屑灰岩", "白云岩", "泥灰岩"],
       "log_response": {
-        "reservoir": {"GR": "6–30", "RT": "20–210", "DEN": "2.41–2.57", "CNL": "4–14", "AC": "45–67"},
-        "non_reservoir": {"GR": "1–10", "RT": "650+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
+        "reservoir": {"GR": "5–52", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
       },
       "hydrocarbon_type": "原油、伴生气"
     },
-    "method_name": "Palmyra 盆地灰岩储层解释法",
+    "method_name": "幼发拉底白垩系砂-灰岩互层解释法",
     "method_meta": {
-      "applicable_condition": "古近系台地相溶孔灰岩，膏盐伴生",
+      "applicable_condition": "裂谷台地，砂岩滩、碳酸盐岩储层叠置",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "灰岩孔隙模型 + Archie，膏盐校正",
-      "threshold": {"sw_max": "0.56"},
-      "limitation": "硬石膏段高密度，裂缝造成电阻率突变",
-      "reference_case": "Tanf, Jihar"
+      "formula": "岩相分支判定，砂岩泥质 Archie，灰岩白云岩校正 Archie",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "岩性频繁互层，薄层多，裂缝随机发育",
+      "reference_case": "Omar, Tanak"
     },
-    "gwc": {"Palmyra Limestone": "断块独立油水界面"}
+    "gwc": {"Cretaceous Sand": "砂组独立油水界面", "Cretaceous Carbonate": "滩块独立界面"}
   }
 ]

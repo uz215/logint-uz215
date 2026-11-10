@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "玻利维亚",
-    "basin": "Sub Andean 前陆盆地",
-    "sag": "北部前陆凹陷",
-    "block": "San Alberto 区块",
+    "basin": "Chaco 盆地",
+    "sag": "Chaco 凹陷",
+    "block": "Chaco 陆上区块",
     "oilfield": "San Alberto 气田",
-    "structure": "逆冲背斜",
-    "well": "SAL-01",
-    "formation": "Tarija Sandstone",
+    "structure": "逆冲断块背斜",
+    "well": "BOL-01",
+    "formation": "Devonian / Cretaceous Sand",
     "strata_meta": {
-      "sub_layer": "古生界石英砂岩",
-      "lithology": ["石英砂岩", "硅质砂岩", "黑色页岩"],
+      "sub_layer": "泥盆系致密砂岩、白垩系三角洲砂岩两套储层",
+      "lithology": ["石英砂岩", "致密砂岩", "粉砂岩", "页岩"],
       "log_response": {
-        "reservoir": {"GR": "18–50", "RT": "15–85", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
+        "reservoir": {"GR": "21–57", "RT": "12–70", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–90"},
+        "non_reservoir": {"GR": "80–131", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
       },
-      "hydrocarbon_type": "天然气、凝析油"
+      "hydrocarbon_type": "天然气为主，凝析油"
     },
-    "method_name": "Tarija 古生界砂岩气层解释法",
+    "method_name": "Chaco 盆地砂岩气层解释法",
     "method_meta": {
-      "applicable_condition": "逆冲带古生界石英砂岩，硅质胶结",
+      "applicable_condition": "安第斯前陆逆冲带，存在常规与致密储层",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "挖掘效应判气，硅质校正 Archie",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "逆冲断裂复杂，裂缝串层",
-      "reference_case": "San Alberto, San Antonio"
+      "formula": "压实校正 Archie，致密段启用非常规饱和度分支",
+      "threshold": {"sw_max": "0.58", "gas_cut": "0.042"},
+      "limitation": "逆冲断层复杂，泥盆系普遍致密，孔隙度偏低",
+      "reference_case": "San Alberto, Itau"
     },
-    "gwc": {"Tarija Sandstone": "逆冲断块独立气水界面"}
+    "gwc": {"Devonian Sand": "逆冲断块独立界面", "Cretaceous Sand": "砂组独立界面"}
   }
 ]

@@ -1,0 +1,31 @@
+﻿[
+  {
+    "country": "塞浦路斯",
+    "basin": "Levantine 盆地",
+    "sag": "塞浦路斯近海凹陷",
+    "block": "Cyprus offshore 区块",
+    "oilfield": "Aphrodite 气田",
+    "structure": "断块背斜",
+    "well": "CYP-01",
+    "formation": "Miocene Sand",
+    "strata_meta": {
+      "sub_layer": "中新统深水浊积石英砂岩",
+      "lithology": ["纯净石英砂岩", "细粒浊积砂", "深海泥岩"],
+      "log_response": {
+        "reservoir": {"GR": "18–49", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
+        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
+      },
+      "hydrocarbon_type": "天然气、凝析油"
+    },
+    "method_name": "黎凡特盆地中新统浊积砂气层解释法",
+    "method_meta": {
+      "applicable_condition": "被动陆缘深水扇，低泥质",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "低泥质 Archie，气挖掘效应校正",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.041"},
+      "limitation": "埋深大，地层水矿化度高，扇体孤立",
+      "reference_case": "Aphrodite, Calypso"
+    },
+    "gwc": {"Miocene Sand": "单个浊积扇独立气水界面"}
+  }
+]

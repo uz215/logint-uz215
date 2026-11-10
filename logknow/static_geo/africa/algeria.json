@@ -1,31 +1,31 @@
 ﻿[
-    {
-        "country": "阿尔及利亚",
-        "basin": "伊利济盆地",
-        "sag": "中央凹陷",
-        "block": "Hassi R'Mel 区块",
-        "oilfield": "Hassi R'Mel 气田",
-        "structure": "古生界台地隆起",
-        "well": "HRM-01",
-        "formation": "Hassi R'Mel",
-        "strata_meta": {
-            "sub_layer": "三叠系砂岩储层",
-            "lithology": ["石英砂岩，分选较好", "泥岩、盐岩盖层"],
-            "log_response": {
-                "reservoir": {"GR": "18–48", "RT": "15–80", "DEN": "2.33–2.47", "CNL": "12–22", "DT": "74–88"},
-                "non_reservoir": {"GR": "76–128", "RT": "1–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "DT": "91–106"}
-            },
-            "hydrocarbon_type": "天然气、凝析油"
-        },
-        "method_name": "阿尔及利亚三叠系砂岩气层法",
-        "method_meta": {
-            "applicable_condition": "古生界—三叠系碎屑岩，盐岩盖层",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "中子密度挖掘效应判气 + Archie",
-            "threshold": {"gas_cut": 0.042, "sw_max": 0.55},
-            "limitation": "盐层、硬石膏干扰密度曲线",
-            "reference_case": "Hassi R'Mel、Hassi Messaoud"
-        },
-        "gwc": {"Hassi R'Mel": "隆起分区气水界面"}
-    }
+  {
+    "country": "阿尔及利亚",
+    "basin": "Illizi 盆地",
+    "sag": "Illizi 中央凹陷",
+    "block": "Hassi R'Mel / Hassi Messaoud 区块",
+    "oilfield": "Hassi R'Mel 大气田、Hassi Messaoud 大油田",
+    "structure": "古隆起、断块",
+    "well": "DZA-01",
+    "formation": "Cambro-Ordovician Sand / Devonian Carbonate",
+    "strata_meta": {
+      "sub_layer": "寒武—奥陶系石英砂岩，泥盆系碳酸盐岩，古生界深层储层",
+      "lithology": ["石英砂岩", "致密砂岩", "粒屑灰岩", "页岩"],
+      "log_response": {
+        "reservoir": {"GR": "18–54", "RT": "14–230", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
+        "non_reservoir": {"GR": "76–127", "RT": "1.0–750+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
+      },
+      "hydrocarbon_type": "天然气、原油、凝析油"
+    },
+    "method_name": "阿尔及利亚古生界深层储层解释法",
+    "method_meta": {
+      "applicable_condition": "古老克拉通隆起，深层强压实，存在常规与致密储层",
+      "input_curves": ["GR","RT","DEN","CNL","AC"],
+      "formula": "深层压实校正，砂岩/灰岩双分支 Archie，高矿化水修正",
+      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
+      "limitation": "埋深巨大、压实强，局部裂缝为主要渗流通道",
+      "reference_case": "Hassi R'Mel, Hassi Messaoud"
+    },
+    "gwc": {"Paleozoic Sand": "古隆起圈闭独立油水/气水界面"}
+  }
 ]

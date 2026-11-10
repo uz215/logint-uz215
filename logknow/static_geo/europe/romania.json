@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "罗马尼亚",
-    "basin": "Moesian 盆地",
-    "sag": "中央凹陷",
-    "block": "Ploiesti 区块",
-    "oilfield": "Ploiesti 油田群",
-    "structure": "断块背斜",
+    "basin": "Pannonian / Moesian 盆地",
+    "sag": "Moesian 凹陷",
+    "block": "罗马尼亚南部陆上区块",
+    "oilfield": "Ticleni 油田",
+    "structure": "断块、挤压背斜",
     "well": "ROU-01",
-    "formation": "Oligocene–Miocene Sand",
+    "formation": "Miocene – Pliocene Sand",
     "strata_meta": {
-      "sub_layer": "渐新统—中新统陆相、浅海相砂岩",
-      "lithology": ["长石砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
+      "sub_layer": "中新统—上新统三角洲、河流砂岩，频繁砂泥互层",
+      "lithology": ["石英砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
       "log_response": {
-        "reservoir": {"GR": "22–58", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "81–133", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
+        "reservoir": {"GR": "21–56", "RT": "12–67", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "80–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
       },
-      "hydrocarbon_type": "原油为主，伴生气"
+      "hydrocarbon_type": "原油、伴生气"
     },
-    "method_name": "Ploiesti 渐新—中新统砂岩解释法",
+    "method_name": "莫埃西亚盆地新近系砂岩解释法",
     "method_meta": {
-      "applicable_condition": "浅层碎屑岩，部分稠油",
+      "applicable_condition": "前陆挤压盆地，薄互层发育，局部超压",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，稠油低阻校正",
-      "threshold": {"sw_max": "0.59"},
-      "limitation": "稠油段电阻率偏低，容易误判水层；砂体薄互层",
-      "reference_case": "Ploiesti, Moreni"
+      "formula": "薄层校正，泥质 Archie，超压压实修正",
+      "threshold": {"sw_max": "0.57"},
+      "limitation": "地层水矿化度横向变化大，低阻油层常见",
+      "reference_case": "Ticleni, Balaria"
     },
-    "gwc": {"Oligocene–Miocene Sand": "断块、砂组各自油水界面"}
+    "gwc": {"Miocene-Pliocene Sand": "各个断块砂组独立油水界面"}
   }
 ]

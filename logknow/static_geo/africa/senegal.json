@@ -1,31 +1,31 @@
 ﻿[
   {
     "country": "塞内加尔",
-    "basin": "塞内加尔近海盆地",
-    "sag": "近海主凹陷",
-    "block": "Sangomar 区块",
-    "oilfield": "Sangomar 油田",
-    "structure": "盐相关背斜",
-    "well": "SGM-01",
-    "formation": "Cenomanian Turonian Sand",
+    "basin": "Senegal 海岸盆地",
+    "sag": "Saint-Louis 近海凹陷",
+    "block": "Senegal 近海区块",
+    "oilfield": "Yakaar-Teranga 气田",
+    "structure": "滚动背斜、浊积扇",
+    "well": "SEN-01",
+    "formation": "Cretaceous Turbidite Sand",
     "strata_meta": {
-      "sub_layer": "白垩系海相砂岩",
-      "lithology": ["石英砂岩", "浊积砂岩", "泥灰岩"],
+      "sub_layer": "白垩系深水浊积砂岩",
+      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
       "log_response": {
-        "reservoir": {"GR": "20–54", "RT": "11–64", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
+        "reservoir": {"GR": "19–51", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
+        "non_reservoir": {"GR": "77–127", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
       },
-      "hydrocarbon_type": "原油、伴生气"
+      "hydrocarbon_type": "天然气、凝析油"
     },
-    "method_name": "塞内加尔近海白垩系浊积砂解释法",
+    "method_name": "塞内加尔近海白垩系浊积砂气层解释法",
     "method_meta": {
-      "applicable_condition": "盐构造改造下海相浊积扇砂体",
+      "applicable_condition": "被动陆缘深水复合扇体",
       "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "盐丘扰动校正，泥质 Archie",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "盐刺穿切割储层，薄层发育",
-      "reference_case": "Sangomar, Yakaar"
+      "formula": "泥质校正 Archie，气挖掘效应",
+      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
+      "limitation": "多期扇叠置，泥质夹层多，流体分异复杂",
+      "reference_case": "Yakaar-Teranga"
     },
-    "gwc": {"Cenomanian Turonian Sand": "扇体单元各自油水界面"}
+    "gwc": {"Cretaceous Turbidite Sand": "浊积扇独立气水界面"}
   }
 ]
