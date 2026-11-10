@@ -4,7 +4,7 @@ import re
 from pathlib import Path
 from typing import Optional, List
 
-CONFIG_PATH = Path(__file__).resolve().parent / "config" / "region_normalize.yaml"
+CONFIG_PATH = Path(__file__).resolve().parent / "region_normalize.yaml"
 
 
 class RegionNormalizer:
