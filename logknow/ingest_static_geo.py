@@ -38,10 +38,21 @@ COUNTRY_CANON = {
     "阿拉伯联合酋长国": "阿联酋",
 }
 
+# 自动归一：优先用 region_normalize.yaml 权威别名表，失败兜底 COUNTRY_CANON
+try:
+    from logknow.region_normalizer import RegionNormalizer
+    _RN = RegionNormalizer()
+    def _canon_country(name):
+        return _RN.normalize_country(name) or COUNTRY_CANON.get(name, name)
+except Exception:
+    _RN = None
+    def _canon_country(name):
+        return COUNTRY_CANON.get(name, name)
+
 
 def resolve_country(gs, name, continent):
     """返回 (节点名, 是否新建)。按别名归并存量节点；不存在则新建。"""
-    canon = COUNTRY_CANON.get(name, name)
+    canon = _canon_country(name)
     existing = None
     for nd in gs.nodes.values():
         if nd["type"] != "country":
