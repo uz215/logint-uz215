@@ -207,3 +207,5 @@ build_regional_graph.py
 _dbg/remove_run_mode.py
 # templates 备份（需置于 !templates/**/* 放行规则之后才能生效）
 templates/*.bak_*
+# P0 逐轮执行记录：按 docs/README.md 约定为工作区文件，不入库
+docs/P0执行记录_*.md

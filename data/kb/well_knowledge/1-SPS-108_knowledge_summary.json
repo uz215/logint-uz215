@@ -1977,8 +1977,44 @@
   ],
   "drill_core": [],
   "mudlog": {
-    "found": false,
-    "note": "井目录未发现标准 masterlog/录井图；岩性段以 lithall/SWC/XRD 近似。"
+    "found": true,
+    "file": "1-SPS-108_Masterlog.pdf",
+    "basic_data": {
+      "casing_program": "SHOE 22\": 3000 m"
+    },
+    "lithology": [],
+    "gas_show": [],
+    "oil_gas_show": [
+      {
+        "depth": null,
+        "unit": null,
+        "grade": "",
+        "text": "OIL SHOW & FLOURESCENCE",
+        "source": "mudlog"
+      },
+      {
+        "depth": null,
+        "unit": null,
+        "grade": "",
+        "text": "OIL SHOW          FLOURESCENCE",
+        "source": "mudlog"
+      },
+      {
+        "depth": null,
+        "unit": null,
+        "grade": "fluorescence",
+        "text": "Fluorescence (%)",
+        "source": "mudlog"
+      },
+      {
+        "depth": null,
+        "unit": null,
+        "grade": "",
+        "text": "Oil Show (%)",
+        "source": "mudlog"
+      }
+    ],
+    "engineering": []
   },
   "usage": [
     "1-SPS-108 XRD 方解石/白云石 数值范围",
@@ -1987,34 +2023,32 @@
     "巴西 Aram 碳酸盐岩 酸解 CO2"
   ],
   "hierarchy": {
-    "country": "Brazil",
+    "country": "BRASIL",
     "basin": "Santos",
     "sag": "未填写",
     "structure": "Curacao",
-    "field": "Aram",
+    "field": "未填写",
     "well": "1-SPS-108"
   },
   "basic_data": {
-    "country": "Brazil",
-    "field": "Aram",
+    "country": "BRASIL",
+    "field": "未填写",
     "well": "1-SPS-108",
-    "company": "Petrobras",
-    "coordinates": {
-      "latitude": "-25.639973",
-      "longitude": "-44.653793"
-    },
-    "bit_size": "8.5",
-    "bit_program": "8.5",
+    "company": "",
+    "coordinates": {},
+    "bit_size": "",
+    "bit_program": "",
     "casing_record": "",
     "mud_type": "",
-    "mud_density": "1.46",
+    "mud_density": "",
     "mud_viscosity": "",
     "fluid_loss": "",
     "borehole_record": "",
     "spud_date": "",
     "td_date": "",
     "well_type": "",
-    "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。"
+    "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。",
+    "casing_program": "SHOE 22\": 3000 m"
   },
   "stratigraphy": {
     "formation_tops": [
@@ -3327,26 +3361,24 @@
   "engineering": [],
   "categories": {
     "basic_data": {
-      "country": "Brazil",
-      "field": "Aram",
+      "country": "BRASIL",
+      "field": "未填写",
       "well": "1-SPS-108",
-      "company": "Petrobras",
-      "coordinates": {
-        "latitude": "-25.639973",
-        "longitude": "-44.653793"
-      },
-      "bit_size": "8.5",
-      "bit_program": "8.5",
+      "company": "",
+      "coordinates": {},
+      "bit_size": "",
+      "bit_program": "",
       "casing_record": "",
       "mud_type": "",
-      "mud_density": "1.46",
+      "mud_density": "",
       "mud_viscosity": "",
       "fluid_loss": "",
       "borehole_record": "",
       "spud_date": "",
       "td_date": "",
       "well_type": "",
-      "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。"
+      "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。",
+      "casing_program": "SHOE 22\": 3000 m"
     },
     "stratigraphy": {
       "formation_tops": [
@@ -6628,7 +6660,21 @@
     ],
     "oil_gas_show": [],
     "engineering": [],
-    "core_descriptions": []
+    "core_descriptions": [
+      {
+        "file": "1-SPS-108_SampleChart.doc",
+        "well": "",
+        "field": "",
+        "formation": "( DocumentSummaryInformation 8 MsoDataStore GN0P1 5 0E 5GIXC 2 9 d D h p s b e",
+        "top": null,
+        "base": null,
+        "gas_avg": "",
+        "description": "",
+        "lithology": [],
+        "gas_show": [],
+        "oil_gas_show": []
+      }
+    ]
   },
   "hierarchy_evidence": [
     "Curacao-1井阶段汇报（测井）.pptx: 桑托斯(Santos)盆地盐下地层综合柱状图"
@@ -6640,5 +6686,19 @@
     "median": 4.4,
     "max": 17.6
   },
-  "core_descriptions": []
+  "core_descriptions": [
+    {
+      "file": "1-SPS-108_SampleChart.doc",
+      "well": "",
+      "field": "",
+      "formation": "( DocumentSummaryInformation 8 MsoDataStore GN0P1 5 0E 5GIXC 2 9 d D h p s b e",
+      "top": null,
+      "base": null,
+      "gas_avg": "",
+      "description": "",
+      "lithology": [],
+      "gas_show": [],
+      "oil_gas_show": []
+    }
+  ]
 }
