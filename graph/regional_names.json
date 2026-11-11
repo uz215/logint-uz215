@@ -1,0 +1,220 @@
+{
+  "version": "1.0",
+  "auto_extracted": true,
+  "countries": {
+    "Peru": {
+      "basins": {},
+      "sags": {},
+      "uplifts": {},
+      "structures": {},
+      "blocks": {},
+      "fields": {
+        "WELL": {
+          "cn_name": ""
+        }
+      }
+    },
+    "乌兹别克": {
+      "basins": {
+        "阿姆河": {
+          "cn_name": ""
+        }
+      },
+      "sags": {},
+      "uplifts": {},
+      "structures": {},
+      "blocks": {},
+      "fields": {}
+    },
+    "哈萨克": {
+      "basins": {},
+      "sags": {},
+      "uplifts": {},
+      "structures": {},
+      "blocks": {},
+      "fields": {
+        "Petrophysical Evaluation Table of Zhetybai": {
+          "cn_name": ""
+        },
+        "Petrophysical Evaluation Table of Zhetybai Oil": {
+          "cn_name": ""
+        },
+        "热得拜": {
+          "cn_name": ""
+        }
+      }
+    },
+    "委内瑞拉": {
+      "basins": {},
+      "sags": {},
+      "uplifts": {},
+      "structures": {},
+      "blocks": {},
+      "fields": {
+        "Oligoceno \nNA": {
+          "cn_name": ""
+        },
+        "Mioceno \nNA": {
+          "cn_name": ""
+        }
+      }
+    },
+    "孟加拉": {
+      "basins": {},
+      "sags": {},
+      "uplifts": {},
+      "structures": {},
+      "blocks": {
+        "即可确定建立": {
+          "cn_name": ""
+        },
+        "了解本": {
+          "cn_name": ""
+        }
+      },
+      "fields": {
+        "结合目前": {
+          "cn_name": ""
+        },
+        "综合确定目前油": {
+          "cn_name": ""
+        }
+      }
+    },
+    "巴西": {
+      "basins": {
+        "里贝拉区块位于桑托斯": {
+          "cn_name": ""
+        }
+      },
+      "sags": {},
+      "uplifts": {
+        "Slick": {
+          "cn_name": ""
+        },
+        "A slick": {
+          "cn_name": ""
+        }
+      },
+      "structures": {
+        "三维地震": {
+          "cn_name": ""
+        }
+      },
+      "blocks": {
+        "Classification": {
+          "cn_name": ""
+        },
+        "里贝拉": {
+          "cn_name": ""
+        }
+      },
+      "fields": {
+        "kh ratio at": {
+          "cn_name": ""
+        },
+        "PPSA\nDSTs in Mega": {
+          "cn_name": ""
+        },
+        "巴西里贝拉西北部五亿吨级": {
+          "cn_name": ""
+        },
+        "Important to know average permeabilities of our best reservoirs at a": {
+          "cn_name": ""
+        }
+      }
+    },
+    "澳洲": {
+      "basins": {
+        "I \nMcARTHUR": {
+          "cn_name": ""
+        },
+        "Gas Australia\nBeetaloo": {
+          "cn_name": ""
+        }
+      },
+      "sags": {},
+      "uplifts": {
+        "Pores comp": {
+          "cn_name": ""
+        },
+        "es comp": {
+          "cn_name": ""
+        },
+        "leaving lag deposits comp": {
+          "cn_name": ""
+        }
+      },
+      "structures": {
+        "fo\n\nj": {
+          "cn_name": ""
+        }
+      },
+      "blocks": {},
+      "fields": {
+        "Hay": {
+          "cn_name": ""
+        },
+        "AUSTRALIA": {
+          "cn_name": ""
+        }
+      }
+    },
+    "缅甸": {
+      "basins": {},
+      "sags": {},
+      "uplifts": {},
+      "structures": {},
+      "blocks": {
+        "A-1": {
+          "cn_name": ""
+        }
+      },
+      "fields": {}
+    },
+    "苏丹": {
+      "basins": {
+        "FRACTURED BASEMENT RESERVOIR\nLocation map of": {
+          "cn_name": ""
+        },
+        "North part of \nSong Hong": {
+          "cn_name": ""
+        },
+        "Vung May basin\nTruong Sa group of": {
+          "cn_name": ""
+        },
+        "Tho Chu basin\nCuu Long basin\nPhu Khanh basin\nSong Hong basin\nNam Con Son basin\nHoang Sa group of": {
+          "cn_name": ""
+        }
+      },
+      "sags": {},
+      "uplifts": {},
+      "structures": {
+        "Yen Tu": {
+          "cn_name": ""
+        }
+      },
+      "blocks": {},
+      "fields": {
+        "developing oil": {
+          "cn_name": ""
+        },
+        "RONG\nProducing oil": {
+          "cn_name": ""
+        },
+        "Exploration Well": {
+          "cn_name": ""
+        },
+        "developing \noil": {
+          "cn_name": ""
+        },
+        "PDOC": {
+          "cn_name": ""
+        },
+        "producing oil": {
+          "cn_name": ""
+        }
+      }
+    }
+  }
+}

@@ -185,3 +185,25 @@ gas_test.csv
 *.bat
 !run_gui.bat
 !启动logInt.bat
+
+# ===== 草稿/备份/外部管线/摆渡产物（不入库） =====
+# 外部知识管线：依赖 loggraph_structured 等外部目录，
+# 且 logknow/core/region_normalizer.py 缺 config/region_normalize.yaml（不完整）
+logknow/
+ingest_to_logknow.py
+ingest_report.json
+# 草稿与门禁戳
+.$log_flowchart.drawio.bkp
+_gate_pass.stamp
+# 离线摆渡包（git bundle 摆渡用，非源码）
+*.bundle
+# 旧版本快照与回归中间基线
+_dbg/logInt_old_r60.py
+_dbg/_r*_base/
+_dbg/*.npy
+# 已被 logKnow.py 并库(2026-10-26)的历史文件与一次性脚本
+logWiki.py
+build_regional_graph.py
+_dbg/remove_run_mode.py
+# templates 备份（需置于 !templates/**/* 放行规则之后才能生效）
+templates/*.bak_*

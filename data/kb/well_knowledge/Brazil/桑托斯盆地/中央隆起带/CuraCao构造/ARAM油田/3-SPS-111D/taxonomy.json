@@ -1,0 +1,39 @@
+{
+  "hierarchy": {
+    "country": "Brazil",
+    "basin": "桑托斯盆地",
+    "sag": "中央隆起带",
+    "structure": "CuraCao构造",
+    "field": "ARAM油田",
+    "well": "3-SPS-111D"
+  },
+  "hierarchy_original": {
+    "country": "Brazil",
+    "basin": "Santos Basin",
+    "sag": "Central Uplift",
+    "structure": "Curaçao",
+    "field": "Aram"
+  },
+  "aliases": {
+    "well": [
+      "CuraCao-3",
+      "Curaçao-3",
+      "SPS-111D"
+    ],
+    "structure": [
+      "Curacao",
+      "Curaçao",
+      "CuraCao"
+    ],
+    "field": [
+      "Aram",
+      "ARAM",
+      "Aram Block"
+    ]
+  },
+  "categories": [
+    "testing"
+  ],
+  "summary": "",
+  "source_note": "层级由用户 2026-11-08 提供：与 1-SPS-108 同构造（CuraCao构造）、同油田（ARAM油田）；井又称 CuraCao-3。分类文件目前仅 testing（源 kb.db case_layer，truth.csv 22 段），其余分类缺数据未生成，不臆造。"
+}
