@@ -93,7 +93,8 @@ def detect_country(path: str, title: str = '') -> str:
 
 
 # ── 知识技术分类（本知识库是以测井专业为主的油气知识库；按知识本身领域 + 技术细类，不按国别；国别单独存 country 列）──
-DOMAIN_LOGGING = '测井方法'   # 测井专业技术/方法：随钻 / 生产 / 光纤 / 裸眼 / 电缆 / 解释方法（× 厂商小类）
+DOMAIN_LOGGING = '测井方法'   # 测井专业技术/方法：随钻 / 生产 / 光纤 / 裸眼 / 电缆 / 解释方法 / 射孔（× 厂商小类）
+DOMAIN_MUDLOGGING = '录井'    # 录井（与测井并列的一级领域）：综合 / 气测 / 地化 / 岩屑 / 钻井液录井（小类留空）
 DOMAIN_GEO = '地质'           # 以油气地质为主：油气地质 / 非常规地质 / 基础地质（构造·沉积·岩性）（× 技术细分小类）
 DOMAIN_GENERAL = '通用知识'    # 油气通用知识（不属于测井专业）：标准规范 / 项目管理 / 软件工具 / 其他
 
@@ -112,11 +113,12 @@ _GEO_TECH = {
     '岩性与矿物': ['岩性', '岩石', '矿物', '碳酸盐', '白云岩', '灰岩', '砂岩', '泥岩', '火山岩', '变质岩',
                 '煤岩', '数学地质', 'clay', 'mineral', 'litholog', 'rock', 'carbonate', 'petrog', '岩相'],
 }
-# 测井方法领域「大类」（按测井技术类型，优先级：随钻 > 生产 > 光纤 > 裸眼 > 电缆 > 解释）。
+# 测井方法领域「大类」（按测井技术类型，优先级：随钻 > 生产 > 光纤 > 裸眼 > 电缆 > 解释 > 射孔）。
 # 大类是仪器/方法知识的一级细分；小类（厂商）见 _LOG_MINOR。
+# 注：录井相关词已移出本域（录井为并列一级领域）；射孔为测井大类下与生产测井并列的子项。
 _LOG_MAJOR = {
-    '随钻测井': ['随钻', 'lwd', 'mwd', '地质导向', '旋转导向', '随钻测量', '随钻测井', '录井', '气测',
-              'mud logging', 'geosteering', 'logging while', 'directional', '井眼轨迹', '轨迹'],
+    '随钻测井': ['随钻', 'lwd', 'mwd', '地质导向', '旋转导向', '随钻测量', '随钻测井',
+              'geosteering', 'logging while', 'directional', '井眼轨迹', '轨迹', '实钻'],
     '生产测井': ['生产测井', '产出剖面', '注入剖面', '吸水剖面', '产液剖面', '套管井', 'production logging',
               '地层测试', 'mdt', 'rci', 'rpm', 'wft', 'flowmeter', '流量计', '持水', '含水率', '井筒',
               'through tubing', '过油管', '剩余油', '可动', 'aft', 'mfat', '找水'],
@@ -130,11 +132,13 @@ _LOG_MAJOR = {
               '探头', '电极', '探测器', '测井仪', '下井仪', '下井', '采集面板', '硬件', '震击器', '配件',
               '模块', '组件', '推靠', '极板', '线圈', '天线', '发射', '接收', '刻度', '标定', 'calibration',
               'hardware', 'tool', 'sonde', 'probe', 'fits', '过钻具成像', '介电', '补偿密度', '补偿中子',
-              '井壁', '取心', 'coring', '固井', '射孔', '水泥', 'perforation', 'cement'],
+              '井壁', '取心', 'coring', '固井', '水泥', 'cement'],
     '解释方法': ['解释', '评价', '处理', '饱和度', '流体', '含油', '含水', '油水层', '识别', '划分', '建模',
               '反演', '岩石物理', '交会', '图版', '模板', '标准层', '隔层', '岩心', '压汞', '数字岩心',
               'interpretation', 'petrophysics', 'evaluation', 'saturation', 'facies', 'well log',
               'log analysis', 'analysis', 'porosity', 'permeability', '核磁', '核磁共振'],
+    '射孔': ['射孔', 'perforation', '射孔枪', '射孔弹', '补孔', '补射', '射孔作业', '射孔施工',
+          '射孔优化', '聚能', 'gun', 'perforate'],
 }
 # 测井方法领域「小类」（按厂商/来源；缺测归 其他）。优先级：国外服务商 > 国内。
 _LOG_MINOR = {
@@ -145,7 +149,22 @@ _LOG_MINOR = {
            '国产仪器', '国产测井'],
     '中海油': ['中海油', 'cnooc', '海油'],
 }
-# 通用知识（油气通用知识，不属于测井专业）：
+# 录井领域（与测井并列的一级领域）：触发词与子技术类型。
+# 录井不再并入 测井-随钻；作为独立领域，其规范/方法均归本域。
+_MUDLOG_ONLY = ['录井', '气测录井', '综合录井', '地化录井', '岩屑录井', '钻井液录井', '泥浆录井',
+              '录井图', '录井解释', '录井曲线', '录井资料', '录井仪', '录井技术',
+              'mud logging', 'mudlog', 'mud-log', 'wellsite logging', 'well site logging',
+              'cuttings logging', 'geologging']
+# 录井子技术类型（作 tech_type）；小类（厂商）留空。
+_MUDLOG_MAJOR = {
+    '综合录井': ['综合录井', '综合录井仪'],
+    '气测录井': ['气测', '气测录井', '气相色谱', 'gas logging'],
+    '地化录井': ['地化', '地化录井', '岩石热解', '热解', '热解气相'],
+    '岩屑录井': ['岩屑', '岩屑录井', '砂样', '岩屑描述', '岩屑录井解释', 'cuttings'],
+    '钻井液录井': ['钻井液', '泥浆', '泥浆录井', '钻井液录井', 'mud'],
+    '其他': [],
+}
+
 #   - 标准规范：关于测井及油气相关方面的规范/标准/规程
 #   - 项目管理：测井地质研究的课题设计、实施、方案等（非预算/合同/软件类）
 #   - 软件工具：测井专业软件（Techlog/Geolog/LEAD 等），非通用办公软件
@@ -222,8 +241,8 @@ _LOG_ONLY = ['仪器', '传感器', '探头', '电极', '探测器', '核磁共�
            '电缆', 'wireline', '常规测井', '裸眼', '完井测井', '生产测井', '测井系列', '测井曲线',
            '测井资料', '组合测井', '双侧向', '微球', '感应', '三组合', '声波测井', '密度测井', '中子测井',
            '自然伽马', '井径', '电阻率', '成像测井', '阵列', 'eilog', 'ait', 'hrla', 'hgns', 'tld', 'mcfl',
-           'cmr', 'fmi', 'acquisition', 'depth control', '录井', '气测', '随钻', 'lwd', 'mwd', '地质导向',
-           '旋转导向', 'mud logging', 'directional', 'geosteering', '测井', 'logging', 'well log',
+           'cmr', 'fmi', 'acquisition', 'depth control', '射孔', 'perforation', '随钻', 'lwd', 'mwd', '地质导向',
+           '旋转导向', 'directional', 'geosteering', '测井', 'logging', 'well log',
            '试油', '试井', 'well test', '解释']
 
 
@@ -266,6 +285,18 @@ def classify_geo_method(path: str, title: str = '') -> (str, str):
     return major, minor
 
 
+def classify_mudlogging_method(path: str, title: str = '') -> (str, str):
+    """录井领域（与测井并列的一级领域）的内部分类：返回 (大类 major, 小类 minor)。
+
+    大类 = 录井子技术类型（综合/气测/地化/岩屑/钻井液录井，沿用 _MUDLOG_MAJOR）；全不命中默认 其他。
+    小类 留空（录井不按厂商细分）。
+    """
+    low = '%s %s' % (path or '', title or '')
+    low = low.lower()
+    major = _pick(_MUDLOG_MAJOR, low) or '其他'
+    return major, '其他'
+
+
 def classify_general_method(path: str, title: str = '') -> (str, str, str):
     """通用知识领域（油气通用知识，不属于测井专业）的内部分类：返回 (domain, 大类 major, 小类 minor)。
 
@@ -284,10 +315,13 @@ def classify_general_method(path: str, title: str = '') -> (str, str, str):
     minor_map = _GEN_MINOR.get(major, {})
     minor = _pick(minor_map, low) or '其他'
     # 跨专业闸门：标准规范仅留给真正跨专业的通用规范；专业技术规范回退技术域
-    if major == '标准规范' and (_blob_has(low, _LOG_ONLY) or _blob_has(low, _GEO_ONLY)):
+    if major == '标准规范' and (_blob_has(low, _LOG_ONLY) or _blob_has(low, _GEO_ONLY) or _blob_has(low, _MUDLOG_ONLY)):
         if _blob_has(low, _GEO_ONLY):
             g_major, g_minor = classify_geo_method(path, title)
             return DOMAIN_GEO, g_major, g_minor
+        if _blob_has(low, _MUDLOG_ONLY):
+            m_major, m_minor = classify_mudlogging_method(path, title)
+            return DOMAIN_MUDLOGGING, m_major, m_minor
         if _blob_has(low, _LOG_ONLY):
             l_major, l_minor = classify_logging_method(path, title)
             return DOMAIN_LOGGING, l_major, l_minor
@@ -297,25 +331,28 @@ def classify_general_method(path: str, title: str = '') -> (str, str, str):
 def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, str, str):
     """返回 (domain, tech_major, tech_minor)，按知识本身技术分类，不按国别。
 
-    本知识库是以测井专业为主的油气知识库：领域 = 测井方法 / 地质 / 通用知识。
-    - 测井方法：测井专业技术/方法（× 厂商小类）
+    本知识库是以测井专业为主的油气知识库：一级领域 = 测井方法 / 录井 / 地质 / 通用知识。
+    - 测井方法：测井专业技术/方法（随钻/生产/光纤/裸眼/电缆/解释方法/射孔 × 厂商小类）
+    - 录井：与测井并列的一级领域（综合/气测/地化/岩屑/钻井液录井）
     - 地质：以油气地质为主（× 技术细分小类）
     - 通用知识：油气通用知识（不属于测井专业），含 标准规范 / 项目管理 / 软件工具 / 其他
 
-    领域判定优先级（高精「通用内容型」先于「技术域」，确保项目/软件/标准不误归技术方法）：
-      1) 标准规范（仅跨专业通用规范；测井/地质专业技术规范归各自域）-> 通用-标准规范
+    领域判定优先级（高精「通用内容型」先于「技术域」，确保项目/软件/标准不误归技术方法；
+    录井先于地质/测井，保证录井作为独立领域不被吞并）：
+      1) 标准规范（仅跨专业通用规范；测井/地质/录井专业技术规范归各自域）-> 通用-标准规范
       2) 项目管理（测井地质研究的课题设计/实施/方案） -> 通用-项目管理
       3) 测井专业软件（Techlog/Geolog/LEAD…）         -> 通用-软件工具
-      4) 地质专属信号 -> 地质（优先于测井，保证地质为一等类）
-      5) 测井专属信号 -> 测井方法
-      6) 通用行政/杂项（无技术要素）-> 通用
-      7) 兜底 -> 通用-其他
+      4) 录井专属信号 -> 录井（与测井并列的一级领域）
+      5) 地质专属信号 -> 地质（优先于测井，保证地质为一等类）
+      6) 测井专属信号 -> 测井方法
+      7) 通用行政/杂项（无技术要素）-> 通用
+      8) 兜底 -> 通用-其他
     - category 参数保留兼容（历史调用），本函数不再依据它决定是否分类；国别由 country 列单独承载。
     """
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
-    # 1) 通用-标准规范：仅「跨专业通用规范」归通用；测井/地质专业技术规范归各自技术域
-    if _blob_has(low, _STANDARD) and not _blob_has(low, _LOG_ONLY) and not _blob_has(low, _GEO_ONLY):
+    # 1) 通用-标准规范：仅「跨专业通用规范」归通用；测井/地质/录井专业技术规范归各自技术域
+    if _blob_has(low, _STANDARD) and not _blob_has(low, _LOG_ONLY) and not _blob_has(low, _GEO_ONLY) and not _blob_has(low, _MUDLOG_ONLY):
         return classify_general_method(path, title)
     # 2) 项目管理（测井地质研究的课题设计/实施/方案）
     if _blob_has(low, _PROJ_RESEARCH):
@@ -323,16 +360,19 @@ def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, 
     # 3) 测井专业软件（Techlog/Geolog/LEAD…；词边界匹配避免 geology 误中）
     if _blob_has(low, _SOFTWARE_CN) or _SOFTWARE_RE.search(low):
         return classify_general_method(path, title)
-    # 4) 地质专属信号 -> 地质（优先于测井）
+    # 4) 录井专属信号 -> 录井（与测井并列的一级领域）
+    if _blob_has(low, _MUDLOG_ONLY):
+        return DOMAIN_MUDLOGGING, *classify_mudlogging_method(path, title)
+    # 5) 地质专属信号 -> 地质（优先于测井）
     if _blob_has(low, _GEO_ONLY):
         return DOMAIN_GEO, *classify_geo_method(path, title)
-    # 5) 测井专属信号 -> 测井方法
+    # 6) 测井专属信号 -> 测井方法
     if _blob_has(low, _LOG_ONLY):
         return DOMAIN_LOGGING, *classify_logging_method(path, title)
-    # 6) 通用行政/杂项（无技术要素）
+    # 7) 通用行政/杂项（无技术要素）
     if _blob_has(low, _GEN_ONLY):
         return classify_general_method(path, title)
-    # 7) 兜底：通用-其他
+    # 8) 兜底：通用-其他
     return DOMAIN_GENERAL, '其他', '其他'
 
 
