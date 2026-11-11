@@ -12,7 +12,7 @@ import json
 import os
 
 from .db import connect
-from .ingest import tokenize, _chunks, _sha1, detect_country
+from .ingest import tokenize, _chunks, _sha1, detect_country, classify_method_type, METHOD_CATEGORY
 try:
     from .entities import extract_entities, canon_well
 except Exception:
@@ -31,11 +31,18 @@ def _store(conn, path: str, title: str, body: str, ext: str) -> str:
     sha1 = hashlib.sha1(body.encode('utf-8', 'replace')).hexdigest()
     doc_id = _path_doc_id(path)
     mtime = os.path.getmtime(path) if os.path.exists(path) else 0
+    country = detect_country(path, title)
+    if country:
+        # 区域/井文档：保留扩展名类，不归入测井方法类
+        cat, tech = ext, ''
+    else:
+        # 通用培训/方法文档 -> 测井方法类 + 按技术分类
+        cat, tech = METHOD_CATEGORY, classify_method_type(path, title, ext)
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, ext, '', detect_country(path, title), '', sha1, mtime, len(body),
+                 'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, cat, '', country, '', tech, sha1, mtime, len(body),
                   json.dumps({'source': path, 'ext': ext}, ensure_ascii=False)))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)

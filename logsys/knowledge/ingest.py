@@ -92,6 +92,63 @@ def detect_country(path: str, title: str = '') -> str:
     return hits[0][1]
 
 
+# ── 测井方法类技术子类分类（仪器 / 电缆测井 / 随钻 / 解释方法 / 其他）──
+# 仅对"通用培训/方法"文档（category 为扩展名类）生效；已有真实内容类（testing 等）不动。
+METHOD_CATEGORY = '测井方法类'
+# 优先级：随钻 > 仪器 > 电缆测井 > 解释方法
+_TECH_KW = {
+    '随钻': ['随钻', 'lwd', 'mwd', '地质导向', '旋转导向', '随钻测量', '随钻测井', '钻进',
+            '钻头', '钻遇', '实时测井', '导向', '录井', 'mud logging', 'directional', 'geosteering'],
+    '仪器': ['仪器', '传感器', '探头', '电极', '探测器', '核磁共振', '核磁', '测井仪', '下井仪', '下井',
+            '刻度', '标定', 'calibration', 'hardware', 'tool', 'sonde', 'probe', '探测仪', '机械',
+            '电子线路', '采集面板', '硬件', '震击器', '配件', '模块', '组件', '推靠', '极板',
+            '线圈', '天线', '发射', '接收'],
+    '电缆测井': ['电缆', 'wireline', '常规测井', '裸眼', '完井测井', '生产测井', '测井系列', '测井曲线',
+            '测井资料', '组合测井', '双侧向', '微球', '感应', '三组合', '声波测井', '密度测井',
+            '中子测井', '自然伽马', '井径', '电阻率', '成像测井', '阵列', '连续管', '过钻杆', '过钻具',
+            '穿缆', 'eilog', '验收', '质量', 'qc', 'quality', '固井', '射孔', '水泥', '井壁', '取心',
+            'coring', 'perforation', 'cement', 'logging', '光纤', 'acquisition', 'depth control',
+            'ait', 'hrla', 'hgns', 'tld', 'mcfl', 'cmr', 'fmi'],
+    '解释方法': ['解释', '评价', '处理', '储层', '孔隙度', '饱和度', '渗透率', '岩性', '流体', '含油',
+            '含水', '油水层', '识别', '划分', '建模', '反演', '岩石物理', '交会', '图版', '模板',
+            '标准层', '隔层', '地质力学', '岩心', '压汞', '数字岩心', 'interpretation', 'petrophysics',
+            'evaluation', 'reservoir', 'porosity', 'saturation', 'lithology', 'facies', 'well log',
+            'log analysis', 'analysis'],
+}
+# 明显非测井方法的行政/杂项文档 -> 其他（仅放内容信号词，勿放 ppt/word/excel/office 等文件格式词，
+# 否则会被 .pptx 路径后缀误命中，把正常 pptx 方法文档错判为"其他"）
+_NON_METHOD_KW = ['预算', '核算', '审计', '通知', '财务', '招标', '合同', '科技处', '检查', '细则',
+                '制度', '年报', 'annual report', '怎样写', '论文写作', 'vba', '如何写', '申报',
+                '管理培训', '合规', '打捞']
+# category 为这些值时视为"扩展名占位"，可参与方法分类；已是真实内容类则不覆盖
+_EXT_CATS = {'pdf', 'pptx', 'docx', 'doc', 'md', '', 'None', None}
+
+
+def _blob_has(low: str, lst) -> bool:
+    return any(k.lower() in low for k in lst)
+
+
+def classify_method_type(path: str, title: str = '', category: str = '') -> str:
+    """返回技术子类：随钻/仪器/电缆测井/解释方法/其他。
+
+    - category 已是真实内容类（非扩展名占位）-> 返回 ''（不动它）
+    - 命中非方法关键词且不含测井要素 -> '其他'
+    - 按优先级命中技术关键词 -> 对应类型
+    - 均无命中 -> '电缆测井'（用户定：无判定默认归电缆测井）
+    """
+    if category not in _EXT_CATS:
+        return ''
+    low = '%s %s' % (path or '', title or '')
+    low = low.lower()
+    if _blob_has(low, _NON_METHOD_KW) and not _blob_has(
+            low, ['解释', '测井', '仪器', '随钻', 'lwd', '评价', '储层', '岩石物理', '录井', '射孔', '固井']):
+        return '其他'
+    for t in ('随钻', '仪器', '电缆测井', '解释方法'):
+        if _blob_has(low, _TECH_KW[t]):
+            return t
+    return '电缆测井'
+
+
 def tokenize(text: str) -> str:
     """中文预分词（供 FTS5 unicode61 使用）。"""
     if not text:
@@ -199,13 +256,14 @@ def ingest_markdown(conn, path: str, force: bool = False) -> str:
     country = fm.get('country') or detect_country(path, title)
     well = fm.get('well_name') or ''
     category = fm.get('category') or fm.get('file_type') or ''
+    tech_type = classify_method_type(path, title, category)
 
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, category, region, country, well, sha1, mtime, len(body),
-                  json.dumps(fm, ensure_ascii=False)[:4000]))
+                 'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, category, region, country, well, tech_type, sha1, mtime,
+                  len(body), json.dumps(fm, ensure_ascii=False)[:4000]))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
         conn.execute('INSERT OR REPLACE INTO chunk(id, doc_id, idx, text, chars) VALUES(?,?,?,?,?)',
@@ -295,6 +353,12 @@ def _ingest_docx(conn, path: str, force=False) -> str:
                 paras.append(' | '.join(cells))
     body = '\n'.join(paras)
     doc_id = 'DOC:' + hashlib.sha1(path.encode('utf-8', 'replace')).hexdigest()[:16]
+    title = os.path.splitext(os.path.basename(path))[0]
+    country = detect_country(path, title)
+    if country:
+        cat, tech = 'docx', ''
+    else:
+        cat, tech = METHOD_CATEGORY, classify_method_type(path, title, 'docx')
     row = conn.execute('SELECT id, sha1 FROM doc WHERE path=?', (path,)).fetchone()
     sha1 = _sha1(body)
     if row and not force and row[1] == sha1:
@@ -302,9 +366,9 @@ def _ingest_docx(conn, path: str, force=False) -> str:
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, os.path.splitext(os.path.basename(path))[0], 'docx', '', '', '',
-                  sha1, os.path.getmtime(path), len(body), '{}'))
+                 'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, cat, '', country, '', tech, sha1, os.path.getmtime(path),
+                  len(body), '{}'))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
         conn.execute('INSERT OR REPLACE INTO chunk(id, doc_id, idx, text, chars) VALUES(?,?,?,?,?)',

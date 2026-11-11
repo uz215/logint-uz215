@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS doc(
     region TEXT,
     country TEXT,
     well TEXT,
+    tech_type TEXT,
     sha1 TEXT,
     mtime REAL,
     chars INTEGER,
@@ -131,12 +132,20 @@ def connect(path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(path)
     conn.execute('PRAGMA journal_mode=WAL')
     conn.executescript(DDL)
+    _ensure_columns(conn)
     conn.execute('INSERT OR REPLACE INTO meta(k, v) VALUES(?, ?)',
                  ('schema_version', str(SCHEMA_VERSION)))
     conn.execute('INSERT OR REPLACE INTO meta(k, v) VALUES(?, ?)',
                  ('created_at', time.strftime('%Y-%m-%d %H:%M:%S')))
     conn.commit()
     return conn
+
+
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    """为旧库补齐新增列（幂等；SQLite 不支持 ADD COLUMN IF NOT EXISTS）。"""
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(doc)")}
+    if 'tech_type' not in cols:
+        conn.execute('ALTER TABLE doc ADD COLUMN tech_type TEXT')
 
 
 def stats(conn: sqlite3.Connection) -> dict:
