@@ -35,6 +35,62 @@ COUNTRIES = ['Chad', '乍得', 'Brazil', '巴西', 'Uzbekistan', '乌兹别克',
              'Bangladesh', '孟加拉', 'Niger', '尼日尔', 'Kazakhstan', '哈萨克', 'Sudan', '苏丹',
              'Venezuela', '委内瑞拉', 'Peru', '秘鲁', 'Canada', '加拿大', 'Australia', '澳洲']
 
+# 路径/标题国别推导：规范中文名 <- 中文名/别名/英文名（最长匹配，避免 印度⊂印度尼西亚、南苏丹⊂苏丹 误判）
+# 覆盖图谱 90 国。英文用整词边界，中文用子串。
+_COUNTRY_EN = {'中国': 'China', '乌克兰': 'Ukraine', '乌兹别克斯坦': 'Uzbekistan', '乍得': 'Chad',
+    '也门': 'Yemen', '伊拉克': 'Iraq', '伊朗': 'Iran', '俄罗斯': 'Russia', '保加利亚': 'Bulgaria',
+    '克罗地亚': 'Croatia', '刚果（布）': 'Congo-Brazzaville', '刚果（金）': 'DR Congo', '利比亚': 'Libya',
+    '利比里亚': 'Liberia', '加拿大': 'Canada', '加纳': 'Ghana', '南苏丹': 'South Sudan', '卡塔尔': 'Qatar',
+    '印度尼西亚': 'Indonesia', '危地马拉': 'Guatemala', '厄瓜多尔': 'Ecuador', '叙利亚': 'Syria',
+    '古巴': 'Cuba', '哈萨克斯坦': 'Kazakhstan', '哥伦比亚': 'Colombia', '喀麦隆': 'Cameroon',
+    '土库曼斯坦': 'Turkmenistan', '圭亚那': 'Guyana', '坦桑尼亚': 'Tanzania', '埃及': 'Egypt',
+    '塞内加尔': 'Senegal', '塞尔维亚': 'Serbia', '墨西哥': 'Mexico', '孟加拉国': 'Bangladesh',
+    '安哥拉': 'Angola', '尼日利亚': 'Nigeria', '尼日尔': 'Niger', '巴基斯坦': 'Pakistan',
+    '巴布亚新几内亚': 'Papua New Guinea', '巴拿马': 'Panama', '巴西': 'Brazil', '布基纳法索': 'Burkina Faso',
+    '意大利': 'Italy', '挪威': 'Norway', '摩洛哥': 'Morocco', '斯里兰卡': 'Sri Lanka',
+    '新西兰': 'New Zealand', '智利': 'Chile', '柬埔寨': 'Cambodia', '格鲁吉亚': 'Georgia',
+    '毛里塔尼亚': 'Mauritania', '沙特阿拉伯': 'Saudi Arabia', '澳大利亚': 'Australia',
+    '特立尼达和多巴哥': 'Trinidad and Tobago', '玻利维亚': 'Bolivia', '科威特': 'Kuwait',
+    '科特迪瓦': 'Cote dIvoire', '秘鲁': 'Peru', '突尼斯': 'Tunisia', '索马里': 'Somalia',
+    '约旦': 'Jordan', '缅甸': 'Myanmar', '罗马尼亚': 'Romania', '美国': 'United States',
+    '肯尼亚': 'Kenya', '苏丹': 'Sudan', '苏里南': 'Suriname', '英国': 'United Kingdom',
+    '西班牙': 'Spain', '越南': 'Vietnam', '阿塞拜疆': 'Azerbaijan', '阿尔及利亚': 'Algeria',
+    '阿尔巴尼亚': 'Albania', '阿曼': 'Oman', '阿根廷': 'Argentina', '阿联酋': 'UAE',
+    '马来西亚': 'Malaysia', '马达加斯加': 'Madagascar', '东帝汶': 'Timor-Leste', '乌拉圭': 'Uruguay',
+    '加蓬': 'Gabon', '印度': 'India', '埃塞俄比亚': 'Ethiopia', '塞浦路斯': 'Cyprus', '文莱': 'Brunei',
+    '泰国': 'Thailand', '纳米比亚': 'Namibia', '菲律宾': 'Philippines', '土耳其': 'Turkey',
+    '乌干达': 'Uganda'}
+# 额外常见别名
+_COUNTRY_EXTRA = {'孟加拉': '孟加拉国', '哈萨克': '哈萨克斯坦', '印尼': '印度尼西亚', '阿联': '阿联酋',
+    '阿拉伯联合酋长国': '阿联酋', '刚果共和国': '刚果（布）', '刚果民主共和国': '刚果（金）',
+    'UAE': '阿联酋', 'USA': '美国', 'UK': '英国'}
+
+_COUNTRY_PATH_MAP = {}  # alias(lower) -> canonical zh
+for _cn, _en in _COUNTRY_EN.items():
+    _COUNTRY_PATH_MAP[_cn.lower()] = _cn
+    _COUNTRY_PATH_MAP[_en.lower()] = _cn
+for _a, _cn in _COUNTRY_EXTRA.items():
+    _COUNTRY_PATH_MAP[_a.lower()] = _cn
+_CN_ALIASES = [a for a in _COUNTRY_PATH_MAP if re.search(r'[\u4e00-\u9fff]', a)]
+_EN_ALIASES = [(a, c) for a, c in _COUNTRY_PATH_MAP.items() if not re.search(r'[\u4e00-\u9fff]', a)]
+
+
+def detect_country(path: str, title: str = '') -> str:
+    """从文件路径/标题推导国别（规范中文名）。无命中返回空串。"""
+    blob = '%s %s' % (path or '', title or '')
+    low = blob.lower()
+    hits = []
+    for a in _CN_ALIASES:
+        if a in blob:
+            hits.append((len(a), _COUNTRY_PATH_MAP[a]))
+    for a, c in _EN_ALIASES:
+        if re.search(r'(?<![a-z])' + re.escape(a) + r'(?![a-z])', low):
+            hits.append((len(a), c))
+    if not hits:
+        return ''
+    hits.sort(reverse=True)
+    return hits[0][1]
+
 
 def tokenize(text: str) -> str:
     """中文预分词（供 FTS5 unicode61 使用）。"""
@@ -140,7 +196,7 @@ def ingest_markdown(conn, path: str, force: bool = False) -> str:
     fm, body = _split_frontmatter(raw)
     title = fm.get('title') or os.path.splitext(os.path.basename(path))[0]
     region = fm.get('region') or fm.get('detected_region') or ''
-    country = fm.get('country') or ''
+    country = fm.get('country') or detect_country(path, title)
     well = fm.get('well_name') or ''
     category = fm.get('category') or fm.get('file_type') or ''
 

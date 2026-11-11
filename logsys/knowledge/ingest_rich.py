@@ -12,7 +12,7 @@ import json
 import os
 
 from .db import connect
-from .ingest import tokenize, _chunks, _sha1
+from .ingest import tokenize, _chunks, _sha1, detect_country
 try:
     from .entities import extract_entities, canon_well
 except Exception:
@@ -35,7 +35,7 @@ def _store(conn, path: str, title: str, body: str, ext: str) -> str:
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
                  'sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, ext, '', '', '', sha1, mtime, len(body),
+                 (doc_id, path, title, ext, '', detect_country(path, title), '', sha1, mtime, len(body),
                   json.dumps({'source': path, 'ext': ext}, ensure_ascii=False)))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
