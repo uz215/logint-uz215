@@ -92,25 +92,25 @@ def detect_country(path: str, title: str = '') -> str:
     return hits[0][1]
 
 
-# ── 知识技术分类（按知识本身领域 + 技术细类，不按国别；国别单独存 country 列）──
-DOMAIN_LOGGING = '测井方法'   # 仪器 / 电缆测井 / 随钻(录井) / 解释方法 / 其他
-DOMAIN_GEO = '地质'           # 非常规 / 构造 / 沉积与地层 / 岩性与矿物 / 油气地质 / 储层地质 / 其他
-DOMAIN_GENERAL = '通用知识'    # 标准规范 / 项目管理 / 软件工具 / 其他
+# ── 知识技术分类（本知识库是以测井专业为主的油气知识库；按知识本身领域 + 技术细类，不按国别；国别单独存 country 列）──
+DOMAIN_LOGGING = '测井方法'   # 测井专业技术/方法：随钻 / 生产 / 光纤 / 裸眼 / 电缆 / 解释方法（× 厂商小类）
+DOMAIN_GEO = '地质'           # 以油气地质为主：油气地质 / 非常规地质 / 基础地质（构造·沉积·岩性）（× 技术细分小类）
+DOMAIN_GENERAL = '通用知识'    # 油气通用知识（不属于测井专业）：标准规范 / 项目管理 / 软件工具 / 其他
 
-# 地质领域技术细类（优先级：非常规 > 构造 > 沉积与地层 > 岩性与矿物 > 油气地质 > 储层地质 > 其他）
+# 地质领域技术细类（以油气地质为主：优先级 非常规 > 油气地质 > 储层地质 > 构造 > 沉积与地层 > 岩性与矿物 > 其他）
 _GEO_TECH = {
     '非常规地质': ['煤层气', '页岩气', '页岩油', '致密', '非常规', '天然气水合物', 'cbm', 'shale',
                 'tight', 'coalbed', 'unconventional', '煤层', '页岩'],
+    '油气地质': ['烃源', '生油', '源岩', '油气藏', '圈闭', '盖层', '运移', '聚集', '含油气', '油藏',
+               '气藏', '油气系统', '勘探', 'hydrocarbon', 'source rock', 'trap', 'petroleum', 'maturity'],
+    '储层地质': ['水淹层', '成岩', '储集体', '油藏描述', 'water flooded', 'reservoir',
+               'diagenesis', '储层地质'],
     '构造地质': ['构造', '断裂', '断层', '褶皱', '裂缝', '地应力', '孔隙压力', 'pore pressure',
                'tectonic', 'fault', 'fracture', 'structural', '地质力学'],
     '沉积与地层': ['沉积', '相', '三角洲', '滩坝', '层序', '地层', '不整合', '年代地层', '旋回', '砂体',
                 'sediment', 'stratig', 'facies', 'sequence', '编图'],
     '岩性与矿物': ['岩性', '岩石', '矿物', '碳酸盐', '白云岩', '灰岩', '砂岩', '泥岩', '火山岩', '变质岩',
                 '煤岩', '数学地质', 'clay', 'mineral', 'litholog', 'rock', 'carbonate', 'petrog', '岩相'],
-    '油气地质': ['烃源', '生油', '源岩', '油气藏', '圈闭', '盖层', '运移', '聚集', '含油气', '油藏',
-               '气藏', '油气系统', '勘探', 'hydrocarbon', 'source rock', 'trap', 'petroleum', 'maturity'],
-    '储层地质': ['水淹层', '成岩', '储集体', '油藏描述', 'water flooded', 'reservoir',
-               'diagenesis', '储层地质'],
 }
 # 测井方法领域「大类」（按测井技术类型，优先级：随钻 > 生产 > 光纤 > 裸眼 > 电缆 > 解释）。
 # 大类是仪器/方法知识的一级细分；小类（厂商）见 _LOG_MINOR。
@@ -145,12 +145,16 @@ _LOG_MINOR = {
            '国产仪器', '国产测井'],
     '中海油': ['中海油', 'cnooc', '海油'],
 }
-# 通用知识领域技术细类（优先级：标准规范 > 项目管理 > 软件工具 > 其他）
+# 通用知识（油气通用知识，不属于测井专业）：
+#   - 标准规范：关于测井及油气相关方面的规范/标准/规程
+#   - 项目管理：测井地质研究的课题设计、实施、方案等（非预算/合同/软件类）
+#   - 软件工具：测井专业软件（Techlog/Geolog/LEAD 等），非通用办公软件
 _GEN_TECH = {
     '标准规范': ['规范', '标准', '规程', '图式', '编制', '编图', 'spec', 'standard'],
-    '项目管理': ['项目', '预算', '财务', '审计', '经费', '研讨', '通知', '合同', '招标', '管理', '申报',
-              '检查', '制度', '核算', 'project', 'budget', 'audit'],
-    '软件工具': ['软件', 'vba', '计算机', '配置', '办公', 'excel', 'word', '工具', 'software'],
+    '项目管理': ['课题', '立项', '开题', '结题', '验收', '技术路线', '实施方案', '项目设计', '课题设计',
+              '申报书', '可行性', '论证', '研究计划', '中期', 'project', 'proposal'],
+    '软件工具': ['techlog', 'geolog', 'paradigm', 'petrel', 'landmark', 'discovery', 'jason',
+              'logview', 'geooffice', '测井软件', '专业软件', '解释软件', '测井平台', 'lead测井', 'lead软件'],
 }
 
 # 地质领域「大类」：由技术细分(小类)向上归并的粗分组。
@@ -163,21 +167,40 @@ _GEO_MAJOR_MAP = {
     '非常规地质': '非常规地质',
     '其他': '其他',
 }
-# 通用知识领域「小类」：在 大类(标准规范/项目管理/软件工具/其他) 之下的进一步细分。
-# 优先级自上而下；全不命中归 其他。关键词均为内容信号，不含 ppt/word 等格式后缀（防误命中）。
+# 通用知识领域「小类」：按 大类 各自独立的范围（避免跨大类误挂小类）。
+# 关键词均为内容信号，不含 ppt/word 等格式后缀（防误命中）。全不命中归 其他。
 _GEN_MINOR = {
-    '国标': ['gb', 'gb/t', '国家标准', '国标'],
-    '行标': ['sy/t', '石油行业标准', '行业标准', '行标', '能源标准', '能源行业'],
-    '企标': ['企标', '企业标准', 'q/sh', 'q/s'],
-    '图式编制': ['图式', '图例', '编制图'],
-    '预算财务': ['预算', '财务', '审计', '经费', 'budget', 'audit'],
-    '合同招标': ['合同', '招标', '投标', 'contract', 'tender'],
-    '制度办法': ['制度', '规定', '办法', '细则'],
-    '研讨交流': ['研讨', '交流', '会议', '汇报', '年报', 'annual report'],
-    'Excel/VBA': ['excel', 'vba'],
-    'Python': ['python'],
-    '专业软件': ['matlab', 'petrel', 'techlog', 'logview', '软件', 'c++', 'java'],
+    '标准规范': {
+        '国标': ['gb', 'gb/t', '国家标准', '国标'],
+        '行标': ['sy/t', '石油行业标准', '行业标准', '行标', '能源标准', '能源行业'],
+        '企标': ['企标', '企业标准', 'q/sh', 'q/s'],
+        '图式编制': ['图式', '图例', '编制图', '图件'],
+    },
+    '项目管理': {
+        '课题设计': ['课题', '立项', '开题', '申报书', '可行性', '论证', '设计书'],
+        '实施方案': ['实施', '方案', '技术路线', '研究计划', '运行', '部署'],
+        '研究报告': ['结题', '验收', '中期', '总结', '报告', '年度', '进展'],
+    },
+    '软件工具': {
+        'Techlog': ['techlog'],
+        'Geolog': ['geolog'],  # 实际由 _SOFTWARE_RE 词边界匹配，避免 geology 误中
+        'LEAD': ['lead测井', 'lead平台', 'lead软件'],
+        'Paradigm': ['paradigm', 'eps'],
+        '其他专业软件': ['petrel', 'landmark', 'discovery', 'jason', 'logview', 'geooffice',
+                      '测井软件', '专业软件', '解释软件'],
+    },
 }
+
+# 通用知识 - 额外高精触发（优先于技术域，体现"油气通用知识"而非测井方法/地质本身）
+#   标准规范：关于测井及油气相关的规范/规程/标准规范（不含"标准"单独，避免 标准层/标准图版 误判）
+_STANDARD = ['规范', '规程', '标准规范']
+#   项目管理：测井地质研究的课题设计/实施/方案等（非预算/合同/软件类）
+_PROJ_RESEARCH = ['课题', '立项', '开题', '结题', '验收', '技术路线', '实施方案', '项目设计', '课题设计',
+                 '申报书', '可行性研究', '论证', '研究计划', '中期检查', 'project proposal', 'proposal']
+#   软件工具：测井专业软件（Techlog/Geolog/LEAD/Paradigm 等）。
+#   英文软件名用词边界正则，避免 geology/geological 误中 geolog；lead 避免 lead-in 误中。
+_SOFTWARE_CN = ['测井软件', '专业软件', '解释软件', '测井平台', 'lead测井', 'lead软件']
+_SOFTWARE_RE = re.compile(r'(?i)\b(?:techlog|geolog|paradigm|petrel|landmark|discovery|jason|logview|geooffice|lead)\b')
 
 # 领域判定触发词（命中即归属该领域；地质优先于测井，保证地质为一等类）
 # 通用行政/杂项（无技术要素时才判通用，否则会被技术词抢占）
@@ -243,47 +266,62 @@ def classify_geo_method(path: str, title: str = '') -> (str, str):
 
 
 def classify_general_method(path: str, title: str = '') -> (str, str):
-    """通用知识领域的内部分类：返回 (大类 major, 小类 minor)。
+    """通用知识领域（油气通用知识，不属于测井专业）的内部分类：返回 (大类 major, 小类 minor)。
 
     大类 = 标准规范 / 项目管理 / 软件工具 / 其他（沿用 _GEN_TECH）。
-    小类 = 在大类之下的进一步细分（国标/行标/企标/图式、预算财务/合同招标/制度办法/研讨交流、
-           Excel·VBA/Python/专业软件），见 _GEN_MINOR；全不命中归 其他。
+    小类 = 在大类之下的进一步细分：
+        标准规范 -> 国标/行标/企标/图式编制
+        项目管理 -> 课题设计/实施方案/研究报告（基于测井地质研究项目）
+        软件工具 -> Techlog/Geolog/LEAD/Paradigm/其他专业软件
+      全不命中归 其他。
     """
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
     major = _pick(_GEN_TECH, low) or '其他'
-    minor = _pick(_GEN_MINOR, low) or '其他'
+    minor_map = _GEN_MINOR.get(major, {})
+    minor = _pick(minor_map, low) or '其他'
     return major, minor
 
 
 def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, str, str):
     """返回 (domain, tech_major, tech_minor)，按知识本身技术分类，不按国别。
 
-    一级领域：测井方法 / 地质 / 通用知识。
-    领域判定优先级：通用行政信号 > 地质专属信号 > 测井专属信号 > 通用其他。
-    - 地质优先于测井：同时含地质与测井信号时归地质（保证地质为一等类）。
-    - category 参数保留兼容（历史调用），本函数不再依据它决定是否分类——
-      所有文档统一按内容重分，国别由 country 列单独承载。
-    - 三个领域均做「大类 × 小类」二级细分：
-        · 测井方法：大类(技术类型) × 小类(厂商)
-        · 地质：     大类(基础/油气/非常规) × 小类(技术细分)
-        · 通用知识： 大类(标准/项目/软件) × 小类(更细：国标行标/预算合同/Excel·Python…)
+    本知识库是以测井专业为主的油气知识库：领域 = 测井方法 / 地质 / 通用知识。
+    - 测井方法：测井专业技术/方法（× 厂商小类）
+    - 地质：以油气地质为主（× 技术细分小类）
+    - 通用知识：油气通用知识（不属于测井专业），含 标准规范 / 项目管理 / 软件工具 / 其他
+
+    领域判定优先级（高精「通用内容型」先于「技术域」，确保项目/软件/标准不误归技术方法）：
+      1) 标准规范（规范/规程/标准规范）               -> 通用-标准规范
+      2) 项目管理（测井地质研究的课题设计/实施/方案） -> 通用-项目管理
+      3) 测井专业软件（Techlog/Geolog/LEAD…）         -> 通用-软件工具
+      4) 地质专属信号 -> 地质（优先于测井，保证地质为一等类）
+      5) 测井专属信号 -> 测井方法
+      6) 通用行政/杂项（无技术要素）-> 通用
+      7) 兜底 -> 通用-其他
+    - category 参数保留兼容（历史调用），本函数不再依据它决定是否分类；国别由 country 列单独承载。
     """
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
-    # 1) 通用行政/杂项（无技术要素）
-    if _blob_has(low, _GEN_ONLY) and not _blob_has(low, _LOG_ONLY) and not _blob_has(low, _GEO_ONLY):
-        major, minor = classify_general_method(path, title)
-        return DOMAIN_GENERAL, major, minor
-    # 2) 地质专属信号 -> 地质（优先于测井）
+    # 1) 标准规范（关于测井及油气相关的规范/规程）
+    if _blob_has(low, _STANDARD):
+        return DOMAIN_GENERAL, *classify_general_method(path, title)
+    # 2) 项目管理（测井地质研究的课题设计/实施/方案）
+    if _blob_has(low, _PROJ_RESEARCH):
+        return DOMAIN_GENERAL, *classify_general_method(path, title)
+    # 3) 测井专业软件（Techlog/Geolog/LEAD…；词边界匹配避免 geology 误中）
+    if _blob_has(low, _SOFTWARE_CN) or _SOFTWARE_RE.search(low):
+        return DOMAIN_GENERAL, *classify_general_method(path, title)
+    # 4) 地质专属信号 -> 地质（优先于测井）
     if _blob_has(low, _GEO_ONLY):
-        major, minor = classify_geo_method(path, title)
-        return DOMAIN_GEO, major, minor
-    # 3) 测井专属信号 -> 测井方法
+        return DOMAIN_GEO, *classify_geo_method(path, title)
+    # 5) 测井专属信号 -> 测井方法
     if _blob_has(low, _LOG_ONLY):
-        major, minor = classify_logging_method(path, title)
-        return DOMAIN_LOGGING, major, minor
-    # 4) 兜底：通用知识-其他
+        return DOMAIN_LOGGING, *classify_logging_method(path, title)
+    # 6) 通用行政/杂项（无技术要素）
+    if _blob_has(low, _GEN_ONLY):
+        return DOMAIN_GENERAL, *classify_general_method(path, title)
+    # 7) 兜底：通用-其他
     return DOMAIN_GENERAL, '其他', '其他'
 
 
