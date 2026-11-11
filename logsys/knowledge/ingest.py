@@ -92,61 +92,112 @@ def detect_country(path: str, title: str = '') -> str:
     return hits[0][1]
 
 
-# ── 测井方法类技术子类分类（仪器 / 电缆测井 / 随钻 / 解释方法 / 其他）──
-# 仅对"通用培训/方法"文档（category 为扩展名类）生效；已有真实内容类（testing 等）不动。
-METHOD_CATEGORY = '测井方法类'
-# 优先级：随钻 > 仪器 > 电缆测井 > 解释方法
-_TECH_KW = {
-    '随钻': ['随钻', 'lwd', 'mwd', '地质导向', '旋转导向', '随钻测量', '随钻测井', '钻进',
-            '钻头', '钻遇', '实时测井', '导向', '录井', 'mud logging', 'directional', 'geosteering'],
-    '仪器': ['仪器', '传感器', '探头', '电极', '探测器', '核磁共振', '核磁', '测井仪', '下井仪', '下井',
-            '刻度', '标定', 'calibration', 'hardware', 'tool', 'sonde', 'probe', '探测仪', '机械',
-            '电子线路', '采集面板', '硬件', '震击器', '配件', '模块', '组件', '推靠', '极板',
-            '线圈', '天线', '发射', '接收'],
-    '电缆测井': ['电缆', 'wireline', '常规测井', '裸眼', '完井测井', '生产测井', '测井系列', '测井曲线',
-            '测井资料', '组合测井', '双侧向', '微球', '感应', '三组合', '声波测井', '密度测井',
-            '中子测井', '自然伽马', '井径', '电阻率', '成像测井', '阵列', '连续管', '过钻杆', '过钻具',
-            '穿缆', 'eilog', '验收', '质量', 'qc', 'quality', '固井', '射孔', '水泥', '井壁', '取心',
-            'coring', 'perforation', 'cement', 'logging', '光纤', 'acquisition', 'depth control',
-            'ait', 'hrla', 'hgns', 'tld', 'mcfl', 'cmr', 'fmi'],
-    '解释方法': ['解释', '评价', '处理', '储层', '孔隙度', '饱和度', '渗透率', '岩性', '流体', '含油',
-            '含水', '油水层', '识别', '划分', '建模', '反演', '岩石物理', '交会', '图版', '模板',
-            '标准层', '隔层', '地质力学', '岩心', '压汞', '数字岩心', 'interpretation', 'petrophysics',
-            'evaluation', 'reservoir', 'porosity', 'saturation', 'lithology', 'facies', 'well log',
-            'log analysis', 'analysis'],
+# ── 知识技术分类（按知识本身领域 + 技术细类，不按国别；国别单独存 country 列）──
+DOMAIN_LOGGING = '测井方法'   # 仪器 / 电缆测井 / 随钻(录井) / 解释方法 / 其他
+DOMAIN_GEO = '地质'           # 非常规 / 构造 / 沉积与地层 / 岩性与矿物 / 油气地质 / 储层地质 / 其他
+DOMAIN_GENERAL = '通用知识'    # 标准规范 / 项目管理 / 软件工具 / 其他
+
+# 地质领域技术细类（优先级：非常规 > 构造 > 沉积与地层 > 岩性与矿物 > 油气地质 > 储层地质 > 其他）
+_GEO_TECH = {
+    '非常规地质': ['煤层气', '页岩气', '页岩油', '致密', '非常规', '天然气水合物', 'cbm', 'shale',
+                'tight', 'coalbed', 'unconventional', '煤层', '页岩'],
+    '构造地质': ['构造', '断裂', '断层', '褶皱', '裂缝', '地应力', '孔隙压力', 'pore pressure',
+               'tectonic', 'fault', 'fracture', 'structural', '地质力学'],
+    '沉积与地层': ['沉积', '相', '三角洲', '滩坝', '层序', '地层', '不整合', '年代地层', '旋回', '砂体',
+                'sediment', 'stratig', 'facies', 'sequence', '编图'],
+    '岩性与矿物': ['岩性', '岩石', '矿物', '碳酸盐', '白云岩', '灰岩', '砂岩', '泥岩', '火山岩', '变质岩',
+                '煤岩', '数学地质', 'clay', 'mineral', 'litholog', 'rock', 'carbonate', 'petrog', '岩相'],
+    '油气地质': ['烃源', '生油', '源岩', '油气藏', '圈闭', '盖层', '运移', '聚集', '含油气', '油藏',
+               '气藏', '油气系统', '勘探', 'hydrocarbon', 'source rock', 'trap', 'petroleum', 'maturity'],
+    '储层地质': ['水淹层', '成岩', '储集体', '油藏描述', 'water flooded', 'reservoir',
+               'diagenesis', '储层地质'],
 }
-# 明显非测井方法的行政/杂项文档 -> 其他（仅放内容信号词，勿放 ppt/word/excel/office 等文件格式词，
-# 否则会被 .pptx 路径后缀误命中，把正常 pptx 方法文档错判为"其他"）
-_NON_METHOD_KW = ['预算', '核算', '审计', '通知', '财务', '招标', '合同', '科技处', '检查', '细则',
-                '制度', '年报', 'annual report', '怎样写', '论文写作', 'vba', '如何写', '申报',
-                '管理培训', '合规', '打捞']
-# category 为这些值时视为"扩展名占位"，可参与方法分类；已是真实内容类则不覆盖
-_EXT_CATS = {'pdf', 'pptx', 'docx', 'doc', 'md', '', 'None', None}
+# 测井方法领域技术细类（优先级：随钻 > 仪器 > 电缆测井 > 解释方法 > 其他）
+_LOG_TECH = {
+    '随钻': ['随钻', 'lwd', 'mwd', '地质导向', '旋转导向', '随钻测量', '随钻测井', '钻进', '钻头', '钻遇',
+           '实时测井', '导向', '录井', '气测', 'mud logging', 'directional', 'geosteering',
+           'logging while', '试油', '试井', 'well test'],
+    '仪器': ['仪器', '传感器', '探头', '电极', '探测器', '测井仪', '下井仪', '下井',
+           '刻度', '标定', 'calibration', 'hardware', 'tool', 'sonde', 'probe', '探测仪', '机械', '电子线路',
+           '采集面板', '硬件', '震击器', '配件', '模块', '组件', '推靠', '极板', '线圈', '天线', '发射', '接收'],
+    '电缆测井': ['电缆', 'wireline', '常规测井', '裸眼', '完井测井', '生产测井', '测井系列', '测井曲线',
+              '测井资料', '组合测井', '双侧向', '微球', '感应', '三组合', '声波测井', '密度测井', '中子测井',
+              '自然伽马', '井径', '电阻率', '成像测井', '阵列', '连续管', '过钻杆', '过钻具', '穿缆', 'eilog',
+              '验收', '质量', 'qc', 'quality', '固井', '射孔', '水泥', '井壁', '取心', 'coring',
+              'perforation', 'cement', 'logging', '光纤', 'acquisition', 'depth control',
+              'ait', 'hrla', 'hgns', 'tld', 'mcfl', 'cmr', 'fmi'],
+    '解释方法': ['解释', '评价', '处理', '饱和度', '流体', '含油', '含水', '油水层', '识别', '划分', '建模',
+              '反演', '岩石物理', '交会', '图版', '模板', '标准层', '隔层', '岩心', '压汞', '数字岩心',
+              'interpretation', 'petrophysics', 'evaluation', 'saturation', 'facies', 'well log',
+              'log analysis', 'analysis', 'porosity', 'permeability', '核磁', '核磁共振'],
+}
+# 通用知识领域技术细类（优先级：标准规范 > 项目管理 > 软件工具 > 其他）
+_GEN_TECH = {
+    '标准规范': ['规范', '标准', '规程', '图式', '编制', '编图', 'spec', 'standard'],
+    '项目管理': ['项目', '预算', '财务', '审计', '经费', '研讨', '通知', '合同', '招标', '管理', '申报',
+              '检查', '制度', '核算', 'project', 'budget', 'audit'],
+    '软件工具': ['软件', 'vba', '计算机', '配置', '办公', 'excel', 'word', '工具', 'software'],
+}
+
+# 领域判定触发词（命中即归属该领域；地质优先于测井，保证地质为一等类）
+# 通用行政/杂项（无技术要素时才判通用，否则会被技术词抢占）
+_GEN_ONLY = ['预算', '财务', '审计', '经费', '研讨', '通知', '合同', '招标', '申报', '核算', '制度',
+           '年报', 'annual report', '检查', '要求', '意见', '细则', '科技处', '会议', '总结', '计划',
+           '规划', '论文', '写作', '如何写', '怎样写']
+# 地质专属信号（基本只在地质地语境出现）
+_GEO_ONLY = ['沉积', '三角洲', '滩坝', '层序', '不整合', '年代地层', '旋回', '砂体', '构造', '断裂', '断层',
+           '褶皱', '裂缝', '地应力', '孔隙压力', '岩性', '岩石', '矿物', '碳酸盐', '白云岩', '灰岩', '砂岩',
+           '泥岩', '页岩', '火山岩', '变质岩', '煤岩', '数学地质', '烃源', '生油', '源岩', '油气藏', '圈闭',
+           '盖层', '运移', '含油气', '油藏', '气藏', '油气系统', '煤层气', '页岩气', '页岩油', '致密',
+           '非常规', '天然气水合物', '成岩', '水淹层', '储集体', '油藏描述', '地质编图', '地层表', '年代',
+           'water flooded', 'shale', 'shale gas', 'geology', 'carbonate', '地质']
+# 测井专属信号
+_LOG_ONLY = ['仪器', '传感器', '探头', '电极', '探测器', '核磁共振', '核磁', '测井仪', '下井仪', '刻度',
+           '标定', 'calibration', 'hardware', 'tool', 'sonde', 'probe', '机械', '电子线路', '采集面板',
+           '硬件', '震击器', '配件', '模块', '组件', '推靠', '极板', '线圈', '天线', '发射', '接收',
+           '电缆', 'wireline', '常规测井', '裸眼', '完井测井', '生产测井', '测井系列', '测井曲线',
+           '测井资料', '组合测井', '双侧向', '微球', '感应', '三组合', '声波测井', '密度测井', '中子测井',
+           '自然伽马', '井径', '电阻率', '成像测井', '阵列', 'eilog', 'ait', 'hrla', 'hgns', 'tld', 'mcfl',
+           'cmr', 'fmi', 'acquisition', 'depth control', '录井', '气测', '随钻', 'lwd', 'mwd', '地质导向',
+           '旋转导向', 'mud logging', 'directional', 'geosteering', '测井', 'logging', 'well log',
+           '试油', '试井', 'well test', '解释']
 
 
 def _blob_has(low: str, lst) -> bool:
     return any(k.lower() in low for k in lst)
 
 
-def classify_method_type(path: str, title: str = '', category: str = '') -> str:
-    """返回技术子类：随钻/仪器/电缆测井/解释方法/其他。
+def _pick(tech_map: dict, low: str):
+    """技类细类按字典定义顺序（已排优先级）取最先命中。"""
+    for t in tech_map:
+        if _blob_has(low, tech_map[t]):
+            return t
+    return None
 
-    - category 已是真实内容类（非扩展名占位）-> 返回 ''（不动它）
-    - 命中非方法关键词且不含测井要素 -> '其他'
-    - 按优先级命中技术关键词 -> 对应类型
-    - 均无命中 -> '电缆测井'（用户定：无判定默认归电缆测井）
+
+def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, str):
+    """返回 (domain, tech_type)，按知识本身技术分类，不按国别。
+
+    一级领域：测井方法 / 地质 / 通用知识。
+    领域判定优先级：通用行政信号 > 地质专属信号 > 测井专属信号 > 通用其他。
+    - 地质优先于测井：同时含地质与测井信号时归地质（保证地质为一等类）。
+    - category 参数保留兼容（历史调用），本函数不再依据它决定是否分类——
+      所有文档统一按内容重分，国别由 country 列单独承载。
+    - 任一领域命中后，在该领域内按技术细类优先级取细分。
     """
-    if category not in _EXT_CATS:
-        return ''
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
-    if _blob_has(low, _NON_METHOD_KW) and not _blob_has(
-            low, ['解释', '测井', '仪器', '随钻', 'lwd', '评价', '储层', '岩石物理', '录井', '射孔', '固井']):
-        return '其他'
-    for t in ('随钻', '仪器', '电缆测井', '解释方法'):
-        if _blob_has(low, _TECH_KW[t]):
-            return t
-    return '电缆测井'
+    # 1) 通用行政/杂项（无技术要素）
+    if _blob_has(low, _GEN_ONLY) and not _blob_has(low, _LOG_ONLY) and not _blob_has(low, _GEO_ONLY):
+        return DOMAIN_GENERAL, _pick(_GEN_TECH, low) or '其他'
+    # 2) 地质专属信号 -> 地质（优先于测井）
+    if _blob_has(low, _GEO_ONLY):
+        return DOMAIN_GEO, _pick(_GEO_TECH, low) or '其他'
+    # 3) 测井专属信号 -> 测井方法
+    if _blob_has(low, _LOG_ONLY):
+        return DOMAIN_LOGGING, _pick(_LOG_TECH, low) or '其他'
+    # 4) 兜底：通用知识-其他
+    return DOMAIN_GENERAL, '其他'
 
 
 def tokenize(text: str) -> str:
@@ -255,14 +306,14 @@ def ingest_markdown(conn, path: str, force: bool = False) -> str:
     region = fm.get('region') or fm.get('detected_region') or ''
     country = fm.get('country') or detect_country(path, title)
     well = fm.get('well_name') or ''
-    category = fm.get('category') or fm.get('file_type') or ''
-    tech_type = classify_method_type(path, title, category)
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    domain, tech_type = classify_knowledge(path, title, ext)
 
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
                  'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, category, region, country, well, tech_type, sha1, mtime,
+                 (doc_id, path, title, domain, region, country, well, tech_type, sha1, mtime,
                   len(body), json.dumps(fm, ensure_ascii=False)[:4000]))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
@@ -355,10 +406,9 @@ def _ingest_docx(conn, path: str, force=False) -> str:
     doc_id = 'DOC:' + hashlib.sha1(path.encode('utf-8', 'replace')).hexdigest()[:16]
     title = os.path.splitext(os.path.basename(path))[0]
     country = detect_country(path, title)
-    if country:
-        cat, tech = 'docx', ''
-    else:
-        cat, tech = METHOD_CATEGORY, classify_method_type(path, title, 'docx')
+    ext = os.path.splitext(path)[1].lower().lstrip('.')
+    domain, tech_type = classify_knowledge(path, title, ext)
+    cat = domain
     row = conn.execute('SELECT id, sha1 FROM doc WHERE path=?', (path,)).fetchone()
     sha1 = _sha1(body)
     if row and not force and row[1] == sha1:
@@ -367,7 +417,7 @@ def _ingest_docx(conn, path: str, force=False) -> str:
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
                  'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, cat, '', country, '', tech, sha1, os.path.getmtime(path),
+                 (doc_id, path, title, cat, '', country, '', tech_type, sha1, os.path.getmtime(path),
                   len(body), '{}'))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
