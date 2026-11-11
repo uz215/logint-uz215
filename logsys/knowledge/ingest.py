@@ -192,7 +192,8 @@ _GEN_MINOR = {
 }
 
 # 通用知识 - 额外高精触发（优先于技术域，体现"油气通用知识"而非测井方法/地质本身）
-#   标准规范：关于测井及油气相关的规范/规程/标准规范（不含"标准"单独，避免 标准层/标准图版 误判）
+#   标准规范：跨专业通用规范（规范/规程/标准规范）；若同时是测井/地质专业技术规范，则归各自技术域。
+#   不含"标准"单独，避免 标准层/标准图版 误判。
 _STANDARD = ['规范', '规程', '标准规范']
 #   项目管理：测井地质研究的课题设计/实施/方案等（非预算/合同/软件类）
 _PROJ_RESEARCH = ['课题', '立项', '开题', '结题', '验收', '技术路线', '实施方案', '项目设计', '课题设计',
@@ -265,8 +266,8 @@ def classify_geo_method(path: str, title: str = '') -> (str, str):
     return major, minor
 
 
-def classify_general_method(path: str, title: str = '') -> (str, str):
-    """通用知识领域（油气通用知识，不属于测井专业）的内部分类：返回 (大类 major, 小类 minor)。
+def classify_general_method(path: str, title: str = '') -> (str, str, str):
+    """通用知识领域（油气通用知识，不属于测井专业）的内部分类：返回 (domain, 大类 major, 小类 minor)。
 
     大类 = 标准规范 / 项目管理 / 软件工具 / 其他（沿用 _GEN_TECH）。
     小类 = 在大类之下的进一步细分：
@@ -274,13 +275,23 @@ def classify_general_method(path: str, title: str = '') -> (str, str):
         项目管理 -> 课题设计/实施方案/研究报告（基于测井地质研究项目）
         软件工具 -> Techlog/Geolog/LEAD/Paradigm/其他专业软件
       全不命中归 其他。
+    规范须为跨专业才归通用：若被识别为标准规范但实为测井/地质专业技术规范，则回退到对应技术域
+    （domain 改为 测井方法/地质，major/minor 由该域分类器给出）。
     """
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
     major = _pick(_GEN_TECH, low) or '其他'
     minor_map = _GEN_MINOR.get(major, {})
     minor = _pick(minor_map, low) or '其他'
-    return major, minor
+    # 跨专业闸门：标准规范仅留给真正跨专业的通用规范；专业技术规范回退技术域
+    if major == '标准规范' and (_blob_has(low, _LOG_ONLY) or _blob_has(low, _GEO_ONLY)):
+        if _blob_has(low, _GEO_ONLY):
+            g_major, g_minor = classify_geo_method(path, title)
+            return DOMAIN_GEO, g_major, g_minor
+        if _blob_has(low, _LOG_ONLY):
+            l_major, l_minor = classify_logging_method(path, title)
+            return DOMAIN_LOGGING, l_major, l_minor
+    return DOMAIN_GENERAL, major, minor
 
 
 def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, str, str):
@@ -292,7 +303,7 @@ def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, 
     - 通用知识：油气通用知识（不属于测井专业），含 标准规范 / 项目管理 / 软件工具 / 其他
 
     领域判定优先级（高精「通用内容型」先于「技术域」，确保项目/软件/标准不误归技术方法）：
-      1) 标准规范（规范/规程/标准规范）               -> 通用-标准规范
+      1) 标准规范（仅跨专业通用规范；测井/地质专业技术规范归各自域）-> 通用-标准规范
       2) 项目管理（测井地质研究的课题设计/实施/方案） -> 通用-项目管理
       3) 测井专业软件（Techlog/Geolog/LEAD…）         -> 通用-软件工具
       4) 地质专属信号 -> 地质（优先于测井，保证地质为一等类）
@@ -303,15 +314,15 @@ def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, 
     """
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
-    # 1) 标准规范（关于测井及油气相关的规范/规程）
-    if _blob_has(low, _STANDARD):
-        return DOMAIN_GENERAL, *classify_general_method(path, title)
+    # 1) 通用-标准规范：仅「跨专业通用规范」归通用；测井/地质专业技术规范归各自技术域
+    if _blob_has(low, _STANDARD) and not _blob_has(low, _LOG_ONLY) and not _blob_has(low, _GEO_ONLY):
+        return classify_general_method(path, title)
     # 2) 项目管理（测井地质研究的课题设计/实施/方案）
     if _blob_has(low, _PROJ_RESEARCH):
-        return DOMAIN_GENERAL, *classify_general_method(path, title)
+        return classify_general_method(path, title)
     # 3) 测井专业软件（Techlog/Geolog/LEAD…；词边界匹配避免 geology 误中）
     if _blob_has(low, _SOFTWARE_CN) or _SOFTWARE_RE.search(low):
-        return DOMAIN_GENERAL, *classify_general_method(path, title)
+        return classify_general_method(path, title)
     # 4) 地质专属信号 -> 地质（优先于测井）
     if _blob_has(low, _GEO_ONLY):
         return DOMAIN_GEO, *classify_geo_method(path, title)
@@ -320,7 +331,7 @@ def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, 
         return DOMAIN_LOGGING, *classify_logging_method(path, title)
     # 6) 通用行政/杂项（无技术要素）
     if _blob_has(low, _GEN_ONLY):
-        return DOMAIN_GENERAL, *classify_general_method(path, title)
+        return classify_general_method(path, title)
     # 7) 兜底：通用-其他
     return DOMAIN_GENERAL, '其他', '其他'
 
