@@ -1,6 +1,6 @@
-# 1-SPS-108 井目录知识（BRASIL/Santos/未填写/Curacao/未填写/1-SPS-108）
+# 1-SPS-108 井目录知识（Brazil/Santos/未填写/Curacao/Aram/1-SPS-108）
 
-- 知识层级: BRASIL/Santos/未填写/Curacao/未填写/1-SPS-108
+- 知识层级: Brazil/Santos/未填写/Curacao/Aram/1-SPS-108
 - 层级依据: Curacao-1井阶段汇报（测井）.pptx: 桑托斯(Santos)盆地盐下地层综合柱状图
 - 井目录: D:\360\Brasil\Curacao-1
 - 来源: LOG, MUD
@@ -9,11 +9,15 @@
 ## 0. 基础数据
 | 项 | 值 |
 |---|---|
-| country | BRASIL |
-| field | 未填写 |
+| country | Brazil |
+| field | Aram |
 | well | 1-SPS-108 |
+| company | Petrobras |
+| coordinates | {'latitude': '-25.639973', 'longitude': '-44.653793'} |
+| bit_size | 8.5 |
+| bit_program | 8.5 |
+| mud_density | 1.46 |
 | note | 坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。 |
-| casing_program | SHOE 22": 3000 m |
 
 ## 0b. 地层
 - 地层顶来自井数据 Fm/Formation 表或地质设计；逐条岩性知识带 formation；无地层顶时标“未提供”。
@@ -179,13 +183,8 @@
 | 未提供 | 1-SPS-108_DDP_AnaliseAvGas.las | 6013.0 | 6013.2 | 127.15 | 123.115 | ≥P90 113.030 |
 | 未提供 | 1-SPS-108_DDP_AnaliseAvGas.las | 6032.0 | 6036.0 | 122.15 | 118.11 | ≥P90 113.030 |
 
-## 6g. 岩心描述（.doc）
-| 文件 | 地层 | 顶 | 底 | 含气 | 岩性/描述 |
-|---|---|---|---|---|---|
-| 1-SPS-108_SampleChart.doc | ( DocumentSummaryInformation 8 MsoDataStore GN0P1 5 0E 5GIXC 2 9 d D h p s b e | None | None |  | [] |
-
 ## 7. 录井图
-- 已发现: 1-SPS-108_Masterlog.pdf，岩性层 None，气测事件 None
+- 井目录未发现标准 masterlog/录井图；岩性段以 lithall/SWC/XRD 近似。
 
 ## 8. logInt 调用提示
 - 查询井名 + 井段/岩性关键词；本摘要用于区域/本井先验，不替代测井点级标定。
