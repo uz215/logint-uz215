@@ -1,0 +1,22 @@
+{
+  "hierarchy": {
+    "country": "Kazakhstan",
+    "basin": "未填写",
+    "sag": "未填写",
+    "structure": "未填写",
+    "field": "Придорожное",
+    "well": "P19"
+  },
+  "categories": [
+    "basic_data",
+    "stratigraphy",
+    "lithology",
+    "testing",
+    "log_interpretation",
+    "gas_show",
+    "oil_gas_show",
+    "engineering",
+    "core_descriptions"
+  ],
+  "summary": "D:\\360\\src\\data\\kb\\well_knowledge\\P19_knowledge_summary.md"
+}

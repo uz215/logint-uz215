@@ -1,0 +1,6644 @@
+{
+  "well": "1-SPS-108",
+  "well_dir": "D:\\360\\Brasil\\Curacao-1",
+  "bin_m": 50.0,
+  "sources": [
+    "LOG",
+    "MUD"
+  ],
+  "depth_note": "录井/XRD/XRF 为录井深度，本摘要按大致井段统计，不强制与测井深度对齐；SWC 为测井深度。用于 logInt 检索时按井段/岩性/数值范围引用。",
+  "lithology_zones": [
+    {
+      "top": 6300.0,
+      "base": 6302.0,
+      "lith": "An,calcite,Dolo,Qz,Halite",
+      "formation": "未提供",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6302.0,
+      "base": 6310.0,
+      "lith": "An,calcite,Dolo,Qz,Halite",
+      "formation": "M Lula",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6310.0,
+      "base": 6319.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "M Lula",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6319.0,
+      "base": 6350.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE110",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6350.0,
+      "base": 6420.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE120",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6420.0,
+      "base": 6439.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE130",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6439.0,
+      "base": 6476.0,
+      "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+      "formation": "BVE200",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6476.0,
+      "base": 6978.0,
+      "lith": "Ca_Spar，cal",
+      "formation": "未提供",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 6978.0,
+      "base": 7040.0,
+      "lith": "Carbonate,dolo,Qz,Clay",
+      "formation": "未提供",
+      "source": "lithall/录井-岩性大段"
+    },
+    {
+      "top": 7040.0,
+      "base": 7130.0,
+      "lith": "Ca_Spar，cal",
+      "formation": "未提供",
+      "source": "lithall/录井-岩性大段"
+    }
+  ],
+  "xrd_bins": [
+    {
+      "top": 4700.0,
+      "base": 4750.0,
+      "n": 3,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 3,
+          "min": 0.1695,
+          "median": 0.198,
+          "max": 0.223
+        },
+        "XRD_DOL": {
+          "n": 3,
+          "min": 0.023,
+          "median": 0.08,
+          "max": 0.1
+        },
+        "XRD_QTZ": {
+          "n": 3,
+          "min": 0.251,
+          "median": 0.302,
+          "max": 0.333
+        },
+        "XRD_KFD": {
+          "n": 3,
+          "min": 0.144,
+          "median": 0.205,
+          "max": 0.224
+        },
+        "XRD_PLG": {
+          "n": 3,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 4750.0,
+      "base": 4800.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.143,
+          "median": 0.2915,
+          "max": 0.458
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.047,
+          "median": 0.1708,
+          "max": 0.212
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.086,
+          "median": 0.212,
+          "max": 0.2995
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.144,
+          "median": 0.1527,
+          "max": 0.16
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 4800.0,
+      "base": 4850.0,
+      "n": 5,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 5,
+          "min": 0.287,
+          "median": 0.367,
+          "max": 0.443
+        },
+        "XRD_DOL": {
+          "n": 5,
+          "min": 0.048,
+          "median": 0.1065,
+          "max": 0.172
+        },
+        "XRD_QTZ": {
+          "n": 5,
+          "min": 0.108,
+          "median": 0.144,
+          "max": 0.173
+        },
+        "XRD_KFD": {
+          "n": 5,
+          "min": 0.187,
+          "median": 0.203,
+          "max": 0.2435
+        },
+        "XRD_PLG": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 4850.0,
+      "base": 4900.0,
+      "n": 2,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 2,
+          "min": 0.231,
+          "median": 0.283,
+          "max": 0.335
+        },
+        "XRD_DOL": {
+          "n": 2,
+          "min": 0.062,
+          "median": 0.1457,
+          "max": 0.2295
+        },
+        "XRD_QTZ": {
+          "n": 2,
+          "min": 0.095,
+          "median": 0.1327,
+          "max": 0.1705
+        },
+        "XRD_KFD": {
+          "n": 2,
+          "min": 0.2,
+          "median": 0.2465,
+          "max": 0.293
+        },
+        "XRD_PLG": {
+          "n": 2,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5600.0,
+      "base": 5650.0,
+      "n": 5,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 5,
+          "min": 0.013,
+          "median": 0.081,
+          "max": 0.436
+        },
+        "XRD_KFD": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 5,
+          "min": 0.235,
+          "median": 0.322,
+          "max": 0.419
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5650.0,
+      "base": 5700.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.003,
+          "max": 0.013
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.137
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5700.0,
+      "base": 5750.0,
+      "n": 5,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.04
+        },
+        "XRD_KFD": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5750.0,
+      "base": 5800.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.014,
+          "max": 0.216
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.059
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.1502,
+          "max": 0.325
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.257
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5800.0,
+      "base": 5850.0,
+      "n": 5,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.015,
+          "max": 0.1075
+        },
+        "XRD_DOL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 5,
+          "min": 0.189,
+          "median": 0.367,
+          "max": 0.405
+        },
+        "XRD_KFD": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0995
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "clastic(quartz-rich)",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5850.0,
+      "base": 5900.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.027
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.02,
+          "max": 0.06
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.188
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5900.0,
+      "base": 5950.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.066
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0415,
+          "max": 0.09
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.104
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5950.0,
+      "base": 6000.0,
+      "n": 5,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.014
+        },
+        "XRD_KFD": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.066
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6000.0,
+      "base": 6050.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.005
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0195
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0858,
+          "max": 0.277
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.077,
+          "max": 0.248
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6050.0,
+      "base": 6100.0,
+      "n": 5,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 5,
+          "min": 0.193,
+          "median": 0.441,
+          "max": 0.561
+        },
+        "XRD_KFD": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.1445
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "clastic(quartz-rich)",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6100.0,
+      "base": 6150.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.015,
+          "median": 0.0705,
+          "max": 0.593
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.037,
+          "max": 0.188
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6150.0,
+      "base": 6200.0,
+      "n": 4,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 4,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 4,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 4,
+          "min": 0.016,
+          "median": 0.0385,
+          "max": 0.095
+        },
+        "XRD_KFD": {
+          "n": 4,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 4,
+          "min": 0.024,
+          "median": 0.144,
+          "max": 0.285
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6200.0,
+      "base": 6250.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.013,
+          "median": 0.0195,
+          "max": 0.192
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0515,
+          "max": 0.139
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6250.0,
+      "base": 6300.0,
+      "n": 4,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 4,
+          "min": 0.0,
+          "median": 0.0125,
+          "max": 0.099
+        },
+        "XRD_DOL": {
+          "n": 4,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_QTZ": {
+          "n": 4,
+          "min": 0.031,
+          "median": 0.0885,
+          "max": 0.107
+        },
+        "XRD_KFD": {
+          "n": 4,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 4,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.088
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6300.0,
+      "base": 6350.0,
+      "n": 8,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 8,
+          "min": 0.013,
+          "median": 0.294,
+          "max": 0.519
+        },
+        "XRD_DOL": {
+          "n": 8,
+          "min": 0.0,
+          "median": 0.254,
+          "max": 0.2935
+        },
+        "XRD_QTZ": {
+          "n": 8,
+          "min": 0.09,
+          "median": 0.157,
+          "max": 0.289
+        },
+        "XRD_KFD": {
+          "n": 8,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 8,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "BVE110",
+      "lith_inferred": "limestone",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6350.0,
+      "base": 6400.0,
+      "n": 7,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 7,
+          "min": 0.0,
+          "median": 0.562,
+          "max": 0.725
+        },
+        "XRD_DOL": {
+          "n": 7,
+          "min": 0.0,
+          "median": 0.262,
+          "max": 0.329
+        },
+        "XRD_QTZ": {
+          "n": 7,
+          "min": 0.05,
+          "median": 0.152,
+          "max": 0.26
+        },
+        "XRD_KFD": {
+          "n": 7,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 7,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "BVE120",
+      "lith_inferred": "limestone",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6400.0,
+      "base": 6450.0,
+      "n": 5,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 5,
+          "min": 0.244,
+          "median": 0.38,
+          "max": 0.54
+        },
+        "XRD_DOL": {
+          "n": 5,
+          "min": 0.329,
+          "median": 0.371,
+          "max": 0.403
+        },
+        "XRD_QTZ": {
+          "n": 5,
+          "min": 0.056,
+          "median": 0.137,
+          "max": 0.281
+        },
+        "XRD_KFD": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 5,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        }
+      },
+      "formation": "BVE130",
+      "lith_inferred": "carbonate(mixed)",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6450.0,
+      "base": 6500.0,
+      "n": 6,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 6,
+          "min": 0.049,
+          "median": 0.109,
+          "max": 0.212
+        },
+        "XRD_DOL": {
+          "n": 6,
+          "min": 0.174,
+          "median": 0.3675,
+          "max": 0.423
+        },
+        "XRD_QTZ": {
+          "n": 6,
+          "min": 0.217,
+          "median": 0.2695,
+          "max": 0.36
+        },
+        "XRD_KFD": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 6,
+          "min": 0.0,
+          "median": 0.065,
+          "max": 0.324
+        }
+      },
+      "formation": "BVE200",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6500.0,
+      "base": 6550.0,
+      "n": 1,
+      "minerals": {
+        "XRD_CAL": {
+          "n": 1,
+          "min": 0.285,
+          "median": 0.285,
+          "max": 0.285
+        },
+        "XRD_DOL": {
+          "n": 1,
+          "min": 0.025,
+          "median": 0.025,
+          "max": 0.025
+        },
+        "XRD_QTZ": {
+          "n": 1,
+          "min": 0.112,
+          "median": 0.112,
+          "max": 0.112
+        },
+        "XRD_KFD": {
+          "n": 1,
+          "min": 0.0,
+          "median": 0.0,
+          "max": 0.0
+        },
+        "XRD_PLG": {
+          "n": 1,
+          "min": 0.196,
+          "median": 0.196,
+          "max": 0.196
+        }
+      },
+      "formation": "未提供",
+      "lith_inferred": "mixed",
+      "depth_basis": "mud_logging(approx)"
+    }
+  ],
+  "xrf_bins": [
+    {
+      "top": 4700.0,
+      "base": 4750.0,
+      "n": 3,
+      "elements": {
+        "XRF_AL": {
+          "n": 3,
+          "min": 4.2335,
+          "median": 4.668,
+          "max": 4.757
+        },
+        "XRF_FE": {
+          "n": 3,
+          "min": 3.4815,
+          "median": 3.683,
+          "max": 4.296
+        },
+        "XRF_K": {
+          "n": 3,
+          "min": 2.321,
+          "median": 2.373,
+          "max": 2.603
+        },
+        "XRF_CA": {
+          "n": 3,
+          "min": 2.703,
+          "median": 2.986,
+          "max": 3.877
+        },
+        "XRF_SI": {
+          "n": 3,
+          "min": 19.195,
+          "median": 22.52,
+          "max": 22.81
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 4750.0,
+      "base": 4800.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 2.035,
+          "median": 2.1955,
+          "max": 3.15
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 1.857,
+          "median": 2.1755,
+          "max": 2.825
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 1.585,
+          "median": 1.669,
+          "max": 2.1775
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 4.49,
+          "median": 16.7675,
+          "max": 18.0
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 7.564,
+          "median": 9.4255,
+          "max": 20.6
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 4800.0,
+      "base": 4850.0,
+      "n": 5,
+      "elements": {
+        "XRF_AL": {
+          "n": 5,
+          "min": 2.46,
+          "median": 2.598,
+          "max": 3.062
+        },
+        "XRF_FE": {
+          "n": 5,
+          "min": 2.177,
+          "median": 2.187,
+          "max": 2.262
+        },
+        "XRF_K": {
+          "n": 5,
+          "min": 1.956,
+          "median": 2.127,
+          "max": 2.6
+        },
+        "XRF_CA": {
+          "n": 5,
+          "min": 14.31,
+          "median": 18.74,
+          "max": 20.74
+        },
+        "XRF_SI": {
+          "n": 5,
+          "min": 8.997,
+          "median": 9.44,
+          "max": 11.0
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 4850.0,
+      "base": 4900.0,
+      "n": 2,
+      "elements": {
+        "XRF_AL": {
+          "n": 2,
+          "min": 2.617,
+          "median": 2.7725,
+          "max": 2.928
+        },
+        "XRF_FE": {
+          "n": 2,
+          "min": 1.918,
+          "median": 2.1178,
+          "max": 2.3175
+        },
+        "XRF_K": {
+          "n": 2,
+          "min": 2.254,
+          "median": 2.275,
+          "max": 2.296
+        },
+        "XRF_CA": {
+          "n": 2,
+          "min": 15.225,
+          "median": 16.2725,
+          "max": 17.32
+        },
+        "XRF_SI": {
+          "n": 2,
+          "min": 8.734,
+          "median": 10.122,
+          "max": 11.51
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5600.0,
+      "base": 5650.0,
+      "n": 5,
+      "elements": {
+        "XRF_AL": {
+          "n": 5,
+          "min": 1.302,
+          "median": 2.828,
+          "max": 5.217
+        },
+        "XRF_FE": {
+          "n": 5,
+          "min": 2.419,
+          "median": 4.139,
+          "max": 6.4645
+        },
+        "XRF_K": {
+          "n": 5,
+          "min": 0.4387,
+          "median": 0.7233,
+          "max": 0.9338
+        },
+        "XRF_CA": {
+          "n": 5,
+          "min": 4.17,
+          "median": 6.534,
+          "max": 6.9015
+        },
+        "XRF_SI": {
+          "n": 5,
+          "min": 6.179,
+          "median": 12.64,
+          "max": 15.28
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5650.0,
+      "base": 5700.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 0.1836,
+          "median": 0.4952,
+          "max": 2.15
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 0.2463,
+          "median": 0.6833,
+          "max": 2.484
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.0885,
+          "median": 0.1598,
+          "max": 0.646
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 4.031,
+          "median": 19.675,
+          "max": 25.98
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 0.6208,
+          "median": 1.3674,
+          "max": 6.075
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5700.0,
+      "base": 5750.0,
+      "n": 5,
+      "elements": {
+        "XRF_AL": {
+          "n": 5,
+          "min": 0.2325,
+          "median": 0.2699,
+          "max": 0.369
+        },
+        "XRF_FE": {
+          "n": 5,
+          "min": 0.0819,
+          "median": 0.1668,
+          "max": 0.6146
+        },
+        "XRF_K": {
+          "n": 5,
+          "min": 0.1125,
+          "median": 0.149,
+          "max": 0.1854
+        },
+        "XRF_CA": {
+          "n": 5,
+          "min": 9.357,
+          "median": 14.96,
+          "max": 22.49
+        },
+        "XRF_SI": {
+          "n": 5,
+          "min": 0.3954,
+          "median": 0.6305,
+          "max": 1.3775
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5750.0,
+      "base": 5800.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 0.2094,
+          "median": 1.2985,
+          "max": 4.024
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 0.1296,
+          "median": 3.033,
+          "max": 5.369
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.1134,
+          "median": 0.4116,
+          "max": 1.063
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 5.569,
+          "median": 7.2,
+          "max": 21.05
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 0.5909,
+          "median": 7.202,
+          "max": 13.3735
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5800.0,
+      "base": 5850.0,
+      "n": 5,
+      "elements": {
+        "XRF_AL": {
+          "n": 5,
+          "min": 0.6836,
+          "median": 0.9728,
+          "max": 1.065
+        },
+        "XRF_FE": {
+          "n": 5,
+          "min": 0.998,
+          "median": 2.031,
+          "max": 2.5
+        },
+        "XRF_K": {
+          "n": 5,
+          "min": 0.3975,
+          "median": 0.474,
+          "max": 1.095
+        },
+        "XRF_CA": {
+          "n": 5,
+          "min": 3.345,
+          "median": 5.055,
+          "max": 7.7555
+        },
+        "XRF_SI": {
+          "n": 5,
+          "min": 2.304,
+          "median": 5.2725,
+          "max": 6.402
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5850.0,
+      "base": 5900.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 0.1897,
+          "median": 0.4466,
+          "max": 1.763
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 0.0925,
+          "median": 0.1672,
+          "max": 2.373
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.1116,
+          "median": 0.5745,
+          "max": 0.935
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 1.976,
+          "median": 11.105,
+          "max": 21.71
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 0.5392,
+          "median": 0.7759,
+          "max": 6.329
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5900.0,
+      "base": 5950.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 0.1912,
+          "median": 3.2475,
+          "max": 3.711
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 0.1338,
+          "median": 4.1188,
+          "max": 4.6735
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.1382,
+          "median": 1.2667,
+          "max": 1.8085
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 5.761,
+          "median": 9.6683,
+          "max": 21.44
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 0.3916,
+          "median": 8.814,
+          "max": 11.6705
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 5950.0,
+      "base": 6000.0,
+      "n": 5,
+      "elements": {
+        "XRF_AL": {
+          "n": 5,
+          "min": 0.492,
+          "median": 0.609,
+          "max": 1.274
+        },
+        "XRF_FE": {
+          "n": 5,
+          "min": 0.2786,
+          "median": 0.3586,
+          "max": 1.199
+        },
+        "XRF_K": {
+          "n": 5,
+          "min": 0.17,
+          "median": 0.374,
+          "max": 0.885
+        },
+        "XRF_CA": {
+          "n": 5,
+          "min": 1.192,
+          "median": 1.326,
+          "max": 2.108
+        },
+        "XRF_SI": {
+          "n": 5,
+          "min": 0.6581,
+          "median": 0.9591,
+          "max": 3.145
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6000.0,
+      "base": 6050.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 0.5135,
+          "median": 0.8292,
+          "max": 3.82
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 0.2769,
+          "median": 1.841,
+          "max": 5.366
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.208,
+          "median": 0.3196,
+          "max": 0.8551
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 1.6095,
+          "median": 7.276,
+          "max": 12.078
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 0.6763,
+          "median": 3.708,
+          "max": 11.7
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6050.0,
+      "base": 6100.0,
+      "n": 5,
+      "elements": {
+        "XRF_AL": {
+          "n": 5,
+          "min": 0.959,
+          "median": 1.205,
+          "max": 3.5133
+        },
+        "XRF_FE": {
+          "n": 5,
+          "min": 1.733,
+          "median": 1.905,
+          "max": 4.8507
+        },
+        "XRF_K": {
+          "n": 5,
+          "min": 0.366,
+          "median": 0.523,
+          "max": 1.1039
+        },
+        "XRF_CA": {
+          "n": 5,
+          "min": 3.64,
+          "median": 4.671,
+          "max": 6.081
+        },
+        "XRF_SI": {
+          "n": 5,
+          "min": 4.169,
+          "median": 4.296,
+          "max": 12.2993
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6100.0,
+      "base": 6150.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 0.515,
+          "median": 1.1695,
+          "max": 2.307
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 0.8332,
+          "median": 1.2435,
+          "max": 4.468
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.131,
+          "median": 0.395,
+          "max": 0.7261
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 0.7145,
+          "median": 3.233,
+          "max": 5.629
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 2.633,
+          "median": 4.2615,
+          "max": 11.29
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6150.0,
+      "base": 6200.0,
+      "n": 4,
+      "elements": {
+        "XRF_AL": {
+          "n": 4,
+          "min": 0.807,
+          "median": 2.3405,
+          "max": 3.505
+        },
+        "XRF_FE": {
+          "n": 4,
+          "min": 0.9728,
+          "median": 3.1935,
+          "max": 4.214
+        },
+        "XRF_K": {
+          "n": 4,
+          "min": 0.256,
+          "median": 0.7882,
+          "max": 1.349
+        },
+        "XRF_CA": {
+          "n": 4,
+          "min": 6.1,
+          "median": 7.9465,
+          "max": 14.02
+        },
+        "XRF_SI": {
+          "n": 4,
+          "min": 2.321,
+          "median": 8.1885,
+          "max": 11.57
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6200.0,
+      "base": 6250.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 0.69,
+          "median": 1.193,
+          "max": 3.514
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 0.6446,
+          "median": 1.4152,
+          "max": 5.568
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.3835,
+          "median": 0.5005,
+          "max": 1.326
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 1.9315,
+          "median": 3.381,
+          "max": 5.066
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 1.409,
+          "median": 3.35,
+          "max": 12.99
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6250.0,
+      "base": 6300.0,
+      "n": 4,
+      "elements": {
+        "XRF_AL": {
+          "n": 4,
+          "min": 0.3366,
+          "median": 0.5758,
+          "max": 2.818
+        },
+        "XRF_FE": {
+          "n": 4,
+          "min": 0.5468,
+          "median": 0.9042,
+          "max": 3.525
+        },
+        "XRF_K": {
+          "n": 4,
+          "min": 0.1851,
+          "median": 0.22,
+          "max": 1.035
+        },
+        "XRF_CA": {
+          "n": 4,
+          "min": 3.492,
+          "median": 4.874,
+          "max": 17.93
+        },
+        "XRF_SI": {
+          "n": 4,
+          "min": 1.142,
+          "median": 2.375,
+          "max": 9.235
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6300.0,
+      "base": 6350.0,
+      "n": 8,
+      "elements": {
+        "XRF_AL": {
+          "n": 8,
+          "min": 0.2949,
+          "median": 0.4278,
+          "max": 0.855
+        },
+        "XRF_FE": {
+          "n": 8,
+          "min": 0.4994,
+          "median": 1.427,
+          "max": 2.583
+        },
+        "XRF_K": {
+          "n": 8,
+          "min": 0.17,
+          "median": 0.1884,
+          "max": 0.3399
+        },
+        "XRF_CA": {
+          "n": 8,
+          "min": 13.83,
+          "median": 18.1075,
+          "max": 19.65
+        },
+        "XRF_SI": {
+          "n": 8,
+          "min": 1.29,
+          "median": 4.834,
+          "max": 8.797
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6350.0,
+      "base": 6400.0,
+      "n": 7,
+      "elements": {
+        "XRF_AL": {
+          "n": 7,
+          "min": 0.1357,
+          "median": 0.2628,
+          "max": 0.5335
+        },
+        "XRF_FE": {
+          "n": 7,
+          "min": 0.1949,
+          "median": 0.3768,
+          "max": 3.636
+        },
+        "XRF_K": {
+          "n": 7,
+          "min": 0.0768,
+          "median": 0.153,
+          "max": 0.2081
+        },
+        "XRF_CA": {
+          "n": 7,
+          "min": 0.4777,
+          "median": 23.44,
+          "max": 28.99
+        },
+        "XRF_SI": {
+          "n": 7,
+          "min": 2.611,
+          "median": 3.607,
+          "max": 4.992
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6400.0,
+      "base": 6450.0,
+      "n": 5,
+      "elements": {
+        "XRF_AL": {
+          "n": 5,
+          "min": 0.1259,
+          "median": 0.2532,
+          "max": 0.5899
+        },
+        "XRF_FE": {
+          "n": 5,
+          "min": 0.1979,
+          "median": 0.424,
+          "max": 0.6431
+        },
+        "XRF_K": {
+          "n": 5,
+          "min": 0.0592,
+          "median": 0.1292,
+          "max": 0.3678
+        },
+        "XRF_CA": {
+          "n": 5,
+          "min": 19.64,
+          "median": 20.77,
+          "max": 25.39
+        },
+        "XRF_SI": {
+          "n": 5,
+          "min": 4.577,
+          "median": 4.97,
+          "max": 6.953
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6450.0,
+      "base": 6500.0,
+      "n": 6,
+      "elements": {
+        "XRF_AL": {
+          "n": 6,
+          "min": 1.208,
+          "median": 2.2775,
+          "max": 3.517
+        },
+        "XRF_FE": {
+          "n": 6,
+          "min": 1.034,
+          "median": 2.3205,
+          "max": 4.4
+        },
+        "XRF_K": {
+          "n": 6,
+          "min": 0.7483,
+          "median": 1.227,
+          "max": 1.8
+        },
+        "XRF_CA": {
+          "n": 6,
+          "min": 9.631,
+          "median": 14.325,
+          "max": 16.11
+        },
+        "XRF_SI": {
+          "n": 6,
+          "min": 8.746,
+          "median": 12.875,
+          "max": 13.55
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    },
+    {
+      "top": 6500.0,
+      "base": 6550.0,
+      "n": 1,
+      "elements": {
+        "XRF_AL": {
+          "n": 1,
+          "min": 1.899,
+          "median": 1.899,
+          "max": 1.899
+        },
+        "XRF_FE": {
+          "n": 1,
+          "min": 2.775,
+          "median": 2.775,
+          "max": 2.775
+        },
+        "XRF_K": {
+          "n": 1,
+          "min": 0.6592,
+          "median": 0.6592,
+          "max": 0.6592
+        },
+        "XRF_CA": {
+          "n": 1,
+          "min": 18.34,
+          "median": 18.34,
+          "max": 18.34
+        },
+        "XRF_SI": {
+          "n": 1,
+          "min": 8.552,
+          "median": 8.552,
+          "max": 8.552
+        }
+      },
+      "depth_basis": "mud_logging(approx)"
+    }
+  ],
+  "swc_core": [
+    {
+      "lith": "dolomite",
+      "n": 2,
+      "top": 6319.4,
+      "base": 6337.4,
+      "formation": "BVE110",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "dolomite",
+      "n": 3,
+      "top": 6362.7,
+      "base": 6417.1,
+      "formation": "BVE120",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "dolomite",
+      "n": 2,
+      "top": 6425.6,
+      "base": 6432.5,
+      "formation": "BVE130",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "dolomite",
+      "n": 4,
+      "top": 6447.1,
+      "base": 6471.7,
+      "formation": "BVE200",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "dolomite",
+      "n": 1,
+      "top": 6314.5,
+      "base": 6314.5,
+      "formation": "M Lula",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "dolomite",
+      "n": 2,
+      "top": 6985.6,
+      "base": 7006.3,
+      "formation": "未提供",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "limestone",
+      "n": 13,
+      "top": 6319.3,
+      "base": 6349.7,
+      "formation": "BVE110",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "limestone",
+      "n": 9,
+      "top": 6352.0,
+      "base": 6419.5,
+      "formation": "BVE120",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "limestone",
+      "n": 8,
+      "top": 6422.3,
+      "base": 6438.1,
+      "formation": "BVE130",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "limestone",
+      "n": 8,
+      "top": 6439.8,
+      "base": 6475.2,
+      "formation": "BVE200",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "limestone",
+      "n": 3,
+      "top": 6312.1,
+      "base": 6317.0,
+      "formation": "M Lula",
+      "depth_basis": "logging_depth"
+    },
+    {
+      "lith": "limestone",
+      "n": 21,
+      "top": 6536.9,
+      "base": 7038.9,
+      "formation": "未提供",
+      "depth_basis": "logging_depth"
+    }
+  ],
+  "drill_core": [],
+  "mudlog": {
+    "found": false,
+    "note": "井目录未发现标准 masterlog/录井图；岩性段以 lithall/SWC/XRD 近似。"
+  },
+  "usage": [
+    "1-SPS-108 XRD 方解石/白云石 数值范围",
+    "1-SPS-108 录井岩性段",
+    "1-SPS-108 井壁取芯岩性",
+    "巴西 Aram 碳酸盐岩 酸解 CO2"
+  ],
+  "hierarchy": {
+    "country": "Brazil",
+    "basin": "Santos",
+    "sag": "未填写",
+    "structure": "Curacao",
+    "field": "Aram",
+    "well": "1-SPS-108"
+  },
+  "basic_data": {
+    "country": "Brazil",
+    "field": "Aram",
+    "well": "1-SPS-108",
+    "company": "Petrobras",
+    "coordinates": {
+      "latitude": "-25.639973",
+      "longitude": "-44.653793"
+    },
+    "bit_size": "8.5",
+    "bit_program": "8.5",
+    "casing_record": "",
+    "mud_type": "",
+    "mud_density": "1.46",
+    "mud_viscosity": "",
+    "fluid_loss": "",
+    "borehole_record": "",
+    "spud_date": "",
+    "td_date": "",
+    "well_type": "",
+    "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。"
+  },
+  "stratigraphy": {
+    "formation_tops": [
+      {
+        "formation": "M Lula",
+        "top": 6302.0,
+        "base": 6319.0,
+        "source": "CuraCao-1井数据 .xlsx:Fm"
+      },
+      {
+        "formation": "BVE110",
+        "top": 6319.0,
+        "base": 6350.0,
+        "source": "CuraCao-1井数据 .xlsx:Fm"
+      },
+      {
+        "formation": "BVE120",
+        "top": 6350.0,
+        "base": 6420.0,
+        "source": "CuraCao-1井数据 .xlsx:Fm"
+      },
+      {
+        "formation": "BVE130",
+        "top": 6420.0,
+        "base": 6439.0,
+        "source": "CuraCao-1井数据 .xlsx:Fm"
+      },
+      {
+        "formation": "BVE200",
+        "top": 6439.0,
+        "base": 6476.0,
+        "source": "CuraCao-1井数据 .xlsx:Fm"
+      }
+    ],
+    "target_formation": "",
+    "formation_names": [
+      "M Lula",
+      "BVE110",
+      "BVE120",
+      "BVE130",
+      "BVE200"
+    ],
+    "note": "地层顶来自井数据 Fm/Formation 表或地质设计；逐条岩性知识带 formation；无地层顶时标“未提供”。"
+  },
+  "testing": {
+    "intervals": [
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6310.2,
+        "base": 6313.2,
+        "values": [
+          "3519.59",
+          "32.43"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6316.8,
+        "base": 6319.8,
+        "values": [
+          "1692.1",
+          "15.59"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6333.1,
+        "base": 6336.2,
+        "values": [
+          "2465.24",
+          "22.71"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6407.8,
+        "base": 6412.2,
+        "values": [
+          "306.17",
+          "2.82"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6413.0,
+        "base": 6414.6,
+        "values": [
+          "341.09",
+          "3.14"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6418.0,
+        "base": 6420.0,
+        "values": [
+          "138.91",
+          "1.28"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6421.7,
+        "base": 6423.7,
+        "values": [
+          "370.06",
+          "3.41"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6424.5,
+        "base": 6429.4,
+        "values": [
+          "1762.82",
+          "16.24"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6437.4,
+        "base": 6441.9,
+        "values": [
+          "257.3",
+          "2.37"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6310.2,
+        "base": 6313.2,
+        "values": [
+          "3519.59",
+          "32.43"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6316.8,
+        "base": 6319.8,
+        "values": [
+          "1692.1",
+          "15.59"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6333.1,
+        "base": 6336.2,
+        "values": [
+          "2465.24",
+          "22.71"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6407.8,
+        "base": 6412.2,
+        "values": [
+          "306.17",
+          "2.82"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6413.0,
+        "base": 6414.6,
+        "values": [
+          "341.09",
+          "3.14"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6418.0,
+        "base": 6420.0,
+        "values": [
+          "138.91",
+          "1.28"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6421.7,
+        "base": 6423.7,
+        "values": [
+          "370.06",
+          "3.41"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6424.5,
+        "base": 6429.4,
+        "values": [
+          "1762.82",
+          "16.24"
+        ]
+      },
+      {
+        "file": "Plt分层产量.txt",
+        "top": 6437.4,
+        "base": 6441.9,
+        "values": [
+          "257.3",
+          "2.37"
+        ]
+      }
+    ],
+    "files": [
+      "MDT取样流体分析.png",
+      "Plt分层产量.txt",
+      "Plt分层产量.xls",
+      "PreRead - Aram - WS8 DST Design.pdf",
+      "古拉绍-1＃PLT初步解释结果-02.pptx",
+      "巴西阿拉姆项目Curacao-1井DST日报-20221016.pdf",
+      "第11期—古拉绍-1井试油进展周报20221005.pdf",
+      "（CNLC）巴西古拉绍-1井DST（与PLT&MDT结合）初步分析.pptx"
+    ],
+    "contacts": [
+      {
+        "type": "OWC",
+        "depth": 6422.6,
+        "source": "log_interpretation(candidate)",
+        "confidence": "low"
+      }
+    ],
+    "owc": {
+      "type": "OWC",
+      "depth": 6422.6,
+      "source": "log_interpretation(candidate)",
+      "confidence": "low"
+    },
+    "gwc": null
+  },
+  "log_interpretation": {
+    "layers": 140,
+    "lithology": {
+      "limestone": 76,
+      "dolomite": 60,
+      "sandstone": 3,
+      "anhydrite": 1
+    },
+    "interpretation": {
+      "DRY": 84,
+      "WATER": 31,
+      "OIL": 24,
+      "NonReservoir": 1
+    },
+    "fluid_intervals": [
+      {
+        "top": 6304.3,
+        "base": 6308.4,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6309.4,
+        "base": 6310.6,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6311.8,
+        "base": 6313.6,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6313.8,
+        "base": 6313.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6314.4,
+        "base": 6314.5,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6315.5,
+        "base": 6315.5,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6315.8,
+        "base": 6315.9,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6317.3,
+        "base": 6318.1,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6318.7,
+        "base": 6318.7,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6318.8,
+        "base": 6319.9,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6320.0,
+        "base": 6320.2,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6321.2,
+        "base": 6321.4,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6335.1,
+        "base": 6337.9,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6338.5,
+        "base": 6338.6,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6338.8,
+        "base": 6338.8,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6340.1,
+        "base": 6340.3,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6341.5,
+        "base": 6341.7,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6341.8,
+        "base": 6342.3,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6349.0,
+        "base": 6349.6,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6350.4,
+        "base": 6350.4,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6352.6,
+        "base": 6352.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6352.9,
+        "base": 6352.9,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6353.9,
+        "base": 6353.9,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6359.4,
+        "base": 6359.5,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6369.6,
+        "base": 6369.6,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6374.9,
+        "base": 6375.5,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6383.4,
+        "base": 6384.2,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6390.4,
+        "base": 6390.9,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6391.1,
+        "base": 6391.2,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6394.9,
+        "base": 6394.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6406.1,
+        "base": 6406.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6409.8,
+        "base": 6410.2,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6411.0,
+        "base": 6411.0,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6412.5,
+        "base": 6413.9,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6416.2,
+        "base": 6417.1,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6417.3,
+        "base": 6417.3,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 6417.4,
+        "base": 6417.7,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6418.5,
+        "base": 6418.5,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6419.6,
+        "base": 6421.2,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6422.1,
+        "base": 6422.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6422.3,
+        "base": 6422.3,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6422.4,
+        "base": 6422.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6422.8,
+        "base": 6424.6,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6424.7,
+        "base": 6425.9,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6426.1,
+        "base": 6426.1,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6426.2,
+        "base": 6429.3,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6429.4,
+        "base": 6429.6,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6429.8,
+        "base": 6429.9,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6430.1,
+        "base": 6431.3,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6431.4,
+        "base": 6432.2,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6432.4,
+        "base": 6432.6,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6432.8,
+        "base": 6433.3,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6433.4,
+        "base": 6433.7,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6433.9,
+        "base": 6434.2,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6434.3,
+        "base": 6434.3,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6434.5,
+        "base": 6435.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6435.7,
+        "base": 6436.6,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6436.8,
+        "base": 6438.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6438.3,
+        "base": 6438.3,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6438.4,
+        "base": 6439.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6439.2,
+        "base": 6440.3,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6440.4,
+        "base": 6441.0,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6441.2,
+        "base": 6441.9,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6442.7,
+        "base": 6442.9,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6443.0,
+        "base": 6443.5,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6443.6,
+        "base": 6443.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6443.8,
+        "base": 6443.8,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6443.9,
+        "base": 6444.2,
+        "lith": "sandstone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6444.4,
+        "base": 6446.7,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6446.8,
+        "base": 6446.8,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6447.0,
+        "base": 6447.4,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6448.5,
+        "base": 6449.1,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6449.3,
+        "base": 6449.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6450.6,
+        "base": 6451.1,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6457.9,
+        "base": 6458.1,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6459.0,
+        "base": 6459.0,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6459.2,
+        "base": 6459.2,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6459.3,
+        "base": 6459.5,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6466.3,
+        "base": 6466.3,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6473.5,
+        "base": 6474.3,
+        "lith": "sandstone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6475.0,
+        "base": 6475.3,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6497.0,
+        "base": 6497.0,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6502.1,
+        "base": 6502.3,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6518.4,
+        "base": 6519.4,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6536.0,
+        "base": 6538.3,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6538.4,
+        "base": 6538.4,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6653.6,
+        "base": 6653.9,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6654.1,
+        "base": 6654.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6802.2,
+        "base": 6802.7,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6824.2,
+        "base": 6824.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6889.1,
+        "base": 6889.1,
+        "lith": "sandstone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6889.2,
+        "base": 6890.6,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6890.8,
+        "base": 6890.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6948.4,
+        "base": 6949.0,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6950.1,
+        "base": 6951.9,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6952.5,
+        "base": 6952.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6978.4,
+        "base": 6978.4,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6979.5,
+        "base": 6981.6,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6982.8,
+        "base": 6982.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6983.0,
+        "base": 6983.1,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6984.0,
+        "base": 6984.0,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6984.8,
+        "base": 6985.2,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6985.4,
+        "base": 6985.7,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 6986.2,
+        "base": 6986.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6987.5,
+        "base": 6987.5,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6988.9,
+        "base": 6990.7,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6990.9,
+        "base": 6991.2,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6991.4,
+        "base": 6995.0,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6996.4,
+        "base": 6997.0,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6997.1,
+        "base": 6997.4,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6997.6,
+        "base": 6997.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6999.9,
+        "base": 7000.0,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7000.8,
+        "base": 7000.8,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7001.6,
+        "base": 7002.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7003.7,
+        "base": 7003.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7004.6,
+        "base": 7005.2,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7006.7,
+        "base": 7006.7,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7007.8,
+        "base": 7008.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7009.6,
+        "base": 7009.8,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7011.0,
+        "base": 7011.0,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7011.2,
+        "base": 7011.3,
+        "lith": "dolomite",
+        "interp": "OIL"
+      },
+      {
+        "top": 7013.9,
+        "base": 7014.1,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7015.0,
+        "base": 7015.4,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 7016.3,
+        "base": 7016.8,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7017.4,
+        "base": 7017.7,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 7018.5,
+        "base": 7018.6,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7019.9,
+        "base": 7020.1,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7021.2,
+        "base": 7021.5,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 7022.7,
+        "base": 7022.7,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7024.1,
+        "base": 7024.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 7024.4,
+        "base": 7024.7,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 7024.9,
+        "base": 7024.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7025.0,
+        "base": 7025.0,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 7025.9,
+        "base": 7026.1,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7026.2,
+        "base": 7026.2,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 7026.6,
+        "base": 7027.5,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7028.2,
+        "base": 7028.7,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 7029.3,
+        "base": 7029.4,
+        "lith": "dolomite",
+        "interp": "WATER"
+      },
+      {
+        "top": 7029.8,
+        "base": 7030.1,
+        "lith": "dolomite",
+        "interp": "DRY"
+      }
+    ]
+  },
+  "gas_show": [
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5608.0,
+      "base": 5608.0,
+      "max": 121.21,
+      "median": 121.21,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5650.0,
+      "base": 5670.0,
+      "max": 1551.01,
+      "median": 608.32,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5682.0,
+      "base": 5682.2,
+      "max": 128.95,
+      "median": 128.95,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5683.0,
+      "base": 5686.5,
+      "max": 168.19,
+      "median": 133.34,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5689.8,
+      "base": 5691.0,
+      "max": 191.78,
+      "median": 173.195,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5691.8,
+      "base": 5692.8,
+      "max": 192.28,
+      "median": 159.98,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5725.0,
+      "base": 5728.0,
+      "max": 475.37,
+      "median": 162.49,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5731.2,
+      "base": 5738.0,
+      "max": 285.35,
+      "median": 164.32,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5765.5,
+      "base": 5765.5,
+      "max": 228.05,
+      "median": 228.05,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5767.0,
+      "base": 5767.0,
+      "max": 117.19,
+      "median": 117.19,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5805.0,
+      "base": 5815.5,
+      "max": 166.4,
+      "median": 149.98,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5862.5,
+      "base": 5863.2,
+      "max": 115.48,
+      "median": 115.48,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5869.2,
+      "base": 5872.5,
+      "max": 133.1,
+      "median": 128.675,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5873.8,
+      "base": 5877.2,
+      "max": 143.79,
+      "median": 129.79,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5881.2,
+      "base": 5882.5,
+      "max": 119.27,
+      "median": 117.125,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5900.2,
+      "base": 5908.2,
+      "max": 164.39,
+      "median": 141.24,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5935.8,
+      "base": 5938.0,
+      "max": 142.14,
+      "median": 118.58,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 5942.0,
+      "base": 5943.0,
+      "max": 125.39,
+      "median": 125.39,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 6013.0,
+      "base": 6013.2,
+      "max": 127.15,
+      "median": 123.115,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    },
+    {
+      "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+      "curve": "C1",
+      "top": 6032.0,
+      "base": 6036.0,
+      "max": 122.15,
+      "median": 118.11,
+      "depth_basis": "gas/mud logging (approx)",
+      "note": "≥P90 113.030",
+      "formation": "未提供"
+    }
+  ],
+  "oil_gas_show": [],
+  "engineering": [],
+  "categories": {
+    "basic_data": {
+      "country": "Brazil",
+      "field": "Aram",
+      "well": "1-SPS-108",
+      "company": "Petrobras",
+      "coordinates": {
+        "latitude": "-25.639973",
+        "longitude": "-44.653793"
+      },
+      "bit_size": "8.5",
+      "bit_program": "8.5",
+      "casing_record": "",
+      "mud_type": "",
+      "mud_density": "1.46",
+      "mud_viscosity": "",
+      "fluid_loss": "",
+      "borehole_record": "",
+      "spud_date": "",
+      "td_date": "",
+      "well_type": "",
+      "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。"
+    },
+    "stratigraphy": {
+      "formation_tops": [
+        {
+          "formation": "M Lula",
+          "top": 6302.0,
+          "base": 6319.0,
+          "source": "CuraCao-1井数据 .xlsx:Fm"
+        },
+        {
+          "formation": "BVE110",
+          "top": 6319.0,
+          "base": 6350.0,
+          "source": "CuraCao-1井数据 .xlsx:Fm"
+        },
+        {
+          "formation": "BVE120",
+          "top": 6350.0,
+          "base": 6420.0,
+          "source": "CuraCao-1井数据 .xlsx:Fm"
+        },
+        {
+          "formation": "BVE130",
+          "top": 6420.0,
+          "base": 6439.0,
+          "source": "CuraCao-1井数据 .xlsx:Fm"
+        },
+        {
+          "formation": "BVE200",
+          "top": 6439.0,
+          "base": 6476.0,
+          "source": "CuraCao-1井数据 .xlsx:Fm"
+        }
+      ],
+      "target_formation": "",
+      "formation_names": [
+        "M Lula",
+        "BVE110",
+        "BVE120",
+        "BVE130",
+        "BVE200"
+      ],
+      "note": "地层顶来自井数据 Fm/Formation 表或地质设计；逐条岩性知识带 formation；无地层顶时标“未提供”。"
+    },
+    "lithology": {
+      "zones": [
+        {
+          "top": 6300.0,
+          "base": 6302.0,
+          "lith": "An,calcite,Dolo,Qz,Halite",
+          "formation": "未提供",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6302.0,
+          "base": 6310.0,
+          "lith": "An,calcite,Dolo,Qz,Halite",
+          "formation": "M Lula",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6310.0,
+          "base": 6319.0,
+          "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+          "formation": "M Lula",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6319.0,
+          "base": 6350.0,
+          "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+          "formation": "BVE110",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6350.0,
+          "base": 6420.0,
+          "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+          "formation": "BVE120",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6420.0,
+          "base": 6439.0,
+          "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+          "formation": "BVE130",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6439.0,
+          "base": 6476.0,
+          "lith": "Carbonate,Qz,Dolo,Clay,Anhydrite",
+          "formation": "BVE200",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6476.0,
+          "base": 6978.0,
+          "lith": "Ca_Spar，cal",
+          "formation": "未提供",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 6978.0,
+          "base": 7040.0,
+          "lith": "Carbonate,dolo,Qz,Clay",
+          "formation": "未提供",
+          "source": "lithall/录井-岩性大段"
+        },
+        {
+          "top": 7040.0,
+          "base": 7130.0,
+          "lith": "Ca_Spar，cal",
+          "formation": "未提供",
+          "source": "lithall/录井-岩性大段"
+        }
+      ],
+      "xrd_bins": [
+        {
+          "top": 4700.0,
+          "base": 4750.0,
+          "n": 3,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 3,
+              "min": 0.1695,
+              "median": 0.198,
+              "max": 0.223
+            },
+            "XRD_DOL": {
+              "n": 3,
+              "min": 0.023,
+              "median": 0.08,
+              "max": 0.1
+            },
+            "XRD_QTZ": {
+              "n": 3,
+              "min": 0.251,
+              "median": 0.302,
+              "max": 0.333
+            },
+            "XRD_KFD": {
+              "n": 3,
+              "min": 0.144,
+              "median": 0.205,
+              "max": 0.224
+            },
+            "XRD_PLG": {
+              "n": 3,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 4750.0,
+          "base": 4800.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.143,
+              "median": 0.2915,
+              "max": 0.458
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.047,
+              "median": 0.1708,
+              "max": 0.212
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.086,
+              "median": 0.212,
+              "max": 0.2995
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.144,
+              "median": 0.1527,
+              "max": 0.16
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 4800.0,
+          "base": 4850.0,
+          "n": 5,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 5,
+              "min": 0.287,
+              "median": 0.367,
+              "max": 0.443
+            },
+            "XRD_DOL": {
+              "n": 5,
+              "min": 0.048,
+              "median": 0.1065,
+              "max": 0.172
+            },
+            "XRD_QTZ": {
+              "n": 5,
+              "min": 0.108,
+              "median": 0.144,
+              "max": 0.173
+            },
+            "XRD_KFD": {
+              "n": 5,
+              "min": 0.187,
+              "median": 0.203,
+              "max": 0.2435
+            },
+            "XRD_PLG": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 4850.0,
+          "base": 4900.0,
+          "n": 2,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 2,
+              "min": 0.231,
+              "median": 0.283,
+              "max": 0.335
+            },
+            "XRD_DOL": {
+              "n": 2,
+              "min": 0.062,
+              "median": 0.1457,
+              "max": 0.2295
+            },
+            "XRD_QTZ": {
+              "n": 2,
+              "min": 0.095,
+              "median": 0.1327,
+              "max": 0.1705
+            },
+            "XRD_KFD": {
+              "n": 2,
+              "min": 0.2,
+              "median": 0.2465,
+              "max": 0.293
+            },
+            "XRD_PLG": {
+              "n": 2,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5600.0,
+          "base": 5650.0,
+          "n": 5,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 5,
+              "min": 0.013,
+              "median": 0.081,
+              "max": 0.436
+            },
+            "XRD_KFD": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 5,
+              "min": 0.235,
+              "median": 0.322,
+              "max": 0.419
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5650.0,
+          "base": 5700.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.003,
+              "max": 0.013
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.137
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5700.0,
+          "base": 5750.0,
+          "n": 5,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.04
+            },
+            "XRD_KFD": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5750.0,
+          "base": 5800.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.014,
+              "max": 0.216
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.059
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.1502,
+              "max": 0.325
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.257
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5800.0,
+          "base": 5850.0,
+          "n": 5,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.015,
+              "max": 0.1075
+            },
+            "XRD_DOL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 5,
+              "min": 0.189,
+              "median": 0.367,
+              "max": 0.405
+            },
+            "XRD_KFD": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0995
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "clastic(quartz-rich)",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5850.0,
+          "base": 5900.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.027
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.02,
+              "max": 0.06
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.188
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5900.0,
+          "base": 5950.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.066
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0415,
+              "max": 0.09
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.104
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5950.0,
+          "base": 6000.0,
+          "n": 5,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.014
+            },
+            "XRD_KFD": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.066
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6000.0,
+          "base": 6050.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.005
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0195
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0858,
+              "max": 0.277
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.077,
+              "max": 0.248
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6050.0,
+          "base": 6100.0,
+          "n": 5,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 5,
+              "min": 0.193,
+              "median": 0.441,
+              "max": 0.561
+            },
+            "XRD_KFD": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.1445
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "clastic(quartz-rich)",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6100.0,
+          "base": 6150.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.015,
+              "median": 0.0705,
+              "max": 0.593
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.037,
+              "max": 0.188
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6150.0,
+          "base": 6200.0,
+          "n": 4,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 4,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 4,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 4,
+              "min": 0.016,
+              "median": 0.0385,
+              "max": 0.095
+            },
+            "XRD_KFD": {
+              "n": 4,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 4,
+              "min": 0.024,
+              "median": 0.144,
+              "max": 0.285
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6200.0,
+          "base": 6250.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.013,
+              "median": 0.0195,
+              "max": 0.192
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0515,
+              "max": 0.139
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6250.0,
+          "base": 6300.0,
+          "n": 4,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 4,
+              "min": 0.0,
+              "median": 0.0125,
+              "max": 0.099
+            },
+            "XRD_DOL": {
+              "n": 4,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_QTZ": {
+              "n": 4,
+              "min": 0.031,
+              "median": 0.0885,
+              "max": 0.107
+            },
+            "XRD_KFD": {
+              "n": 4,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 4,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.088
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6300.0,
+          "base": 6350.0,
+          "n": 8,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 8,
+              "min": 0.013,
+              "median": 0.294,
+              "max": 0.519
+            },
+            "XRD_DOL": {
+              "n": 8,
+              "min": 0.0,
+              "median": 0.254,
+              "max": 0.2935
+            },
+            "XRD_QTZ": {
+              "n": 8,
+              "min": 0.09,
+              "median": 0.157,
+              "max": 0.289
+            },
+            "XRD_KFD": {
+              "n": 8,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 8,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "BVE110",
+          "lith_inferred": "limestone",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6350.0,
+          "base": 6400.0,
+          "n": 7,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 7,
+              "min": 0.0,
+              "median": 0.562,
+              "max": 0.725
+            },
+            "XRD_DOL": {
+              "n": 7,
+              "min": 0.0,
+              "median": 0.262,
+              "max": 0.329
+            },
+            "XRD_QTZ": {
+              "n": 7,
+              "min": 0.05,
+              "median": 0.152,
+              "max": 0.26
+            },
+            "XRD_KFD": {
+              "n": 7,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 7,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "BVE120",
+          "lith_inferred": "limestone",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6400.0,
+          "base": 6450.0,
+          "n": 5,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 5,
+              "min": 0.244,
+              "median": 0.38,
+              "max": 0.54
+            },
+            "XRD_DOL": {
+              "n": 5,
+              "min": 0.329,
+              "median": 0.371,
+              "max": 0.403
+            },
+            "XRD_QTZ": {
+              "n": 5,
+              "min": 0.056,
+              "median": 0.137,
+              "max": 0.281
+            },
+            "XRD_KFD": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 5,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            }
+          },
+          "formation": "BVE130",
+          "lith_inferred": "carbonate(mixed)",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6450.0,
+          "base": 6500.0,
+          "n": 6,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 6,
+              "min": 0.049,
+              "median": 0.109,
+              "max": 0.212
+            },
+            "XRD_DOL": {
+              "n": 6,
+              "min": 0.174,
+              "median": 0.3675,
+              "max": 0.423
+            },
+            "XRD_QTZ": {
+              "n": 6,
+              "min": 0.217,
+              "median": 0.2695,
+              "max": 0.36
+            },
+            "XRD_KFD": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 6,
+              "min": 0.0,
+              "median": 0.065,
+              "max": 0.324
+            }
+          },
+          "formation": "BVE200",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6500.0,
+          "base": 6550.0,
+          "n": 1,
+          "minerals": {
+            "XRD_CAL": {
+              "n": 1,
+              "min": 0.285,
+              "median": 0.285,
+              "max": 0.285
+            },
+            "XRD_DOL": {
+              "n": 1,
+              "min": 0.025,
+              "median": 0.025,
+              "max": 0.025
+            },
+            "XRD_QTZ": {
+              "n": 1,
+              "min": 0.112,
+              "median": 0.112,
+              "max": 0.112
+            },
+            "XRD_KFD": {
+              "n": 1,
+              "min": 0.0,
+              "median": 0.0,
+              "max": 0.0
+            },
+            "XRD_PLG": {
+              "n": 1,
+              "min": 0.196,
+              "median": 0.196,
+              "max": 0.196
+            }
+          },
+          "formation": "未提供",
+          "lith_inferred": "mixed",
+          "depth_basis": "mud_logging(approx)"
+        }
+      ],
+      "xrf_bins": [
+        {
+          "top": 4700.0,
+          "base": 4750.0,
+          "n": 3,
+          "elements": {
+            "XRF_AL": {
+              "n": 3,
+              "min": 4.2335,
+              "median": 4.668,
+              "max": 4.757
+            },
+            "XRF_FE": {
+              "n": 3,
+              "min": 3.4815,
+              "median": 3.683,
+              "max": 4.296
+            },
+            "XRF_K": {
+              "n": 3,
+              "min": 2.321,
+              "median": 2.373,
+              "max": 2.603
+            },
+            "XRF_CA": {
+              "n": 3,
+              "min": 2.703,
+              "median": 2.986,
+              "max": 3.877
+            },
+            "XRF_SI": {
+              "n": 3,
+              "min": 19.195,
+              "median": 22.52,
+              "max": 22.81
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 4750.0,
+          "base": 4800.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 2.035,
+              "median": 2.1955,
+              "max": 3.15
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 1.857,
+              "median": 2.1755,
+              "max": 2.825
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 1.585,
+              "median": 1.669,
+              "max": 2.1775
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 4.49,
+              "median": 16.7675,
+              "max": 18.0
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 7.564,
+              "median": 9.4255,
+              "max": 20.6
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 4800.0,
+          "base": 4850.0,
+          "n": 5,
+          "elements": {
+            "XRF_AL": {
+              "n": 5,
+              "min": 2.46,
+              "median": 2.598,
+              "max": 3.062
+            },
+            "XRF_FE": {
+              "n": 5,
+              "min": 2.177,
+              "median": 2.187,
+              "max": 2.262
+            },
+            "XRF_K": {
+              "n": 5,
+              "min": 1.956,
+              "median": 2.127,
+              "max": 2.6
+            },
+            "XRF_CA": {
+              "n": 5,
+              "min": 14.31,
+              "median": 18.74,
+              "max": 20.74
+            },
+            "XRF_SI": {
+              "n": 5,
+              "min": 8.997,
+              "median": 9.44,
+              "max": 11.0
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 4850.0,
+          "base": 4900.0,
+          "n": 2,
+          "elements": {
+            "XRF_AL": {
+              "n": 2,
+              "min": 2.617,
+              "median": 2.7725,
+              "max": 2.928
+            },
+            "XRF_FE": {
+              "n": 2,
+              "min": 1.918,
+              "median": 2.1178,
+              "max": 2.3175
+            },
+            "XRF_K": {
+              "n": 2,
+              "min": 2.254,
+              "median": 2.275,
+              "max": 2.296
+            },
+            "XRF_CA": {
+              "n": 2,
+              "min": 15.225,
+              "median": 16.2725,
+              "max": 17.32
+            },
+            "XRF_SI": {
+              "n": 2,
+              "min": 8.734,
+              "median": 10.122,
+              "max": 11.51
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5600.0,
+          "base": 5650.0,
+          "n": 5,
+          "elements": {
+            "XRF_AL": {
+              "n": 5,
+              "min": 1.302,
+              "median": 2.828,
+              "max": 5.217
+            },
+            "XRF_FE": {
+              "n": 5,
+              "min": 2.419,
+              "median": 4.139,
+              "max": 6.4645
+            },
+            "XRF_K": {
+              "n": 5,
+              "min": 0.4387,
+              "median": 0.7233,
+              "max": 0.9338
+            },
+            "XRF_CA": {
+              "n": 5,
+              "min": 4.17,
+              "median": 6.534,
+              "max": 6.9015
+            },
+            "XRF_SI": {
+              "n": 5,
+              "min": 6.179,
+              "median": 12.64,
+              "max": 15.28
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5650.0,
+          "base": 5700.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 0.1836,
+              "median": 0.4952,
+              "max": 2.15
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 0.2463,
+              "median": 0.6833,
+              "max": 2.484
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.0885,
+              "median": 0.1598,
+              "max": 0.646
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 4.031,
+              "median": 19.675,
+              "max": 25.98
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 0.6208,
+              "median": 1.3674,
+              "max": 6.075
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5700.0,
+          "base": 5750.0,
+          "n": 5,
+          "elements": {
+            "XRF_AL": {
+              "n": 5,
+              "min": 0.2325,
+              "median": 0.2699,
+              "max": 0.369
+            },
+            "XRF_FE": {
+              "n": 5,
+              "min": 0.0819,
+              "median": 0.1668,
+              "max": 0.6146
+            },
+            "XRF_K": {
+              "n": 5,
+              "min": 0.1125,
+              "median": 0.149,
+              "max": 0.1854
+            },
+            "XRF_CA": {
+              "n": 5,
+              "min": 9.357,
+              "median": 14.96,
+              "max": 22.49
+            },
+            "XRF_SI": {
+              "n": 5,
+              "min": 0.3954,
+              "median": 0.6305,
+              "max": 1.3775
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5750.0,
+          "base": 5800.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 0.2094,
+              "median": 1.2985,
+              "max": 4.024
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 0.1296,
+              "median": 3.033,
+              "max": 5.369
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.1134,
+              "median": 0.4116,
+              "max": 1.063
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 5.569,
+              "median": 7.2,
+              "max": 21.05
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 0.5909,
+              "median": 7.202,
+              "max": 13.3735
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5800.0,
+          "base": 5850.0,
+          "n": 5,
+          "elements": {
+            "XRF_AL": {
+              "n": 5,
+              "min": 0.6836,
+              "median": 0.9728,
+              "max": 1.065
+            },
+            "XRF_FE": {
+              "n": 5,
+              "min": 0.998,
+              "median": 2.031,
+              "max": 2.5
+            },
+            "XRF_K": {
+              "n": 5,
+              "min": 0.3975,
+              "median": 0.474,
+              "max": 1.095
+            },
+            "XRF_CA": {
+              "n": 5,
+              "min": 3.345,
+              "median": 5.055,
+              "max": 7.7555
+            },
+            "XRF_SI": {
+              "n": 5,
+              "min": 2.304,
+              "median": 5.2725,
+              "max": 6.402
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5850.0,
+          "base": 5900.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 0.1897,
+              "median": 0.4466,
+              "max": 1.763
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 0.0925,
+              "median": 0.1672,
+              "max": 2.373
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.1116,
+              "median": 0.5745,
+              "max": 0.935
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 1.976,
+              "median": 11.105,
+              "max": 21.71
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 0.5392,
+              "median": 0.7759,
+              "max": 6.329
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5900.0,
+          "base": 5950.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 0.1912,
+              "median": 3.2475,
+              "max": 3.711
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 0.1338,
+              "median": 4.1188,
+              "max": 4.6735
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.1382,
+              "median": 1.2667,
+              "max": 1.8085
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 5.761,
+              "median": 9.6683,
+              "max": 21.44
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 0.3916,
+              "median": 8.814,
+              "max": 11.6705
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 5950.0,
+          "base": 6000.0,
+          "n": 5,
+          "elements": {
+            "XRF_AL": {
+              "n": 5,
+              "min": 0.492,
+              "median": 0.609,
+              "max": 1.274
+            },
+            "XRF_FE": {
+              "n": 5,
+              "min": 0.2786,
+              "median": 0.3586,
+              "max": 1.199
+            },
+            "XRF_K": {
+              "n": 5,
+              "min": 0.17,
+              "median": 0.374,
+              "max": 0.885
+            },
+            "XRF_CA": {
+              "n": 5,
+              "min": 1.192,
+              "median": 1.326,
+              "max": 2.108
+            },
+            "XRF_SI": {
+              "n": 5,
+              "min": 0.6581,
+              "median": 0.9591,
+              "max": 3.145
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6000.0,
+          "base": 6050.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 0.5135,
+              "median": 0.8292,
+              "max": 3.82
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 0.2769,
+              "median": 1.841,
+              "max": 5.366
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.208,
+              "median": 0.3196,
+              "max": 0.8551
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 1.6095,
+              "median": 7.276,
+              "max": 12.078
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 0.6763,
+              "median": 3.708,
+              "max": 11.7
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6050.0,
+          "base": 6100.0,
+          "n": 5,
+          "elements": {
+            "XRF_AL": {
+              "n": 5,
+              "min": 0.959,
+              "median": 1.205,
+              "max": 3.5133
+            },
+            "XRF_FE": {
+              "n": 5,
+              "min": 1.733,
+              "median": 1.905,
+              "max": 4.8507
+            },
+            "XRF_K": {
+              "n": 5,
+              "min": 0.366,
+              "median": 0.523,
+              "max": 1.1039
+            },
+            "XRF_CA": {
+              "n": 5,
+              "min": 3.64,
+              "median": 4.671,
+              "max": 6.081
+            },
+            "XRF_SI": {
+              "n": 5,
+              "min": 4.169,
+              "median": 4.296,
+              "max": 12.2993
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6100.0,
+          "base": 6150.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 0.515,
+              "median": 1.1695,
+              "max": 2.307
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 0.8332,
+              "median": 1.2435,
+              "max": 4.468
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.131,
+              "median": 0.395,
+              "max": 0.7261
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 0.7145,
+              "median": 3.233,
+              "max": 5.629
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 2.633,
+              "median": 4.2615,
+              "max": 11.29
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6150.0,
+          "base": 6200.0,
+          "n": 4,
+          "elements": {
+            "XRF_AL": {
+              "n": 4,
+              "min": 0.807,
+              "median": 2.3405,
+              "max": 3.505
+            },
+            "XRF_FE": {
+              "n": 4,
+              "min": 0.9728,
+              "median": 3.1935,
+              "max": 4.214
+            },
+            "XRF_K": {
+              "n": 4,
+              "min": 0.256,
+              "median": 0.7882,
+              "max": 1.349
+            },
+            "XRF_CA": {
+              "n": 4,
+              "min": 6.1,
+              "median": 7.9465,
+              "max": 14.02
+            },
+            "XRF_SI": {
+              "n": 4,
+              "min": 2.321,
+              "median": 8.1885,
+              "max": 11.57
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6200.0,
+          "base": 6250.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 0.69,
+              "median": 1.193,
+              "max": 3.514
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 0.6446,
+              "median": 1.4152,
+              "max": 5.568
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.3835,
+              "median": 0.5005,
+              "max": 1.326
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 1.9315,
+              "median": 3.381,
+              "max": 5.066
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 1.409,
+              "median": 3.35,
+              "max": 12.99
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6250.0,
+          "base": 6300.0,
+          "n": 4,
+          "elements": {
+            "XRF_AL": {
+              "n": 4,
+              "min": 0.3366,
+              "median": 0.5758,
+              "max": 2.818
+            },
+            "XRF_FE": {
+              "n": 4,
+              "min": 0.5468,
+              "median": 0.9042,
+              "max": 3.525
+            },
+            "XRF_K": {
+              "n": 4,
+              "min": 0.1851,
+              "median": 0.22,
+              "max": 1.035
+            },
+            "XRF_CA": {
+              "n": 4,
+              "min": 3.492,
+              "median": 4.874,
+              "max": 17.93
+            },
+            "XRF_SI": {
+              "n": 4,
+              "min": 1.142,
+              "median": 2.375,
+              "max": 9.235
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6300.0,
+          "base": 6350.0,
+          "n": 8,
+          "elements": {
+            "XRF_AL": {
+              "n": 8,
+              "min": 0.2949,
+              "median": 0.4278,
+              "max": 0.855
+            },
+            "XRF_FE": {
+              "n": 8,
+              "min": 0.4994,
+              "median": 1.427,
+              "max": 2.583
+            },
+            "XRF_K": {
+              "n": 8,
+              "min": 0.17,
+              "median": 0.1884,
+              "max": 0.3399
+            },
+            "XRF_CA": {
+              "n": 8,
+              "min": 13.83,
+              "median": 18.1075,
+              "max": 19.65
+            },
+            "XRF_SI": {
+              "n": 8,
+              "min": 1.29,
+              "median": 4.834,
+              "max": 8.797
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6350.0,
+          "base": 6400.0,
+          "n": 7,
+          "elements": {
+            "XRF_AL": {
+              "n": 7,
+              "min": 0.1357,
+              "median": 0.2628,
+              "max": 0.5335
+            },
+            "XRF_FE": {
+              "n": 7,
+              "min": 0.1949,
+              "median": 0.3768,
+              "max": 3.636
+            },
+            "XRF_K": {
+              "n": 7,
+              "min": 0.0768,
+              "median": 0.153,
+              "max": 0.2081
+            },
+            "XRF_CA": {
+              "n": 7,
+              "min": 0.4777,
+              "median": 23.44,
+              "max": 28.99
+            },
+            "XRF_SI": {
+              "n": 7,
+              "min": 2.611,
+              "median": 3.607,
+              "max": 4.992
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6400.0,
+          "base": 6450.0,
+          "n": 5,
+          "elements": {
+            "XRF_AL": {
+              "n": 5,
+              "min": 0.1259,
+              "median": 0.2532,
+              "max": 0.5899
+            },
+            "XRF_FE": {
+              "n": 5,
+              "min": 0.1979,
+              "median": 0.424,
+              "max": 0.6431
+            },
+            "XRF_K": {
+              "n": 5,
+              "min": 0.0592,
+              "median": 0.1292,
+              "max": 0.3678
+            },
+            "XRF_CA": {
+              "n": 5,
+              "min": 19.64,
+              "median": 20.77,
+              "max": 25.39
+            },
+            "XRF_SI": {
+              "n": 5,
+              "min": 4.577,
+              "median": 4.97,
+              "max": 6.953
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6450.0,
+          "base": 6500.0,
+          "n": 6,
+          "elements": {
+            "XRF_AL": {
+              "n": 6,
+              "min": 1.208,
+              "median": 2.2775,
+              "max": 3.517
+            },
+            "XRF_FE": {
+              "n": 6,
+              "min": 1.034,
+              "median": 2.3205,
+              "max": 4.4
+            },
+            "XRF_K": {
+              "n": 6,
+              "min": 0.7483,
+              "median": 1.227,
+              "max": 1.8
+            },
+            "XRF_CA": {
+              "n": 6,
+              "min": 9.631,
+              "median": 14.325,
+              "max": 16.11
+            },
+            "XRF_SI": {
+              "n": 6,
+              "min": 8.746,
+              "median": 12.875,
+              "max": 13.55
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        },
+        {
+          "top": 6500.0,
+          "base": 6550.0,
+          "n": 1,
+          "elements": {
+            "XRF_AL": {
+              "n": 1,
+              "min": 1.899,
+              "median": 1.899,
+              "max": 1.899
+            },
+            "XRF_FE": {
+              "n": 1,
+              "min": 2.775,
+              "median": 2.775,
+              "max": 2.775
+            },
+            "XRF_K": {
+              "n": 1,
+              "min": 0.6592,
+              "median": 0.6592,
+              "max": 0.6592
+            },
+            "XRF_CA": {
+              "n": 1,
+              "min": 18.34,
+              "median": 18.34,
+              "max": 18.34
+            },
+            "XRF_SI": {
+              "n": 1,
+              "min": 8.552,
+              "median": 8.552,
+              "max": 8.552
+            }
+          },
+          "depth_basis": "mud_logging(approx)"
+        }
+      ],
+      "swc_core": [
+        {
+          "lith": "dolomite",
+          "n": 2,
+          "top": 6319.4,
+          "base": 6337.4,
+          "formation": "BVE110",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "dolomite",
+          "n": 3,
+          "top": 6362.7,
+          "base": 6417.1,
+          "formation": "BVE120",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "dolomite",
+          "n": 2,
+          "top": 6425.6,
+          "base": 6432.5,
+          "formation": "BVE130",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "dolomite",
+          "n": 4,
+          "top": 6447.1,
+          "base": 6471.7,
+          "formation": "BVE200",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "dolomite",
+          "n": 1,
+          "top": 6314.5,
+          "base": 6314.5,
+          "formation": "M Lula",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "dolomite",
+          "n": 2,
+          "top": 6985.6,
+          "base": 7006.3,
+          "formation": "未提供",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "limestone",
+          "n": 13,
+          "top": 6319.3,
+          "base": 6349.7,
+          "formation": "BVE110",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "limestone",
+          "n": 9,
+          "top": 6352.0,
+          "base": 6419.5,
+          "formation": "BVE120",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "limestone",
+          "n": 8,
+          "top": 6422.3,
+          "base": 6438.1,
+          "formation": "BVE130",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "limestone",
+          "n": 8,
+          "top": 6439.8,
+          "base": 6475.2,
+          "formation": "BVE200",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "limestone",
+          "n": 3,
+          "top": 6312.1,
+          "base": 6317.0,
+          "formation": "M Lula",
+          "depth_basis": "logging_depth"
+        },
+        {
+          "lith": "limestone",
+          "n": 21,
+          "top": 6536.9,
+          "base": 7038.9,
+          "formation": "未提供",
+          "depth_basis": "logging_depth"
+        }
+      ],
+      "drill_core": []
+    },
+    "testing": {
+      "intervals": [
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6310.2,
+          "base": 6313.2,
+          "values": [
+            "3519.59",
+            "32.43"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6316.8,
+          "base": 6319.8,
+          "values": [
+            "1692.1",
+            "15.59"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6333.1,
+          "base": 6336.2,
+          "values": [
+            "2465.24",
+            "22.71"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6407.8,
+          "base": 6412.2,
+          "values": [
+            "306.17",
+            "2.82"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6413.0,
+          "base": 6414.6,
+          "values": [
+            "341.09",
+            "3.14"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6418.0,
+          "base": 6420.0,
+          "values": [
+            "138.91",
+            "1.28"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6421.7,
+          "base": 6423.7,
+          "values": [
+            "370.06",
+            "3.41"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6424.5,
+          "base": 6429.4,
+          "values": [
+            "1762.82",
+            "16.24"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6437.4,
+          "base": 6441.9,
+          "values": [
+            "257.3",
+            "2.37"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6310.2,
+          "base": 6313.2,
+          "values": [
+            "3519.59",
+            "32.43"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6316.8,
+          "base": 6319.8,
+          "values": [
+            "1692.1",
+            "15.59"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6333.1,
+          "base": 6336.2,
+          "values": [
+            "2465.24",
+            "22.71"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6407.8,
+          "base": 6412.2,
+          "values": [
+            "306.17",
+            "2.82"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6413.0,
+          "base": 6414.6,
+          "values": [
+            "341.09",
+            "3.14"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6418.0,
+          "base": 6420.0,
+          "values": [
+            "138.91",
+            "1.28"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6421.7,
+          "base": 6423.7,
+          "values": [
+            "370.06",
+            "3.41"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6424.5,
+          "base": 6429.4,
+          "values": [
+            "1762.82",
+            "16.24"
+          ]
+        },
+        {
+          "file": "Plt分层产量.txt",
+          "top": 6437.4,
+          "base": 6441.9,
+          "values": [
+            "257.3",
+            "2.37"
+          ]
+        }
+      ],
+      "files": [
+        "MDT取样流体分析.png",
+        "Plt分层产量.txt",
+        "Plt分层产量.xls",
+        "PreRead - Aram - WS8 DST Design.pdf",
+        "古拉绍-1＃PLT初步解释结果-02.pptx",
+        "巴西阿拉姆项目Curacao-1井DST日报-20221016.pdf",
+        "第11期—古拉绍-1井试油进展周报20221005.pdf",
+        "（CNLC）巴西古拉绍-1井DST（与PLT&MDT结合）初步分析.pptx"
+      ],
+      "contacts": [
+        {
+          "type": "OWC",
+          "depth": 6422.6,
+          "source": "log_interpretation(candidate)",
+          "confidence": "low"
+        }
+      ],
+      "owc": {
+        "type": "OWC",
+        "depth": 6422.6,
+        "source": "log_interpretation(candidate)",
+        "confidence": "low"
+      },
+      "gwc": null
+    },
+    "log_interpretation": {
+      "layers": 140,
+      "lithology": {
+        "limestone": 76,
+        "dolomite": 60,
+        "sandstone": 3,
+        "anhydrite": 1
+      },
+      "interpretation": {
+        "DRY": 84,
+        "WATER": 31,
+        "OIL": 24,
+        "NonReservoir": 1
+      },
+      "fluid_intervals": [
+        {
+          "top": 6304.3,
+          "base": 6308.4,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6309.4,
+          "base": 6310.6,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6311.8,
+          "base": 6313.6,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6313.8,
+          "base": 6313.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6314.4,
+          "base": 6314.5,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6315.5,
+          "base": 6315.5,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6315.8,
+          "base": 6315.9,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6317.3,
+          "base": 6318.1,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6318.7,
+          "base": 6318.7,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6318.8,
+          "base": 6319.9,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6320.0,
+          "base": 6320.2,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6321.2,
+          "base": 6321.4,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6335.1,
+          "base": 6337.9,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6338.5,
+          "base": 6338.6,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6338.8,
+          "base": 6338.8,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6340.1,
+          "base": 6340.3,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6341.5,
+          "base": 6341.7,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6341.8,
+          "base": 6342.3,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6349.0,
+          "base": 6349.6,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6350.4,
+          "base": 6350.4,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6352.6,
+          "base": 6352.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6352.9,
+          "base": 6352.9,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6353.9,
+          "base": 6353.9,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6359.4,
+          "base": 6359.5,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6369.6,
+          "base": 6369.6,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6374.9,
+          "base": 6375.5,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6383.4,
+          "base": 6384.2,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6390.4,
+          "base": 6390.9,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6391.1,
+          "base": 6391.2,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6394.9,
+          "base": 6394.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6406.1,
+          "base": 6406.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6409.8,
+          "base": 6410.2,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6411.0,
+          "base": 6411.0,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6412.5,
+          "base": 6413.9,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6416.2,
+          "base": 6417.1,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6417.3,
+          "base": 6417.3,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 6417.4,
+          "base": 6417.7,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6418.5,
+          "base": 6418.5,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6419.6,
+          "base": 6421.2,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6422.1,
+          "base": 6422.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6422.3,
+          "base": 6422.3,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6422.4,
+          "base": 6422.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6422.8,
+          "base": 6424.6,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6424.7,
+          "base": 6425.9,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6426.1,
+          "base": 6426.1,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6426.2,
+          "base": 6429.3,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6429.4,
+          "base": 6429.6,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6429.8,
+          "base": 6429.9,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6430.1,
+          "base": 6431.3,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6431.4,
+          "base": 6432.2,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6432.4,
+          "base": 6432.6,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6432.8,
+          "base": 6433.3,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6433.4,
+          "base": 6433.7,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6433.9,
+          "base": 6434.2,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6434.3,
+          "base": 6434.3,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6434.5,
+          "base": 6435.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6435.7,
+          "base": 6436.6,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6436.8,
+          "base": 6438.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6438.3,
+          "base": 6438.3,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6438.4,
+          "base": 6439.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6439.2,
+          "base": 6440.3,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6440.4,
+          "base": 6441.0,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6441.2,
+          "base": 6441.9,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6442.7,
+          "base": 6442.9,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6443.0,
+          "base": 6443.5,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6443.6,
+          "base": 6443.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6443.8,
+          "base": 6443.8,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6443.9,
+          "base": 6444.2,
+          "lith": "sandstone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6444.4,
+          "base": 6446.7,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6446.8,
+          "base": 6446.8,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6447.0,
+          "base": 6447.4,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6448.5,
+          "base": 6449.1,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6449.3,
+          "base": 6449.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6450.6,
+          "base": 6451.1,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6457.9,
+          "base": 6458.1,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6459.0,
+          "base": 6459.0,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6459.2,
+          "base": 6459.2,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6459.3,
+          "base": 6459.5,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6466.3,
+          "base": 6466.3,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6473.5,
+          "base": 6474.3,
+          "lith": "sandstone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6475.0,
+          "base": 6475.3,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6497.0,
+          "base": 6497.0,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6502.1,
+          "base": 6502.3,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6518.4,
+          "base": 6519.4,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6536.0,
+          "base": 6538.3,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6538.4,
+          "base": 6538.4,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6653.6,
+          "base": 6653.9,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6654.1,
+          "base": 6654.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6802.2,
+          "base": 6802.7,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6824.2,
+          "base": 6824.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6889.1,
+          "base": 6889.1,
+          "lith": "sandstone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6889.2,
+          "base": 6890.6,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6890.8,
+          "base": 6890.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6948.4,
+          "base": 6949.0,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6950.1,
+          "base": 6951.9,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6952.5,
+          "base": 6952.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6978.4,
+          "base": 6978.4,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6979.5,
+          "base": 6981.6,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6982.8,
+          "base": 6982.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6983.0,
+          "base": 6983.1,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6984.0,
+          "base": 6984.0,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6984.8,
+          "base": 6985.2,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6985.4,
+          "base": 6985.7,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 6986.2,
+          "base": 6986.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6987.5,
+          "base": 6987.5,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6988.9,
+          "base": 6990.7,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6990.9,
+          "base": 6991.2,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6991.4,
+          "base": 6995.0,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6996.4,
+          "base": 6997.0,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6997.1,
+          "base": 6997.4,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6997.6,
+          "base": 6997.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6999.9,
+          "base": 7000.0,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7000.8,
+          "base": 7000.8,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7001.6,
+          "base": 7002.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7003.7,
+          "base": 7003.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7004.6,
+          "base": 7005.2,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7006.7,
+          "base": 7006.7,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7007.8,
+          "base": 7008.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7009.6,
+          "base": 7009.8,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7011.0,
+          "base": 7011.0,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7011.2,
+          "base": 7011.3,
+          "lith": "dolomite",
+          "interp": "OIL"
+        },
+        {
+          "top": 7013.9,
+          "base": 7014.1,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7015.0,
+          "base": 7015.4,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 7016.3,
+          "base": 7016.8,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7017.4,
+          "base": 7017.7,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 7018.5,
+          "base": 7018.6,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7019.9,
+          "base": 7020.1,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7021.2,
+          "base": 7021.5,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 7022.7,
+          "base": 7022.7,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7024.1,
+          "base": 7024.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 7024.4,
+          "base": 7024.7,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 7024.9,
+          "base": 7024.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7025.0,
+          "base": 7025.0,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 7025.9,
+          "base": 7026.1,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7026.2,
+          "base": 7026.2,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 7026.6,
+          "base": 7027.5,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7028.2,
+          "base": 7028.7,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 7029.3,
+          "base": 7029.4,
+          "lith": "dolomite",
+          "interp": "WATER"
+        },
+        {
+          "top": 7029.8,
+          "base": 7030.1,
+          "lith": "dolomite",
+          "interp": "DRY"
+        }
+      ]
+    },
+    "gas_show": [
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5608.0,
+        "base": 5608.0,
+        "max": 121.21,
+        "median": 121.21,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5650.0,
+        "base": 5670.0,
+        "max": 1551.01,
+        "median": 608.32,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5682.0,
+        "base": 5682.2,
+        "max": 128.95,
+        "median": 128.95,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5683.0,
+        "base": 5686.5,
+        "max": 168.19,
+        "median": 133.34,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5689.8,
+        "base": 5691.0,
+        "max": 191.78,
+        "median": 173.195,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5691.8,
+        "base": 5692.8,
+        "max": 192.28,
+        "median": 159.98,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5725.0,
+        "base": 5728.0,
+        "max": 475.37,
+        "median": 162.49,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5731.2,
+        "base": 5738.0,
+        "max": 285.35,
+        "median": 164.32,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5765.5,
+        "base": 5765.5,
+        "max": 228.05,
+        "median": 228.05,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5767.0,
+        "base": 5767.0,
+        "max": 117.19,
+        "median": 117.19,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5805.0,
+        "base": 5815.5,
+        "max": 166.4,
+        "median": 149.98,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5862.5,
+        "base": 5863.2,
+        "max": 115.48,
+        "median": 115.48,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5869.2,
+        "base": 5872.5,
+        "max": 133.1,
+        "median": 128.675,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5873.8,
+        "base": 5877.2,
+        "max": 143.79,
+        "median": 129.79,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5881.2,
+        "base": 5882.5,
+        "max": 119.27,
+        "median": 117.125,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5900.2,
+        "base": 5908.2,
+        "max": 164.39,
+        "median": 141.24,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5935.8,
+        "base": 5938.0,
+        "max": 142.14,
+        "median": 118.58,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 5942.0,
+        "base": 5943.0,
+        "max": 125.39,
+        "median": 125.39,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 6013.0,
+        "base": 6013.2,
+        "max": 127.15,
+        "median": 123.115,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      },
+      {
+        "file": "1-SPS-108_DDP_AnaliseAvGas.las",
+        "curve": "C1",
+        "top": 6032.0,
+        "base": 6036.0,
+        "max": 122.15,
+        "median": 118.11,
+        "depth_basis": "gas/mud logging (approx)",
+        "note": "≥P90 113.030",
+        "formation": "未提供"
+      }
+    ],
+    "oil_gas_show": [],
+    "engineering": [],
+    "core_descriptions": []
+  },
+  "hierarchy_evidence": [
+    "Curacao-1井阶段汇报（测井）.pptx: 桑托斯(Santos)盆地盐下地层综合柱状图"
+  ],
+  "geo_scan_contacts": [],
+  "drill_core_phi": {
+    "n": 121,
+    "min": 0.4,
+    "median": 4.4,
+    "max": 17.6
+  },
+  "core_descriptions": []
+}

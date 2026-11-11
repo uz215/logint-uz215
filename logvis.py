@@ -4546,6 +4546,8 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             # 【2026-10-22 用户要求】3 道深度道与 4 道孔隙度曲线道互换位置
             # （与综合图 POR→DEPTH 顺序一致）
             _q_layout += [('POR', 1.0), ('DEPTH', 0.30), ('SW', 0.6), ('POR2', 0.6)]
+            # 【2026-11-02】标定道：取芯岩性点 + XRD/XRF 点 + CALC1/CALC3-5 酸解曲线
+            _q_layout.append(('CALIB', 0.9))
             # 【2026-10-22 用户要求】quicklook 把气测数据也绘制上 → 独立气测道
             # （原做法仅把 TG 骑在电阻率道末槽，无法呈现组分；此处与综合图同实现）
             # 【2026-10-26 用户要求】气测道与 profile 道互换 → 气测道在前
@@ -4574,6 +4576,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             IDX_INTERP = _q_map['INTERP']
             # 【2026-10-22】quicklook 新增独立气测道
             IDX_GAS = _q_map.get('GAS')
+            IDX_CALIB = _q_map.get('CALIB')
             IDX_LITHO_FILL = IDX_FACIES = None
             IDX_REG = _q_map.get('REG')
         else:
@@ -4614,6 +4617,7 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             IDX_PROFILE = _idx_map['PROFILE']
             IDX_INTERP = _idx_map['INTERP']
             IDX_POR2 = None  # 综合图孔隙度已并入 SWPOR 合并道
+            IDX_CALIB = None
             IDX_REG = _idx_map.get('REG')
         
         for i in range(len(axes)):
@@ -6109,6 +6113,103 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
                 fig.add_artist(Line2D([table_x_left, table_x_right], [interp_sep_y, interp_sep_y],
                                   color='black', linewidth=0.5, transform=fig.transFigure))
     
+        # ========== 标定道：取芯岩性点 + XRD/XRF 点 + CALC 酸解曲线 ==========
+        if quicklook and IDX_CALIB is not None:
+            try:
+                ax_cal = axes[IDX_CALIB]
+                _setup_track_with_header(
+                    ax_cal, depth_max, depth_min, curve_height_ratio,
+                    header_bottom_y, header_top_y)
+                ax_cal.set_xlim(0.0, 1.0)
+                ax_cal.set_ylim(depth_max, depth_min)
+                # CALC1=前1min CO2→灰岩；CALC3/5=3-5min CO2→白云岩
+                _c1 = data['CALC_LIME_CO2'] if 'CALC_LIME_CO2' in data.columns else (
+                    data['CALC1'] if 'CALC1' in data.columns else None)
+                if 'CALC_DOL_CO2' in data.columns:
+                    _cd = data['CALC_DOL_CO2']
+                elif 'CALC3' in data.columns or 'CALC5' in data.columns:
+                    _parts = [pd.to_numeric(data[c], errors='coerce')
+                              for c in ('CALC3', 'CALC5') if c in data.columns]
+                    _cd = pd.concat(_parts, axis=1).mean(axis=1)
+                else:
+                    _cd = None
+                _vals = []
+                for _v in (_c1, _cd):
+                    if _v is not None:
+                        _s = pd.to_numeric(_v, errors='coerce')
+                        _vals.append(_s)
+                _mx = 1.0
+                if _vals:
+                    _all = pd.concat(_vals).dropna()
+                    if len(_all):
+                        _mx = float(np.nanpercentile(_all.values, 95))
+                        if not np.isfinite(_mx) or _mx <= 0:
+                            _mx = 1.0
+                if _c1 is not None:
+                    ax_cal.plot(pd.to_numeric(_c1, errors='coerce') / _mx,
+                                depth, color='#1f77b4', lw=0.8,
+                                zorder=12, clip_on=True)
+                if _cd is not None:
+                    ax_cal.plot(pd.to_numeric(_cd, errors='coerce') / _mx,
+                                depth, color='#ff7f0e', lw=0.8,
+                                zorder=12, clip_on=True)
+                # XRD 矿物点（0–1）
+                for _col, _mk, _cc in (('XRD_CAL', 'o', '#2ca02c'),
+                                       ('XRD_DOL', '^', '#d62728'),
+                                       ('XRD_QTZ', 's', '#9467bd')):
+                    if _col in data.columns:
+                        _x = pd.to_numeric(data[_col], errors='coerce')
+                        _m = _x.notna() & depth.notna()
+                        if _m.sum():
+                            ax_cal.plot(_x[_m].values, depth[_m].values, _mk,
+                                        ms=2.0, color=_cc, linestyle='none',
+                                        zorder=14, clip_on=True)
+                # XRF Al 点（归一化 0–1）
+                if 'XRF_AL' in data.columns:
+                    _xrf = pd.to_numeric(data['XRF_AL'], errors='coerce')
+                    _valid = _xrf.dropna()
+                    _xmx = float(np.nanpercentile(_valid.values, 95)) if len(_valid) else 1.0
+                    if not np.isfinite(_xmx) or _xmx <= 0: _xmx = 1.0
+                    _m = _xrf.notna() & depth.notna()
+                    if _m.sum():
+                        ax_cal.plot((_xrf[_m] / _xmx).values, depth[_m].values,
+                                    'D', ms=1.8, color='#17becf', linestyle='none',
+                                    zorder=13, clip_on=True)
+                # 取芯岩性点（x=0.5，形状/颜色区分）
+                if 'CORE_LITH' in data.columns:
+                    _core = data['CORE_LITH'].astype(str).str.lower()
+                    for _lith, _mk, _cc in (('limestone', 's', '#2ca02c'),
+                                            ('dolomite', '^', '#ff7f0e'),
+                                            ('sandstone', 'o', '#bcbd22'),
+                                            ('shale', 'v', '#8c564b'),
+                                            ('anhydrite', 'P', '#7f7f7f')):
+                        _m = _core.eq(_lith) & depth.notna()
+                        if _m.sum():
+                            ax_cal.plot(np.full(int(_m.sum()), 0.5),
+                                        depth[_m].values, _mk, ms=4.2,
+                                        mfc=_cc, mec='black', mew=0.35,
+                                        linestyle='none', zorder=16, clip_on=True)
+                # 图头刻度/说明
+                _slots = ALIGNED_POSITIONS_CM or []
+                if len(_slots) >= 1 and _c1 is not None:
+                    draw_tick_line(ax_cal, _slots[0], '#1f77b4')
+                    draw_tick_labels(ax_cal, _slots[0],
+                                     'CALC1 CO2 (norm)', 0, _mx, '#1f77b4',
+                                     fontsize_label=7, fontsize_value=5)
+                if len(_slots) >= 2 and _cd is not None:
+                    draw_tick_line(ax_cal, _slots[1], '#ff7f0e')
+                    draw_tick_labels(ax_cal, _slots[1],
+                                     'CALC3/5 CO2 (norm)', 0, _mx, '#ff7f0e',
+                                     fontsize_label=7, fontsize_value=5)
+                if len(_slots) >= 3:
+                    draw_tick_line(ax_cal, _slots[2], 'black')
+                    draw_tick_labels(ax_cal, _slots[2],
+                                     'XRD / XRF / CORE', 0, 1, 'black',
+                                     fontsize_label=7, fontsize_value=5)
+                # 标定道说明已由三个刻度槽表达，避免与刻度文字重叠
+            except Exception as _ce:
+                logger.warning('标定道绘制失败（不影响主图）: %s', _ce)
+
         # 必须先绘制一次才能确保布局正确
         fig.canvas.draw()
         # 【2026-10-30 R52】出图前图面纹理 QC（报告不阻断）：兜底抓门禁盲区/
