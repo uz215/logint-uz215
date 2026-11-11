@@ -153,6 +153,32 @@ _GEN_TECH = {
     '软件工具': ['软件', 'vba', '计算机', '配置', '办公', 'excel', 'word', '工具', 'software'],
 }
 
+# 地质领域「大类」：由技术细分(小类)向上归并的粗分组。
+#   基础地质 = 构造 / 沉积与地层 / 岩性与矿物
+#   油气地质 = 油气地质 / 储层地质
+#   非常规地质 = 非常规地质（其余单独成大类）
+_GEO_MAJOR_MAP = {
+    '构造地质': '基础地质', '沉积与地层': '基础地质', '岩性与矿物': '基础地质',
+    '油气地质': '油气地质', '储层地质': '油气地质',
+    '非常规地质': '非常规地质',
+    '其他': '其他',
+}
+# 通用知识领域「小类」：在 大类(标准规范/项目管理/软件工具/其他) 之下的进一步细分。
+# 优先级自上而下；全不命中归 其他。关键词均为内容信号，不含 ppt/word 等格式后缀（防误命中）。
+_GEN_MINOR = {
+    '国标': ['gb', 'gb/t', '国家标准', '国标'],
+    '行标': ['sy/t', '石油行业标准', '行业标准', '行标', '能源标准', '能源行业'],
+    '企标': ['企标', '企业标准', 'q/sh', 'q/s'],
+    '图式编制': ['图式', '图例', '编制图'],
+    '预算财务': ['预算', '财务', '审计', '经费', 'budget', 'audit'],
+    '合同招标': ['合同', '招标', '投标', 'contract', 'tender'],
+    '制度办法': ['制度', '规定', '办法', '细则'],
+    '研讨交流': ['研讨', '交流', '会议', '汇报', '年报', 'annual report'],
+    'Excel/VBA': ['excel', 'vba'],
+    'Python': ['python'],
+    '专业软件': ['matlab', 'petrel', 'techlog', 'logview', '软件', 'c++', 'java'],
+}
+
 # 领域判定触发词（命中即归属该领域；地质优先于测井，保证地质为一等类）
 # 通用行政/杂项（无技术要素时才判通用，否则会被技术词抢占）
 _GEN_ONLY = ['预算', '财务', '审计', '经费', '研讨', '通知', '合同', '招标', '申报', '核算', '制度',
@@ -203,6 +229,33 @@ def classify_logging_method(path: str, title: str = '') -> (str, str):
     return major, minor
 
 
+def classify_geo_method(path: str, title: str = '') -> (str, str):
+    """地质领域的内部分类：返回 (大类 major, 小类 minor)。
+
+    小类 = 技术细分（构造/沉积与地层/岩性与矿物/油气地质/储层地质/非常规地质/其他，沿用 _GEO_TECH）。
+    大类 = 由小类向上归并的粗分组（基础地质/油气地质/非常规地质/其他，见 _GEO_MAJOR_MAP）。
+    """
+    low = '%s %s' % (path or '', title or '')
+    low = low.lower()
+    minor = _pick(_GEO_TECH, low) or '其他'
+    major = _GEO_MAJOR_MAP.get(minor, '其他')
+    return major, minor
+
+
+def classify_general_method(path: str, title: str = '') -> (str, str):
+    """通用知识领域的内部分类：返回 (大类 major, 小类 minor)。
+
+    大类 = 标准规范 / 项目管理 / 软件工具 / 其他（沿用 _GEN_TECH）。
+    小类 = 在大类之下的进一步细分（国标/行标/企标/图式、预算财务/合同招标/制度办法/研讨交流、
+           Excel·VBA/Python/专业软件），见 _GEN_MINOR；全不命中归 其他。
+    """
+    low = '%s %s' % (path or '', title or '')
+    low = low.lower()
+    major = _pick(_GEN_TECH, low) or '其他'
+    minor = _pick(_GEN_MINOR, low) or '其他'
+    return major, minor
+
+
 def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, str, str):
     """返回 (domain, tech_major, tech_minor)，按知识本身技术分类，不按国别。
 
@@ -211,22 +264,27 @@ def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, 
     - 地质优先于测井：同时含地质与测井信号时归地质（保证地质为一等类）。
     - category 参数保留兼容（历史调用），本函数不再依据它决定是否分类——
       所有文档统一按内容重分，国别由 country 列单独承载。
-    - 测井方法领域进一步按「大类(技术类型)×小类(厂商)」二维细分；地质/通用仅 tech_major 有值。
+    - 三个领域均做「大类 × 小类」二级细分：
+        · 测井方法：大类(技术类型) × 小类(厂商)
+        · 地质：     大类(基础/油气/非常规) × 小类(技术细分)
+        · 通用知识： 大类(标准/项目/软件) × 小类(更细：国标行标/预算合同/Excel·Python…)
     """
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
     # 1) 通用行政/杂项（无技术要素）
     if _blob_has(low, _GEN_ONLY) and not _blob_has(low, _LOG_ONLY) and not _blob_has(low, _GEO_ONLY):
-        return DOMAIN_GENERAL, _pick(_GEN_TECH, low) or '其他', ''
+        major, minor = classify_general_method(path, title)
+        return DOMAIN_GENERAL, major, minor
     # 2) 地质专属信号 -> 地质（优先于测井）
     if _blob_has(low, _GEO_ONLY):
-        return DOMAIN_GEO, _pick(_GEO_TECH, low) or '其他', ''
+        major, minor = classify_geo_method(path, title)
+        return DOMAIN_GEO, major, minor
     # 3) 测井专属信号 -> 测井方法
     if _blob_has(low, _LOG_ONLY):
         major, minor = classify_logging_method(path, title)
         return DOMAIN_LOGGING, major, minor
     # 4) 兜底：通用知识-其他
-    return DOMAIN_GENERAL, '其他', ''
+    return DOMAIN_GENERAL, '其他', '其他'
 
 
 def tokenize(text: str) -> str:
