@@ -18411,7 +18411,8 @@ def select_startup_task():
 
     # 任务
     tk.Label(win, text='1. 选择任务', font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=18, pady=(14, 4))
-    _tasks = ['quicklook 快速解释图（现场工程师→交甲方代表）',
+    _tasks = ['项目浏览器（多井项目树：井/数据集/变量）',
+              'quicklook 快速解释图（现场工程师→交甲方代表）',
               '综合解释（岩性/流体/层表/综合图/报告，室内工程师）']
     _task_var = tk.StringVar(value=_tasks[0])
     ttk.Combobox(win, textvariable=_task_var, state='readonly', values=_tasks, width=84).pack(anchor='w', padx=18)
@@ -18533,6 +18534,11 @@ def select_startup_task():
         _inv_txt.configure(state='disabled')
 
     def _ok():
+        # 【2026-11-11】项目浏览器：无需选井目录，直接进入项目树
+        if _task_var.get().startswith('项目浏览器'):
+            res.update({'task': 'project'})
+            win.destroy()
+            return
         if not res.get('inventory'):
             _note.configure(text='请先选择井目录。', fg='#b00')
             return
@@ -21528,6 +21534,26 @@ if __name__ == "__main__":
     if '--selftest' in sys.argv:
         _st_errs = run_selftest()
         sys.exit(1 if _st_errs else 0)
+    if '--project' in sys.argv:
+        # 【2026-11-11】项目浏览器：Project→Well→Dataset→Variable 四层树
+        #   借鉴 Techlog 2019.2 Project Browser 范式
+        #   用法: python logInt.py --project [项目根目录]
+        _pj_root = ''
+        _pj_src = ''
+        for _i, _a in enumerate(sys.argv):
+            if _a == '--project' and _i + 1 < len(sys.argv):
+                _nxt = sys.argv[_i + 1]
+                if not _nxt.startswith('-'):
+                    _pj_root = _nxt
+            elif _a == '--source-root' and _i + 1 < len(sys.argv):
+                _pj_src = sys.argv[_i + 1]
+        try:
+            from logsys import project_browser as _pbrowser
+            sys.exit(_pbrowser.launch(_pj_root, _pj_src))
+        except Exception as e:
+            import traceback
+            handle_exception(type(e), e, e.__traceback__, "项目浏览器")
+            sys.exit(1)
     if '--quicklook' in sys.argv:
         # quick look 快速解释: --quicklook <井文件夹> 或 --quicklook (弹对话框)
         # 可选 --quicklook-config <格式文件>：甲方格式配置文件，未指定按默认参考格式
@@ -21561,6 +21587,11 @@ if __name__ == "__main__":
             _sel2 = select_startup_task()
             if _sel2 is None:
                 print("已取消，未执行。")
+                sys.exit(0)
+            if _sel2.get('task') == 'project':
+                # 【2026-11-11】项目浏览器入口
+                from logsys import project_browser as _pbrowser
+                _pbrowser.launch()
                 sys.exit(0)
             if _sel2.get('task') == 'quicklook':
                 quicklook_well(_sel2.get('well_dir'), config_file=_sel2.get('config'),

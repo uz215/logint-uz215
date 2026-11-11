@@ -1,0 +1,680 @@
+# -*- coding: utf-8 -*-
+"""项目-井数据模型：Project → Well → Dataset → Variable 四层树。
+
+借鉴 Techlog 2019.2 Project Browser 的对象模型（见官方帮助：
+  Project browser / Common actions、Filter the project browser、
+  Techlog project databases、What is a well, dataset and variable），
+  映射到本系统的测井解释领域对象：
+
+  | Techlog          | 本系统                                  |
+  |------------------|------------------------------------------|
+  | Project          | 项目根目录（多井容器，如 output/）         |
+  | Well             | 井目录（output/<井名>/）                 |
+  | Dataset          | 数据集（产物文件族：曲线/层表/成果LAS…）  |
+  | Variable         | 变量（数据集内的曲线列）                  |
+
+设计原则（沿用 logsys 约定）：
+- 纯逻辑，不依赖 tkinter，可独立单测；
+- 只读扫描，不写项目目录；
+- 变量三色规则与 Techlog 一致：
+    黑 = 同时具备 family 与 unit；灰 = 缺其一；红 = 两者皆缺。
+- 所有阈值来自本模块顶部常量表，调用方不硬编码。
+"""
+from __future__ import annotations
+
+import csv
+import glob
+import json
+import os
+import re
+from dataclasses import dataclass, field, asdict
+from typing import Any
+
+# --------------------------------------------------------------------------
+# 曲线族定义：Techlog 的 "family" 在本系统对应标准曲线族/解释族。
+# family 决定显示方式（对数/线性/岩性填充）与插值策略。
+# --------------------------------------------------------------------------
+
+#: 岩石物理标准曲线族：family -> (显示名, 单位, 线性/对数)
+ROCK_PHYSICS_FAMILIES: dict[str, tuple[str, str, str]] = {
+    'MD':   ('测量深度', 'm', 'linear'),
+    'GR':   ('自然伽马', 'API', 'linear'),
+    'DEN':  ('密度', 'g/cm3', 'linear'),
+    'CNL':  ('中子', 'v/v', 'linear'),
+    'DT':   ('声波时差', 'us/ft', 'linear'),
+    'RT':   ('电阻率', 'ohm.m', 'log'),
+    'CAL':  ('井径', 'in', 'linear'),
+    'PE':   ('光电效应', 'b/e', 'linear'),
+    'SP':   ('自然电位', 'mV', 'linear'),
+    'LLD':  ('深电阻率', 'ohm.m', 'log'),
+    'LLS':  ('浅电阻率', 'ohm.m', 'log'),
+    'MSFL': ('微电阻率', 'ohm.m', 'log'),
+    'PERM': ('渗透率', 'mD', 'log'),
+    'TVD':  ('真垂深', 'm', 'linear'),
+    'AZIM': ('方位角', 'deg', 'linear'),
+    'DEVI': ('井斜', 'deg', 'linear'),
+}
+
+#: 派生/解释族：由计算与解释产生，非原始测量曲线
+DERIVED_FAMILIES: dict[str, tuple[str, str, str]] = {
+    'POR':     ('孔隙度', 'v/v', 'linear'),
+    'SW':      ('含水饱和度', 'v/v', 'linear'),
+    'So':      ('含油饱和度', 'v/v', 'linear'),
+    'Sg':      ('含气饱和度', 'v/v', 'linear'),
+    'PHI':     ('有效孔隙度', 'v/v', 'linear'),
+    'VSH':     ('泥质含量', 'v/v', 'linear'),
+    'VClay':   ('粘土含量', 'v/v', 'linear'),
+    'VQuartz': ('石英含量', 'v/v', 'linear'),
+    'VCalcite': ('方解石含量', 'v/v', 'linear'),
+    'VDolomite': ('白云石含量', 'v/v', 'linear'),
+    'RTI':     ('侵入带电阻率', 'ohm.m', 'log'),
+    'NDI':     ('侵入带电导率', 'mS/m', 'linear'),
+    'GSI':     ('岩性指数', '', 'linear'),
+    'CGI':     ('几何因子', '', 'linear'),
+}
+
+#: 解释族：定性/结论类变量，对应 Techlog 的 "qualitative log" / "flag curve"
+INTERPRETATION_FAMILIES: dict[str, tuple[str, str, str]] = {
+    'LITHOLOGY':      ('岩性', '', 'qualitative'),
+    'LITH_MC_CONF':   ('岩性置信度', '', 'qualitative'),
+    'INTERPRETATION': ('解释结论', '', 'qualitative'),
+    'FACIES':         ('沉积相', '', 'qualitative'),
+    'LAYER_ID':       ('层号', '', 'flag'),
+    'LAYER_LABEL':    ('层名', '', 'flag'),
+    'IS_CASING':      ('套管井段', '', 'flag'),
+    'VALID_CURVES_COUNT': ('有效曲线数', '', 'flag'),
+}
+
+#: 井段/工具族
+TOOL_FAMILIES: dict[str, tuple[str, str, str]] = {
+    'BS':      ('钻头尺寸', 'in', 'linear'),
+    'CALS':    ('井径（计算）', 'in', 'linear'),
+    'DRHO':    ('密度校正', 'g/cm3', 'linear'),
+    'TENS':    ('张力', 'lbf', 'linear'),
+    'SPED':    ('井底温度', 'degC', 'linear'),
+    'MTEM':    ('测量温度', 'degC', 'linear'),
+}
+
+#: 内部质量标记列（不作为用户变量展示）
+INTERNAL_COLUMNS = {
+    '_POROSITY_VALID', 'SPRING_QC', 'VSH_PREV', 'VSH_GR_CAL',
+    'INTERPRETATION_SCORE', 'DISTANCE', 'HIT_RATE', 'DIRECTION_SCORE',
+    'BETTER_COUNT', 'PHI_DISP', 'SW_DISP', 'RHOB_corrected', 'MSFL_corrected',
+}
+
+#: 全部族表（查找优先级：岩石物理 > 派生 > 解释 > 工具）
+ALL_FAMILIES: dict[str, tuple[str, str, str]] = {
+    **ROCK_PHYSICS_FAMILIES, **DERIVED_FAMILIES,
+    **INTERPRETATION_FAMILIES, **TOOL_FAMILIES,
+}
+
+#: 常见单位别名（用于从 LAS 头或 processed.csv 推断单位）
+UNIT_HINTS: dict[str, str] = {
+    'GR': 'API', 'DEN': 'g/cm3', 'CNL': 'v/v', 'DT': 'us/ft',
+    'RT': 'ohm.m', 'CAL': 'in', 'PE': 'b/e', 'SP': 'mV',
+    'POR': 'v/v', 'SW': 'v/v', 'VSH': 'v/v',
+}
+
+#: 数据集类型 → Techlog 数据集图标语义
+DATASET_TYPES = {
+    'curve':    ('连续深度增量曲线集', 'curve'),
+    'interval': ('顶底深度边界层集', 'interval'),
+    'point':    ('点数据集', 'point'),
+    'log':      ('解释成果 LAS', 'log'),
+    'table':    ('层段表', 'table'),
+    'meta':     ('井元信息', 'meta'),
+    'image':    ('图件', 'image'),
+    'report':   ('报告', 'report'),
+}
+
+#: 井状态（Techlog 用图标区分；本系统用状态词 + 颜色）
+WELL_STATUS = {
+    'complete':  ('已解释', 'ok'),
+    'partial':   ('部分完成', 'warn'),
+    'empty':     ('仅建目录', 'muted'),
+    'no_source': ('缺原始资料', 'error'),
+}
+
+
+def _norm(name: str) -> str:
+    """列名归一：去空白、转大写。"""
+    return str(name or '').strip().upper()
+
+
+def classify_variable(col: str) -> dict[str, Any]:
+    """判定单个变量（曲线列）的族、单位与 Techlog 三色状态。
+
+    Techlog 规则（官方帮助 Project browser / Common actions）：
+      黑色 = 既有 family 又有 unit
+      灰色 = 缺 family 或缺 unit 之一
+      红色 = 两者皆缺
+    """
+    key = _norm(col)
+    if key in INTERNAL_COLUMNS:
+        return {'name': col, 'key': key, 'family': None, 'family_name': None,
+                'unit': None, 'scale': None, 'kind': 'internal', 'color': 'muted',
+                'complete': False}
+
+    fam = ALL_FAMILIES.get(key)
+    if fam:
+        display, unit, scale = fam
+        color = 'ok' if unit else 'warn'
+        return {'name': col, 'key': key, 'family': display, 'family_name': display,
+                'unit': unit, 'scale': scale, 'kind': 'curve',
+                'color': color, 'complete': bool(unit)}
+
+    # 未登记的列：按命名规则推断单位，仍无族 → 红色
+    unit = UNIT_HINTS.get(key)
+    if unit:
+        return {'name': col, 'key': key, 'family': None, 'family_name': None,
+                'unit': unit, 'scale': 'linear', 'kind': 'unknown',
+                'color': 'warn', 'complete': False}
+    return {'name': col, 'key': key, 'family': None, 'family_name': None,
+            'unit': None, 'scale': None, 'kind': 'unknown',
+            'color': 'error', 'complete': False}
+
+
+@dataclass
+class Variable:
+    """变量（曲线列）。"""
+    name: str
+    family: str | None = None
+    unit: str | None = None
+    scale: str | None = None
+    kind: str = 'curve'
+    color: str = 'error'
+    description: str = ''
+    source: str = ''
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass
+class Dataset:
+    """数据集：一组同类产物（Techlog 的 dataset 概念）。"""
+    name: str
+    path: str = ''
+    dtype: str = 'curve'
+    icon: str = 'curve'
+    variables: list[Variable] = field(default_factory=list)
+    size: int = 0
+    mtime: float = 0.0
+    n_rows: int = 0
+    n_cols: int = 0
+    depth_min: float | None = None
+    depth_max: float | None = None
+    note: str = ''
+
+    @property
+    def complete(self) -> bool:
+        """Techlog 语义：变量全部齐备（族+单位）才算完整。"""
+        vs = [v for v in self.variables if v.kind != 'internal']
+        return bool(vs) and all(v.complete for v in vs)
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d['complete'] = self.complete
+        return d
+
+
+@dataclass
+class Well:
+    """井：Techlog 的 well 概念。"""
+    name: str
+    path: str = ''
+    datasets: list[Dataset] = field(default_factory=list)
+    info: dict = field(default_factory=dict)
+    status: str = 'empty'
+    status_label: str = ''
+    status_color: str = 'muted'
+    source_dir: str = ''
+    depth_min: float | None = None
+    depth_max: float | None = None
+    layer_count: int = 0
+    fluid_dist: dict = field(default_factory=dict)
+    last_run: str = ''
+
+    @property
+    def complete(self) -> bool:
+        return self.status == 'complete'
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d['complete'] = self.complete
+        return d
+
+
+@dataclass
+class Project:
+    """项目：一组井的容器。"""
+    name: str
+    path: str = ''
+    wells: list[Well] = field(default_factory=list)
+    groups: dict = field(default_factory=dict)
+
+    def to_dict(self) -> dict:
+        return {'name': self.name, 'path': self.path, 'wells': [w.to_dict() for w in self.wells],
+                'groups': self.groups}
+
+
+# --------------------------------------------------------------------------
+# 扫描
+# --------------------------------------------------------------------------
+
+#: 井目录识别：目录下出现任一产物即视为井
+_WELL_MARKERS = ('*_processed.csv', '*_interpreted.LAS', '*info.json',
+                  '*_interpretation_layers.csv', '*_run_manifest.json')
+
+#: 数据集识别规则：glob → (数据集名, 类型)
+_DATASET_RULES = [
+    ('*_processed.csv',        '解释曲线集',   'curve'),
+    ('*_interpreted.LAS',      '解释成果',     'log'),
+    ('*_interpretation_layers.csv', '层段表',   'table'),
+    ('*_interpretation_layers_ML.csv', '机器学习层表', 'table'),
+    ('*_processed_SYT5945_report_*.md', '标准化报告', 'report'),
+    ('*_report.html',          '综合报告',     'report'),
+    ('*_quicklook_*.pdf',      '快速解释图',   'image'),
+    ('*_composite_log_*.pdf',  '综合解释图',   'image'),
+    ('*_crossplot_*.pdf',      '交汇图',       'image'),
+    ('*info.json',             '井信息',       'meta'),
+    ('*_run_manifest.json',    '运行清单',     'meta'),
+]
+
+
+def _first(paths: list[str]) -> str:
+    return paths[0] if paths else ''
+
+
+def _latest(paths: list[str]) -> str:
+    """取最新一个（按 mtime）。"""
+    if not paths:
+        return ''
+    return max(paths, key=lambda p: os.path.getmtime(p))
+
+
+def _read_csv_header(path: str, max_rows: int = 200) -> tuple[list[str], int]:
+    """读 CSV 表头 + 行数（流式，不整表载入）。"""
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace', newline='') as f:
+            rd = csv.reader(f)
+            header = next(rd, [])
+            n = 0
+            for _ in rd:
+                n += 1
+                if n >= max_rows:
+                    break
+        return header, n
+    except Exception:
+        return [], 0
+
+
+def _scan_variables_from_csv(path: str) -> list[Variable]:
+    """从 processed.csv 表头生成变量列表，并标出解释/质量列。"""
+    header, nrows = _read_csv_header(path)
+    out: list[Variable] = []
+    for col in header:
+        if not col:
+            continue
+        info = classify_variable(col)
+        out.append(Variable(name=info['name'], family=info['family'],
+                            unit=info['unit'], scale=info['scale'],
+                            kind=info['kind'], color=info['color'],
+                            source=os.path.basename(path)))
+    return out
+
+
+def _scan_variables_from_las(path: str) -> list[Variable]:
+    """从成果 LAS 读取曲线与单位（不引入 lasio 依赖，失败则跳过）。"""
+    out: list[Variable] = []
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            in_curves = False
+            for _ in range(4000):
+                line = f.readline()
+                if not line:
+                    break
+                s = line.strip()
+                if not s:
+                    continue
+                up = s.upper()
+                if up.startswith('~C'):
+                    in_curves = True
+                    continue
+                if up.startswith('~'):
+                    in_curves = False
+                    continue
+                if not in_curves:
+                    continue
+                if s.startswith('#') or s.startswith('~'):
+                    continue
+                parts = [p.strip() for p in s.split('.')]  # name.unit
+                if len(parts) < 2:
+                    continue
+                nm, unit = parts[0], parts[1]
+                if not nm or nm.startswith('~'):
+                    continue
+                info = classify_variable(nm)
+                if not info['unit'] and unit and unit not in ('?', ''):
+                    info['unit'] = unit
+                    info['color'] = 'ok' if info['family'] else 'warn'
+                    info['complete'] = bool(info['family'])
+                out.append(Variable(name=nm, family=info['family'], unit=info['unit'],
+                                    scale=info['scale'], kind=info['kind'],
+                                    color=info['color'], source=os.path.basename(path)))
+    except Exception:
+        pass
+    return out
+
+
+def _read_info(path: str) -> dict:
+    """读井信息 json（扁平化为便于展示的键值对）。"""
+    try:
+        raw = json.load(open(path, encoding='utf-8'))
+    except Exception:
+        return {}
+    flat: dict[str, str] = {}
+    for section, val in raw.items():
+        if section.startswith('_') or not isinstance(val, dict):
+            continue
+        for k, v in val.items():
+            if k.startswith('_'):
+                continue
+            if v in (None, '', [], {}):
+                continue
+            flat['%s/%s' % (section, k)] = v
+    flat['_meta_well'] = raw.get('_meta', {}).get('well', '')
+    return flat
+
+
+def _read_manifest(path: str) -> dict:
+    try:
+        return json.load(open(path, encoding='utf-8'))
+    except Exception:
+        return {}
+
+
+def _read_layers(path: str) -> tuple[int, dict]:
+    """读层表：返回 (层数, 流体分布)。"""
+    try:
+        n = 0
+        dist: dict[str, int] = {}
+        with open(path, 'r', encoding='utf-8', errors='replace', newline='') as f:
+            rd = csv.DictReader(f)
+            for row in rd:
+                n += 1
+                key = (row.get('INTERPRETATION') or row.get('FLUID_FINAL')
+                       or row.get('PLATE_FLUID') or '').strip().upper()
+                if key:
+                    dist[key] = dist.get(key, 0) + 1
+        return n, dist
+    except Exception:
+        return 0, {}
+
+
+def _depth_range_from_csv(path: str) -> tuple[float | None, float | None]:
+    """从 processed.csv 估算深度范围（只读首列）。"""
+    lo = hi = None
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace', newline='') as f:
+            rd = csv.reader(f)
+            header = next(rd, [])
+            try:
+                di = [i for i, h in enumerate(header) if _norm(h) == 'MD']
+                if not di:
+                    return None, None
+                di = di[0]
+            except Exception:
+                return None, None
+            for row in rd:
+                if len(row) <= di:
+                    continue
+                try:
+                    v = float(row[di])
+                except Exception:
+                    continue
+                if lo is None or v < lo:
+                    lo = v
+                if hi is None or v > hi:
+                    hi = v
+    except Exception:
+        return None, None
+    return lo, hi
+
+
+def scan_well(well_dir: str, source_dir: str = '') -> Well:
+    """扫描单口井，产出 Well 对象（数据集 + 变量 + 状态）。
+
+    只读；任何单步失败都降级为空集而不抛错（与 logsys 约定一致）。
+    """
+    name = os.path.basename(os.path.normpath(well_dir))
+    w = Well(name=name, path=well_dir, source_dir=source_dir)
+
+    for pattern, ds_name, dtype in _DATASET_RULES:
+        hits = sorted(glob.glob(os.path.join(well_dir, pattern)))
+        if not hits:
+            continue
+        p = _latest(hits)
+        try:
+            st = os.stat(p)
+        except Exception:
+            continue
+        ds = Dataset(name=ds_name, path=p, dtype=dtype,
+                     icon=DATASET_TYPES.get(dtype, ('数据', 'curve'))[1],
+                     size=st.st_size, mtime=st.st_mtime)
+        if dtype == 'curve':
+            ds.variables = _scan_variables_from_csv(p)
+            ds.n_cols = len(ds.variables)
+            lo, hi = _depth_range_from_csv(p)
+            ds.depth_min, ds.depth_max = lo, hi
+            w.depth_min = lo if lo is not None else w.depth_min
+            w.depth_max = hi if hi is not None else w.depth_max
+        elif dtype == 'log':
+            ds.variables = _scan_variables_from_las(p)
+            ds.n_cols = len(ds.variables)
+        elif dtype == 'table':
+            n, dist = _read_layers(p)
+            ds.n_rows = n
+            # 规则层表与 ML 层表并存时：层数取两者之和，流体分布合并
+            if '层' in ds_name:
+                w.layer_count += n
+                for k, v in dist.items():
+                    w.fluid_dist[k] = w.fluid_dist.get(k, 0) + v
+            ds.variables = [Variable(name=k, family='解释结论', unit='', scale='qualitative',
+                                     kind='qualitative', color='warn')
+                            for k in sorted(dist)]
+        elif dtype == 'meta':
+            if '井信息' in ds_name:
+                w.info = _read_info(p)
+            elif '运行清单' in ds_name:
+                mf = _read_manifest(p)
+                w.last_run = mf.get('created_at', '')
+                # manifest 仅作兜底：层数以层表 CSV 实测为准
+                if not w.layer_count:
+                    lay = mf.get('layers') or {}
+                    if lay.get('rules'):
+                        w.layer_count = lay['rules'].get('n', 0)
+                        w.fluid_dist = lay['rules'].get('dist', {})
+        w.datasets.append(ds)
+
+    # 状态判定
+    has_curve = any(d.dtype == 'curve' for d in w.datasets)
+    has_log = any(d.dtype == 'log' for d in w.datasets)
+    has_layer = any(d.dtype == 'table' for d in w.datasets)
+    has_src = bool(source_dir) and os.path.isdir(source_dir)
+    if has_curve and (has_log or has_layer):
+        key = 'complete'
+    elif has_curve or has_log:
+        key = 'partial'
+    elif has_src:
+        key = 'no_source'
+    else:
+        key = 'empty'
+    label, color = WELL_STATUS[key]
+    w.status, w.status_label, w.status_color = key, label, color
+    return w
+
+
+def scan_project(root: str, source_root: str = '') -> Project:
+    """扫描项目根目录，产出 Project（井集合）。
+
+    root        —— 产物根（每子目录 = 一口井）
+    source_root —— 原始资料根（可选，用于标记"待解释"井）
+    """
+    root = os.path.abspath(root)
+    p = Project(name=os.path.basename(root) or root, path=root)
+    if not os.path.isdir(root):
+        return p
+    for entry in sorted(os.listdir(root)):
+        d = os.path.join(root, entry)
+        if not os.path.isdir(d):
+            continue
+        if entry.startswith('.') or entry.startswith('_'):
+            continue
+        src = ''
+        if source_root:
+            cand = os.path.join(source_root, entry)
+            if os.path.isdir(cand):
+                src = cand
+        p.wells.append(scan_well(d, src))
+    return p
+
+
+# --------------------------------------------------------------------------
+# 过滤 / 分组 / 条件选择（Techlog Project browser 能力移植）
+# --------------------------------------------------------------------------
+
+def filter_wells(project: Project, text: str = '', dataset_type: str = '',
+                 variable: str = '', status: str = '') -> list[Well]:
+    """按 Techlog Filter tab 语义过滤井。
+
+    text         —— 井名/数据集名/变量名 关键字（不区分大小写）
+    dataset_type —— 数据集类型筛选（curve/log/table/meta/image/report）
+    variable     —— 变量关键字
+    status       —— 井状态（complete/partial/empty/no_source）
+    """
+    kw = (text or '').strip().lower()
+    kvar = (variable or '').strip().lower()
+    out: list[Well] = []
+    for w in project.wells:
+        if status and w.status != status:
+            continue
+        if kw:
+            hit = kw in w.name.lower()
+            if not hit:
+                for d in w.datasets:
+                    if kw in d.name.lower():
+                        hit = True
+                        break
+            if not hit and kvar:
+                for d in w.datasets:
+                    if any(kvar in v.name.lower() for v in d.variables):
+                        hit = True
+                        break
+            if not hit:
+                continue
+        if dataset_type:
+            if not any(d.dtype == dataset_type for d in w.datasets):
+                continue
+        if kvar:
+            if not any(any(kvar in v.name.lower() for v in d.variables)
+                       for d in w.datasets):
+                continue
+        out.append(w)
+    return out
+
+
+def group_wells(wells: list[Well], key: str = 'status') -> dict[str, list[Well]]:
+    """分组（Techlog Grouping function 的简化版）。
+
+    key —— 'status'（按状态）| 'country'（按国别）| 'field'（按油田/区块）
+    """
+    groups: dict[str, list[Well]] = {}
+    for w in wells:
+        if key == 'country':
+            g = str(w.info.get('井信息/country') or '未标注国别')
+        elif key == 'field':
+            g = str(w.info.get('井信息/field_name') or '未标注区块')
+        else:
+            g = w.status_label or w.status
+        groups.setdefault(g, []).append(w)
+    return groups
+
+
+def conditional_select(project: Project, family: str = '', unit: str = '',
+                       kind: str = '') -> dict:
+    """条件选择（Techlog Conditional selection）：按族/单位/类型挑变量。
+
+    返回 {'<井名>': {'<数据集名>': [变量名, ...]}}
+    """
+    res: dict[str, dict[str, list[str]]] = {}
+    for w in project.wells:
+        for d in w.datasets:
+            picked = []
+            for v in d.variables:
+                if kind and v.kind != kind:
+                    continue
+                if family and (v.family or '') != family:
+                    continue
+                if unit and (v.unit or '') != unit:
+                    continue
+                picked.append(v.name)
+            if picked:
+                res.setdefault(w.name, {})[d.name] = picked
+    return res
+
+
+# --------------------------------------------------------------------------
+# 汇总
+# --------------------------------------------------------------------------
+
+def summarize(project: Project) -> dict:
+    """项目汇总统计（用于状态栏与属性面板）。"""
+    total = len(project.wells)
+    by_status: dict[str, int] = {}
+    for w in project.wells:
+        by_status[w.status_label] = by_status.get(w.status_label, 0) + 1
+    ds_total = sum(len(w.datasets) for d in [project] for w in d.wells)
+    var_total = sum(len(ds.variables) for w in project.wells for ds in w.datasets)
+    layers = sum(w.layer_count for w in project.wells)
+    return {
+        'project': project.name,
+        'path': project.path,
+        'wells': total,
+        'by_status': by_status,
+        'datasets': ds_total,
+        'variables': var_total,
+        'layers': layers,
+    }
+
+
+# --------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------
+
+def _cli():
+    import argparse
+    ap = argparse.ArgumentParser(description='项目-井模型扫描')
+    ap.add_argument('--root', required=True, help='项目根目录')
+    ap.add_argument('--source-root', default='', help='原始资料根目录（可选）')
+    ap.add_argument('--json', action='store_true', help='输出完整 JSON')
+    args = ap.parse_args()
+    p = scan_project(args.root, args.source_root)
+    s = summarize(p)
+    if args.json:
+        print(json.dumps(p.to_dict(), ensure_ascii=False, indent=2))
+        return 0
+    print('项目: %s  (%s)' % (s['project'], s['path']))
+    print('井数 %d  数据集 %d  变量 %d  层数 %d' %
+          (s['wells'], s['datasets'], s['variables'], s['layers']))
+    print('状态分布:', json.dumps(s['by_status'], ensure_ascii=False))
+    print()
+    for w in p.wells:
+        print('  [%-6s] %-28s 数据集 %2d  层 %4d  %s' %
+              (w.status_label, w.name, len(w.datasets), w.layer_count, w.last_run))
+    return 0
+
+
+if __name__ == '__main__':
+    import sys
+    sys.exit(_cli())
