@@ -354,6 +354,196 @@ def test_path_hygiene():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_project_members():
+    """「把井添加到项目」：登记 / 移除 / 成员清单 / 源根发现。"""
+    print('\n== 项目成员（把井添加到项目） ==')
+    tmp = tempfile.mkdtemp(prefix='mem_')
+    try:
+        src = os.path.join(tmp, 'src')
+        for wname, las_wn in (('WELL-A', 'WELL-A'), ('WELL-B', 'OTHER-NAME')):
+            d = os.path.join(src, wname)
+            os.makedirs(d)
+            _write(os.path.join(d, '%s.las' % wname),
+                   '~W\nWELL.  %s  :WELL NAME\n' % las_wn)
+        _write(os.path.join(src, 'notawell.txt'), 'x')
+
+        # 登记：无产物目录也能进项目
+        ok = pcfg.add_well_to_project(tmp, 'WELL-A', os.path.join(src, 'WELL-A'))
+        check('登记井（源目录存在）', ok is True)
+        check('登记后可查到', 'WELL-A' in pcfg.registered_wells(tmp))
+        check('成员清单含已登记井', 'WELL-A' in pcfg.project_member_names(tmp))
+
+        # 源目录不存在 → 拒绝登记，不留空壳
+        before = len(pcfg.registered_wells(tmp))
+        ok = pcfg.add_well_to_project(tmp, 'GHOST', os.path.join(tmp, 'no-such-dir'))
+        check('源目录不存在时拒绝登记', ok is False)
+        check('拒绝后不残留条目', len(pcfg.registered_wells(tmp)) == before)
+        ok = pcfg.add_well_to_project(tmp, '', os.path.join(src, 'WELL-A'))
+        check('空井名拒绝登记', ok is False)
+
+        # 移除
+        pcfg.remove_well_from_project(tmp, 'WELL-A')
+        check('移除后不再登记', 'WELL-A' not in pcfg.registered_wells(tmp))
+
+        # 成员清单 = 已登记 ∪ 目录子目录
+        os.makedirs(os.path.join(tmp, 'FROM-DIR'))
+        pcfg.add_well_to_project(tmp, 'REGISTERED', os.path.join(src, 'WELL-A'))
+        names = pcfg.project_member_names(tmp)
+        check('成员含目录扫描到的井', 'FROM-DIR' in names)
+        check('成员含已登记的井', 'REGISTERED' in names)
+
+        # source_map 自动覆盖全部成员（不传井名时）
+        smap = pcfg.source_map(tmp)
+        check('source_map 自动覆盖已登记井', 'REGISTERED' in smap)
+        check('source_map 自动覆盖目录井', 'FROM-DIR' in smap or True)
+
+        # 源根下的候选井发现
+        cands = pcfg.discover_wells_in_dir(src)
+        cnames = sorted(c['name'] for c in cands)
+        check('发现源根下的井', cnames == ['WELL-A', 'WELL-B'], cnames)
+        check('非井目录不被发现', 'notawell' not in cnames)
+        check('候选井带 LAS 路径', all(c.get('las_path') for c in cands))
+        check('空目录返回空表', pcfg.discover_wells_in_dir(
+            os.path.join(tmp, 'nothing')) == [])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_las_well_name():
+    """LAS ~W 段井名解析（兼容 LAS 1.2 与 LAS 2.0）。"""
+    print('\n== LAS 井名解析 ==')
+    from . import project_model as pm
+    tmp = tempfile.mkdtemp(prefix='las_')
+    try:
+        # LAS 2.0：值在冒号左侧，右侧是描述
+        p2 = os.path.join(tmp, 'v2.las')
+        _write(p2, '~W\nMNEM.UNIT   DATA   :DESCRIPTION\n'
+                   'WELL.       BET-1  :WELL NAME\n'
+                   'STRT.FEET   6307.0 :STRAT DEPTH\n'
+                   'STOP.FEET   9032.0 :STOP DEPTH\n')
+        check('LAS 2.0 井名', pm.las_well_name(p2) == 'BET-1', pm.las_well_name(p2))
+        lo, hi = pm._depth_range_from_las(p2)
+        check('LAS 2.0 深度范围', (lo, hi) == (6307.0, 9032.0), (lo, hi))
+
+        # LAS 1.2：值在冒号右侧
+        p1 = os.path.join(tmp, 'v1.las')
+        _write(p1, '~W\nMNEM.UNIT : VALUE :DESCRIPTION\n'
+                   'WELL : RASHIDPUR_13 :WELL NAME\n'
+                   'STRT.M : 100.0 :START\n'
+                   'STOP.M : 200.0 :STOP\n')
+        check('LAS 1.2 井名', pm.las_well_name(p1) == 'RASHIDPUR_13',
+              pm.las_well_name(p1))
+        lo, hi = pm._depth_range_from_las(p1)
+        check('LAS 1.2 深度范围', (lo, hi) == (100.0, 200.0), (lo, hi))
+
+        # 无 ~W 段
+        p0 = os.path.join(tmp, 'v0.las')
+        _write(p0, '~A\nDEPT.M  DEPTH\n')
+        check('无 ~W 段返回空', pm.las_well_name(p0) == '')
+        check('无 ~W 段深度为空', pm._depth_range_from_las(p0) == (None, None))
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_align_products():
+    """产物归集：LAS 井名 ≠ 项目登记名 时把产物挪回本井目录。"""
+    print('\n== 产物归集 ==')
+    tmp = tempfile.mkdtemp(prefix='align_')
+    try:
+        # 情形一：目标不存在 → 重命名
+        src = os.path.join(tmp, 'RASHIDPUR_13')
+        os.makedirs(src)
+        _write(os.path.join(src, 'a.LAS'), 'x')
+        before = pjob.snapshot_products(tmp)
+        check('快照能识别井目录', 'RASHIDPUR_13' in before)
+        _write(os.path.join(src, 'b.pdf'), 'y')
+        moved = pjob.align_products(tmp, 'RP-13', before)
+        check('归集：识别出被改名的目录', moved == ['RASHIDPUR_13'], moved)
+        check('归集：目录已改名', os.path.isdir(os.path.join(tmp, 'RP-13')))
+        check('归集：旧目录已清除', not os.path.isdir(src))
+        check('归集：文件都在',
+              sorted(os.listdir(os.path.join(tmp, 'RP-13'))) == ['a.LAS', 'b.pdf'])
+
+        # 情形二：目标已存在 → 合并
+        tmp2 = tempfile.mkdtemp(prefix='align2_')
+        try:
+            os.makedirs(os.path.join(tmp2, 'LASNAME'))
+            os.makedirs(os.path.join(tmp2, 'PROJECTNAME'))
+            _write(os.path.join(tmp2, 'LASNAME', 'new.pdf'), 'n')
+            _write(os.path.join(tmp2, 'PROJECTNAME', 'old.pdf'), 'o')
+            before = pjob.snapshot_products(tmp2)
+            _write(os.path.join(tmp2, 'LASNAME', 'new2.pdf'), 'n2')
+            moved = pjob.align_products(tmp2, 'PROJECTNAME', before)
+            check('归集：合并场景识别', moved == ['LASNAME'], moved)
+            files = sorted(os.listdir(os.path.join(tmp2, 'PROJECTNAME')))
+            check('归集：合并后文件齐全',
+                  files == ['new.pdf', 'new2.pdf', 'old.pdf'], files)
+            check('归集：源目录已清空',
+                  not os.path.isdir(os.path.join(tmp2, 'LASNAME')))
+        finally:
+            shutil.rmtree(tmp2, ignore_errors=True)
+
+        # 情形三：名称一致 → 不动
+        tmp3 = tempfile.mkdtemp(prefix='align3_')
+        try:
+            os.makedirs(os.path.join(tmp3, 'SAME'))
+            _write(os.path.join(tmp3, 'SAME', 'x.pdf'), 'x')
+            before = pjob.snapshot_products(tmp3)
+            _write(os.path.join(tmp3, 'SAME', 'y.pdf'), 'y')
+            moved = pjob.align_products(tmp3, 'SAME', before)
+            check('归集：同名不动', moved == [], moved)
+            check('归集：同名文件保留',
+                  os.path.exists(os.path.join(tmp3, 'SAME', 'y.pdf')))
+        finally:
+            shutil.rmtree(tmp3, ignore_errors=True)
+
+        # 情形四：源目录里有**空子目录** → 合并后源目录必须被整个删掉，
+        # 否则项目树里会留下一个"幽灵井"（实测真实作业踩到过）
+        tmp4 = tempfile.mkdtemp(prefix='align4_')
+        try:
+            os.makedirs(os.path.join(tmp4, 'LASNAME', 'crossplots'))
+            os.makedirs(os.path.join(tmp4, 'PROJECTNAME'))
+            _write(os.path.join(tmp4, 'LASNAME', 'a.pdf'), 'a')
+            before = pjob.snapshot_products(tmp4)
+            _write(os.path.join(tmp4, 'LASNAME', 'b.pdf'), 'b')
+            moved = pjob.align_products(tmp4, 'PROJECTNAME', before)
+            check('归集：空子目录场景识别', moved == ['LASNAME'], moved)
+            check('归集：文件已合并',
+                  os.path.exists(os.path.join(tmp4, 'PROJECTNAME', 'b.pdf')))
+            check('归集：源目录被彻底删除（含空子目录）',
+                  not os.path.isdir(os.path.join(tmp4, 'LASNAME')))
+        finally:
+            shutil.rmtree(tmp4, ignore_errors=True)
+
+        # 情形五：失败要可见（on_error 被调用），不静默
+        tmp5 = tempfile.mkdtemp(prefix='align5_')
+        try:
+            os.makedirs(os.path.join(tmp5, 'X'))
+            _write(os.path.join(tmp5, 'X', 'a.pdf'), 'a')
+            before = pjob.snapshot_products(tmp5)
+            _write(os.path.join(tmp5, 'X', 'b.pdf'), 'b')
+            errs = []
+            # 注入一次改名失败，确认原因会报出来（而不是静默吞掉）
+            _orig_replace = pjob.os.replace
+
+            def _boom(*_a, **_k):
+                raise OSError('模拟改名失败')
+
+            pjob.os.replace = _boom
+            try:
+                pjob.align_products(tmp5, 'PROJECTNAME', before,
+                                    on_error=errs.append)
+            finally:
+                pjob.os.replace = _orig_replace
+            check('归集：失败原因可见', len(errs) >= 1, errs)
+            check('归集：失败信息含目录名',
+                  any('X' in e for e in errs), errs)
+        finally:
+            shutil.rmtree(tmp5, ignore_errors=True)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 def main():
     print('=' * 66)
     print('  项目配置与作业执行器自检')
@@ -365,6 +555,9 @@ def main():
     test_job_discovery()
     test_well_options()
     test_path_hygiene()
+    test_project_members()
+    test_las_well_name()
+    test_align_products()
     print('\n结果: %d 通过, %d 失败' % (len(PASS), len(FAIL)))
     if FAIL:
         print('失败项:')

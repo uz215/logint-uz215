@@ -37,7 +37,7 @@ import subprocess
 import sys
 import threading
 import tkinter as tk
-from tkinter import filedialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from logsys import project_config as pcfg
 from logsys import project_job as pjob
@@ -99,6 +99,7 @@ class ProjectBrowser:
         self.project = pm.scan_project(self.root_dir, self.source_root)
         self._wells_by_iid: dict[str, pm.Well] = {}
         self._ds_by_iid: dict[str, pm.Dataset] = {}
+        self._root_iid = ''
         self._filter_after = None
         self._job_queue: queue.Queue = queue.Queue()
         self._job_running = False
@@ -191,6 +192,13 @@ class ProjectBrowser:
         bar.pack(fill='x', padx=10, pady=(6, 0))
         tk.Label(bar, text='项目作业', font=F_BOLD, bg=C_PANEL,
                  fg=C_TEXT).pack(side='left', padx=(0, 8))
+        # 【2026-11-11】把井添加到项目 —— 项目成员是显式动作，
+        # 而非"目录里有什么"。新井进来后即可在项目里对它跑作业。
+        ttk.Button(bar, text='添加井到项目…',
+                   command=self._menu_add_well).pack(side='left', padx=3)
+        ttk.Button(bar, text='批量添加井…',
+                   command=self._menu_add_wells_batch).pack(side='left', padx=3)
+        ttk.Separator(bar, orient='vertical').pack(side='left', fill='y', padx=8)
         ttk.Button(bar, text='批量快速解释图（待解释井）',
                    command=lambda: self._run_batch('quicklook')).pack(side='left', padx=3)
         ttk.Button(bar, text='批量综合解释（待解释井）',
@@ -237,6 +245,9 @@ class ProjectBrowser:
         self.stat_var = tk.StringVar()
         tk.Label(flt, textvariable=self.stat_var, font=F_SUB, bg=C_BG,
                  fg=C_MUTED).pack(side='right')
+        self._member_var = tk.StringVar(value='成员 0（已登记 0）')
+        tk.Label(flt, textvariable=self._member_var, font=F_SUB, bg=C_BG,
+                 fg=C_MUTED).pack(side='right', padx=(0, 12))
 
     def _build_body(self):
         body = tk.Frame(self.win, bg=C_BG)
@@ -286,7 +297,25 @@ class ProjectBrowser:
         self.menu.add_command(label='复制路径', command=self._menu_copy_path)
         self.menu.add_separator()
         self.menu.add_command(label='关联原始资料目录…', command=self._menu_bind_source)
+        self.menu.add_command(label='重命名井…', command=self._menu_rename_well)
+        self.menu.add_command(label='从项目移除', command=self._menu_remove_well)
         self.menu.add_command(label='按此条件选择变量…', command=self._menu_conditional)
+
+        # 项目根节点的右键菜单：项目成员管理入口
+        self.menu_project = tk.Menu(self.win, tearoff=0)
+        self.menu_project.add_command(label='添加井到项目…',
+                                      command=self._menu_add_well)
+        self.menu_project.add_command(label='批量添加井…',
+                                      command=self._menu_add_wells_batch)
+        self.menu_project.add_separator()
+        self.menu_project.add_command(label='批量快速解释图（待解释井）',
+                                      command=lambda: self._run_batch('quicklook'))
+        self.menu_project.add_command(label='批量综合解释（待解释井）',
+                                      command=lambda: self._run_batch('comprehensive'))
+        self.menu_project.add_separator()
+        self.menu_project.add_command(label='打开项目根…', command=self._pick_root)
+        self.menu_project.add_command(label='管理源根…', command=self._menu_manage_roots)
+        self.menu_project.add_command(label='刷新', command=self.refresh)
         self.tree.bind('<Button-3>', self._popup_menu)
 
         # ---- 右：Properties window ----
@@ -356,21 +385,20 @@ class ProjectBrowser:
 
     def refresh(self):
         """重建树（过滤/分组实时生效）。"""
-        # 井 → 原始资料目录 映射（显式绑定优先，其次按候选源根自动探测）
-        _names = []
-        try:
-            _names = [e for e in os.listdir(self.root_dir)
-                      if os.path.isdir(os.path.join(self.root_dir, e))]
-        except Exception:
-            _names = []
-        _smap = pcfg.source_map(self.root_dir, _names)
+        # 项目成员 = 已登记的井 ∪ 产物目录子目录。
+        # source_map 传 None 时自动取全部成员，确保"刚添加进项目、尚无产物"
+        # 的井也能拿到源目录（否则它永远进不了项目树）。
+        _smap = pcfg.source_map(self.root_dir)
         if self.source_root:
-            for n in _names:
+            for n in pcfg.project_member_names(self.root_dir):
                 if n not in _smap:
                     _c = os.path.join(self.source_root, n)
                     if os.path.isdir(_c):
                         _smap[n] = _c
-        self.project = pm.scan_project(self.root_dir, self.source_root, source_map=_smap)
+        _reg = {k: str(v.get('source_dir') or '')
+                for k, v in pcfg.registered_wells(self.root_dir).items()}
+        self.project = pm.scan_project(self.root_dir, self.source_root,
+                                       source_map=_smap, registered=_reg)
         self.path_var.set(self.root_dir)
         st_label = self.status_var.get()
         status = '' if st_label == '全部' else st_label
@@ -385,6 +413,7 @@ class ProjectBrowser:
             self.project.name, self.project.path), open=True,
             values=('项目', '%d 口井' % len(wells)), tags=('project',))
         self.tree.item(root_iid, image=None)
+        self._root_iid = root_iid
 
         groups = None
         if self.group_var.get() != '不分组':
@@ -405,6 +434,7 @@ class ProjectBrowser:
         self.stat_var.set('项目 %s ｜ 井 %d ｜ 数据集 %d ｜ 源 %d ｜ 变量 %d ｜ 层 %d ｜ 已关联源 %d ｜ 当前筛选 %d' % (
             s['project'], s['wells'], s['datasets'], s['source_datasets'],
             s['variables'], s['layers'], s['ready'], len(wells)))
+        self._member_var.set('成员 %d（已登记 %d）' % (s['wells'], len(_reg)))
         # 候选源根显示
         try:
             # 源根路径若在传递途中被损坏（如 ":\<数字>" 片段被吞），
@@ -493,10 +523,13 @@ class ProjectBrowser:
         self.prop_title.configure(text=w.name)
         self.prop_type.configure(text='井 · %s' % w.status_label)
         s = pm.summarize(self.project)
+        _registered = w.name in pcfg.registered_wells(self.root_dir)
         lines = [
             '井名        : %s' % w.name,
             '产物状态    : %s' % w.status_label,
             '源资料状态  : %s' % w.source_label,
+            '项目登记    : %s' % ('已登记（项目成员）' if _registered
+                                else '未登记（来自产物目录扫描）'),
             '产物目录    : %s' % w.path,
         ]
         if w.source_dir:
@@ -668,7 +701,8 @@ class ProjectBrowser:
         ok = runner.start(job_type, w.source_dir, self.root_dir,
                           las_file=opts.get('las', ''),
                           gas_file=opts.get('gas', ''),
-                          config_file=opts.get('config', ''))
+                          config_file=opts.get('config', ''),
+                          well_name=w.name)
         if not ok:
             self._job_running = False
             return
@@ -844,7 +878,8 @@ class ProjectBrowser:
         if not runner.start(job_type, w.source_dir, self.root_dir,
                             las_file=opts.get('las', ''),
                             gas_file=opts.get('gas', ''),
-                            config_file=opts.get('config', '')):
+                            config_file=opts.get('config', ''),
+                            well_name=w.name):
             self._job_running = False
             self._start_next_batch()
 
@@ -1001,14 +1036,341 @@ class ProjectBrowser:
         ttk.Button(b, text='执行选择', command=_run).pack(side='left')
         ttk.Button(b, text='关闭', command=win.destroy).pack(side='right')
 
+    # ---------------- 项目成员管理（把井添加到项目） ----------------
+
+    def _default_src_dir(self) -> str:
+        """默认打开的目录：已登记的第一个源目录，或候选源根的第一个。"""
+        try:
+            reg = pcfg.registered_wells(self.root_dir)
+            for v in reg.values():
+                d = str(v.get('source_dir') or '')
+                if d and os.path.isdir(d):
+                    return d
+            roots = pcfg.source_roots(self.root_dir)
+            for r in roots:
+                if os.path.isdir(r):
+                    return r
+        except Exception:
+            pass
+        return os.path.abspath(self.root_dir)
+
+    def _ask_add_wells(self, path: str, title: str = '添加井到项目'):
+        """弹出"添加到项目"对话框。
+
+        返回 ``[(井名, 源目录), ...]``；用户取消或无可添加项返回 ``None``。
+
+        井名即**产物落盘目录名**（logInt 用 ``output/<LAS井名>/``），也是
+        项目内标识。因此这里优先用 **LAS 里记录的井名**（读不到才用目录名），
+        登记名与产物目录名天然一致，闭环不需要靠事后归集来救。
+        """
+        cands = pcfg.discover_wells_in_dir(path)
+        if not cands:
+            messagebox.showwarning(
+                '添加井到项目',
+                '在所选目录里没有发现 LAS 文件：\n%s\n\n'
+                '请选择一口井的资料目录，或一个包含多口井的资料根目录。' % path)
+            return None
+
+        # 井名：LAS 记录井名优先（与产物目录同名），否则用目录名
+        used = set()
+        for c in cands:
+            las_wn = pm.las_well_name(c.get('las_path', '')) or ''
+            name = las_wn or c['name']
+            if name in used:          # 井名撞车 → 回退目录名
+                name = c['name']
+            used.add(name)
+            c['well_name'] = name
+            c['las_well_name'] = las_wn
+
+        result: dict = {}
+        win = tk.Toplevel(self.win)
+        win.title(title)
+        win.transient(self.win)
+        win.geometry('600x500')
+        frm = tk.Frame(win, bg=C_PANEL)
+        frm.pack(fill='both', expand=True, padx=14, pady=12)
+
+        tk.Label(frm, text='原始资料目录', font=F_SUB, bg=C_PANEL,
+                 fg=C_MUTED).pack(anchor='w')
+        tk.Label(frm, text=path, font=F_MAIN, bg=C_PANEL, fg=C_TEXT,
+                 wraplength=560, justify='left').pack(anchor='w', pady=(2, 10))
+
+        name_var = tk.StringVar(value=cands[0]['well_name'])
+        lb = None
+        if len(cands) == 1:
+            c = cands[0]
+            tk.Label(frm, text='井名（= 项目内标识，也是产物落盘目录名）',
+                     font=F_SUB, bg=C_PANEL, fg=C_MUTED).pack(anchor='w')
+            ent = ttk.Entry(frm, textvariable=name_var, font=F_MAIN)
+            ent.pack(fill='x', pady=(2, 8))
+            hint = '发现 %d 个文件（主 LAS：%s）' % (c['files'], c.get('las', ''))
+            if c['las_well_name'] and c['las_well_name'] != c['name']:
+                hint += '\nLAS 记录井名：%s  →  产物将落在 output/%s/' % (
+                    c['las_well_name'], c['well_name'])
+            tk.Label(frm, text=hint, font=F_SUB, bg=C_PANEL,
+                     fg=C_MUTED, justify='left').pack(anchor='w')
+        else:
+            tk.Label(frm, text='发现 %d 口井，勾选要加入项目的井' % len(cands),
+                     font=F_SUB, bg=C_PANEL, fg=C_MUTED).pack(anchor='w')
+            lb = tk.Listbox(frm, font=F_MAIN, bg=C_BG, fg=C_TEXT,
+                            relief='solid', bd=1, selectmode='extended')
+            lb.pack(fill='both', expand=True, pady=(4, 8))
+            for c in cands:
+                tail = '' if c['well_name'] == c['name'] \
+                    else '   (LAS 井名 %s)' % c['las_well_name']
+                lb.insert('end', '%-22s %3d 个文件%s' % (c['well_name'],
+                                                       c['files'], tail))
+            lb.selection_set(0, 'end')
+            tk.Label(frm, text='井名取自 LAS 记录（与产物目录同名）；'
+                                '如需改名，添加后再单独调整',
+                     font=F_SUB, bg=C_PANEL, fg=C_MUTED).pack(anchor='w')
+
+        def _ok():
+            if lb is not None:
+                picks = [(cands[i]['well_name'], cands[i]['dir'])
+                         for i in lb.curselection()]
+            else:
+                n = name_var.get().strip()
+                picks = [(n, cands[0]['dir'])] if n else []
+            if not picks:
+                messagebox.showwarning('添加井到项目', '请至少选择一口井。')
+                return
+            result['picks'] = picks
+            win.destroy()
+
+        bar = tk.Frame(win, bg=C_PANEL)
+        bar.pack(fill='x', padx=14, pady=(0, 12))
+        ttk.Button(bar, text='添加到项目', command=_ok).pack(side='right', padx=4)
+        ttk.Button(bar, text='取消', command=win.destroy).pack(side='right', padx=4)
+        win.protocol('WM_DELETE_WINDOW', win.destroy)
+        self.win.wait_window(win)
+        return result.get('picks')
+
+    def _menu_add_well(self):
+        """把井添加到项目：选资料目录 → 确认井名 → 登记。"""
+        path = filedialog.askdirectory(
+            title='选择井的原始资料目录（含 LAS / 地质设计 / 甲方格式）',
+            initialdir=self._default_src_dir())
+        if not path:
+            return
+        picks = self._ask_add_wells(path, title='添加井到项目')
+        if not picks:
+            return
+        added, failed = [], []
+        for name, src in picks:
+            if pcfg.add_well_to_project(self.root_dir, name, src):
+                added.append(name)
+            else:
+                failed.append(name)
+        if added:
+            self._log('已添加 %d 口井到项目：%s' % (len(added), '；'.join(added)))
+        if failed:
+            self._log('添加失败（源目录不存在）：%s' % '；'.join(failed))
+        self.refresh()
+        if added:
+            self._select_well(added[0])
+
+    def _menu_add_wells_batch(self):
+        """批量添加：选一个资料根，把里面多口井一次性加进项目。"""
+        path = filedialog.askdirectory(
+            title='选择包含多口井的资料根目录',
+            initialdir=self._default_src_dir())
+        if not path:
+            return
+        picks = self._ask_add_wells(path, title='批量添加井到项目')
+        if not picks:
+            return
+        added, failed = [], []
+        for name, src in picks:
+            if pcfg.add_well_to_project(self.root_dir, name, src):
+                added.append(name)
+            else:
+                failed.append(name)
+        if added:
+            self._log('已批量添加 %d 口井到项目：%s' % (len(added), '；'.join(added)))
+        if failed:
+            self._log('添加失败（源目录不存在）：%s' % '；'.join(failed))
+        self.refresh()
+        if added:
+            self._select_well(added[0])
+
+    def _ask_text(self, title: str, prompt: str, default: str = '') -> str | None:
+        """单行输入对话框。取消返回 None。"""
+        result: dict = {}
+        win = tk.Toplevel(self.win)
+        win.title(title)
+        win.transient(self.win)
+        win.geometry('420x150')
+        frm = tk.Frame(win, bg=C_PANEL)
+        frm.pack(fill='both', expand=True, padx=14, pady=12)
+        tk.Label(frm, text=prompt, font=F_SUB, bg=C_PANEL, fg=C_MUTED,
+                 wraplength=380, justify='left').pack(anchor='w')
+        var = tk.StringVar(value=default)
+        ent = ttk.Entry(frm, textvariable=var, font=F_MAIN)
+        ent.pack(fill='x', pady=(8, 4))
+        ent.focus_set()
+
+        def _ok():
+            result['v'] = var.get().strip()
+            win.destroy()
+
+        bar = tk.Frame(win, bg=C_PANEL)
+        bar.pack(fill='x', padx=14, pady=(0, 10))
+        ttk.Button(bar, text='确定', command=_ok).pack(side='right', padx=4)
+        ttk.Button(bar, text='取消', command=win.destroy).pack(side='right', padx=4)
+        win.protocol('WM_DELETE_WINDOW', win.destroy)
+        self.win.wait_window(win)
+        return result.get('v')
+
+    def _menu_rename_well(self):
+        """重命名项目内的井。
+
+        井名 = 项目内标识 = 产物落盘目录名，因此改名时**产物目录一并改名**，
+        保证"作业在项目里做 → 产物回到项目树"的闭环不被改名打断。
+        """
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        new = self._ask_text('重命名井', '新的井名：\n（= 项目内标识，也是产物目录名；'
+                                         '建议与 LAS 记录井名一致）', w.name)
+        if not new or new == w.name:
+            return
+        reg = pcfg.registered_wells(self.root_dir)
+        if new in reg:
+            messagebox.showwarning('重命名井', '项目里已存在井「%s」。' % new)
+            return
+        old_dir = os.path.join(self.root_dir, w.name)
+        new_dir = os.path.join(self.root_dir, new)
+        if os.path.exists(new_dir):
+            messagebox.showwarning('重命名井',
+                                   '目标产物目录已存在：\n%s\n\n请先清理或改名。' % new_dir)
+            return
+        # 1) 迁移产物目录
+        moved = False
+        if os.path.isdir(old_dir):
+            try:
+                os.replace(old_dir, new_dir)
+                moved = True
+            except Exception as e:
+                self._log('产物目录改名失败：%s' % e)
+        # 2) 迁移项目登记（保留源目录与资料指定）
+        entry = dict(reg.get(w.name) or {})
+        src = str(entry.get('source_dir') or w.source_dir or '')
+        if w.name in reg:
+            pcfg.remove_well_from_project(self.root_dir, w.name)
+        if src:
+            extra = {k: v for k, v in entry.items() if k in pcfg.WELL_OPTIONS}
+            pcfg.add_well_to_project(self.root_dir, new, src, extra=extra)
+        self._log('井已重命名：%s → %s%s' % (w.name, new, '（产物目录已改名）' if moved else ''))
+        self.refresh()
+        self._select_well(new)
+
+    def _ask_yes_no_cancel(self, title: str, message: str) -> str:
+        """三态确认框。返回 'yes' / 'no' / 'cancel'。"""
+        result: dict = {'v': 'cancel'}
+        win = tk.Toplevel(self.win)
+        win.title(title)
+        win.transient(self.win)
+        win.resizable(False, False)
+        frm = tk.Frame(win, bg=C_PANEL)
+        frm.pack(fill='both', expand=True, padx=14, pady=12)
+        tk.Label(frm, text=message, font=F_MAIN, bg=C_PANEL, fg=C_TEXT,
+                 wraplength=460, justify='left').pack(anchor='w')
+
+        def _set(v):
+            result['v'] = v
+            win.destroy()
+
+        bar = tk.Frame(win, bg=C_PANEL)
+        bar.pack(fill='x', padx=14, pady=(10, 10))
+        ttk.Button(bar, text='是', command=lambda: _set('yes')).pack(side='left', padx=4)
+        ttk.Button(bar, text='否', command=lambda: _set('no')).pack(side='left', padx=4)
+        ttk.Button(bar, text='取消', command=lambda: _set('cancel')).pack(side='right', padx=4)
+        win.protocol('WM_DELETE_WINDOW', win.destroy)
+        self.win.wait_window(win)
+        return result['v']
+
+    def _menu_remove_well(self):
+        """把井从项目移除。
+
+        语义要分清：**移除登记** ≠ **删除产物**。
+        - 无产物的井（纯登记成员）→ 移除后真正从项目树消失；
+        - 有产物的井 → 产物目录还在，它就仍会被扫到。此时询问是否一并
+          删除产物目录（不可恢复），默认保留并明确告知用户。
+        """
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        reg = pcfg.registered_wells(self.root_dir)
+        if w.name not in reg:
+            self._log('井 %s 不在项目登记名单里（来自产物目录扫描）—— '
+                      '如需移出项目，请连同其产物目录一起删除' % w.name)
+            return
+        # 产物目录存在且非空即视为"有产物"（不依赖是否识别出规则内的数据集 ——
+        # 目录里可能有尚未归类的文件，删不删必须问用户）
+        has_products = False
+        try:
+            has_products = os.path.isdir(w.path) and bool(os.listdir(w.path))
+        except OSError:
+            has_products = False
+        if has_products:
+            ans = self._ask_yes_no_cancel(
+                '从项目移除',
+                '井「%s」在项目里已有产物：\n%s\n\n'
+                '【是】删除产物目录并把井移出项目（不可恢复）\n'
+                '【否】保留一切，什么都不做\n\n'
+                '（只解除登记而保留产物会让这口井变成"有产物、缺原始资料"的孤儿，'
+                '因此不做这种半吊子操作）' % (w.name, w.path))
+            if ans == 'cancel':
+                return
+            if ans == 'no':
+                self._log('已取消：井 %s 保持不变（产物与原始资料绑定都保留）' % w.name)
+                return
+            import shutil
+            try:
+                shutil.rmtree(w.path)
+            except Exception as e:
+                self._log('删除产物目录失败：%s' % e)
+                return
+            pcfg.remove_well_from_project(self.root_dir, w.name)
+            self._log('已把井 %s 移出项目（产物目录已删除）' % w.name)
+            self.refresh()
+            return
+        if not self._ask_yes_no('从项目移除',
+                                '把井「%s」移出项目？\n\n'
+                                '该井尚无产物，只解除项目登记。' % w.name):
+            return
+        if pcfg.remove_well_from_project(self.root_dir, w.name):
+            self._log('已把井 %s 移出项目' % w.name)
+            self.refresh()
+        else:
+            self._log('移除失败：井 %s' % w.name)
+
+    def _select_well(self, name: str):
+        """按井名选中树中对应节点（并刷新属性面板）。"""
+        for iid, w in self._wells_by_iid.items():
+            if w.name == name:
+                self.tree.selection_set(iid)
+                self.tree.focus(iid)
+                self.tree.see(iid)
+                self._on_select()
+                self.win.update()
+                return True
+        return False
+
     def _popup_menu(self, evt):
         sel = self.tree.identify_row(evt.y)
         if sel:
             self.tree.selection_set(sel)
+        # 项目根节点 → 项目成员管理菜单；井 / 数据集 → 井级操作菜单
+        menu = self.menu_project if sel and sel == getattr(self, '_root_iid', '') \
+            else self.menu
         try:
-            self.menu.tk_popup(evt.x_root, evt.y_root)
+            menu.tk_popup(evt.x_root, evt.y_root)
         finally:
-            self.menu.grab_release()
+            menu.grab_release()
 
     def _selected_well(self):
         sel = self.tree.selection()

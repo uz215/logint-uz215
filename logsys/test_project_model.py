@@ -277,6 +277,57 @@ def test_robustness():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_registered_wells():
+    """已登记但**尚无产物**的井也要进入项目树（先有鸡还是先有蛋）。"""
+    print('\n== 已登记井进入项目树 ==')
+    tmp = tempfile.mkdtemp(prefix='projmodel_')
+    src = tempfile.mkdtemp(prefix='srcmodel_')
+    try:
+        # 一口有产物的井
+        wdir = os.path.join(tmp, 'HAS-PRODUCT')
+        os.makedirs(wdir)
+        with open(os.path.join(wdir, 'HAS-PRODUCT_processed.csv'), 'w') as f:
+            f.write('DEPT,GR,RT\n1,50,10\n')
+        # 一口刚登记、尚无产物的井
+        sdir = os.path.join(src, 'FRESH')
+        os.makedirs(sdir)
+        with open(os.path.join(sdir, 'FRESH.las'), 'w') as f:
+            f.write('~W\nWELL.  FRESH  :WELL NAME\n')
+
+        reg = {'FRESH': sdir}
+        smap = {'FRESH': sdir}
+        p = pm.scan_project(tmp, source_map=smap, registered=reg)
+        names = [w.name for w in p.wells]
+        check('已登记井进入项目树', 'FRESH' in names, names)
+        check('有产物的井仍在树里', 'HAS-PRODUCT' in names, names)
+        by = {w.name: w for w in p.wells}
+        fresh = by.get('FRESH')
+        check('新井状态为待解释', fresh is not None and fresh.status == 'pending',
+              fresh.status if fresh else None)
+        check('新井已关联源', fresh is not None and fresh.has_source)
+        check('新井无产物数据集', fresh is not None and len(fresh.datasets) == 0)
+        check('新井有源数据集', fresh is not None and len(fresh.source_datasets) >= 1)
+        check('新井不产生空目录', not os.path.isdir(os.path.join(tmp, 'FRESH')))
+
+        # 汇总应把它计入
+        s = pm.summarize(p)
+        check('汇总含新井', s['wells'] == 2, s['wells'])
+        check('汇总 ready 计数正确', s['ready'] == 1, s['ready'])
+
+        # 过滤：按状态能筛出 pending
+        f = pm.filter_wells(p, '', status='pending')
+        check('按状态过滤出待解释井', [w.name for w in f] == ['FRESH'],
+              [w.name for w in f])
+
+        # 不传 registered 时，新井不在树里（回归：旧行为）
+        p2 = pm.scan_project(tmp)
+        check('未登记则不进树', 'FRESH' not in [w.name for w in p2.wells],
+              [w.name for w in p2.wells])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+        shutil.rmtree(src, ignore_errors=True)
+
+
 def main():
     print('=' * 66)
     print('  项目-井模型自检')
@@ -288,6 +339,7 @@ def main():
     test_filter_group_select()
     test_summary()
     test_robustness()
+    test_registered_wells()
     print('\n结果: %d 通过, %d 失败' % (len(PASS), len(FAIL)))
     if FAIL:
         print('失败项:')

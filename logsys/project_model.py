@@ -358,54 +358,133 @@ def _scan_source_datasets(source_dir: str) -> list[Dataset]:
     return out
 
 
-def _depth_range_from_las(path: str) -> tuple[float | None, float | None]:
-    """从 LAS 估算深度范围（读 ~W 段的起始/终止深度）。
+def _pick_header_value(cands: list[str]) -> str:
+    """从候选值里挑出更像"真值"的那个（而不是冒号右侧的描述文字）。
 
-    兼容多种写法：``START``/``STOP``、``STRT``/``STOP``、``STRT.MS``/``STOP.MS``。
+    LAS 2.0 的写法是 ``WELL.   BET-1   :WELL NAME`` —— 右侧是描述，
+    直接取右侧会得到 'WELL NAME' 这种废值。
     """
+    cands = [str(c).strip() for c in cands if str(c).strip()]
+    if not cands:
+        return ''
+    for c in cands:
+        if any(ch.isdigit() for ch in c):
+            return c
+    for c in cands:
+        if ' ' not in c and c.upper() != c:
+            return c
+    for c in cands:
+        if ' ' not in c:
+            return c
+    return cands[0]
+
+
+def _las_w_section(path: str, max_lines: int = 4000) -> dict:
+    """解析 LAS 的 ~W 段，返回 ``{MNEM: [候选值, ...]}``。
+
+    兼容两种主流写法：
+      - **LAS 1.2**：``WELL : BET-1``              值在冒号**右**侧；
+      - **LAS 2.0**：``WELL.   BET-1   :WELL NAME`` 值在冒号**左**侧，
+        右侧是描述文字（国内井的 LAS 几乎都是这种）。
+
+    每个字段可能给出多个候选（左值 / 右值），由调用方按需挑选。
+    """
+    out: dict = {}
     try:
         with open(path, 'r', encoding='utf-8', errors='replace') as f:
-            lo = hi = None
-            for _ in range(4000):
+            in_w = False
+            for _ in range(max_lines):
                 line = f.readline()
                 if not line:
                     break
                 s = line.strip()
                 if not s or s.startswith('#'):
                     continue
-                up = s.upper()
-                if up.startswith('~'):
+                if s.startswith('~'):
+                    up = s.upper()
+                    if up.startswith('~W'):
+                        in_w = True
+                        continue
                     if up.startswith('~A'):
                         break
+                    if in_w:
+                        break
                     continue
-                # LAS 的 ~W 段格式： MNEM[.UNIT] : VALUE
-                # 用冒号切分取值，句点只是单位分隔符
-                if ':' in s:
-                    left, _, right = s.partition(':')
-                else:
-                    left, right = s, ''
-                key = left.strip().upper().split()[0] if left.strip() else ''
-                # 去掉单位后缀（STRT.MS → STRT）
+                if not in_w:
+                    continue
+                left, _sep, right = s.partition(':')
+                lt = left.split()
+                if not lt:
+                    continue
+                key = lt[0]
                 if '.' in key:
                     key = key.split('.')[0]
-                if key in ('START', 'STRT'):
-                    k = 'START'
-                elif key in ('STOP', 'EOT'):
-                    k = 'STOP'
-                else:
+                key = key.strip().upper()
+                if not key:
                     continue
-                try:
-                    v = float(right.strip().split()[0])
-                except Exception:
-                    continue
-                if k == 'START':
-                    lo = v
-                else:
-                    hi = v
-        if lo is not None and hi is not None:
-            return lo, hi
+                cands = []
+                for tok in lt[1:]:
+                    if tok in ('.', ''):
+                        continue
+                    cands.append(tok)
+                if right.strip():
+                    cands.append(right.strip().split()[0])
+                if cands:
+                    out.setdefault(key, []).extend(cands)
     except Exception:
         pass
+    return out
+
+
+def las_well_name(path: str) -> str:
+    """从 LAS 的 ~W 段读取井名。读不到返回 ''。
+
+    这是**产物落盘目录名**的决定依据 —— logInt 内部用
+    ``Path('output') / well_name`` 定位产物目录，而 ``well_name`` 取自
+    LAS 的 ~W 段（取不到时退化为文件名）。因此项目内的井名必须与它一致，
+    否则"作业在项目里做 → 产物回到项目树"的闭环会断在命名上。
+
+    实测：源目录 ``RP-13`` 里的 LAS 记录井名为 ``RASHIDPUR_13`` ——
+    两者不同，正是需要归集兜底的场景。
+    """
+    sec = _las_w_section(path)
+    for key in ('WELL', 'WELLNAME', 'WELL_NAME', 'WELLID', 'WELL_ID'):
+        cands = sec.get(key)
+        if cands:
+            v = _pick_header_value(cands)
+            if v:
+                return v
+    return ''
+
+
+def _depth_range_from_las(path: str) -> tuple[float | None, float | None]:
+    """从 LAS 估算深度范围（读 ~W 段的起始/终止深度）。
+
+    兼容 LAS 1.2（值在冒号右）与 LAS 2.0（值在冒号左），
+    以及 ``START``/``STOP``、``STRT``/``STOP``、``STRT.MS``/``STOP.MS``。
+    """
+    sec = _las_w_section(path)
+    lo = hi = None
+    for key in ('START', 'STRT'):
+        for v in sec.get(key, []):
+            try:
+                lo = float(v)
+                break
+            except Exception:
+                continue
+        if lo is not None:
+            break
+    for key in ('STOP', 'EOT'):
+        for v in sec.get(key, []):
+            try:
+                hi = float(v)
+                break
+            except Exception:
+                continue
+        if hi is not None:
+            break
+    if lo is not None and hi is not None:
+        return lo, hi
     return None, None
 
 
@@ -648,26 +727,47 @@ def scan_well(well_dir: str, source_dir: str = '') -> Well:
 
 
 def scan_project(root: str, source_root: str = '',
-                 source_map: dict | None = None) -> Project:
+                 source_map: dict | None = None,
+                 registered: dict | None = None) -> Project:
     """扫描项目根目录，产出 Project（井集合）。
 
     root        —— 产物根（每子目录 = 一口井）
     source_root —— 原始资料根（可选，用于标记"待解释"井）
     source_map  —— 显式的 {井名: 源目录} 映射（来自 project_config），优先级最高
+    registered  —— **已登记的项目成员** {井名: 源目录}。
+
+    【2026-11-11】项目成员不再等于"产物目录里有什么"：
+    一口刚添加到项目、**尚未出产物**的井在产物目录里并不存在，
+    若只扫目录，它就永远进不了项目树（先有鸡还是先有蛋的问题）。
+    因此成员集合 = 产物目录下的子目录 ∪ 已登记的井。
     """
     root = os.path.abspath(root)
     p = Project(name=os.path.basename(root) or root, path=root)
     if not os.path.isdir(root):
         return p
-    for entry in sorted(os.listdir(root)):
+    # 成员集合：产物目录子目录 ∪ 已登记井（后者可能还没有产物目录）
+    names = []
+    try:
+        for entry in sorted(os.listdir(root)):
+            d = os.path.join(root, entry)
+            if not os.path.isdir(d):
+                continue
+            if entry.startswith('.') or entry.startswith('_'):
+                continue
+            names.append(entry)
+    except Exception:
+        names = []
+    for entry in (registered or {}):
+        name = str(entry)
+        if name not in names:
+            names.append(name)
+    for entry in sorted(names):
         d = os.path.join(root, entry)
-        if not os.path.isdir(d):
-            continue
-        if entry.startswith('.') or entry.startswith('_'):
-            continue
         src = ''
         if source_map:
             src = str(source_map.get(entry) or '')
+        if not src and (registered or {}).get(entry):
+            src = str((registered or {}).get(entry) or '')
         if not src and source_root:
             cand = os.path.join(source_root, entry)
             if os.path.isdir(cand):

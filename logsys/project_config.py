@@ -34,12 +34,21 @@
 
 约定：
 - ``source_roots``：候选原始资料根目录，探测时按井名在这些根下找子目录；
-- ``wells``：已确认的显式绑定，优先级高于自动探测；
+- ``wells``：**已登记的项目成员**（井名 → 源目录 + 资料指定），
+  是「把井添加到项目里」这个动作的结果，也是**项目成员名单**本身；
+  优先级高于自动探测；
 - ``las`` / ``gas`` / ``config``：**井级资料指定**（手工挑好的主 LAS、气测文件、
   甲方出图格式），优先级高于自动探测；原启动界面的"手动校正资料"能力
   随项目界面下沉到井级，保存在这里；
 - 写入采用**原子替换**（临时文件 + os.replace），避免半截文件；
 - 任何失败都降级为"空配置"，不抛错（与 logsys 约定一致）。
+
+项目成员 ≠ 目录内容
+------------------
+项目树扫的是**产物目录**（``output/<井名>/``），但一口**刚加入、还没出产物**的
+井在产物目录里并不存在。因此"项目"用一个**显式成员名单**（``wells``）来表达，
+成员 = 已登记的井 ∪ 产物目录下的子目录。新加进来的井先以"待解释"状态出现，
+作业跑完产物落回 ``output/<井名>/``，状态随之升级 —— 这才是完整闭环。
 
 本模块只依赖标准库，不依赖 tkinter，可独立单测。
 """
@@ -362,13 +371,36 @@ def resolve_source_dir(root: str, well_name: str,
     return detected
 
 
-def source_map(root: str, well_names: list[str],
+def project_member_names(root: str) -> list[str]:
+    """项目成员井名清单 = 已登记的井 ∪ 项目根下的子目录。
+
+    项目不是"目录里有什么"，而是"**登记了哪些井**"。两者的并集才是
+    完整成员名单 —— 新加进来的井还没有产物目录，只存在于登记里。
+    """
+    names = set(registered_wells(root).keys())
+    try:
+        for e in os.listdir(os.path.abspath(root)):
+            if e.startswith('.') or e.startswith('_'):
+                continue
+            if os.path.isdir(os.path.join(os.path.abspath(root), e)):
+                names.add(e)
+    except Exception:
+        pass
+    return sorted(names)
+
+
+def source_map(root: str, well_names: list[str] | None = None,
                extra_roots: list[str] | None = None) -> dict:
-    """批量解析井 → 原始资料目录 的映射（供 scan_project 使用）。"""
+    """批量解析井 → 原始资料目录 的映射（供 scan_project 使用）。
+
+    ``well_names`` 为 None 时自动取全部项目成员（已登记井 ∪ 项目根子目录），
+    确保"刚添加进项目、尚无产物"的井也能拿到源目录。
+    """
     cfg = load_config(root)
     roots = cfg.get('source_roots') or []
+    names = list(well_names) if well_names is not None else project_member_names(root)
     out: dict[str, str] = {}
-    for name in well_names:
+    for name in names:
         entry = (cfg.get('wells') or {}).get(str(name)) or {}
         bound = str(entry.get('source_dir') or '').strip()
         if bound and os.path.isdir(bound):
@@ -377,6 +409,84 @@ def source_map(root: str, well_names: list[str],
         det = detect_source_dir(name, roots, extra_roots)
         if det:
             out[str(name)] = det
+    return out
+
+
+def registered_wells(root: str) -> dict:
+    """已登记（显式加入项目）的井 → 配置条目。
+
+    "登记"是「把井添加到项目里」这个动作的结果：井名 → 原始资料目录。
+    与 `source_roots` 的区别是——后者是**候选探测范围**（被动、模糊），
+    前者是**项目成员名单**（主动、确定）。
+    """
+    return dict(load_config(root).get('wells') or {})
+
+
+def add_well_to_project(root: str, well_name: str, source_dir: str,
+                        extra: dict | None = None) -> bool:
+    """把一口井**添加到项目**。
+
+    井名即项目内的标识，也是作业产物的落盘目录名（``output/<井名>/``），
+    所以它应当与源目录同名 —— 但允许用户改名（例如源目录叫
+    ``Trakes KE-1``，项目内叫 ``TRAKES-1``）。
+
+    源目录不存在 → 拒绝登记（返回 False），避免留下一口"查无此井"的空壳。
+    """
+    name = str(well_name or '').strip()
+    if not name:
+        return False
+    src = os.path.abspath(str(source_dir or '').strip())
+    if not src or not os.path.isdir(src):
+        return False
+    return bind_well(root, name, src, extra=extra)
+
+
+def remove_well_from_project(root: str, well_name: str) -> bool:
+    """把一口井**从项目移除**。
+
+    只删登记，不动产物目录 —— 产物是解释成果，不该因为移出项目而丢失。
+    """
+    return unbind_well(root, well_name)
+
+
+def discover_wells_in_dir(path: str) -> list[dict]:
+    """在一个目录里发现候选井。
+
+    返回 ``[{'name', 'dir', 'has_las', 'files', 'las', 'las_path'}, ...]``：
+    - 每个**含 LAS 文件的子目录**算一口井（井名 = 子目录名）；
+    - 若目录**自身**含 LAS 文件，也算一口井（资料以散文件形式存放的情形）。
+
+    这用于"把一个资料根下的多口井一次性加进项目"。
+    """
+    out = []
+    p = os.path.abspath(str(path or '').strip())
+    if not os.path.isdir(p):
+        return out
+    try:
+        entries = sorted(os.listdir(p))
+    except Exception:
+        return out
+    for e in entries:
+        d = os.path.join(p, e)
+        if not os.path.isdir(d) or e.startswith('.') or e.startswith('_'):
+            continue
+        try:
+            files = [f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))]
+        except Exception:
+            continue
+        las = [f for f in files if f.lower().endswith('.las')]
+        if not las:
+            continue
+        out.append({'name': e, 'dir': d, 'has_las': True,
+                    'files': len(files), 'las': las[0],
+                    'las_path': os.path.join(d, las[0])})
+    # 目录自身含 LAS → 也是一口井
+    own = [f for f in entries if f.lower().endswith('.las')
+           and os.path.isfile(os.path.join(p, f))]
+    if own:
+        out.insert(0, {'name': os.path.basename(p) or '井', 'dir': p,
+                       'has_las': True, 'files': len(own), 'las': own[0],
+                       'las_path': os.path.join(p, own[0])})
     return out
 
 
