@@ -83,6 +83,34 @@ def get_entities(conn, kind: str | None = None, region: str | None = None, limit
     return conn.execute(sql, args).fetchall()
 
 
+def browse_docs(conn, category: str | None = None, tech_major: str | None = None,
+                tech_minor: str | None = None, limit: int = 200) -> list:
+    """按知识体系（领域 × 大类 × 小类）浏览文档。任一条件为空表示不限制。"""
+    sql = 'SELECT id, title, path, category, tech_type, tech_minor, country FROM doc WHERE 1=1'
+    args = []
+    if category:
+        sql += ' AND category=?'
+        args.append(category)
+    if tech_major:
+        sql += ' AND tech_type=?'
+        args.append(tech_major)
+    if tech_minor:
+        sql += ' AND tech_minor=?'
+        args.append(tech_minor)
+    sql += ' ORDER BY category, tech_type, tech_minor, title LIMIT ?'
+    args.append(int(limit))
+    return conn.execute(sql, args).fetchall()
+
+
+def taxonomy_stats(conn) -> dict:
+    """统计各领域 × 大类 × 小类 的文档数，便于校验分类结构。"""
+    rows = conn.execute(
+        "SELECT category, tech_type, tech_minor, COUNT(*) FROM doc "
+        "GROUP BY category, tech_type, tech_minor ORDER BY category, tech_type, tech_minor"
+    ).fetchall()
+    return [{'category': r[0], 'tech_major': r[1], 'tech_minor': r[2], 'n': r[3]} for r in rows]
+
+
 def open_docs(conn, doc_id: str) -> dict:
     d = conn.execute('SELECT id, path, title, region, well, category FROM doc WHERE id=?', (doc_id,)).fetchone()
     if not d:

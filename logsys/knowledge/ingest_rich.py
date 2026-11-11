@@ -32,15 +32,15 @@ def _store(conn, path: str, title: str, body: str, ext: str) -> str:
     doc_id = _path_doc_id(path)
     mtime = os.path.getmtime(path) if os.path.exists(path) else 0
     country = detect_country(path, title)
-    # 全部文档按知识技术分类（领域 + 技术细类）；国别由 country 列单独承载。
+    # 全部文档按知识技术分类（领域 + 大类 + 小类）；国别由 country 列单独承载。
     # 国别文档同样打标 -> 实现"国别知识总结提升为专业知识的方法技术归类"。
-    domain, tech_type = classify_knowledge(path, title, ext)
+    domain, tech_major, tech_minor = classify_knowledge(path, title, ext)
     cat = domain
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, cat, '', country, '', tech_type, sha1, mtime, len(body),
+                 'tech_type, tech_minor, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, cat, '', country, '', tech_major, tech_minor, sha1, mtime, len(body),
                   json.dumps({'source': path, 'ext': ext}, ensure_ascii=False)))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)

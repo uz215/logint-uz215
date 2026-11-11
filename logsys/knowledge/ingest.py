@@ -112,24 +112,38 @@ _GEO_TECH = {
     '储层地质': ['水淹层', '成岩', '储集体', '油藏描述', 'water flooded', 'reservoir',
                'diagenesis', '储层地质'],
 }
-# 测井方法领域技术细类（优先级：随钻 > 仪器 > 电缆测井 > 解释方法 > 其他）
-_LOG_TECH = {
-    '随钻': ['随钻', 'lwd', 'mwd', '地质导向', '旋转导向', '随钻测量', '随钻测井', '钻进', '钻头', '钻遇',
-           '实时测井', '导向', '录井', '气测', 'mud logging', 'directional', 'geosteering',
-           'logging while', '试油', '试井', 'well test'],
-    '仪器': ['仪器', '传感器', '探头', '电极', '探测器', '测井仪', '下井仪', '下井',
-           '刻度', '标定', 'calibration', 'hardware', 'tool', 'sonde', 'probe', '探测仪', '机械', '电子线路',
-           '采集面板', '硬件', '震击器', '配件', '模块', '组件', '推靠', '极板', '线圈', '天线', '发射', '接收'],
-    '电缆测井': ['电缆', 'wireline', '常规测井', '裸眼', '完井测井', '生产测井', '测井系列', '测井曲线',
-              '测井资料', '组合测井', '双侧向', '微球', '感应', '三组合', '声波测井', '密度测井', '中子测井',
-              '自然伽马', '井径', '电阻率', '成像测井', '阵列', '连续管', '过钻杆', '过钻具', '穿缆', 'eilog',
-              '验收', '质量', 'qc', 'quality', '固井', '射孔', '水泥', '井壁', '取心', 'coring',
-              'perforation', 'cement', 'logging', '光纤', 'acquisition', 'depth control',
-              'ait', 'hrla', 'hgns', 'tld', 'mcfl', 'cmr', 'fmi'],
+# 测井方法领域「大类」（按测井技术类型，优先级：随钻 > 生产 > 光纤 > 裸眼 > 电缆 > 解释）。
+# 大类是仪器/方法知识的一级细分；小类（厂商）见 _LOG_MINOR。
+_LOG_MAJOR = {
+    '随钻测井': ['随钻', 'lwd', 'mwd', '地质导向', '旋转导向', '随钻测量', '随钻测井', '录井', '气测',
+              'mud logging', 'geosteering', 'logging while', 'directional', '井眼轨迹', '轨迹'],
+    '生产测井': ['生产测井', '产出剖面', '注入剖面', '吸水剖面', '产液剖面', '套管井', 'production logging',
+              '地层测试', 'mdt', 'rci', 'rpm', 'wft', 'flowmeter', '流量计', '持水', '含水率', '井筒',
+              'through tubing', '过油管', '剩余油', '可动', 'aft', 'mfat', '找水'],
+    '光纤': ['光纤', '分布式', 'dts', 'das', 'fiber optic', 'optical fiber', '布里渊', '拉曼', '光时域',
+          '光纤测井', '分布式测温', '分布式声波'],
+    '裸眼测井': ['裸眼', 'openhole', 'open hole', 'open-hole'],
+    '电缆测井': ['电缆', 'wireline', '常规测井', '完井测井', '测井系列', '测井曲线', '测井资料', '组合测井',
+              '双侧向', '微球', '感应', '三组合', '声波测井', '密度测井', '中子测井', '自然伽马', '井径',
+              '电阻率', '成像测井', '阵列', '连续管', '过钻杆', '过钻具', '穿缆', 'eilog', 'ait', 'hrla',
+              'hgns', 'tld', 'mcfl', 'cmr', 'fmi', 'acquisition', 'depth control', '仪器', '传感器',
+              '探头', '电极', '探测器', '测井仪', '下井仪', '下井', '采集面板', '硬件', '震击器', '配件',
+              '模块', '组件', '推靠', '极板', '线圈', '天线', '发射', '接收', '刻度', '标定', 'calibration',
+              'hardware', 'tool', 'sonde', 'probe', 'fits', '过钻具成像', '介电', '补偿密度', '补偿中子',
+              '井壁', '取心', 'coring', '固井', '射孔', '水泥', 'perforation', 'cement'],
     '解释方法': ['解释', '评价', '处理', '饱和度', '流体', '含油', '含水', '油水层', '识别', '划分', '建模',
               '反演', '岩石物理', '交会', '图版', '模板', '标准层', '隔层', '岩心', '压汞', '数字岩心',
               'interpretation', 'petrophysics', 'evaluation', 'saturation', 'facies', 'well log',
               'log analysis', 'analysis', 'porosity', 'permeability', '核磁', '核磁共振'],
+}
+# 测井方法领域「小类」（按厂商/来源；缺测归 其他）。优先级：国外服务商 > 国内。
+_LOG_MINOR = {
+    'SLB': ['slb', 'schlumberger', '斯伦贝谢'],
+    '贝克休斯': ['贝克休斯', 'baker hughes', 'bakerhughes', 'bhge'],
+    '哈里伯顿': ['哈里伯顿', 'halliburton'],
+    'CNLC': ['cnlc', '中国石油测井', '中油测井', '中石油测井', '长城测井', 'cpl', 'cnpc logging',
+           '国产仪器', '国产测井'],
+    '中海油': ['中海油', 'cnooc', '海油'],
 }
 # 通用知识领域技术细类（优先级：标准规范 > 项目管理 > 软件工具 > 其他）
 _GEN_TECH = {
@@ -175,29 +189,44 @@ def _pick(tech_map: dict, low: str):
     return None
 
 
-def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, str):
-    """返回 (domain, tech_type)，按知识本身技术分类，不按国别。
+def classify_logging_method(path: str, title: str = '') -> (str, str):
+    """测井方法领域的内部分类：返回 (大类 major, 小类 minor)。
+
+    大类（按测井技术类型）：随钻测井 / 生产测井 / 光纤 / 裸眼测井 / 电缆测井 / 解释方法
+      —— 命中即取最先（优先级见 _LOG_MAJOR 字典顺序）；全不命中默认 电缆测井（最通用的测井方式）。
+    小类（按厂商/来源）：SLB / 贝克休斯 / 哈里伯顿 / CNLC(国内) / 中海油 —— 缺测归 其他。
+    """
+    low = '%s %s' % (path or '', title or '')
+    low = low.lower()
+    major = _pick(_LOG_MAJOR, low) or '电缆测井'
+    minor = _pick(_LOG_MINOR, low) or '其他'
+    return major, minor
+
+
+def classify_knowledge(path: str, title: str = '', category: str = '') -> (str, str, str):
+    """返回 (domain, tech_major, tech_minor)，按知识本身技术分类，不按国别。
 
     一级领域：测井方法 / 地质 / 通用知识。
     领域判定优先级：通用行政信号 > 地质专属信号 > 测井专属信号 > 通用其他。
     - 地质优先于测井：同时含地质与测井信号时归地质（保证地质为一等类）。
     - category 参数保留兼容（历史调用），本函数不再依据它决定是否分类——
       所有文档统一按内容重分，国别由 country 列单独承载。
-    - 任一领域命中后，在该领域内按技术细类优先级取细分。
+    - 测井方法领域进一步按「大类(技术类型)×小类(厂商)」二维细分；地质/通用仅 tech_major 有值。
     """
     low = '%s %s' % (path or '', title or '')
     low = low.lower()
     # 1) 通用行政/杂项（无技术要素）
     if _blob_has(low, _GEN_ONLY) and not _blob_has(low, _LOG_ONLY) and not _blob_has(low, _GEO_ONLY):
-        return DOMAIN_GENERAL, _pick(_GEN_TECH, low) or '其他'
+        return DOMAIN_GENERAL, _pick(_GEN_TECH, low) or '其他', ''
     # 2) 地质专属信号 -> 地质（优先于测井）
     if _blob_has(low, _GEO_ONLY):
-        return DOMAIN_GEO, _pick(_GEO_TECH, low) or '其他'
+        return DOMAIN_GEO, _pick(_GEO_TECH, low) or '其他', ''
     # 3) 测井专属信号 -> 测井方法
     if _blob_has(low, _LOG_ONLY):
-        return DOMAIN_LOGGING, _pick(_LOG_TECH, low) or '其他'
+        major, minor = classify_logging_method(path, title)
+        return DOMAIN_LOGGING, major, minor
     # 4) 兜底：通用知识-其他
-    return DOMAIN_GENERAL, '其他'
+    return DOMAIN_GENERAL, '其他', ''
 
 
 def tokenize(text: str) -> str:
@@ -307,13 +336,13 @@ def ingest_markdown(conn, path: str, force: bool = False) -> str:
     country = fm.get('country') or detect_country(path, title)
     well = fm.get('well_name') or ''
     ext = os.path.splitext(path)[1].lower().lstrip('.')
-    domain, tech_type = classify_knowledge(path, title, ext)
+    domain, tech_major, tech_minor = classify_knowledge(path, title, ext)
 
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, domain, region, country, well, tech_type, sha1, mtime,
+                 'tech_type, tech_minor, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, domain, region, country, well, tech_major, tech_minor, sha1, mtime,
                   len(body), json.dumps(fm, ensure_ascii=False)[:4000]))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
@@ -407,7 +436,7 @@ def _ingest_docx(conn, path: str, force=False) -> str:
     title = os.path.splitext(os.path.basename(path))[0]
     country = detect_country(path, title)
     ext = os.path.splitext(path)[1].lower().lstrip('.')
-    domain, tech_type = classify_knowledge(path, title, ext)
+    domain, tech_major, tech_minor = classify_knowledge(path, title, ext)
     cat = domain
     row = conn.execute('SELECT id, sha1 FROM doc WHERE path=?', (path,)).fetchone()
     sha1 = _sha1(body)
@@ -416,8 +445,8 @@ def _ingest_docx(conn, path: str, force=False) -> str:
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'tech_type, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, cat, '', country, '', tech_type, sha1, os.path.getmtime(path),
+                 'tech_type, tech_minor, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, cat, '', country, '', tech_major, tech_minor, sha1, os.path.getmtime(path),
                   len(body), '{}'))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)

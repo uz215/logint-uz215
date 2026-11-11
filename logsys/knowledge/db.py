@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS doc(
     country TEXT,
     well TEXT,
     tech_type TEXT,
+    tech_minor TEXT,
     sha1 TEXT,
     mtime REAL,
     chars INTEGER,
@@ -146,6 +147,8 @@ def _ensure_columns(conn: sqlite3.Connection) -> None:
     cols = {r[1] for r in conn.execute("PRAGMA table_info(doc)")}
     if 'tech_type' not in cols:
         conn.execute('ALTER TABLE doc ADD COLUMN tech_type TEXT')
+    if 'tech_minor' not in cols:
+        conn.execute('ALTER TABLE doc ADD COLUMN tech_minor TEXT')
 
 
 def stats(conn: sqlite3.Connection) -> dict:
