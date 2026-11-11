@@ -82,10 +82,16 @@ def print_dependency_status():
         print()
         print("或者运行项目根目录下的 setup.bat 自动配置环境")
         print()
-        print("按 Enter 键继续尝试运行...")
-        input()
+        # 【2026-11-11】非交互环境（项目浏览器派生的作业子进程，stdin=DEVNULL）
+        # 下 input() 会抛 EOFError 导致作业直接退出。设 LOGINT_NONINTERACTIVE=1
+        # 时跳过等待，直接继续（依赖缺失会在后续步骤自然报错）。
+        if os.environ.get('LOGINT_NONINTERACTIVE') == '1':
+            print("[非交互模式] 跳过等待，继续尝试运行...")
+        else:
+            print("按 Enter 键继续尝试运行...")
+            input()
         print()
-    
+
     return mod_installed
 
 # 执行依赖检查
@@ -18388,7 +18394,16 @@ def well_package_inventory(well_dir):
 
 
 def select_startup_task():
-    """统一启动界面：先选任务，再选井目录；自动识别并允许手动校正测井数据/气测/井目录。
+    """统一启动界面：**项目在前**，单井作业在项目内做。
+
+    【2026-11-11 用户定案】入口层级调整为：
+      1) **项目**（多井项目树）—— 主入口，井/数据集/变量一目了然，
+         并可在项目内对某口井执行「快速解释图 / 综合解释」；
+      2) **单井综合解释** —— 保留原有单井直跑通道（无项目时的快捷入口）。
+
+    顶层不再并列"quicklook 快速解释图"任务 —— 它已成为**项目内的井级作业**
+    （项目浏览器右键井 → 快速解释图），因为作业需要把"原始资料"与"产物"
+    挂在同一口井上，只有项目语境能同时提供两者。
 
     返回 {'task','well_dir','inventory','las','config','gas'} 或 None（取消）。
     - las: 选定的测井 LAS 文件路径（界面可校正，防止找错/找不到）
@@ -18411,11 +18426,12 @@ def select_startup_task():
 
     # 任务
     tk.Label(win, text='1. 选择任务', font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=18, pady=(14, 4))
-    _tasks = ['项目浏览器（多井项目树：井/数据集/变量）',
-              'quicklook 快速解释图（现场工程师→交甲方代表）',
-              '综合解释（岩性/流体/层表/综合图/报告，室内工程师）']
+    _tasks = ['项目（多井项目树：井/数据集/变量；项目内可对井执行快速解释图与综合解释）',
+              '单井综合解释（岩性/流体/层表/综合图/报告，室内工程师）']
     _task_var = tk.StringVar(value=_tasks[0])
     ttk.Combobox(win, textvariable=_task_var, state='readonly', values=_tasks, width=84).pack(anchor='w', padx=18)
+    _hint = tk.Label(win, text='', font=('Microsoft YaHei', 8), fg='#1a5c9e')
+    _hint.pack(anchor='w', padx=18, pady=(4, 0))
 
     # 井目录（用于提取基础数据）
     tk.Label(win, text='2. 选择井目录（用于提取基础数据：地质设计/录井图/格式/info）', font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=18, pady=(14, 4))
@@ -18443,6 +18459,19 @@ def select_startup_task():
     _inv_txt.pack(anchor='w', padx=18, pady=(2, 2))
     _note = tk.Label(win, text='未选/未找到的资料将在运行时自动跳过（不弹窗、不中断）。', font=('Microsoft YaHei', 8), fg='#777777')
     _note.pack(anchor='w', padx=18)
+
+    def _on_task_change(_evt=None):
+        """任务切换：项目模式不需要选井目录（井在项目里选）。"""
+        if _task_var.get().startswith('项目'):
+            _hint.configure(text='项目模式：进入项目树后，选中井 → 右键「快速解释图 / 综合解释」即可执行作业。')
+            _dir_var.set('（项目模式无需选择井目录）')
+        else:
+            _hint.configure(text='单井模式：直接对一口井跑综合解释流程。')
+            if _dir_var.get().startswith('（项目模式'):
+                _dir_var.set('未选择')
+
+    _task_var.trace_add('write', _on_task_change)
+    _on_task_change()
 
     def _refresh_data(wd):
         wd = _P(str(wd))
@@ -18534,15 +18563,15 @@ def select_startup_task():
         _inv_txt.configure(state='disabled')
 
     def _ok():
-        # 【2026-11-11】项目浏览器：无需选井目录，直接进入项目树
-        if _task_var.get().startswith('项目浏览器'):
+        # 【2026-11-11】项目在前：项目任务无需选井目录（井在项目里选）
+        if _task_var.get().startswith('项目'):
             res.update({'task': 'project'})
             win.destroy()
             return
         if not res.get('inventory'):
             _note.configure(text='请先选择井目录。', fg='#b00')
             return
-        task = 'quicklook' if _task_var.get().startswith('quicklook') else 'comprehensive'
+        task = 'comprehensive'
         las_sel = _las_var.get()
         if not las_sel or las_sel.startswith('（'):
             las_sel = inv_cache.get('las_main')
@@ -21537,9 +21566,12 @@ if __name__ == "__main__":
     if '--project' in sys.argv:
         # 【2026-11-11】项目浏览器：Project→Well→Dataset→Variable 四层树
         #   借鉴 Techlog 2019.2 Project Browser 范式
+        #   **项目在前**：快速解释图/综合解释是项目内的井级作业
         #   用法: python logInt.py --project [项目根目录]
+        #         python logInt.py --project --source-roots "D:\360\Indonesia;D:\360\Bangladesh"
         _pj_root = ''
         _pj_src = ''
+        _pj_roots = []
         for _i, _a in enumerate(sys.argv):
             if _a == '--project' and _i + 1 < len(sys.argv):
                 _nxt = sys.argv[_i + 1]
@@ -21547,8 +21579,16 @@ if __name__ == "__main__":
                     _pj_root = _nxt
             elif _a == '--source-root' and _i + 1 < len(sys.argv):
                 _pj_src = sys.argv[_i + 1]
+            elif _a == '--source-roots' and _i + 1 < len(sys.argv):
+                _pj_roots = [x.strip() for x in sys.argv[_i + 1].split(';') if x.strip()]
         try:
             from logsys import project_browser as _pbrowser
+            from logsys import project_config as _pcfg
+            if not _pj_root:
+                _pj_root = _pbrowser.default_root()
+            if _pj_roots:
+                for _r in _pj_roots:
+                    _pcfg.add_source_root(_pj_root, _r)
             sys.exit(_pbrowser.launch(_pj_root, _pj_src))
         except Exception as e:
             import traceback
@@ -21589,7 +21629,8 @@ if __name__ == "__main__":
                 print("已取消，未执行。")
                 sys.exit(0)
             if _sel2.get('task') == 'project':
-                # 【2026-11-11】项目浏览器入口
+                # 【2026-11-11】项目在前：直接进入项目树（井在项目里选，
+                # 快速解释图/综合解释作为项目内的井级作业）
                 from logsys import project_browser as _pbrowser
                 _pbrowser.launch()
                 sys.exit(0)

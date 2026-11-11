@@ -15,6 +15,14 @@ Techlog 语义对齐：
   - 过滤实时生效（Apply filter dynamically）；
   - 右键菜单含条件选择、打开产物、定位文件。
 
+【2026-11-11 项目在前】**作业在项目里做**：
+  QuickLook / 综合解释不再是顶层并列任务，而是**项目内针对某口井的作业**
+  （右键井 → 快速解释图 / 综合解释）。理由：
+  - 作业需要"原始井目录"（原始 LAS + 地质资料 + 甲方格式），而项目树
+    扫的是产物目录 —— 只有在项目语境里，才能把"产物"和"源"挂到同一口井上；
+  - 作业产物直接落回项目树（output/<井名>/），跑完刷新即可看到新数据集；
+  - 批量处理天然是项目级操作（多选井 → 批量 QuickLook）。
+
 用法：
     python -m logsys.project_browser --root D:\\360\\src\\output
     python logInt.py --project              # 启动后选择项目根
@@ -24,11 +32,15 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import queue
 import subprocess
 import sys
+import threading
 import tkinter as tk
 from tkinter import filedialog, ttk
 
+from logsys import project_config as pcfg
+from logsys import project_job as pjob
 from logsys import project_model as pm
 
 # 配色（与 logInt 现有界面一致：主色 #1a5c9e）
@@ -56,14 +68,18 @@ ICON_MAP = {
     'interval': '▥',   # 顶底边界层集
     'point':    '▪',   # 点数据集
     'log':      '▦',   # 成果 LAS
-    'table':    '▦',   # 层段表
+    'source':   '⊞',   # 原始测井 LAS（源）
+    'table':    '▥',   # 层段表
     'meta':     '☰',   # 元信息
     'image':    '▣',   # 图件
     'report':   '✎',   # 报告
 }
 
 #: 井状态图标（Techlog 用图标区分井状态）
-STATUS_ICON = {'complete': '✓', 'partial': '◐', 'empty': '○', 'no_source': '△'}
+STATUS_ICON = {'complete': '✓', 'partial': '◐', 'pending': '◔', 'empty': '○'}
+
+#: 源资料未关联时的附加标记（叠在井节点上）
+NO_SOURCE_MARK = ' ⚠'
 
 #: 状态 → 树节点标签色（浅色主题）
 STATUS_TAG = {'ok': '#1d7a3e', 'warn': '#b8860b', 'error': '#b00020', 'muted': '#8a8f98'}
@@ -84,6 +100,11 @@ class ProjectBrowser:
         self._wells_by_iid: dict[str, pm.Well] = {}
         self._ds_by_iid: dict[str, pm.Dataset] = {}
         self._filter_after = None
+        self._job_queue: queue.Queue = queue.Queue()
+        self._job_running = False
+        self._job_runner: pjob.JobRunner | None = None
+        self._batch_queue: list = []
+        self._batch_job: str = ''
 
         self.win = tk.Toplevel(parent) if parent else tk.Tk()
         self.win.title('智能测井解释系统 —— 项目浏览器')
@@ -97,6 +118,38 @@ class ProjectBrowser:
         self._build_output()
         self.refresh()
         self._bind_keys()
+        self._poll_job_queue()
+
+    # ---------------- 作业（QuickLook / 综合解释） ----------------
+
+    def _on_job_log(self, msg: str):
+        """来自作业线程的日志 → 排队（GUI 线程统一消费，线程安全）。"""
+        self._job_queue.put(('log', msg))
+
+    def _on_job_done(self, code: int, label: str):
+        self._job_queue.put(('done', (code, label)))
+
+    def _poll_job_queue(self):
+        """在 GUI 线程消费作业消息（避免跨线程操作 tk）。"""
+        try:
+            while True:
+                kind, payload = self._job_queue.get_nowait()
+                if kind == 'log':
+                    self._log(payload)
+                else:
+                    code, label = payload
+                    self._job_running = False
+                    self._log('── %s 结束（退出码 %s）──' % (label, code))
+                    self.refresh()
+                    # 批量队列续跑（项目级作业的串行执行）
+                    if getattr(self, '_batch_queue', None):
+                        self._start_next_batch()
+        except queue.Empty:
+            pass
+        try:
+            self.win.after(200, self._poll_job_queue)
+        except Exception:
+            pass
 
     # ---------------- 界面骨架 ----------------
 
@@ -132,6 +185,24 @@ class ProjectBrowser:
         right.pack(side='right', padx=10)
         ttk.Button(right, text='打开井目录…', command=self._pick_root).pack(side='left', padx=3)
         ttk.Button(right, text='刷新', command=self.refresh).pack(side='left', padx=3)
+
+        # 项目级工具条（作业在项目里做：批量执行 / 源根管理）
+        bar = tk.Frame(self.win, bg=C_PANEL)
+        bar.pack(fill='x', padx=10, pady=(6, 0))
+        tk.Label(bar, text='项目作业', font=F_BOLD, bg=C_PANEL,
+                 fg=C_TEXT).pack(side='left', padx=(0, 8))
+        ttk.Button(bar, text='批量快速解释图（待解释井）',
+                   command=lambda: self._run_batch('quicklook')).pack(side='left', padx=3)
+        ttk.Button(bar, text='批量综合解释（待解释井）',
+                   command=lambda: self._run_batch('comprehensive')).pack(side='left', padx=3)
+        ttk.Separator(bar, orient='vertical').pack(side='left', fill='y', padx=8)
+        tk.Label(bar, text='候选源根', font=F_SUB, bg=C_PANEL,
+                 fg=C_MUTED).pack(side='left')
+        self.roots_var = tk.StringVar()
+        tk.Label(bar, textvariable=self.roots_var, font=F_SUB, bg=C_PANEL,
+                 fg=C_MUTED).pack(side='left', padx=(4, 8))
+        ttk.Button(bar, text='添加源根…', command=self._menu_add_root).pack(side='left', padx=3)
+        ttk.Button(bar, text='管理源根…', command=self._menu_manage_roots).pack(side='left', padx=3)
 
         # 过滤条（Techlog: Filter tab，实时生效）
         flt = tk.Frame(self.win, bg=C_BG)
@@ -196,11 +267,18 @@ class ProjectBrowser:
         tree_wrap.grid_columnconfigure(0, weight=1)
 
         # 右键菜单
+        # 【2026-11-11 项目在前】作业入口挂在**井节点**上（而不是顶层任务）：
+        #   快速解释图 / 综合解释 —— 在项目里对这口井跑作业
         self.menu = tk.Menu(self.win, tearoff=0)
+        self.menu.add_command(label='快速解释图（Quick Look）', command=self._menu_quicklook)
+        self.menu.add_command(label='综合解释', command=self._menu_comprehensive)
+        self.menu.add_separator()
         self.menu.add_command(label='打开该井解释', command=self._menu_open_well)
         self.menu.add_command(label='打开产物目录', command=self._menu_open_dir)
+        self.menu.add_command(label='打开源资料目录', command=self._menu_open_source)
         self.menu.add_command(label='复制路径', command=self._menu_copy_path)
         self.menu.add_separator()
+        self.menu.add_command(label='关联原始资料目录…', command=self._menu_bind_source)
         self.menu.add_command(label='按此条件选择变量…', command=self._menu_conditional)
         self.tree.bind('<Button-3>', self._popup_menu)
 
@@ -271,7 +349,21 @@ class ProjectBrowser:
 
     def refresh(self):
         """重建树（过滤/分组实时生效）。"""
-        self.project = pm.scan_project(self.root_dir, self.source_root)
+        # 井 → 原始资料目录 映射（显式绑定优先，其次按候选源根自动探测）
+        _names = []
+        try:
+            _names = [e for e in os.listdir(self.root_dir)
+                      if os.path.isdir(os.path.join(self.root_dir, e))]
+        except Exception:
+            _names = []
+        _smap = pcfg.source_map(self.root_dir, _names)
+        if self.source_root:
+            for n in _names:
+                if n not in _smap:
+                    _c = os.path.join(self.source_root, n)
+                    if os.path.isdir(_c):
+                        _smap[n] = _c
+        self.project = pm.scan_project(self.root_dir, self.source_root, source_map=_smap)
         self.path_var.set(self.root_dir)
         st_label = self.status_var.get()
         status = '' if st_label == '全部' else st_label
@@ -303,29 +395,44 @@ class ProjectBrowser:
                 self._insert_well(root_iid, w)
 
         s = pm.summarize(self.project)
-        self.stat_var.set('项目 %s ｜ 井 %d ｜ 数据集 %d ｜ 变量 %d ｜ 层 %d ｜ 当前筛选 %d' % (
-            s['project'], s['wells'], s['datasets'], s['variables'], s['layers'], len(wells)))
+        self.stat_var.set('项目 %s ｜ 井 %d ｜ 数据集 %d ｜ 源 %d ｜ 变量 %d ｜ 层 %d ｜ 已关联源 %d ｜ 当前筛选 %d' % (
+            s['project'], s['wells'], s['datasets'], s['source_datasets'],
+            s['variables'], s['layers'], s['ready'], len(wells)))
+        # 候选源根显示
+        try:
+            _roots = pcfg.source_roots(self.root_dir)
+            self.roots_var.set('（%d 个）%s' % (len(_roots), '；'.join(_roots[:2])))
+        except Exception:
+            self.roots_var.set('')
         # 输出区只保留最近一条刷新摘要（连续刷新不刷屏）
-        self._log('刷新：%d 口井（筛选后 %d）｜ 数据集 %d ｜ 变量 %d ｜ 层 %d' % (
-            s['wells'], len(wells), s['datasets'], s['variables'], s['layers']))
+        self._log('刷新：%d 口井（筛选后 %d）｜ 数据集 %d ｜ 源 %d ｜ 变量 %d ｜ 层 %d ｜ 已关联源 %d' % (
+            s['wells'], len(wells), s['datasets'], s['source_datasets'],
+            s['variables'], s['layers'], s['ready']))
 
     def _insert_well(self, parent: str, w: pm.Well):
         icon = STATUS_ICON.get(w.status, '○')
-        detail = '数据集 %d ｜ 层 %d' % (len(w.datasets), w.layer_count)
+        detail = '数据集 %d' % len(w.datasets)
+        if w.source_datasets:
+            detail += ' ｜ 源 %d' % len(w.source_datasets)
+        detail += ' ｜ 层 %d' % w.layer_count
         if w.last_run:
             detail += ' ｜ %s' % w.last_run
+        # 未关联源资料的井加警示标记（可在项目里做作业的前提）
+        mark = '' if w.has_source else NO_SOURCE_MARK
         # 井节点：展开全部变量时直接展开井节点，层级才可见
         iid = self.tree.insert(parent, 'end',
-                               text='%s %s' % (icon, w.name),
+                               text='%s %s%s' % (icon, w.name, mark),
                                values=(w.status_label, detail),
                                tags=(w.status_color,),
                                open=bool(self.show_vars.get()))
         self._wells_by_iid[iid] = w
+        for ds in w.source_datasets:
+            self._insert_dataset(iid, ds, source=True)
         for ds in w.datasets:
             self._insert_dataset(iid, ds)
         return iid
 
-    def _insert_dataset(self, parent: str, ds: pm.Dataset):
+    def _insert_dataset(self, parent: str, ds: pm.Dataset, source: bool = False):
         icon = ICON_MAP.get(ds.icon, '▤')
         detail = '%d 变量' % len(ds.variables) if ds.variables else ''
         if ds.n_rows:
@@ -334,7 +441,7 @@ class ProjectBrowser:
             detail += ' ｜ %.1f-%.1f m' % (ds.depth_min, ds.depth_max or ds.depth_min)
         iid = self.tree.insert(parent, 'end', text='%s %s' % (icon, ds.name),
                                values=(pm.DATASET_TYPES.get(ds.dtype, ('', ''))[0], detail),
-                               tags=('dataset',))
+                               tags=('source' if source else 'dataset',))
         self._ds_by_iid[iid] = ds
         if self.show_vars.get():
             self.tree.item(iid, open=True)
@@ -372,14 +479,17 @@ class ProjectBrowser:
         s = pm.summarize(self.project)
         lines = [
             '井名        : %s' % w.name,
-            '状态        : %s' % w.status_label,
+            '产物状态    : %s' % w.status_label,
+            '源资料状态  : %s' % w.source_label,
             '产物目录    : %s' % w.path,
         ]
         if w.source_dir:
             lines.append('原始资料    : %s' % w.source_dir)
+        else:
+            lines.append('原始资料    : （未关联 —— 右键「关联原始资料目录…」）')
         lines += [
-            '数据集数量  : %d' % len(w.datasets),
-            '变量总数    : %d' % sum(len(d.variables) for d in w.datasets),
+            '数据集数量  : %d（产物） + %d（源）' % (len(w.datasets), len(w.source_datasets)),
+            '变量总数    : %d' % sum(len(d.variables) for d in w.datasets + w.source_datasets),
             '层数        : %d' % w.layer_count,
         ]
         if w.fluid_dist:
@@ -399,8 +509,16 @@ class ProjectBrowser:
             txt = '（未找到 <井名>info.json）'
         self._set_tab('井信息', txt)
 
-        # 数据集
+        # 数据集（产物 + 源）
         rows = []
+        for ds in w.source_datasets:
+            rows.append('%s  [源 · %s]' % (ds.name, pm.DATASET_TYPES.get(ds.dtype, ('', ''))[0]))
+            rows.append('    路径   : %s' % ds.path)
+            rows.append('    大小   : %s' % _human_size(ds.size))
+            rows.append('    变量   : %d' % len(ds.variables))
+            if ds.depth_min is not None:
+                rows.append('    深度   : %.2f - %.2f m' % (ds.depth_min, ds.depth_max or 0))
+            rows.append('')
         for ds in w.datasets:
             rows.append('%s  [%s]' % (ds.name, pm.DATASET_TYPES.get(ds.dtype, ('', ''))[0]))
             rows.append('    路径   : %s' % ds.path)
@@ -413,7 +531,7 @@ class ProjectBrowser:
 
         # 变量
         vrows = []
-        for ds in w.datasets:
+        for ds in w.source_datasets + w.datasets:
             if not ds.variables:
                 continue
             vrows.append('── %s ──' % ds.name)
@@ -483,6 +601,182 @@ class ProjectBrowser:
         if w:
             self._open_well(w)
 
+    # ---------------- 作业（在项目里做） ----------------
+
+    def _menu_quicklook(self):
+        """项目内作业：对选中井跑 QuickLook（快速解释图）。"""
+        self._run_job('quicklook')
+
+    def _menu_comprehensive(self):
+        """项目内作业：对选中井跑综合解释。"""
+        self._run_job('comprehensive')
+
+    def _run_job(self, job_type: str):
+        if self._job_running:
+            self._log('已有作业在运行，请等待完成或先取消')
+            return
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        if not w.has_source:
+            self._log('井 %s 未关联原始资料目录 —— 请右键「关联原始资料目录…」后再执行作业'
+                      % w.name)
+            return
+        label = pjob.JOB_TYPES.get(job_type, (job_type, ''))[0]
+        runner = pjob.JobRunner(on_log=self._on_job_log, on_done=self._on_job_done)
+        self._job_runner = runner
+        self._job_running = True
+        ok = runner.start(job_type, w.source_dir, self.root_dir)
+        if not ok:
+            self._job_running = False
+            return
+        self._log('── %s：%s ──' % (label, w.name))
+
+    def _menu_bind_source(self):
+        """把井的原始资料目录显式绑定并持久化到项目配置。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        d = filedialog.askdirectory(
+            title='选择 %s 的原始资料目录（含 LAS / 地质资料 / 甲方格式）' % w.name,
+            initialdir=w.source_dir or self.root_dir)
+        if not d:
+            return
+        if pcfg.bind_well(self.root_dir, w.name, d):
+            self._log('已关联源目录：%s → %s' % (w.name, d))
+            self.refresh()
+        else:
+            self._log('关联失败：无法写入项目配置 %s' % pcfg.config_path(self.root_dir))
+
+    def _menu_open_source(self):
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        if not w.has_source:
+            self._log('井 %s 未关联原始资料目录' % w.name)
+            return
+        try:
+            os.startfile(w.source_dir)  # noqa: S606
+            self._log('已打开源目录：%s' % w.source_dir)
+        except Exception as e:
+            self._log('打开源目录失败：%s' % e)
+
+    def _run_batch(self, job_type: str):
+        """项目级批量作业：对所有"待解释"且已关联源的井依次执行。
+
+        批量是**项目语境**才有的能力 —— 单井流程里没有"一批井"的概念。
+        """
+        if self._job_running:
+            self._log('已有作业在运行，请等待完成')
+            return
+        targets = [w for w in self.project.wells
+                   if w.status == 'pending' and w.has_source]
+        if not targets:
+            self._log('没有可执行的井：批量作业仅针对「待解释」且已关联原始资料的井')
+            return
+        label = pjob.JOB_TYPES.get(job_type, (job_type, ''))[0]
+        if not self._ask_yes_no('批量%s' % label,
+                                '将对 %d 口井依次执行%s：\n%s\n\n单井可能耗时数分钟，是否继续？'
+                                % (len(targets), label,
+                                   '\n'.join('  · %s' % w.name for w in targets))):
+            return
+        self._batch_queue = [(job_type, w) for w in targets]
+        self._batch_job = job_type
+        self._log('批量%s：%d 口井' % (label, len(targets)))
+        self._start_next_batch()
+
+    def _start_next_batch(self):
+        if not getattr(self, '_batch_queue', None):
+            self._log('批量作业全部结束')
+            self._batch_queue = []
+            return
+        job_type, w = self._batch_queue.pop(0)
+        runner = pjob.JobRunner(on_log=self._on_job_log, on_done=self._on_job_done)
+        self._job_runner = runner
+        self._job_running = True
+        if not runner.start(job_type, w.source_dir, self.root_dir):
+            self._job_running = False
+            self._start_next_batch()
+
+    def _menu_add_root(self):
+        d = filedialog.askdirectory(title='添加候选原始资料根目录')
+        if not d:
+            return
+        if pcfg.add_source_root(self.root_dir, d):
+            self._log('已添加候选源根：%s' % d)
+            self.refresh()
+        else:
+            self._log('添加候选源根失败')
+
+    def _menu_manage_roots(self):
+        """管理候选源根（增删 + 显示已绑定关系）。"""
+        win = tk.Toplevel(self.win)
+        win.title('项目配置 — 候选源根与井绑定')
+        win.geometry('680x480')
+        win.configure(bg=C_BG)
+        tk.Label(win, text='候选原始资料根目录（用于按井名自动探测源目录）',
+                 font=F_BOLD, bg=C_BG).pack(anchor='w', padx=12, pady=(10, 4))
+        lst = tk.Listbox(win, font=F_MONO, height=8, bg=C_PANEL, relief='solid', bd=1)
+        lst.pack(fill='both', expand=True, padx=12)
+
+        cfg = pcfg.load_config(self.root_dir)
+        for r in cfg.get('source_roots', []):
+            lst.insert('end', r)
+
+        tk.Label(win, text='已绑定的井（井名 → 源目录）',
+                 font=F_BOLD, bg=C_BG).pack(anchor='w', padx=12, pady=(8, 4))
+        lst2 = tk.Listbox(win, font=F_MONO, height=8, bg=C_PANEL, relief='solid', bd=1)
+        lst2.pack(fill='both', expand=True, padx=12)
+        for k, v in sorted((cfg.get('wells') or {}).items()):
+            lst2.insert('end', '%-24s → %s' % (k, v.get('source_dir', '')))
+
+        b = tk.Frame(win, bg=C_BG)
+        b.pack(fill='x', padx=12, pady=10)
+
+        def _add():
+            d = filedialog.askdirectory(title='添加候选原始资料根目录')
+            if d:
+                pcfg.add_source_root(self.root_dir, d)
+                lst.insert('end', d)
+
+        def _remove():
+            sel = lst.curselection()
+            if not sel:
+                return
+            pcfg.remove_source_root(self.root_dir, lst.get(sel[0]))
+            lst.delete(sel[0])
+
+        ttk.Button(b, text='添加…', command=_add).pack(side='left', padx=3)
+        ttk.Button(b, text='移除选中', command=_remove).pack(side='left', padx=3)
+        ttk.Button(b, text='应用并刷新', command=lambda: (win.destroy(), self.refresh())
+                   ).pack(side='right', padx=3)
+
+    def _ask_yes_no(self, title: str, message: str) -> bool:
+        win = tk.Toplevel(self.win)
+        win.title(title)
+        win.geometry('520x260')
+        win.configure(bg=C_BG)
+        tk.Label(win, text=title, font=F_BOLD, bg=C_BG, fg=C_ACCENT).pack(
+            anchor='w', padx=14, pady=(12, 4))
+        tk.Label(win, text=message, font=F_MAIN, bg=C_BG, justify='left').pack(
+            anchor='w', padx=14)
+        res = {'ok': False}
+
+        def _ok():
+            res['ok'] = True
+            win.destroy()
+
+        b = tk.Frame(win, bg=C_BG)
+        b.pack(fill='x', padx=14, pady=12)
+        ttk.Button(b, text='取消', command=win.destroy).pack(side='right', padx=4)
+        ttk.Button(b, text='开始', command=_ok).pack(side='right', padx=4)
+        win.grab_set()
+        self.win.wait_window(win)
+        return res['ok']
+
     def _open_well(self, w: pm.Well):
         if self.on_open_well:
             try:
@@ -492,8 +786,7 @@ class ProjectBrowser:
                 self._log('触发解释失败: %s' % e)
         else:
             src = w.source_dir or w.path
-            self._log('井目录：%s（未绑定解释回调，可直接运行 logInt.py --quicklook "%s"）'
-                      % (src, src))
+            self._log('井目录：%s（右键可执行快速解释图 / 综合解释）' % src)
 
     def _menu_open_dir(self):
         w = self._selected_well()
@@ -633,12 +926,19 @@ def _human_size(n: int) -> str:
     return '%.1f TB' % n
 
 
+def default_root() -> str:
+    """默认项目根 = 仓库下的 output/（logInt 的产物落盘位置）。"""
+    return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        'output')
+
+
 def launch(root: str = '', source_root: str = '', on_open_well=None) -> int:
     """启动项目浏览器。root 为空时弹窗选择项目根。"""
     if not root:
         r = tk.Tk()
         r.withdraw()
-        root = filedialog.askdirectory(title='选择项目根目录（每子目录 = 一口井）')
+        root = filedialog.askdirectory(title='选择项目根目录（每子目录 = 一口井）',
+                                       initialdir=default_root())
         r.destroy()
         if not root:
             return 1
@@ -651,7 +951,14 @@ def _cli():
     ap = argparse.ArgumentParser(description='项目浏览器')
     ap.add_argument('--root', default='', help='项目根目录')
     ap.add_argument('--source-root', default='', help='原始资料根目录（可选）')
+    ap.add_argument('--source-roots', default='',
+                    help='候选原始资料根目录，多个用 ; 分隔（可选）')
     args = ap.parse_args()
+    if args.source_roots:
+        for r in args.source_roots.split(';'):
+            r = r.strip()
+            if r:
+                pcfg.add_source_root(args.root or default_root(), r)
     return launch(args.root, args.source_root)
 
 

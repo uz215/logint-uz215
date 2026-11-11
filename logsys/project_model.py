@@ -122,17 +122,30 @@ DATASET_TYPES = {
     'point':    ('点数据集', 'point'),
     'log':      ('解释成果 LAS', 'log'),
     'table':    ('层段表', 'table'),
+    'source':   ('原始测井 LAS', 'source'),
     'meta':     ('井元信息', 'meta'),
     'image':    ('图件', 'image'),
     'report':   ('报告', 'report'),
 }
 
 #: 井状态（Techlog 用图标区分；本系统用状态词 + 颜色）
+#:
+#: 【2026-11-11 修正】原 no_source 的判据是"有源无产物"却标成"缺原始资料"，
+#: 语义与标签相反。改为两个**正交维度**：
+#:   status      —— 产物的解释完成度（complete/partial/pending/empty）
+#:   has_source  —— 是否已关联原始资料（决定能否在项目里做 QuickLook）
+#: 混成一个维度会导致正常井被误标为红色错误，故拆开。
 WELL_STATUS = {
     'complete':  ('已解释', 'ok'),
     'partial':   ('部分完成', 'warn'),
+    'pending':   ('待解释', 'warn'),
     'empty':     ('仅建目录', 'muted'),
-    'no_source': ('缺原始资料', 'error'),
+}
+
+#: 源资料关联状态 → (标签, 颜色)
+SOURCE_STATUS = {
+    'linked':    ('已关联', 'ok'),
+    'unlinked':  ('缺源', 'error'),
 }
 
 
@@ -224,11 +237,14 @@ class Well:
     name: str
     path: str = ''
     datasets: list[Dataset] = field(default_factory=list)
+    source_datasets: list[Dataset] = field(default_factory=list)
     info: dict = field(default_factory=dict)
     status: str = 'empty'
     status_label: str = ''
     status_color: str = 'muted'
     source_dir: str = ''
+    source_label: str = '缺源'
+    source_color: str = 'error'
     depth_min: float | None = None
     depth_max: float | None = None
     layer_count: int = 0
@@ -239,9 +255,15 @@ class Well:
     def complete(self) -> bool:
         return self.status == 'complete'
 
+    @property
+    def has_source(self) -> bool:
+        """是否已关联到原始资料目录（可在项目里跑 QuickLook / 综合解释）。"""
+        return bool(self.source_dir) and os.path.isdir(self.source_dir)
+
     def to_dict(self) -> dict:
         d = asdict(self)
         d['complete'] = self.complete
+        d['has_source'] = self.has_source
         return d
 
 
@@ -281,6 +303,20 @@ _DATASET_RULES = [
     ('*_run_manifest.json',    '运行清单',     'meta'),
 ]
 
+#: 源目录（原始资料）识别规则：glob → (数据集名, 类型)
+#:
+#: 【2026-11-11】源数据集让"项目里的井"不只有产物、还能看到输入资料，
+#: 与 Techlog 的 Well → Dataset 语义对齐（井下挂原始与成果两类数据集）。
+_SOURCE_RULES = [
+    ('*.las',                  '原始测井 LAS', 'source'),
+    ('*_qlpt.json',            '甲方出图格式', 'meta'),
+    ('quicklook_config.json',  '甲方出图格式', 'meta'),
+    ('*masterlog*.pdf',        '录井图',       'report'),
+    ('*Masterlog*.pdf',        '录井图',       'report'),
+    ('*.xlsx',                 '试油/测试表',  'report'),
+    ('*.xls',                  '试油/测试表',  'report'),
+]
+
 
 def _first(paths: list[str]) -> str:
     return paths[0] if paths else ''
@@ -291,6 +327,86 @@ def _latest(paths: list[str]) -> str:
     if not paths:
         return ''
     return max(paths, key=lambda p: os.path.getmtime(p))
+
+
+def _scan_source_datasets(source_dir: str) -> list[Dataset]:
+    """扫描原始资料目录，产出源数据集列表。"""
+    out: list[Dataset] = []
+    if not source_dir or not os.path.isdir(source_dir):
+        return out
+    for pattern, ds_name, dtype in _SOURCE_RULES:
+        try:
+            hits = sorted(glob.glob(os.path.join(source_dir, pattern)))
+        except Exception:
+            continue
+        if not hits:
+            continue
+        p = _latest(hits)
+        try:
+            st = os.stat(p)
+        except Exception:
+            continue
+        ds = Dataset(name=ds_name, path=p, dtype=dtype,
+                     icon=DATASET_TYPES.get(dtype, ('数据', 'curve'))[1],
+                     size=st.st_size, mtime=st.st_mtime)
+        if dtype == 'source':
+            ds.variables = _scan_variables_from_las(p)
+            ds.n_cols = len(ds.variables)
+            lo, hi = _depth_range_from_las(p)
+            ds.depth_min, ds.depth_max = lo, hi
+        out.append(ds)
+    return out
+
+
+def _depth_range_from_las(path: str) -> tuple[float | None, float | None]:
+    """从 LAS 估算深度范围（读 ~W 段的起始/终止深度）。
+
+    兼容多种写法：``START``/``STOP``、``STRT``/``STOP``、``STRT.MS``/``STOP.MS``。
+    """
+    try:
+        with open(path, 'r', encoding='utf-8', errors='replace') as f:
+            lo = hi = None
+            for _ in range(4000):
+                line = f.readline()
+                if not line:
+                    break
+                s = line.strip()
+                if not s or s.startswith('#'):
+                    continue
+                up = s.upper()
+                if up.startswith('~'):
+                    if up.startswith('~A'):
+                        break
+                    continue
+                # LAS 的 ~W 段格式： MNEM[.UNIT] : VALUE
+                # 用冒号切分取值，句点只是单位分隔符
+                if ':' in s:
+                    left, _, right = s.partition(':')
+                else:
+                    left, right = s, ''
+                key = left.strip().upper().split()[0] if left.strip() else ''
+                # 去掉单位后缀（STRT.MS → STRT）
+                if '.' in key:
+                    key = key.split('.')[0]
+                if key in ('START', 'STRT'):
+                    k = 'START'
+                elif key in ('STOP', 'EOT'):
+                    k = 'STOP'
+                else:
+                    continue
+                try:
+                    v = float(right.strip().split()[0])
+                except Exception:
+                    continue
+                if k == 'START':
+                    lo = v
+                else:
+                    hi = v
+        if lo is not None and hi is not None:
+            return lo, hi
+    except Exception:
+        pass
+    return None, None
 
 
 def _read_csv_header(path: str, max_rows: int = 200) -> tuple[list[str], int]:
@@ -497,29 +613,47 @@ def scan_well(well_dir: str, source_dir: str = '') -> Well:
                         w.fluid_dist = lay['rules'].get('dist', {})
         w.datasets.append(ds)
 
+    # 源数据集（原始 LAS / 甲方格式 / 录井图 …）
+    w.source_datasets = _scan_source_datasets(source_dir)
+    if w.source_datasets:
+        for ds in w.source_datasets:
+            if ds.dtype == 'source' and ds.depth_min is not None:
+                w.depth_min = ds.depth_min if w.depth_min is None else min(w.depth_min, ds.depth_min)
+                w.depth_max = ds.depth_max if w.depth_max is None else max(w.depth_max, ds.depth_max)
+
     # 状态判定
+    # 【2026-11-11 修正】拆成两个正交维度：
+    #   status     —— 产物的解释完成度
+    #   has_source —— 是否已关联原始资料（决定能否在项目里做 QuickLook）
+    # 原实现把两者混成一个状态（判据与标签相反：有源无产物被标成"缺原始资料"）。
     has_curve = any(d.dtype == 'curve' for d in w.datasets)
     has_log = any(d.dtype == 'log' for d in w.datasets)
     has_layer = any(d.dtype == 'table' for d in w.datasets)
+    has_product = bool(w.datasets)
     has_src = bool(source_dir) and os.path.isdir(source_dir)
     if has_curve and (has_log or has_layer):
         key = 'complete'
     elif has_curve or has_log:
         key = 'partial'
     elif has_src:
-        key = 'no_source'
+        # 源资料已就位、尚未出产物 → 项目里该跑作业的井
+        key = 'pending'
     else:
         key = 'empty'
     label, color = WELL_STATUS[key]
     w.status, w.status_label, w.status_color = key, label, color
+    w.source_label, w.source_color = SOURCE_STATUS[
+        'linked' if has_src else 'unlinked']
     return w
 
 
-def scan_project(root: str, source_root: str = '') -> Project:
+def scan_project(root: str, source_root: str = '',
+                 source_map: dict | None = None) -> Project:
     """扫描项目根目录，产出 Project（井集合）。
 
     root        —— 产物根（每子目录 = 一口井）
     source_root —— 原始资料根（可选，用于标记"待解释"井）
+    source_map  —— 显式的 {井名: 源目录} 映射（来自 project_config），优先级最高
     """
     root = os.path.abspath(root)
     p = Project(name=os.path.basename(root) or root, path=root)
@@ -532,7 +666,9 @@ def scan_project(root: str, source_root: str = '') -> Project:
         if entry.startswith('.') or entry.startswith('_'):
             continue
         src = ''
-        if source_root:
+        if source_map:
+            src = str(source_map.get(entry) or '')
+        if not src and source_root:
             cand = os.path.join(source_root, entry)
             if os.path.isdir(cand):
                 src = cand
@@ -549,9 +685,9 @@ def filter_wells(project: Project, text: str = '', dataset_type: str = '',
     """按 Techlog Filter tab 语义过滤井。
 
     text         —— 井名/数据集名/变量名 关键字（不区分大小写）
-    dataset_type —— 数据集类型筛选（curve/log/table/meta/image/report）
+    dataset_type —— 数据集类型筛选（curve/log/table/source/meta/image/report）
     variable     —— 变量关键字
-    status       —— 井状态（complete/partial/empty/no_source）
+    status       —— 井状态（complete/partial/pending/empty/no_source）
     """
     kw = (text or '').strip().lower()
     kvar = (variable or '').strip().lower()
@@ -559,26 +695,28 @@ def filter_wells(project: Project, text: str = '', dataset_type: str = '',
     for w in project.wells:
         if status and w.status != status:
             continue
+        # 源数据集也参与关键字/类型/变量匹配（项目里的井，输入与产物都算）
+        all_ds = list(w.datasets) + list(w.source_datasets)
         if kw:
             hit = kw in w.name.lower()
             if not hit:
-                for d in w.datasets:
+                for d in all_ds:
                     if kw in d.name.lower():
                         hit = True
                         break
             if not hit and kvar:
-                for d in w.datasets:
+                for d in all_ds:
                     if any(kvar in v.name.lower() for v in d.variables):
                         hit = True
                         break
             if not hit:
                 continue
         if dataset_type:
-            if not any(d.dtype == dataset_type for d in w.datasets):
+            if not any(d.dtype == dataset_type for d in all_ds):
                 continue
         if kvar:
             if not any(any(kvar in v.name.lower() for v in d.variables)
-                       for d in w.datasets):
+                       for d in all_ds):
                 continue
         out.append(w)
     return out
@@ -634,17 +772,22 @@ def summarize(project: Project) -> dict:
     by_status: dict[str, int] = {}
     for w in project.wells:
         by_status[w.status_label] = by_status.get(w.status_label, 0) + 1
-    ds_total = sum(len(w.datasets) for d in [project] for w in d.wells)
+    ds_total = sum(len(w.datasets) for w in project.wells)
+    src_total = sum(len(w.source_datasets) for w in project.wells)
     var_total = sum(len(ds.variables) for w in project.wells for ds in w.datasets)
+    var_total += sum(len(ds.variables) for w in project.wells for ds in w.source_datasets)
     layers = sum(w.layer_count for w in project.wells)
+    ready = sum(1 for w in project.wells if w.has_source)
     return {
         'project': project.name,
         'path': project.path,
         'wells': total,
         'by_status': by_status,
         'datasets': ds_total,
+        'source_datasets': src_total,
         'variables': var_total,
         'layers': layers,
+        'ready': ready,
     }
 
 

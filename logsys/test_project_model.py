@@ -127,7 +127,7 @@ def test_scan():
 
 
 def test_status_with_source():
-    print('\n== 井状态：缺原始资料 ==')
+    print('\n== 井状态：产物完成度 × 源关联（两个正交维度） ==')
     tmp = tempfile.mkdtemp(prefix='projmodel_')
     try:
         root = os.path.join(tmp, 'proj')
@@ -136,7 +136,67 @@ def test_status_with_source():
         os.makedirs(os.path.join(src, 'WELL-C'))
         p = pm.scan_project(root, src)
         wc = p.wells[0]
-        check('有源无产物 → no_source', wc.status == 'no_source', wc.status)
+        # 【2026-11-11 修正】有源无产物 = "待解释"（可在项目里跑 QuickLook），
+        # 原判据与标签相反（曾标为"缺原始资料"）
+        check('有源无产物 → pending（待解释）', wc.status == 'pending', wc.status)
+        check('pending 标签正确', wc.status_label == '待解释', wc.status_label)
+        check('有源 → 源状态=已关联', wc.source_label == '已关联', wc.source_label)
+        check('有源 → has_source=True', wc.has_source)
+
+        # 有产物但无源：产物维度独立判定，源维度单独标记为"缺源"
+        w2 = os.path.join(root, 'WELL-D')
+        os.makedirs(w2)
+        with open(os.path.join(w2, 'WELL-D_processed.csv'), 'w', encoding='utf-8') as f:
+            f.write('MD,GR\n100.0,50.0\n')
+        p2 = pm.scan_project(root, src)
+        wd = next(w for w in p2.wells if w.name == 'WELL-D')
+        check('有产物无源 → 产物维度=部分完成', wd.status == 'partial', wd.status)
+        check('有产物无源 → 源维度=缺源', wd.source_label == '缺源', wd.source_label)
+        check('有产物无源 → has_source=False', not wd.has_source)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_source_datasets():
+    print('\n== 源数据集（原始资料） ==')
+    tmp = tempfile.mkdtemp(prefix='projmodel_')
+    try:
+        root = os.path.join(tmp, 'proj')
+        os.makedirs(os.path.join(root, 'WELL-E'))
+        src = os.path.join(tmp, 'src', 'WELL-E')
+        os.makedirs(src)
+        with open(os.path.join(src, 'WELL-E.las'), 'w', encoding='utf-8') as f:
+            f.write('~Version Information\n'
+                    'VERS.   2.0 : CWLS LOG ASCII STANDARD -VERSION 2.0\n'
+                    '~Well Information\n'
+                    'STRT.MS : 1000.0\n'
+                    'STOP.MS : 1200.0\n'
+                    'WELL.   WELL-E : Well\n'
+                    '~Curve Information\n'
+                    'DEPT.M : Depth\n'
+                    'GR.API : Gamma Ray\n'
+                    '~ASCII\n'
+                    '1000.0 50.0\n'
+                    '1000.5 52.0\n')
+        with open(os.path.join(src, 'WELL-E_qlpt.json'), 'w', encoding='utf-8') as f:
+            json.dump({'legend_items': [{'label': 'OIL', 'color': '#ffd400'}]},
+                      f, ensure_ascii=False)
+        p = pm.scan_project(root, source_map={'WELL-E': src})
+        w = p.wells[0]
+        check('源数据集已识别', len(w.source_datasets) >= 2,
+              [d.name for d in w.source_datasets])
+        src_ds = [d for d in w.source_datasets if d.dtype == 'source']
+        check('识别到原始 LAS 数据集', len(src_ds) == 1, [d.name for d in src_ds])
+        if src_ds:
+            vnames = [v.name for v in src_ds[0].variables]
+            check('原始 LAS 变量含 GR', 'GR' in vnames, vnames)
+            check('原始 LAS 深度范围 1000-1200',
+                  src_ds[0].depth_min == 1000.0 and src_ds[0].depth_max == 1200.0,
+                  (src_ds[0].depth_min, src_ds[0].depth_max))
+        check('甲方格式识别为 meta 数据集',
+              any(d.dtype == 'meta' for d in w.source_datasets),
+              [(d.name, d.dtype) for d in w.source_datasets])
+        check('井标记 has_source=True', w.has_source)
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
 
@@ -224,6 +284,7 @@ def main():
     test_variable_colors()
     test_scan()
     test_status_with_source()
+    test_source_datasets()
     test_filter_group_select()
     test_summary()
     test_robustness()
