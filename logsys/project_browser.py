@@ -107,7 +107,7 @@ class ProjectBrowser:
         self._batch_job: str = ''
 
         self.win = tk.Toplevel(parent) if parent else tk.Tk()
-        self.win.title('智能测井解释系统 —— 项目浏览器')
+        self.win.title('智能测井解释系统 —— 项目工作台')
         self.win.geometry('1280x780')
         self.win.configure(bg=C_BG)
         self.win.minsize(1024, 620)
@@ -175,7 +175,7 @@ class ProjectBrowser:
         hdr.pack(fill='x')
         tk.Label(hdr, text='智能测井解释系统', font=F_TITLE, bg=C_PANEL,
                  fg=C_ACCENT).pack(side='left', padx=(14, 6), pady=8)
-        tk.Label(hdr, text='项目浏览器', font=F_BOLD, bg=C_PANEL,
+        tk.Label(hdr, text='项目工作台', font=F_BOLD, bg=C_PANEL,
                  fg=C_TEXT).pack(side='left', pady=8)
         self.path_var = tk.StringVar()
         tk.Label(hdr, textvariable=self.path_var, font=F_SUB, bg=C_PANEL,
@@ -183,7 +183,7 @@ class ProjectBrowser:
 
         right = tk.Frame(hdr, bg=C_PANEL)
         right.pack(side='right', padx=10)
-        ttk.Button(right, text='打开井目录…', command=self._pick_root).pack(side='left', padx=3)
+        ttk.Button(right, text='打开项目根…', command=self._pick_root).pack(side='left', padx=3)
         ttk.Button(right, text='刷新', command=self.refresh).pack(side='left', padx=3)
 
         # 项目级工具条（作业在项目里做：批量执行 / 源根管理）
@@ -269,9 +269,16 @@ class ProjectBrowser:
         # 右键菜单
         # 【2026-11-11 项目在前】作业入口挂在**井节点**上（而不是顶层任务）：
         #   快速解释图 / 综合解释 —— 在项目里对这口井跑作业
+        # 【2026-11-11 界面整合】原启动界面的"手动校正测井数据 / 气测 / 出图格式"
+        #   随界面整合一并下沉到井级，不再需要先过一个对话框。
         self.menu = tk.Menu(self.win, tearoff=0)
         self.menu.add_command(label='快速解释图（Quick Look）', command=self._menu_quicklook)
         self.menu.add_command(label='综合解释', command=self._menu_comprehensive)
+        self.menu.add_separator()
+        self.menu.add_command(label='指定主 LAS…', command=self._menu_set_las)
+        self.menu.add_command(label='指定气测文件…', command=self._menu_set_gas)
+        self.menu.add_command(label='选择甲方出图格式…', command=self._menu_set_format)
+        self.menu.add_command(label='清除资料指定', command=self._menu_clear_inputs)
         self.menu.add_separator()
         self.menu.add_command(label='打开该井解释', command=self._menu_open_well)
         self.menu.add_command(label='打开产物目录', command=self._menu_open_dir)
@@ -296,7 +303,7 @@ class ProjectBrowser:
         self.nb = ttk.Notebook(right)
         self.nb.pack(fill='both', expand=True, padx=8, pady=6)
         self._tabs: dict[str, tk.Text] = {}
-        for key in ('概览', '井信息', '数据集', '变量', '原始'):
+        for key in ('概览', '井信息', '数据集', '变量', '资料', '原始'):
             f = tk.Frame(self.nb, bg=C_PANEL)
             txt = tk.Text(f, font=F_MONO, wrap='none', bg=C_PANEL, fg=C_TEXT,
                           relief='flat', borderwidth=0, padx=8, pady=6)
@@ -400,8 +407,16 @@ class ProjectBrowser:
             s['variables'], s['layers'], s['ready'], len(wells)))
         # 候选源根显示
         try:
+            # 源根路径若在传递途中被损坏（如 ":\<数字>" 片段被吞），
+            # 该源根下的井会永远探测不到 —— 刷新时顺手修复并提示。
+            fixed = pcfg.repair_source_roots(self.root_dir)
+            for old in fixed:
+                self._log('已修复损坏的候选源根：%s → %s' % (old, pcfg.normalize_source_root(old)))
             _roots = pcfg.source_roots(self.root_dir)
             self.roots_var.set('（%d 个）%s' % (len(_roots), '；'.join(_roots[:2])))
+            _bad = pcfg.invalid_source_roots(self.root_dir)
+            if _bad:
+                self._log('无效候选源根（目录不存在，井将探测不到）：%s' % '；'.join(_bad))
         except Exception:
             self.roots_var.set('')
         # 输出区只保留最近一条刷新摘要（连续刷新不刷屏）
@@ -472,6 +487,7 @@ class ProjectBrowser:
         self._set_tab('概览', '%s\n\n类型: %s\n%s' % (
             self.tree.item(iid, 'text'), vals[0] if vals else '',
             vals[1] if len(vals) > 1 else ''))
+        self._set_tab('资料', '（项目视图 —— 选择一口井可查看其作业资料）')
 
     def _show_well(self, w: pm.Well):
         self.prop_title.configure(text=w.name)
@@ -542,6 +558,25 @@ class ProjectBrowser:
             vrows.append('')
         self._set_tab('变量', '\n'.join(vrows) or '（无变量）')
 
+        # 资料（原启动界面"手动校正资料"的下沉视图）：
+        # 显示作业**实际会用的**文件，以及它是手工指定还是自动探测来的
+        ins = self._well_inputs(w)
+        ilines = [
+            '原始资料目录: %s' % (w.source_dir or
+                                   '（未关联 —— 右键「关联原始资料目录…」）'),
+            '',
+            '作业实际使用的文件（手工指定优先于自动探测）:',
+        ]
+        for key in ('las', 'gas', 'config'):
+            label = pcfg.WELL_OPTION_LABELS.get(key, key)
+            val, src = ins.get(key, ('', ''))
+            ilines.append('  %s' % label)
+            ilines.append('    文件 : %s' % (val or '（无）'))
+            ilines.append('    来源 : %s' % (src or '—'))
+            ilines.append('')
+        ilines.append('右键井 → 指定主 LAS / 指定气测文件 / 选择甲方出图格式')
+        self._set_tab('资料', '\n'.join(ilines))
+
         self._set_tab('原始', json.dumps(w.to_dict(), ensure_ascii=False, indent=2))
 
     def _show_dataset(self, ds: pm.Dataset):
@@ -568,6 +603,7 @@ class ProjectBrowser:
         self._set_tab('变量', '\n'.join(vrows) or '（无变量）')
         self._set_tab('数据集', '本数据集属性\n\n' + '\n'.join(lines))
         self._set_tab('井信息', '（数据集视图）')
+        self._set_tab('资料', '（数据集视图）')
         self._set_tab('原始', json.dumps(ds.to_dict(), ensure_ascii=False, indent=2))
 
     def _set_tab(self, name: str, text: str):
@@ -624,14 +660,121 @@ class ProjectBrowser:
                       % w.name)
             return
         label = pjob.JOB_TYPES.get(job_type, (job_type, ''))[0]
+        # 井级资料指定（手工指定优先于自动探测）
+        opts = pcfg.well_options(self.root_dir, w.name)
         runner = pjob.JobRunner(on_log=self._on_job_log, on_done=self._on_job_done)
         self._job_runner = runner
         self._job_running = True
-        ok = runner.start(job_type, w.source_dir, self.root_dir)
+        ok = runner.start(job_type, w.source_dir, self.root_dir,
+                          las_file=opts.get('las', ''),
+                          gas_file=opts.get('gas', ''),
+                          config_file=opts.get('config', ''))
         if not ok:
             self._job_running = False
             return
         self._log('── %s：%s ──' % (label, w.name))
+
+    # ---------------- 井级资料指定（原启动界面能力下沉） ----------------
+
+    def _pick_input_file(self, title: str, well_name: str,
+                         patterns: list[tuple[str, str]]) -> str:
+        """弹出文件选择框，返回选中的路径（取消返回 ''）。"""
+        initial = self.root_dir
+        try:
+            w = self._selected_well()
+            if w and w.source_dir and os.path.isdir(w.source_dir):
+                initial = w.source_dir
+        except Exception:
+            pass
+        ftypes = [('所有文件', '*.*')] + patterns
+        return filedialog.askopenfilename(title=title, initialdir=initial,
+                                           filetypes=ftypes)
+
+    def _set_input(self, key: str, value: str, label: str):
+        """写入井级资料指定并刷新。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        if pcfg.set_well_option(self.root_dir, w.name, key, value):
+            self._log('已指定 %s：%s' % (label, value or '（清除）'))
+            self.refresh()
+        else:
+            self._log('指定失败：无法写入项目配置 %s' % pcfg.config_path(self.root_dir))
+
+    def _menu_set_las(self):
+        """手工指定主 LAS（防止自动探测选错文件）。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        f = self._pick_input_file(
+            '选择 %s 的主测井 LAS' % w.name, w.name,
+            [('LAS 文件', '*.las'), ('LAS/LAS2', '*.las2')])
+        if f:
+            self._set_input('las', f, '主 LAS')
+
+    def _menu_set_gas(self):
+        """手工指定气测文件。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        f = self._pick_input_file(
+            '选择 %s 的气测数据文件' % w.name, w.name,
+            [('Excel', '*.xls *.xlsx'), ('CSV', '*.csv'), ('文本', '*.txt')])
+        if f:
+            self._set_input('gas', f, '气测文件')
+
+    def _menu_set_format(self):
+        """手工指定甲方出图格式。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        f = self._pick_input_file(
+            '选择 %s 的甲方出图格式（quicklook / 综合图）' % w.name, w.name,
+            [('JSON', '*.json'), ('全部文件', '*.*')])
+        if f:
+            self._set_input('config', f, '甲方出图格式')
+
+    def _menu_clear_inputs(self):
+        """清除井级资料指定（回到自动探测）。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选择一口井')
+            return
+        if pcfg.clear_well_options(self.root_dir, w.name):
+            self._log('已清除 %s 的资料指定（回到自动探测）' % w.name)
+            self.refresh()
+        else:
+            self._log('清除失败：无法写入项目配置 %s' % pcfg.config_path(self.root_dir))
+
+    def _well_inputs(self, w):
+        """返回该井作业实际会用的文件（手工指定 > 自动探测）。
+
+        格式：``{'las': (值, 来源), 'gas': (值, 来源), 'config': (值, 来源)}``
+        """
+        opts = pcfg.well_options(self.root_dir, w.name)
+        out = {}
+
+        las = opts.get('las', '')
+        src = '手工指定' if las else ''
+        if not las and w.source_dir:
+            las = pjob.find_main_las(w.source_dir)
+            src = '自动探测' if las else ''
+        out['las'] = (las, src)
+
+        gas = opts.get('gas', '')
+        out['gas'] = (gas, '手工指定' if gas else '未指定')
+
+        cfg = opts.get('config', '')
+        src = '手工指定' if cfg else ''
+        if not cfg and w.source_dir:
+            cfg = pjob.find_client_format(w.source_dir)
+            src = '自动探测' if cfg else ''
+        out['config'] = (cfg, src)
+        return out
 
     def _menu_bind_source(self):
         """把井的原始资料目录显式绑定并持久化到项目配置。"""
@@ -694,10 +837,14 @@ class ProjectBrowser:
             self._batch_queue = []
             return
         job_type, w = self._batch_queue.pop(0)
+        opts = pcfg.well_options(self.root_dir, w.name)
         runner = pjob.JobRunner(on_log=self._on_job_log, on_done=self._on_job_done)
         self._job_runner = runner
         self._job_running = True
-        if not runner.start(job_type, w.source_dir, self.root_dir):
+        if not runner.start(job_type, w.source_dir, self.root_dir,
+                            las_file=opts.get('las', ''),
+                            gas_file=opts.get('gas', ''),
+                            config_file=opts.get('config', '')):
             self._job_running = False
             self._start_next_batch()
 
@@ -933,15 +1080,23 @@ def default_root() -> str:
 
 
 def launch(root: str = '', source_root: str = '', on_open_well=None) -> int:
-    """启动项目浏览器。root 为空时弹窗选择项目根。"""
+    """启动项目工作台（主界面）。
+
+    root 为空时：优先使用默认项目根（仓库 ``output/``），不存在才弹窗选择。
+    【2026-11-11 界面整合】启动后**直接**进入本界面工作，不再经过前置对话框。
+    """
     if not root:
-        r = tk.Tk()
-        r.withdraw()
-        root = filedialog.askdirectory(title='选择项目根目录（每子目录 = 一口井）',
-                                       initialdir=default_root())
-        r.destroy()
-        if not root:
-            return 1
+        _d = default_root()
+        if os.path.isdir(_d):
+            root = _d
+        else:
+            r = tk.Tk()
+            r.withdraw()
+            root = filedialog.askdirectory(title='选择项目根目录（每子目录 = 一口井）',
+                                           initialdir=os.path.dirname(_d) or '.')
+            r.destroy()
+    if not root:
+        return 1
     browser = ProjectBrowser(root, source_root, on_open_well)
     browser.run()
     return 0

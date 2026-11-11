@@ -21,7 +21,13 @@
   "version": 1,
   "source_roots": ["D:\\\\360\\\\Indonesia", "D:\\\\360\\\\Bangladesh"],
   "wells": {
-    "BET-1": {"source_dir": "D:\\\\360\\\\Indonesia\\\\BET-1"}
+    "BET-1": {"source_dir": "D:\\\\360\\\\Indonesia\\\\BET-1"},
+    "TRAKES-1": {
+      "source_dir": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1",
+      "las": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1\\\\TK1.las",
+      "gas": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1\\\\gas.xlsx",
+      "config": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1\\\\qlpt.json"
+    }
   }
 }
 ```
@@ -29,6 +35,9 @@
 约定：
 - ``source_roots``：候选原始资料根目录，探测时按井名在这些根下找子目录；
 - ``wells``：已确认的显式绑定，优先级高于自动探测；
+- ``las`` / ``gas`` / ``config``：**井级资料指定**（手工挑好的主 LAS、气测文件、
+  甲方出图格式），优先级高于自动探测；原启动界面的"手动校正资料"能力
+  随项目界面下沉到井级，保存在这里；
 - 写入采用**原子替换**（临时文件 + os.replace），避免半截文件；
 - 任何失败都降级为"空配置"，不抛错（与 logsys 约定一致）。
 
@@ -38,6 +47,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 
 #: 项目配置文件名（位于项目根目录）
@@ -50,6 +60,17 @@ CONFIG_VERSION = 1
 def config_path(root: str) -> str:
     """项目配置文件绝对路径。"""
     return os.path.join(os.path.abspath(root), CONFIG_NAME)
+
+
+#: 井级资料覆盖项（手工指定，优先于自动探测）
+WELL_OPTIONS = ('las', 'gas', 'config')
+
+#: 覆盖项的中文标签（GUI 用）
+WELL_OPTION_LABELS = {
+    'las': '主 LAS 文件',
+    'gas': '气测文件',
+    'config': '甲方出图格式',
+}
 
 
 def _empty_config() -> dict:
@@ -87,13 +108,16 @@ def load_config(root: str) -> dict:
 
 
 def save_config(root: str, cfg: dict) -> bool:
-    """原子写回项目配置。成功返回 True。"""
+    """原子写回项目配置。成功返回 True。
+
+    空条目（``{}``）不写入 —— 避免留下"配过但没内容"的空壳井记录。
+    """
     p = config_path(root)
     data = {
         'version': int(cfg.get('version') or CONFIG_VERSION),
         'source_roots': list(cfg.get('source_roots') or []),
         'wells': {str(k): dict(v) for k, v in (cfg.get('wells') or {}).items()
-                  if isinstance(v, dict)},
+                  if isinstance(v, dict) and v},
     }
     try:
         os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -117,14 +141,23 @@ def save_config(root: str, cfg: dict) -> bool:
 
 def bind_well(root: str, well_name: str, source_dir: str,
               extra: dict | None = None) -> bool:
-    """绑定一口井的原始资料目录。"""
+    """绑定一口井的原始资料目录。
+
+    重新绑定**不覆盖**既有的资料指定（las / gas / config）——
+    换源目录不等于换掉用户手工挑好的主 LAS。
+    """
     cfg = load_config(root)
+    name = str(well_name)
+    old = dict((cfg.get('wells') or {}).get(name) or {})
     entry = {'source_dir': os.path.abspath(source_dir)}
+    for k in WELL_OPTIONS:
+        if old.get(k):
+            entry[k] = old[k]
     if extra:
         for k, v in extra.items():
             if v:
                 entry[k] = v
-    cfg['wells'][str(well_name)] = entry
+    cfg['wells'][name] = entry
     return save_config(root, cfg)
 
 
@@ -138,9 +171,13 @@ def unbind_well(root: str, well_name: str) -> bool:
 
 
 def add_source_root(root: str, source_root: str) -> bool:
-    """追加一个候选原始资料根目录。"""
+    """追加一个候选原始资料根目录。
+
+    路径先经 :func:`normalize_source_root` 规范化 —— 修复 ``:\\<数字>``
+    片段在中间传递环节被吞掉的损坏。
+    """
     cfg = load_config(root)
-    p = os.path.abspath(source_root)
+    p = os.path.abspath(normalize_source_root(source_root))
     if p not in cfg['source_roots']:
         cfg['source_roots'].append(p)
         return save_config(root, cfg)
@@ -155,6 +192,55 @@ def remove_source_root(root: str, source_root: str) -> bool:
         cfg['source_roots'].remove(p)
         return save_config(root, cfg)
     return True
+
+
+# ---------------------------------------------------------------- 井级资料指定
+
+def set_well_option(root: str, well_name: str, key: str, value: str) -> bool:
+    """设置井级资料覆盖项（``las`` / ``gas`` / ``config``）。
+
+    ``value`` 为空字符串 → 清除该项（回到自动探测）。
+    这三项对应原启动界面里"手动校正测井数据 / 气测 / 出图格式"的能力，
+    现在随项目界面一起下沉到井级。
+    """
+    if key not in WELL_OPTIONS:
+        return False
+    cfg = load_config(root)
+    name = str(well_name)
+    entry = dict((cfg.get('wells') or {}).get(name) or {})
+    v = str(value or '').strip()
+    if v:
+        entry[key] = os.path.abspath(v)
+    else:
+        entry.pop(key, None)
+    cfg['wells'][name] = entry
+    return save_config(root, cfg)
+
+
+def clear_well_options(root: str, well_name: str) -> bool:
+    """清除该井的全部资料覆盖项（保留 source_dir 绑定）。"""
+    cfg = load_config(root)
+    name = str(well_name)
+    entry = dict((cfg.get('wells') or {}).get(name) or {})
+    for k in WELL_OPTIONS:
+        entry.pop(k, None)
+    cfg['wells'][name] = entry
+    return save_config(root, cfg)
+
+
+def well_options(root: str, well_name: str) -> dict:
+    """读取井级资料覆盖项。
+
+    返回 ``{'las': 路径, 'gas': 路径, 'config': 路径}``（未指定的键不出现）。
+    """
+    cfg = load_config(root)
+    entry = (cfg.get('wells') or {}).get(str(well_name)) or {}
+    out = {}
+    for k in WELL_OPTIONS:
+        v = str(entry.get(k) or '').strip()
+        if v:
+            out[k] = os.path.abspath(v)
+    return out
 
 
 # ---------------------------------------------------------------- 解析
@@ -299,6 +385,70 @@ def source_roots(root: str) -> list[str]:
     return list(load_config(root).get('source_roots') or [])
 
 
+def invalid_source_roots(root: str) -> list[str]:
+    """返回**不存在**的候选源根列表。
+
+    路径在命令行/脚本中传递时，``:\\<数字>`` 这类片段可能被中间环节吞掉
+    （曾出现 ``D:\\360\\Niger`` 被写成 ``D360\\Niger``）。这类损坏路径
+    不会报错、只是让该源根下的井永远探测不到，因此需要显式诊断。
+    """
+    out = []
+    for r in source_roots(root):
+        if not os.path.isdir(r):
+            out.append(r)
+    return out
+
+
+def repair_source_roots(root: str) -> list[str]:
+    """修复已登记但损坏的源根路径，返回被修复的原值列表。
+
+    修复是**保守**的：只有"补回后目录确实存在"才会改写，否则原样保留
+    （避免把用户有意指向的临时目录改坏）。
+    """
+    cfg = load_config(root)
+    fixed = []
+    roots = []
+    for r in cfg.get('source_roots') or []:
+        n = normalize_source_root(r)
+        if n != r:
+            fixed.append(r)
+        if n not in roots:
+            roots.append(n)
+    # 空壳井条目（配过但没内容）也借这次保存清掉
+    has_empty = any(isinstance(v, dict) and not v
+                    for v in (cfg.get('wells') or {}).values())
+    if fixed or has_empty:
+        if fixed:
+            cfg['source_roots'] = roots
+        save_config(root, cfg)
+    return fixed
+
+
+def normalize_source_root(path: str) -> str:
+    """规范化源根路径，并修复"反斜杠被吞"的常见损坏。
+
+    损坏形态：``D360\\Niger``（原应为 ``D:\\360\\Niger``）——
+    即盘符后的 ``:\\<数字>`` 片段整体丢失（含冒号）。
+    这里按"能定位到就修"的原则处理：若补回后目录确实存在，则采用补回值；
+    否则**原样保留**（不做无把握的改写）。
+    """
+    p = str(path or '').strip()
+    if not p or os.path.isdir(p):
+        return p
+    # 形态1：盘符后丢了 ":\<数字>" —— D360\Niger / D:360\Niger → D:\360\Niger
+    m = re.match(r'^([A-Za-z])(:?)(\d)', p)
+    if m:
+        tail = p[2:] if m.group(2) else p[1:]
+        cand = '%s:\\%s' % (m.group(1), tail)
+        if os.path.isdir(cand):
+            return cand
+    # 形态2：路径分隔符被换成正斜杠以外的怪字符 —— 直接规整
+    cand = p.replace('/', '\\')
+    if os.path.isdir(cand):
+        return cand
+    return p
+
+
 if __name__ == '__main__':
     import sys
     r = sys.argv[1] if len(sys.argv) > 1 else '.'
@@ -310,3 +460,6 @@ if __name__ == '__main__':
     print('显式绑定:')
     for k, v in cfg['wells'].items():
         print('   %-24s %s' % (k, v.get('source_dir', '')))
+        for ok in WELL_OPTIONS:
+            if v.get(ok):
+                print('       %-8s %s' % (ok, v[ok]))

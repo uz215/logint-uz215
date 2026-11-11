@@ -26,8 +26,16 @@ def check_dependency(module_name, install_command=None):
     except (ImportError, ModuleNotFoundError):
         return False, None
 
-def print_dependency_status():
-    """打印依赖状态"""
+def print_dependency_status(wait: bool | None = None):
+    """打印依赖状态。
+
+    ``wait``：依赖缺失时是否等待用户按 Enter。
+    - ``None``（默认）：按环境变量 ``LOGINT_NONINTERACTIVE`` 判定；
+    - ``True``：总是等待（脚本通道在主进程跑解释流程时用）；
+    - ``False``：从不等待（GUI 启动走项目工作台，主进程不跑解释流程）。
+    """
+    if wait is None:
+        wait = os.environ.get('LOGINT_NONINTERACTIVE') != '1'
     print("="*60)
     print("  测井资料处理系统 - 依赖检查")
     print("="*60)
@@ -85,7 +93,7 @@ def print_dependency_status():
         # 【2026-11-11】非交互环境（项目浏览器派生的作业子进程，stdin=DEVNULL）
         # 下 input() 会抛 EOFError 导致作业直接退出。设 LOGINT_NONINTERACTIVE=1
         # 时跳过等待，直接继续（依赖缺失会在后续步骤自然报错）。
-        if os.environ.get('LOGINT_NONINTERACTIVE') == '1':
+        if not wait:
             print("[非交互模式] 跳过等待，继续尝试运行...")
         else:
             print("按 Enter 键继续尝试运行...")
@@ -94,8 +102,22 @@ def print_dependency_status():
 
     return mod_installed
 
+
+def _runs_interpretation_in_process() -> bool:
+    """当前启动是否要在**主进程**里跑解释流程（决定依赖检查要不要等 Enter）。
+
+    - ``--quicklook <目录>`` / 直接传 LAS 路径 → 主进程跑流程 → 需要等待；
+    - 无参启动（项目工作台）→ 主进程只做界面，解释在子进程里跑 → 不等待。
+    """
+    if '--quicklook' in sys.argv:
+        return True
+    if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
+        return True
+    return False
+
+
 # 执行依赖检查
-has_core_deps = print_dependency_status()
+has_core_deps = print_dependency_status(wait=_runs_interpretation_in_process())
 
 # =============================================================================
 # 错误处理工具模块
@@ -18394,7 +18416,16 @@ def well_package_inventory(well_dir):
 
 
 def select_startup_task():
-    """统一启动界面：**项目在前**，单井作业在项目内做。
+    """统一启动界面：先选任务，再选井目录；自动识别并允许手动校正测井数据/气测/井目录。
+
+    【2026-11-11 界面整合】**本界面已退出默认启动路径** —— 启动后直接进入
+    项目工作台（``logsys.project_browser``），所有作业在项目里针对具体井执行。
+    本函数保留仅为兼容既有调用方；其两项能力已分别下沉为：
+      · 选任务（快速解释图 / 综合解释）→ 项目工作台右键井；
+      · 选井目录 + 校正 LAS/气测/出图格式 → 项目工作台右键井
+        （关联原始资料目录 / 指定主 LAS / 指定气测文件 / 选择甲方出图格式）。
+
+    下面是本函数的历史职责说明（**已不用于默认启动路径**）：
 
     【2026-11-11 用户定案】入口层级调整为：
       1) **项目**（多井项目树）—— 主入口，井/数据集/变量一目了然，
@@ -21622,24 +21653,15 @@ if __name__ == "__main__":
         if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
             run_well_log_workflow(file_path=sys.argv[1], plot_mode='all')
         else:
-            # 【2026-10-15 二五轮】_gas = 数据选择界面选定的气测文件（未选 None）
-            # 【2026-11-01 R72】统一启动界面：任务选择 + 井目录（资料统一存放）
-            _sel2 = select_startup_task()
-            if _sel2 is None:
-                print("已取消，未执行。")
-                sys.exit(0)
-            if _sel2.get('task') == 'project':
-                # 【2026-11-11】项目在前：直接进入项目树（井在项目里选，
-                # 快速解释图/综合解释作为项目内的井级作业）
-                from logsys import project_browser as _pbrowser
-                _pbrowser.launch()
-                sys.exit(0)
-            if _sel2.get('task') == 'quicklook':
-                quicklook_well(_sel2.get('well_dir'), config_file=_sel2.get('config'),
-                               gas_file=_sel2.get('gas'), las_file=_sel2.get('las'))
-            else:
-                run_well_log_workflow(file_path=_sel2.get('las'), plot_mode='all',
-                                      gas_file=_sel2.get('gas'))
+            # 【2026-11-11 界面整合】取消前置的"启动任务选择"对话框：
+            # 启动后**直接**进入项目工作台，在项目里选井、执行作业。
+            # 原对话框提供的两项能力已全部下沉到井级：
+            #   · 选任务（快速解释图 / 综合解释）→ 右键井
+            #   · 选井目录 + 校正 LAS/气测/出图格式 → 右键井「关联原始资料目录…」
+            #     与「指定主 LAS… / 指定气测文件… / 选择甲方出图格式…」
+            from logsys import project_browser as _pbrowser
+            _pbrowser.launch()
+            sys.exit(0)
     except Exception as e:
         import traceback
         handle_exception(type(e), e, e.__traceback__, "程序启动")
