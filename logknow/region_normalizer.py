@@ -1,4 +1,4 @@
-# logknow/region_normalizer.py
+﻿# logknow/region_normalizer.py
 import yaml
 import re
 from pathlib import Path

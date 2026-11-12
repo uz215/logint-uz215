@@ -190,7 +190,7 @@ def main():
     true_merges = [(o, k) for (o, k) in summary['merged_countries'] if o != k]
     print(f"   按别名归并国家：{true_merges or '无'}")
     print(f"   涉及解释方法：{len(summary['methods_seen'])} 个")
-    from logknow.bootstrap_knowledge import GRAPH_FILE
+    GRAPH_FILE = gs.path
     print(f"📁 持久化路径：{GRAPH_FILE}")
 
 

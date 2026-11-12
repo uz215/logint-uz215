@@ -345,7 +345,7 @@ def _extract_notes(text):
     return out
 
 
-def read_masterlog_header(well_dir, out_dir=None, well_name=None) -> dict:
+def read_masterlog_header(well_dir, out_dir=None, well_name=None, pdf_path=None) -> dict:
     """读 masterlog 图头通用字段（多国格式基本一致）：
     公司/作业者、服务商、开钻/完钻日期、完钻井深、井型、坐标、泥浆、
     井身结构（钻头/套管+鞋深）、岩性图例、油气显示图例。"""

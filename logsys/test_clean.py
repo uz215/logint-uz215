@@ -19,12 +19,15 @@ def main():
     md = np.arange(1000.0, 1020.0)
     n = len(md)
 
-    # 1) CAL mm→in、NPHI 分数→百分、RHOB kg/m3→g/cc、DT us/m→us/ft
-    d = pd.DataFrame({'MD': md, 'CAL': np.full(n, 215.9), 'NPHI': np.full(n, 0.25),
+    # 1) CAL/BS 恒为 in（不换算）、NPHI 分数→百分、RHOB kg/m3→g/cc、DT us/m→us/ft
+    d = pd.DataFrame({'MD': md, 'CAL': np.full(n, 8.5), 'BS': np.full(n, 8.5),
+                      'NPHI': np.full(n, 0.25),
                       'RHOB': np.full(n, 2450.0), 'DT': np.full(n, 328.0)})
     c, rep = clean_well(d, context='units')
     total += 1
-    ok += check('CAL mm→in', abs(float(c['CAL'].median()) - 8.5) < 0.2, c['CAL'].median())
+    ok += check('CAL 单位 in 不换算', abs(float(c['CAL'].median()) - 8.5) < 1e-6, c['CAL'].median())
+    total += 1
+    ok += check('BS 单位 in 不换算', abs(float(c['BS'].median()) - 8.5) < 1e-6, c['BS'].median())
     total += 1
     ok += check('NPHI fraction→percent', abs(float(c['NPHI'].median()) - 25.0) < 0.5)
     total += 1
