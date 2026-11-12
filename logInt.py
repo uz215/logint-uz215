@@ -21574,3 +21574,48 @@ if __name__ == "__main__":
         print()
         print("按 Enter 键退出...")
         input()
+# ========== logknow 知识库简易封装（供 logint 内部使用） ==========
+from logknow.core.knowledge_api import (
+    lookup_interp_method as _lookup_interp_method,
+    match_methods as _match_methods,
+    lookup_hierarchy as _lookup_hierarchy,
+    get_stats as _get_stats
+)
+
+
+def logint_lookup_interp(country: str, basin: str = None, formation: str = None):
+    """
+    logint 专用：查询区域地层对应的测井解释方法
+    返回字典：ok / msg / methods
+    methods 内包含 formula、threshold、condition、log_response、source
+    """
+    return _lookup_interp_method(country, basin, formation)
+
+
+def logint_match_interp(country: str, basin: str, formation: str, log_values: dict = None):
+    """
+    logint 专用：带入测井读数，按阈值筛选可用解释方法
+    log_values: {"GR": 60.0, "RILD": 9.0, "SP": -40.0}
+    返回字典：ok / msg / matched
+    """
+    return _match_methods(country, basin, formation, log_values)
+
+
+def logint_get_geo_hierarchy(country: str):
+    """
+    获取七层地质树：国家 → 盆地 → 凹陷 → 区块 → 油田 → 地层 → 井
+    """
+    return _lookup_hierarchy(country)
+
+
+def logint_kb_stat():
+    """
+    获取知识库统计：国家、盆地、油田、地层、解释方法、边、实体总数
+    """
+    return _get_stats()
+
+
+# 示例（正式运行注释掉，仅调试）
+if __name__ == "__main__":
+    print(logint_kb_stat())
+    print(logint_lookup_interp("孟加拉国", "孟加拉盆地", "Bhuban"))
