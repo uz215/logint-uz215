@@ -42,6 +42,20 @@ mx = {}
 for c, d, n in matrix:
     mx.setdefault(c, {})[d] = n
 
+# ---------- scope 轴（顶层：global / 国别）----------
+scopes = [r[0] for r in conn.execute("SELECT scope, COUNT(*) FROM doc GROUP BY scope ORDER BY 2 DESC")]
+scope_counts = dict(conn.execute("SELECT scope, COUNT(*) FROM doc GROUP BY scope ORDER BY 2 DESC").fetchall())
+global_by_domain = dict(conn.execute(
+    "SELECT category, COUNT(*) FROM doc WHERE scope='global' GROUP BY category ORDER BY 2 DESC").fetchall())
+country_scope_rows = [{'c': c, 'n': n} for c, n in conn.execute(
+    "SELECT country, COUNT(*) n FROM doc WHERE scope='国别' GROUP BY country ORDER BY n DESC").fetchall()]
+mx_sc = {}
+for c, d, n in conn.execute("SELECT country, category, COUNT(*) FROM doc WHERE scope='国别' GROUP BY country, category").fetchall():
+    mx_sc.setdefault(c, {})[d] = n
+sc_stack = [{'c': csr['c'], 'segs': [{'d': d, 'n': mx_sc.get(csr['c'], {}).get(d, 0)} for d in domains], 'total': csr['n']}
+            for csr in country_scope_rows]
+sc_stack_data = json.dumps(sc_stack, ensure_ascii=False)
+
 # 领域配色（画图与图例统一）
 DOM_COLORS = {'地质': '#4C9AFF', '测井方法': '#1F2A44', '通用知识': '#F2A33C', '录井': '#57C3A0'}
 for d in domains:
@@ -300,6 +314,128 @@ with open(os.path.join(OUT, 'country_domain_matrix.html'), 'w', encoding='utf-8'
 print('written country_domain_matrix.html')
 
 # ============================================================
+# 2.5) scope 顶层（global / 国别）概览
+# ============================================================
+g_n = scope_counts.get('global', 0)
+c_n = scope_counts.get('国别', 0)
+# global 下 4 域横向条
+gdom_bars = ''.join(
+    '<div class="barrow"><span class="blab">%s</span><div class="btrack"><div class="bfill" style="width:%.1f%%;background:%s"></div></div><span class="bval">%d</span></div>'
+    % (d, 100.0 * global_by_domain.get(d, 0) / max(g_n, 1), DOM_COLORS.get(d, '#9AA7B8'), global_by_domain.get(d, 0))
+    for d in domains if global_by_domain.get(d, 0))
+ccountry_rows = ''.join('<tr><td class="country">%s</td><td style="text-align:right">%d</td></tr>' % (r['c'], r['n']) for r in country_scope_rows)
+
+scope_html = """<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>测井知识库 · 顶层分类（global / 国别）概览</title>
+<style>
+  html,body{margin:0;font-family:"Microsoft YaHei","Segoe UI",Arial,sans-serif;background:#f6f8fb;color:#1f2a44;line-height:1.6;}
+  .wrap{max-width:1080px;margin:0 auto;padding:28px 36px 56px;}
+  h1{font-size:22px;border-bottom:3px solid #4c9aff;padding-bottom:8px;}
+  h2{font-size:17px;margin-top:26px;}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0;}
+  .kpi div{background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:14px 20px;min-width:140px;}
+  .kpi b{font-size:24px;display:block;}
+  .kpi .g{color:#4c9aff;} .kpi .c{color:#57C3A0;}
+  .kpi span{font-size:12px;color:#5b6678;}
+  .panel{background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:16px 18px;margin-top:10px;}
+  .barrow{display:flex;align-items:center;gap:10px;margin:7px 0;font-size:13px;}
+  .blab{width:84px;text-align:right;color:#3a4760;}
+  .btrack{flex:1;background:#eef2f7;border-radius:6px;height:16px;overflow:hidden;}
+  .bfill{height:100%;border-radius:6px;}
+  .bval{width:42px;text-align:right;font-weight:600;}
+  table{border-collapse:collapse;width:100%;font-size:13px;margin-top:6px;}
+  th,td{border:1px solid #e6eaf0;padding:6px 10px;text-align:left;}
+  th{background:#1f2a44;color:#fff;}
+  td.country{font-weight:600;background:#fafbfe;}
+  .note{background:#fff7e6;border:1px solid #ffe2a8;padding:10px 14px;border-radius:8px;font-size:13px;color:#7a5b00;margin:10px 0;}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:12px;color:#3a4760;cursor:pointer;}
+  .legend span{user-select:none;}
+  .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+  .card{background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:16px;overflow-x:auto;margin-top:10px;}
+  svg{display:block;}
+  .seg{cursor:pointer;transition:opacity .12s;} .seg:hover{opacity:.82;}
+  .barlbl{font-size:10px;fill:#3a4760;} .vallbl{font-size:10px;fill:#1f2a44;text-anchor:middle;font-weight:600;}
+  .axline{stroke:#cdd6e3;stroke-width:1;}
+  #tip{position:fixed;pointer-events:none;background:#1f2a44;color:#fff;font-size:12px;padding:8px 10px;border-radius:6px;opacity:0;transition:opacity .1s;z-index:10;line-height:1.6;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>测井知识库 · 顶层分类（global / 国别）概览</h1>
+  <div class="note">知识库按<b>适用范围(scope)</b>分两类：<b>global</b>=普适/专业方法类知识（不绑定特定国家）；<b>国别</b>=区域专属知识（区域地质·区域规范·区域公式及参数·区域阈值·区域曲线特征，由 country 标注）。两路下再按「领域 → 大类 → 小类」细分。</div>
+  <div class="kpi">
+    <div><b class="g">{g}</b><span>global（普适知识）</span></div>
+    <div><b class="c">{c}</b><span>国别（区域专属，{ncs} 国）</span></div>
+    <div><b>{total}</b><span>知识文档总数</span></div>
+  </div>
+
+  <h2>一、global 下按领域细分</h2>
+  <div class="panel">{gdom}</div>
+
+  <h2>二、国别 下按国家细分</h2>
+  <div class="panel"><table><thead><tr><th>国别</th><th style="text-align:right">篇数</th></tr></thead><tbody>{ccountry}</tbody></table></div>
+
+  <h2>三、国别 × 领域 堆叠图（下钻细分）</h2>
+  <div class="card"><div id="chart"></div></div>
+  <div class="legend" id="legend"></div>
+  <div class="note" style="background:#eef4ff;border-color:#cfe0ff;color:#27406b;">悬停柱段查看该国别该领域篇数；点击图例可隐藏/显示对应领域。交互堆叠图原始数据同 <a href="country_domain_stacked.html">country_domain_stacked.html</a>。</div>
+</div>
+<div id="tip"></div>
+<script>
+const DATA = {scdata};
+const DOMAINS = {domjs};
+const COLORS = {colors};
+const hidden = {};
+function drawLegend(){
+  const el=document.getElementById('legend');
+  el.innerHTML=DOMAINS.map(d=>'<span data-d="'+d+'"><i style="background:'+(hidden[d]?'#ccc':COLORS[d])+'"></i>'+d+'</span>').join('');
+  el.querySelectorAll('span').forEach(sp=>sp.onclick=()=>{const d=sp.dataset.d;hidden[d]=!hidden[d];drawLegend();render();});
+}
+const baseW=980,baseH=470,padL=40,padR=20,padT=24,padB=120;
+function maxTopNow(){let m=0;DATA.forEach(s=>{let t=0;for(let i=0;i<DOMAINS.length;i++){if(!hidden[DOMAINS[i]])t+=s.segs[i].n;}if(t>m)m=t;}return m*1.10||1;});
+function render(){
+  const zoom=1,W=baseW*zoom,H=baseH,n=DATA.length;
+  const plotW=W-padL-padR,plotH=H-padT-padB,gap=plotW/n,bw=gap*0.64,maxTop=maxTopNow();
+  const yScale=v=>padT+plotH*(1-v/maxTop);
+  let svg='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" xmlns="http://www.w3.org/2000/svg">';
+  for(let t=0;t<=5;t++){const v=maxTop*t/5,y=yScale(v);svg+='<line class="axline" x1="'+padL+'" y1="'+y+'" x2="'+(W-padR)+'" y2="'+y+'"/>';svg+='<text class="barlbl" x="'+(padL-6)+'" y="'+(y+3)+'" text-anchor="end">'+Math.round(v)+'</text>';}
+  for(let i=0;i<n;i++){const s=DATA[i],x=padL+gap*i+(gap-bw)/2;let yb=0;
+    for(let di=0;di<DOMAINS.length;di++){const d=DOMAINS[di],v=s.segs[di].n;if(hidden[d]||!v)continue;
+      const yT=padT+plotH*(1-(yb+v)/maxTop),yB=padT+plotH*(1-yb/maxTop);
+      svg+='<rect class="seg" x="'+x.toFixed(1)+'" y="'+yT.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+(yB-yT).toFixed(1)+'" fill="'+COLORS[d]+'" data-i="'+i+'" data-di="'+di+'"></rect>';yb+=v;}
+    const lx=padL+gap*i+gap/2;svg+='<text class="vallbl" x="'+lx.toFixed(1)+'" y="'+(yScale(yb)-5).toFixed(1)+'">'+yb+'</text>';
+    svg+='<text class="barlbl" x="'+lx.toFixed(1)+'" y="'+(H-padB+14).toFixed(1)+'" text-anchor="end" transform="rotate(-40 '+lx.toFixed(1)+' '+(H-padB+14).toFixed(1)+')">'+s.c+'</text>';}
+  svg+='</svg>';document.getElementById('chart').innerHTML=svg;
+  const tip=document.getElementById('tip');
+  document.querySelectorAll('.seg').forEach(b=>{b.addEventListener('mousemove',e=>{const s=DATA[+b.dataset.i],d=DOMAINS[+b.dataset.di],v=s.segs[+b.dataset.di].n;tip.innerHTML='<b>'+s.c+' · '+d+'</b><br/>'+v+' 篇（该国别 '+s.total+' 篇）';tip.style.opacity=1;tip.style.left=(e.clientX+12)+'px';tip.style.top=(e.clientY+12)+'px';});b.addEventListener('mouseleave',()=>tip.style.opacity=0);});
+}
+drawLegend();render();
+</script>
+</body>
+</html>"""
+scope_html = sub(scope_html, g=g_n, c=c_n, ncs=len(country_scope_rows), total=total,
+                 gdom=gdom_bars, ccountry=ccountry_rows, scdata=sc_stack_data, domjs=domjs, colors=dom_colors)
+with open(os.path.join(OUT, 'scope_overview.html'), 'w', encoding='utf-8') as f:
+    f.write(scope_html)
+print('written scope_overview.html')
+
+# 供分类说明文档复用的 scope 段
+scope_kpi = ('<div><b class="g">%d</b><span>global（普适知识）</span></div>'
+             '<div><b class="c">%d</b><span>国别（区域专属，%d 国）</span></div>'
+             '<div><b>%d</b><span>知识文档总数</span></div>') % (g_n, c_n, len(country_scope_rows), total)
+scope_section = (
+    '<h2>〇、顶层分类（global / 国别）</h2>'
+    '<div class="kpi">%s</div>'
+    '<p>知识库按<b>适用范围(scope)</b>分两类：<b>global</b>（普适/专业方法类知识，不绑定特定国家）与 <b>国别</b>（区域专属知识：区域地质、区域规范、区域公式及参数、区域阈值、区域曲线特征，由 country 标注）。两路下再按「领域 → 大类(tech_type) → 小类(tech_minor)」细分（详见后文）。</p>'
+    '<h3>global 下按领域细分</h3><div class="panel">%s</div>'
+    '<h3>国别 下按国家细分（共 %d 国）</h3><div class="panel"><table><thead><tr><th>国别</th><th style="text-align:right">篇数</th></tr></thead><tbody>%s</tbody></table></div>'
+    '<p style="font-size:13px;color:#5b6678;">国别 × 领域 堆叠交互图见 <a href="scope_overview.html">scope_overview.html</a>；国别明细交叉表见 <a href="country_domain_matrix.html">country_domain_matrix.html</a>。</p>'
+) % (scope_kpi, gdom_bars, len(country_scope_rows), ccountry_rows)
+
+# ============================================================
 # 3) 分类说明文档
 # ============================================================
 from collections import defaultdict
@@ -369,13 +505,14 @@ doc_html = """<!DOCTYPE html>
 <body>
 <div class="wrap">
   <h1>测井知识库 · 分类体系说明</h1>
-  <div class="note">本知识库定位：<b>以测井专业为主的油气知识库</b>。知识按「领域 → 大类(tech_type) → 小类(tech_minor)」三级体系组织；国别单独由 country 列承载，与领域分类正交。</div>
+  <div class="note">本知识库定位：<b>以测井专业为主的油气知识库</b>。知识先按<b>适用范围(scope)</b>分两层——<b>global</b>（普适/专业方法类）与 <b>国别</b>（区域专属：区域地质·规范·公式参数·阈值·曲线特征）；两路下再按「领域 → 大类(tech_type) → 小类(tech_minor)」三级细分。国别由 country 列承载。</div>
   <div class="kpi">
     <div><b>{total}</b><span>知识文档总数</span></div>
     <div><b>{ncountry}</b><span>带国别标注</span></div>
     <div><b>{nrest}</b><span>未标国别（通用/方法）</span></div>
     <div><b>{ndom}</b><span>一级领域</span></div>
   </div>
+  {scope_section}
   <h2>一、一级领域</h2>
   <ul>{intro}</ul>
   <h2>二、各级领域分类明细</h2>
@@ -399,7 +536,8 @@ doc_html = """<!DOCTYPE html>
 </html>"""
 doc_html = sub(doc_html, total=total, ncountry=n_country, nrest=n_nocountry, ndom=len(domains),
               intro=doc_intro, sections=''.join(doc_sections), png=png_b64,
-              cumtotal=cum_total, ncountries=len(country_rows), maxc=max_c, matrix_top=matrix_top)
+              cumtotal=cum_total, ncountries=len(country_rows), maxc=max_c, matrix_top=matrix_top,
+              scope_section=scope_section)
 with open(os.path.join(OUT, '分类说明文档.html'), 'w', encoding='utf-8') as f:
     f.write(doc_html)
 print('written 分类说明文档.html')

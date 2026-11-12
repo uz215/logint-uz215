@@ -484,12 +484,14 @@ def ingest_markdown(conn, path: str, force: bool = False) -> str:
     well = fm.get('well_name') or ''
     ext = os.path.splitext(path)[1].lower().lstrip('.')
     domain, tech_major, tech_minor = classify_knowledge(path, title, ext)
+    # scope 轴：区域专属知识(区域地质/规范/公式参数/阈值/曲线特征)归入「国别」，其余普适知识归入「global」
+    scope = '国别' if country else 'global'
 
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'tech_type, tech_minor, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, domain, region, country, well, tech_major, tech_minor, sha1, mtime,
+                 'tech_type, tech_minor, scope, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, domain, region, country, well, tech_major, tech_minor, scope, sha1, mtime,
                   len(body), json.dumps(fm, ensure_ascii=False)[:4000]))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
@@ -585,6 +587,7 @@ def _ingest_docx(conn, path: str, force=False) -> str:
     ext = os.path.splitext(path)[1].lower().lstrip('.')
     domain, tech_major, tech_minor = classify_knowledge(path, title, ext)
     cat = domain
+    scope = '国别' if country else 'global'
     row = conn.execute('SELECT id, sha1 FROM doc WHERE path=?', (path,)).fetchone()
     sha1 = _sha1(body)
     if row and not force and row[1] == sha1:
@@ -592,8 +595,8 @@ def _ingest_docx(conn, path: str, force=False) -> str:
     conn.execute('DELETE FROM chunk WHERE doc_id=?', (doc_id,))
     conn.execute('DELETE FROM doc_fts WHERE doc_id=?', (doc_id,))
     conn.execute('INSERT OR REPLACE INTO doc(id, path, title, category, region, country, well, '
-                 'tech_type, tech_minor, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)',
-                 (doc_id, path, title, cat, '', country, '', tech_major, tech_minor, sha1, os.path.getmtime(path),
+                 'tech_type, tech_minor, scope, sha1, mtime, chars, meta_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                 (doc_id, path, title, cat, '', country, '', tech_major, tech_minor, scope, sha1, os.path.getmtime(path),
                   len(body), '{}'))
     for i, ch in enumerate(_chunks(body)):
         cid = '%s#%03d' % (doc_id, i)
