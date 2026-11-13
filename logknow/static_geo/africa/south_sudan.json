@@ -1,31 +1,137 @@
-﻿[
-  {
-    "country": "南苏丹",
-    "basin": "Muglad / Melut 盆地",
-    "sag": "Melut 凹陷",
-    "block": "Melut 陆上区块",
-    "oilfield": "Palogue 油田",
-    "structure": "大型滚动背斜、断块",
-    "well": "SSD-01",
-    "formation": "Cretaceous Delta Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系三角洲前缘砂岩，厚层砂组",
-      "lithology": ["石英砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–55", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "80–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Melut 盆地白垩系三角洲砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷盆地大型背斜圈闭，厚砂组稳定",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，厚层砂饱和度计算",
-      "threshold": {"sw_max": "0.56"},
-      "limitation": "局部夹层发育，底部容易见底水",
-      "reference_case": "Palogue"
-    },
-    "gwc": {"Cretaceous Delta Sand": "背斜内各砂组独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "白垩系河流砂岩",
+                                              "rt_range":  [
+                                                               2.9,
+                                                               48
+                                                           ],
+                                              "aliases":  [
+                                                              "阿布加布拉组"
+                                                          ],
+                                              "gr_range":  [
+                                                               33,
+                                                               83
+                                                           ],
+                                              "sw_base":  0.44,
+                                              "den_range":  [
+                                                                2.39,
+                                                                2.59
+                                                            ],
+                                              "name":  "Abu Gabra",
+                                              "porosity_base":  0.16,
+                                              "cnl_range":  [
+                                                                0.1,
+                                                                0.26
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "穆格莱德盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.052,
+                                                                 "m":  2.06,
+                                                                 "a":  0.67,
+                                                                 "n":  1.89
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  88
+                                                                },
+                                                  "condition":  "南苏丹穆格莱德盆地 Abu Gabra 砂岩",
+                                                  "method_name":  "穆格莱德砂岩饱和度"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "迈卢特盆地",
+                       "name_en":  "Melut Basin",
+                       "notes":  "中非裂谷，白垩系‑古近系河流三角洲砂岩，长距离运移，油藏受断层控制",
+                       "depressions":  [
+                                           {
+                                               "name":  "迈卢特主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Yabus",
+                                              "aliases":  [
+                                                              "亚布斯组",
+                                                              "Yabus Fm"
+                                                          ],
+                                              "litho_main":  "河流相块状砂岩，分选中等，局部泥质夹层",
+                                              "porosity_range":  [
+                                                                     0.15,
+                                                                     0.29
+                                                                 ],
+                                              "perm_range":  [
+                                                                 30,
+                                                                 860
+                                                             ],
+                                              "gwc":  "断块控制油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.12,
+                                                             "sw":  0.6,
+                                                             "vsh":  0.35
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.33–2.55 g/cm³",
+                                                                   "CNL":  "中等孔隙",
+                                                                   "DT":  "69–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "迈卢特 Yabus 砂岩 Archie",
+                                                  "formula":  "Sw = (0.80 * Rw / (Rt * phi ** 1.82)) ** (1 / 2.01)",
+                                                  "params":  {
+                                                                 "a":  0.8,
+                                                                 "m":  1.82,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.12
+                                                                },
+                                                  "condition":  "纯净‑中等泥质河流砂岩",
+                                                  "source":  "南苏丹迈卢特盆地岩石物理标定"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "南苏丹"
+}

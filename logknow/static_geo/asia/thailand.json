@@ -1,31 +1,75 @@
-﻿[
-  {
-    "country": "泰国",
-    "basin": "Gulf of Thailand 盆地",
-    "sag": "中央凹陷",
-    "block": "Gulf Thailand 近海区块",
-    "oilfield": "Erawan 气田",
-    "structure": "断块、滚动背斜",
-    "well": "THA-01",
-    "formation": "Miocene Fluvial Sand",
-    "strata_meta": {
-      "sub_layer": "中新统河流相砂岩，薄互层发育",
-      "lithology": ["石英砂岩", "粉砂岩", "湖相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "20–53", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油，伴生少量原油"
-    },
-    "method_name": "泰国湾中新统河流砂气层解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷湖盆，河道砂孤立叠置，薄层多",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "薄层校正，泥质 Archie，气挖掘",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "单层薄，测井分辨率受限；砂体侧向尖灭快",
-      "reference_case": "Erawan, Bongkot"
-    },
-    "gwc": {"Miocene Fluvial Sand": "单个河道砂体独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "name":  "芭提雅盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Pattani 中央凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Pattani Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.32–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "40–100 API（煤段超高）",
+                                                                   "DT":  "74–94 μs/ft",
+                                                                   "RT":  "气层 2–18 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 5,
+                                                                 350
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.35,
+                                                             "por":  0.11,
+                                                             "sw":  0.64
+                                                         },
+                                              "gwc":  "断块与砂体控制",
+                                              "name":  "Tertiary Sand (Pattani)",
+                                              "aliases":  [
+                                                              "第三系砂岩"
+                                                          ],
+                                              "litho_main":  "河流—湖相细砂岩，含煤层与高岭石"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "先用 DEN\u003c1.8、CNL 高值识别煤段并剔除，再计算 Vsh 与 Sw",
+                                                  "source":  "泰国湾芭提雅盆地测井规范",
+                                                  "formula":  "Sw=((1/Rt)**0.5)/((Vsh**Vsh/Rsh**0.5)+((1-Vsh)*phi**m/(a*Rw))**0.5)",
+                                                  "params":  {
+                                                                 "a":  0.83,
+                                                                 "m":  1.82
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.35
+                                                                },
+                                                  "method_name":  "含煤砂岩解释（先剔煤）"
+                                              }
+                                          ],
+                       "notes":  "第三系河流—湖相砂岩，含煤与高岭石"
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "泰国",
+    "country_en":  "Thailand",
+    "notes":  "泰国湾第三系陆相砂与煤层共生，气为主；煤导致 GR 高值干扰，泥质评价须先剔除煤段"
+}

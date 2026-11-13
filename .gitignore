@@ -1,15 +1,31 @@
 # ===== 数据/产物目录（不入库） =====
-data/
+# 数据/产物：默认不入库；知识库资产纳入 git（kb.db 走 Git LFS）
+data/*
+!data/kb/
+data/kb/*
+!data/kb/kb.db
+!data/kb/topics/
+!data/kb/topics/**
+!data/kb/kb_manifest.json
+!data/kb/README.md
+!data/kb/well_knowledge/
+!data/kb/well_knowledge/**
+!data/knowledge_summary/
+!data/knowledge_summary/**
+!data/exported_experiences/
+!data/exported_experiences/**
 output/
 cache/
 index/
 vector_index/
 logs/
-graph/
+!graph/
+!graph/**
 backup/
 Claw/
 config/
-docs/
+# docs/ 定案/正本文档纳入版本管理（R68 后解禁，两机一致性靠 git 同步）；
+# 临时草稿仍由下方 *.pdf / *.drawio / _report_* 等规则排除
 interpretation/
 test_crawl_result/
 tmp_chad/
@@ -150,63 +166,6 @@ gui_log.txt
 ocr_*.txt
 rapid_test_*.txt
 
-# ===== 临时模块/实验脚本（非主程序） =====
-FMI.py
-Flair.py
-Gas.py
-GasInterpretation.py
-NMR20260318.py
-nmr_*.py
-process_dlis_nmr.py
-microresistivity_imaging.py
-lithology_identifier.py
-logAI.py
-log_interpreter.py
-logging_processor.py
-main.py
-main_processor.py
-ppt_extract.py
-ppt_generator.py
-query_csv_data.py
-query_thin_shale.py
-read_sample_report.py
-rebuild_index.py
-remove_*.py
-report_generator.py
-generate_final_report.py
-integrate_calculations.py
-isolated_render.py
-kb_translator.py
-knowledge_build.py
-knowledge_builder_simple.py
-knowledge_scheduler.py
-quicklook_*.py
-qlscan.py
-run_*.py
-scan_*.py
-scheduled_knowledge_update.py
-simple_*.py
-spring_*.py
-syt5945_*.py
-test_whoosh.py
-test_wikipedia_crawl.py
-translate_to_english.py
-unify_tick_params.py
-update_pdf_parser.py
-update_ppt.py
-update_slide8.py
-utils.py
-visualize_composite_only.py
-visualizer.py
-visualizer2.py
-weekly_*.py
-welllog_flowchart.drawio
-welllog_interpretation_flowchart.drawio
-log_flowchart.drawio
-log_visualizer2*.py
-log_visualizer_fluid.py
-gen_legend_icons.py
-
 # ===== 日志 =====
 *.log
 
@@ -225,3 +184,58 @@ quicklook_config.json
 gas_test.csv
 *.bat
 !run_gui.bat
+!启动logInt.bat
+
+# ===== 草稿/备份/摆渡产物（不入库） =====
+# 【2026-11-13】logknow/ 已纳入版本管理（88 国静态地质知识 + 知识库 API + bootstrap）；
+#   原排除理由（缺 config/region_normalize.yaml）已修：配置改为与 region_normalizer.py 同级。
+#   仍不入库：logknow/ 内的诊断脚本与中间产物（见下方逐条）
+# 早期外置管线入口（已由 logknow/ingest_static_geo.py 取代）
+ingest_to_logknow.py
+ingest_report.json
+# logknow 内的诊断/一次性脚本（硬编码旧 F 盘路径，仅本机排查用）
+logknow/AIEngine.py
+logknow/ai_engine.py
+logknow/kb_scan.py
+logknow/logknow.py
+logknow/**/*.broken
+logknow/**/*.broken_*
+logknow/**/*.pre_*
+logknow/**/*.bak
+logknow/**/*.bak2_*
+logknow/**/*.bak3_*
+logknow/**/*.bak4_*
+logknow/**/*.bak5_*
+logknow/**/*.bak6_*
+logknow/**/*.bak_*
+logknow/**/*.pre_*
+# 一次性诊断脚本（硬编码旧 F 盘路径）
+dbsta.py
+peek_store.py
+temp_chunk_schema.py
+import logknow22.py
+update_bootstrap.ps1
+# npm 残留（工具实验产物）
+node_modules/
+package.json
+package-lock.json
+# 知识库中间产物：重复副本/备份/测试库（正式库 data/kb/kb.db 走 LFS 入库）
+data/kb/_dupes_*/
+data/kb/kb_test*.db
+# 草稿与门禁戳
+.$log_flowchart.drawio.bkp
+_gate_pass.stamp
+# 离线摆渡包（git bundle 摆渡用，非源码）
+*.bundle
+# 旧版本快照与回归中间基线
+_dbg/logInt_old_r60.py
+_dbg/_r*_base/
+_dbg/*.npy
+# 已被 logKnow.py 并库(2026-10-26)的历史文件与一次性脚本
+logWiki.py
+build_regional_graph.py
+_dbg/remove_run_mode.py
+# templates 备份（需置于 !templates/**/* 放行规则之后才能生效）
+templates/*.bak_*
+# P0 逐轮执行记录：按 docs/README.md 约定为工作区文件，不入库
+docs/P0执行记录_*.md

@@ -1,31 +1,7 @@
-﻿[
-  {
-    "country": "智利",
-    "basin": "Magallanes 盆地",
-    "sag": "Magallanes 凹陷",
-    "block": "Magallanes 南部区块",
-    "oilfield": "Cerro Dragon 油田",
-    "structure": "逆冲背斜",
-    "well": "CHL-01",
-    "formation": "Cretaceous Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系海相三角洲砂岩",
-      "lithology": ["长石岩屑砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "22–59", "RT": "12–68", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "82–134", "RT": "1.0–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "AC": "92–108"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "麦哲伦盆地白垩系砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "前陆逆冲带，成岩压实较强",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "压实校正，泥质 Archie",
-      "threshold": {"sw_max": "0.59"},
-      "limitation": "埋深大，致密化普遍；逆冲断层切割破坏圈闭",
-      "reference_case": "Cerro Dragon, Punta Baja"
-    },
-    "gwc": {"Cretaceous Sand": "逆冲断块各自油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+
+               ],
+    "continent":  "south_america",
+    "country":  "智利"
+}

@@ -1,31 +1,231 @@
-﻿[
-    {
-        "country": "伊拉克",
-        "basin": "美索不达米亚盆地",
-        "sag": "南部凹陷",
-        "block": "Zubair 区块",
-        "oilfield": "Zubair 油田",
-        "structure": "断背斜构造",
-        "well": "ZUB-01",
-        "formation": "Zubair",
-        "strata_meta": {
-            "sub_layer": "下白垩统滨岸砂岩",
-            "lithology": ["石英砂岩", "泥岩"],
-            "log_response": {
-                "reservoir": {"GR": "20–50", "RT": "8–60", "DEN": "2.34–2.48", "CNL": "13–23", "DT": "75–89"},
-                "non_reservoir": {"GR": "78–132", "RT": "1–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "DT": "92–107"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "伊拉克砂岩饱和度法",
-        "method_meta": {
-            "applicable_condition": "伊拉克南部白垩系砂岩",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "改良 Archie，高矿化度校正",
-            "threshold": {"sw_max": 0.58},
-            "limitation": "黄铁矿富集段电阻率偏低",
-            "reference_case": "伊拉克南部油田群"
-        },
-        "gwc": {"Zubair": "区块油水界面差异明显"}
-    }
-]
+﻿{
+    "country":  "伊拉克",
+    "country_en":  "Iraq",
+    "continent":  "asia",
+    "notes":  "波斯湾盆地南部，巨厚白垩系、侏罗系，砂岩与礁滩碳酸盐岩双主力，地层水矿化度极高",
+    "basins":  [
+                   {
+                       "name":  "波斯湾盆地（伊拉克段）",
+                       "name_en":  "Persian Gulf Basin (Iraq Sector)",
+                       "depressions":  [
+                                           {
+                                               "name":  "南部主凹陷",
+                                               "blocks":  [
+                                                              {
+                                                                  "name":  "鲁迈拉区块",
+                                                                  "oilfields":  [
+                                                                                    {
+                                                                                        "name":  "鲁迈拉油田",
+                                                                                        "structures":  [
+                                                                                                           {
+                                                                                                               "name":  "Rumaila 背斜",
+                                                                                                               "wells":  [
+                                                                                                                             {
+                                                                                                                                 "name":  "Rum‑07",
+                                                                                                                                 "td":  "4168 m",
+                                                                                                                                 "intervals":  [
+                                                                                                                                                   {
+                                                                                                                                                       "fm":  "Zubair",
+                                                                                                                                                       "top":  "2630 m",
+                                                                                                                                                       "bot":  "3472 m",
+                                                                                                                                                       "lithology":  "中细粒石英砂岩",
+                                                                                                                                                       "fluid_type":  "黑油",
+                                                                                                                                                       "test_result":  "高产工业油流",
+                                                                                                                                                       "log_response":  {
+                                                                                                                                                                            "GR":  "低伽马 20–60 API",
+                                                                                                                                                                            "RT":  "油层 5–30 Ω·m",
+                                                                                                                                                                            "DEN":  "2.36–2.57 g/cm³",
+                                                                                                                                                                            "CNL":  "中等",
+                                                                                                                                                                            "DT":  "67–86 μs/ft"
+                                                                                                                                                                        }
+                                                                                                                                                   }
+                                                                                                                                               ]
+                                                                                                                             }
+                                                                                                                         ]
+                                                                                                           }
+                                                                                                       ]
+                                                                                    }
+                                                                                ]
+                                                              }
+                                                          ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Zubair",
+                                              "aliases":  [
+                                                              "祖拜尔组",
+                                                              "Zubair Fm"
+                                                          ],
+                                              "litho_main":  "三角洲石英砂岩，薄层泥岩夹层",
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.30
+                                                                 ],
+                                              "perm_range":  [
+                                                                 80,
+                                                                 1600
+                                                             ],
+                                              "gwc":  "背斜控制区域油水界面，断块内统一",
+                                              "cutoff":  {
+                                                             "por":  0.13,
+                                                             "sw":  0.58,
+                                                             "vsh":  0.30
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.35–2.58 g/cm³",
+                                                                   "CNL":  "中等孔隙度",
+                                                                   "DT":  "66–88 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "name":  "Mishrif",
+                                              "aliases":  [
+                                                              "米什里夫组",
+                                                              "Mishrif Fm"
+                                                          ],
+                                              "litho_main":  "厚层粒屑灰岩、礁灰岩，局部白云岩化",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.3,
+                                                                 260
+                                                             ],
+                                              "gwc":  "受岩相、裂缝分割，分块油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.06,
+                                                             "sw":  0.68,
+                                                             "vsh":  0.18
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "油层中高阻",
+                                                                   "DEN":  "2.48–2.70 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "50–66 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "25–70 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "油层 5–35 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 50,
+                                                                 1200
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.25,
+                                                             "por":  0.13,
+                                                             "sw":  0.56
+                                                         },
+                                              "gwc":  "背斜统一界面",
+                                              "name":  "Rumaila",
+                                              "aliases":  [
+                                                              "鲁迈拉组"
+                                                          ],
+                                              "litho_main":  "上白垩统三角洲—浅海砂岩，分选好"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.52–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–35 API",
+                                                                   "DT":  "46–60 μs/ft",
+                                                                   "RT":  "油层 20–200 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.05,
+                                                                 25
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.04,
+                                                                     0.12
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.12,
+                                                             "por":  0.04,
+                                                             "sw":  0.72
+                                                         },
+                                              "gwc":  "断块控制",
+                                              "name":  "Khasib",
+                                              "aliases":  [
+                                                              "哈西布组"
+                                                          ],
+                                              "litho_main":  "上白垩统致密碳酸盐岩，局部裂缝"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Zubair 砂岩 Archie",
+                                                  "formula":  "Sw = (0.77 * Rw / (Rt * phi ** 1.84)) ** (1 / 1.98)",
+                                                  "params":  {
+                                                                 "a":  0.77,
+                                                                 "m":  1.84,
+                                                                 "n":  1.98,
+                                                                 "Rw":  "0.01–0.025 Ω·m"
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "condition":  "祖拜尔纯净砂岩油层，高矿化地层水；泥质段切换 Waxman‑Smits",
+                                                  "source":  "伊拉克南部油田测井规范，第24届测井年会波斯湾砂岩专题"
+                                              },
+                                              {
+                                                  "method_name":  "Mishrif 礁灰岩饱和度模型",
+                                                  "formula":  "Sw = (0.73 * Rw / (Rt * phi ** 2.09)) ** (1 / 2.21)",
+                                                  "params":  {
+                                                                 "a":  0.73,
+                                                                 "m":  2.09,
+                                                                 "n":  2.21
+                                                             },
+                                                  "threshold":  {
+
+                                                                },
+                                                  "condition":  "孔隙‑裂缝型礁灰岩储层，裂缝发育段需单独标定 m/n",
+                                                  "source":  "伊拉克碳酸盐岩岩石物理标定"
+                                              },
+                                              {
+                                                  "condition":  "优质砂岩，高矿化 Rw 必须实测取值",
+                                                  "source":  "伊拉克 Rumaila 测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.83,
+                                                                 "a":  0.79,
+                                                                 "n":  1.97
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "method_name":  "Rumaila 砂岩 Archie"
+                                              },
+                                              {
+                                                  "condition":  "以裂缝贡献为主，须先判别裂缝发育段",
+                                                  "source":  "伊拉克 Khasib 测井评价",
+                                                  "formula":  "Sw=((a*Rw)/(Rt*(phi_b**m_b+phi_f**m_f)))**(1/n)",
+                                                  "params":  {
+                                                                 "m_b":  2.35,
+                                                                 "m_f":  1.35,
+                                                                 "a":  0.88,
+                                                                 "n":  2.12
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.04
+                                                                },
+                                                  "method_name":  "Khasib 致密碳酸盐岩解释"
+                                              }
+                                          ]
+                   }
+               ]
+}

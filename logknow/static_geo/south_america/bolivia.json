@@ -1,31 +1,7 @@
-﻿[
-  {
-    "country": "玻利维亚",
-    "basin": "Chaco 盆地",
-    "sag": "Chaco 凹陷",
-    "block": "Chaco 陆上区块",
-    "oilfield": "San Alberto 气田",
-    "structure": "逆冲断块背斜",
-    "well": "BOL-01",
-    "formation": "Devonian / Cretaceous Sand",
-    "strata_meta": {
-      "sub_layer": "泥盆系致密砂岩、白垩系三角洲砂岩两套储层",
-      "lithology": ["石英砂岩", "致密砂岩", "粉砂岩", "页岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–57", "RT": "12–70", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–90"},
-        "non_reservoir": {"GR": "80–131", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
-      },
-      "hydrocarbon_type": "天然气为主，凝析油"
-    },
-    "method_name": "Chaco 盆地砂岩气层解释法",
-    "method_meta": {
-      "applicable_condition": "安第斯前陆逆冲带，存在常规与致密储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "压实校正 Archie，致密段启用非常规饱和度分支",
-      "threshold": {"sw_max": "0.58", "gas_cut": "0.042"},
-      "limitation": "逆冲断层复杂，泥盆系普遍致密，孔隙度偏低",
-      "reference_case": "San Alberto, Itau"
-    },
-    "gwc": {"Devonian Sand": "逆冲断块独立界面", "Cretaceous Sand": "砂组独立界面"}
-  }
-]
+﻿{
+    "basins":  [
+
+               ],
+    "continent":  "south_america",
+    "country":  "玻利维亚"
+}

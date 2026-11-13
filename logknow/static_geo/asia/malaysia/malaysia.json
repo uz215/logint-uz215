@@ -1,0 +1,39 @@
+﻿{
+    "country":  "马来西亚",
+    "basin":  "马来盆地",
+    "sag":  "中央凹陷",
+    "block":  "SK308",
+    "oilfield":  "Bintulu 油田",
+    "structure":  "断块圈闭",
+    "well":  "Bintulu-1",
+    "formation":  "Nyalau 组",
+    "strata_meta":  {
+                        "lithology":  "海岸三角洲砂岩",
+                        "gamma_range":  [
+                                            30,
+                                            86
+                                        ],
+                        "resistivity_range":  [
+                                                  1.8,
+                                                  62
+                                              ],
+                        "porosity_range":  [
+                                               0.16,
+                                               0.3
+                                           ],
+                        "permeability_range":  [
+                                                   18,
+                                                   1100
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.2,
+                                                       0.69
+                                                   ]
+                    },
+    "method_name":  "马来盆地三角洲砂岩",
+    "method_meta":  {
+                        "threshold":  "GR\u003c64",
+                        "formula":  "Vsh + Archie",
+                        "condition":  "中新统海岸三角洲砂岩"
+                    }
+}

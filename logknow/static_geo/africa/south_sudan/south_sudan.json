@@ -1,0 +1,39 @@
+﻿{
+    "country":  "南苏丹",
+    "basin":  "穆格莱德盆地",
+    "sag":  "Unity 凹陷",
+    "block":  "Block 5A",
+    "oilfield":  "Unity 油田",
+    "structure":  "断块圈闭",
+    "well":  "Unity-1",
+    "formation":  "Abu Gabra 组",
+    "strata_meta":  {
+                        "lithology":  "三角洲砂岩",
+                        "gamma_range":  [
+                                            30,
+                                            87
+                                        ],
+                        "resistivity_range":  [
+                                                  2,
+                                                  66
+                                              ],
+                        "porosity_range":  [
+                                               0.14,
+                                               0.28
+                                           ],
+                        "permeability_range":  [
+                                                   10,
+                                                   880
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.22,
+                                                       0.7
+                                                   ]
+                    },
+    "method_name":  "湖相三角洲饱和度计算",
+    "method_meta":  {
+                        "threshold":  "GR\u003c64",
+                        "formula":  "Vsh 校正 Archie",
+                        "condition":  "Unity 凹陷下白垩统"
+                    }
+}

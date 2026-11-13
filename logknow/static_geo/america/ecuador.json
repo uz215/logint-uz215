@@ -1,0 +1,146 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "安第斯山前，白垩系碳酸盐岩与砂岩互层，高产轻质油，裂缝发育",
+    "basins":  [
+                   {
+                       "name":  "奥里安特盆地",
+                       "name_en":  "Oriente Basin",
+                       "notes":  "安第斯山前，白垩系碳酸盐岩与砂岩互层，高产轻质油，裂缝发育",
+                       "depressions":  [
+                                           {
+                                               "name":  "奥里安特凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Hollin",
+                                              "aliases":  [
+                                                              "霍林组",
+                                                              "Hollin Fm"
+                                                          ],
+                                              "litho_main":  "滨岸石英砂岩，局部生物碎屑灰岩夹层",
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.27
+                                                                 ],
+                                              "perm_range":  [
+                                                                 25,
+                                                                 820
+                                                             ],
+                                              "gwc":  "构造‑岩性控制",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.61,
+                                                             "vsh":  0.28
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "中高阻",
+                                                                   "DEN":  "2.33–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Hollin 砂岩饱和度",
+                                                  "formula":  "Sw = (0.79 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.01)",
+                                                  "params":  {
+                                                                 "a":  0.79,
+                                                                 "m":  1.84,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "condition":  "厄瓜多尔奥里安特储层，裂缝段 m 下调",
+                                                  "source":  "厄瓜多尔奥里安特油田岩石物理标定"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "奥里安特盆地",
+                       "name_en":  "Oriente Basin",
+                       "notes":  "安第斯山前，白垩系碳酸盐岩与砂岩互层，高产轻质油，裂缝发育",
+                       "depressions":  [
+                                           {
+                                               "name":  "奥里安特凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Hollin",
+                                              "aliases":  [
+                                                              "霍林组",
+                                                              "Hollin Fm"
+                                                          ],
+                                              "litho_main":  "滨岸石英砂岩，局部生物碎屑灰岩夹层",
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.27
+                                                                 ],
+                                              "perm_range":  [
+                                                                 25,
+                                                                 820
+                                                             ],
+                                              "gwc":  "构造‑岩性控制",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.61,
+                                                             "vsh":  0.28
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "中高阻",
+                                                                   "DEN":  "2.33–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Hollin 砂岩饱和度",
+                                                  "formula":  "Sw = (0.79 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.01)",
+                                                  "params":  {
+                                                                 "a":  0.79,
+                                                                 "m":  1.84,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "condition":  "厄瓜多尔奥里安特储层，裂缝段 m 下调",
+                                                  "source":  "厄瓜多尔奥里安特油田岩石物理标定"
+                                              }
+                                          ]
+                   }
+               ]
+}

@@ -1,0 +1,39 @@
+﻿{
+    "country":  "伊拉克",
+    "basin":  "波斯湾盆地",
+    "sag":  "巴士拉凹陷",
+    "block":  "西古尔纳区块",
+    "oilfield":  "西古尔纳油田",
+    "structure":  "长轴背斜",
+    "well":  "WestQurna-1",
+    "formation":  "Zubair 组",
+    "strata_meta":  {
+                        "lithology":  "滨海砂岩",
+                        "gamma_range":  [
+                                            20,
+                                            80
+                                        ],
+                        "resistivity_range":  [
+                                                  1.8,
+                                                  65
+                                              ],
+                        "porosity_range":  [
+                                               0.15,
+                                               0.31
+                                           ],
+                        "permeability_range":  [
+                                                   12,
+                                                   1300
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.18,
+                                                       0.65
+                                                   ]
+                    },
+    "method_name":  "滨海砂岩饱和度计算",
+    "method_meta":  {
+                        "threshold":  "GR\u003c55",
+                        "formula":  "Archie 公式，m=2.15",
+                        "condition":  "伊拉克南部 Zubair 组"
+                    }
+}

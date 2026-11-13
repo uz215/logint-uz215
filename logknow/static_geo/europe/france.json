@@ -1,0 +1,77 @@
+﻿{
+    "basins":  [
+                   {
+                       "name":  "阿基坦盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Lacq 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Aquitaine Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.56–2.76 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "5–25 API",
+                                                                   "DT":  "44–58 μs/ft",
+                                                                   "RT":  "气层 30–300 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.05,
+                                                                 50
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.04,
+                                                                     0.14
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.08,
+                                                             "por":  0.03,
+                                                             "sw":  0.75
+                                                         },
+                                              "gwc":  "构造与裂缝控制",
+                                              "name":  "Mano Dolomite",
+                                              "aliases":  [
+                                                              "马诺白云岩",
+                                                              "Dolomie de Mano"
+                                                          ],
+                                              "litho_main":  "上侏罗统白云岩，裂缝—孔洞型"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "含硫气使 n 偏移，需按组分标定；裂缝段单独双孔隙建模",
+                                                  "source":  "法国 Lacq 气田岩石物理规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.15,
+                                                                 "a":  0.72,
+                                                                 "n":  2.25
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "method_name":  "Mano 白云岩含硫气层饱和度"
+                                              }
+                                          ],
+                       "notes":  "Lacq 含硫气田，侏罗系白云岩为主力"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "法国",
+    "country_en":  "",
+    "notes":  ""
+}

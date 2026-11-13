@@ -1,0 +1,168 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "莫桑比克海峡盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "鲁伍马盆地",
+                       "name_en":  "Rovuma Basin",
+                       "notes":  "东非深水，古近‑新近系浊积砂岩，巨型气田，高温高压，气水界面平缓",
+                       "depressions":  [
+                                           {
+                                               "name":  "鲁伍马深水凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Paleogene Turbidite",
+                                              "aliases":  [
+                                                              "古近系浊积砂",
+                                                              "Rovuma Sand"
+                                                          ],
+                                              "litho_main":  "深水块状石英砂岩，分选好，泥质低",
+                                              "porosity_range":  [
+                                                                     0.15,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 35,
+                                                                 920
+                                                             ],
+                                              "gwc":  "大面积统一气水界面，局部断层遮挡",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.6,
+                                                             "vsh":  0.28
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.33–2.55 g/cm³",
+                                                                   "CNL":  "强烈挖掘效应",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "鲁伍马深水浊积砂岩气层",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.85)) ** (1 / 2.02)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.85,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "condition":  "莫桑比克鲁伍马低泥质浊积砂岩气藏；高温必须校正 Rw",
+                                                  "source":  "鲁伍马气田岩石物理规范，第24届测井年会东非深水气藏专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "鲁伍马盆地",
+                       "name_en":  "Rovuma Basin",
+                       "notes":  "东非深水，古近‑新近系浊积砂岩，巨型气田，高温高压，气水界面平缓",
+                       "depressions":  [
+                                           {
+                                               "name":  "鲁伍马深水凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Paleogene Turbidite",
+                                              "aliases":  [
+                                                              "古近系浊积砂",
+                                                              "Rovuma Sand"
+                                                          ],
+                                              "litho_main":  "深水块状石英砂岩，分选好，泥质低",
+                                              "porosity_range":  [
+                                                                     0.15,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 35,
+                                                                 920
+                                                             ],
+                                              "gwc":  "大面积统一气水界面，局部断层遮挡",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.6,
+                                                             "vsh":  0.28
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.33–2.55 g/cm³",
+                                                                   "CNL":  "强烈挖掘效应",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "鲁伍马深水浊积砂岩气层",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.85)) ** (1 / 2.02)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.85,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "condition":  "莫桑比克鲁伍马低泥质浊积砂岩气藏；高温必须校正 Rw",
+                                                  "source":  "鲁伍马气田岩石物理规范，第24届测井年会东非深水气藏专题"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "莫桑比克"
+}

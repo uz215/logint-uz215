@@ -1,31 +1,136 @@
-﻿[
-  {
-    "country": "文莱",
-    "basin": "Baram 盆地",
-    "sag": "Baram 近海凹陷",
-    "block": "文莱近海中央区块",
-    "oilfield": "Champion 油田",
-    "structure": "挤压背斜、断块",
-    "well": "BRN-01",
-    "formation": "Miocene Delta Sand",
-    "strata_meta": {
-      "sub_layer": "中新统三角洲前缘、水下分流河道砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–55", "RT": "12–67", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "80–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油为主，伴生气"
-    },
-    "method_name": "巴兰盆地中新统三角洲砂解释法",
-    "method_meta": {
-      "applicable_condition": "挤压型被动陆缘三角洲，砂泥频繁互层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，薄层识别，低阻油层判别",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "地层水矿化度横向变化大，薄层多",
-      "reference_case": "Champion, Seria"
-    },
-    "gwc": {"Miocene Delta Sand": "背斜内各砂组独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "中新统三角洲砂岩",
+                                              "rt_range":  [
+                                                               2.6,
+                                                               55
+                                                           ],
+                                              "aliases":  [
+                                                              "塞里亚组"
+                                                          ],
+                                              "gr_range":  [
+                                                               32,
+                                                               82
+                                                           ],
+                                              "sw_base":  0.39,
+                                              "den_range":  [
+                                                                2.39,
+                                                                2.59
+                                                            ],
+                                              "name":  "Seria",
+                                              "porosity_base":  0.18,
+                                              "cnl_range":  [
+                                                                0.1,
+                                                                0.27
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "文莱盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.047,
+                                                                 "m":  2.07,
+                                                                 "a":  0.65,
+                                                                 "n":  1.86
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.09,
+                                                                    "gr_max":  88
+                                                                },
+                                                  "condition":  "文莱 Seria 组三角洲砂岩油藏",
+                                                  "method_name":  "Seria 三角洲砂岩饱和度"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "文莱盆地",
+                       "name_en":  "Brunei Basin",
+                       "notes":  "北卢宋近海，深水浊积砂岩为主，优质储层，气油伴生",
+                       "depressions":  [
+                                           {
+                                               "name":  "北卢宋凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Setap",
+                                              "aliases":  [
+                                                              "Setap Fm"
+                                                          ],
+                                              "litho_main":  "深水浊积砂岩，块状砂，泥岩夹层少",
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.29
+                                                                 ],
+                                              "perm_range":  [
+                                                                 40,
+                                                                 950
+                                                             ],
+                                              "gwc":  "浊积砂体独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.12,
+                                                             "sw":  0.6,
+                                                             "vsh":  0.35
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "中高阻",
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "71–89 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "文莱 Setap 浊积砂岩 Archie",
+                                                  "formula":  "Sw = (0.79 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.79,
+                                                                 "m":  1.84,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.12
+                                                                },
+                                                  "condition":  "低泥质块状浊积砂岩",
+                                                  "source":  "文莱国家石油测井报告"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "文莱"
+}

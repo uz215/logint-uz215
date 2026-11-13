@@ -1,31 +1,55 @@
-﻿[
-  {
-    "country": "阿尔巴尼亚",
-    "basin": "Adriatic 前陆盆地",
-    "sag": "Ionian 凹陷",
-    "block": "Patos-Marinza 区块",
-    "oilfield": "Patos-Marinza 油田",
-    "structure": "逆冲背斜",
-    "well": "ALB-01",
-    "formation": "Oligocene Sand",
-    "strata_meta": {
-      "sub_layer": "渐新统碎屑岩",
-      "lithology": ["长石岩屑砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "22–59", "RT": "12–68", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "82–134", "RT": "1.0–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "AC": "92–108"}
-      },
-      "hydrocarbon_type": "重质原油为主，伴生气少"
-    },
-    "method_name": "Patos-Marinza 渐新统砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "前陆逆冲带，重稠油储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "稠油电阻率校正，泥质 Archie",
-      "threshold": {"sw_max": "0.60"},
-      "limitation": "原油密度高，电阻率偏低，容易误判为水层",
-      "reference_case": "Patos-Marinza, Kuçova"
-    },
-    "gwc": {"Oligocene Sand": "逆冲断块各自油水界面"}
-  }
-]
+﻿{
+    "country":  "阿尔巴尼亚",
+    "basin":  "Adriatic 前陆盆地",
+    "sag":  "Ionian 凹陷",
+    "block":  "Patos-Marinza 区块",
+    "oilfield":  "Patos-Marinza 油田",
+    "structure":  "逆冲背斜",
+    "well":  "ALB-01",
+    "formation":  "Oligocene Sand",
+    "strata_meta":  {
+                        "sub_layer":  "渐新统碎屑岩",
+                        "lithology":  [
+                                          "长石岩屑砂岩",
+                                          "粉砂岩",
+                                          "泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "22–59",
+                                                               "RT":  "12–68",
+                                                               "DEN":  "2.34–2.48",
+                                                               "CNL":  "13–24",
+                                                               "AC":  "75–89"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "82–134",
+                                                                   "RT":  "1.0–3.4",
+                                                                   "DEN":  "2.54–2.64",
+                                                                   "CNL":  "24–35",
+                                                                   "AC":  "92–108"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "重质原油为主，伴生气少"
+                    },
+    "method_name":  "Patos-Marinza 渐新统砂岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "前陆逆冲带，重稠油储层",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "稠油电阻率校正，泥质 Archie",
+                        "threshold":  {
+                                          "sw_max":  "0.60"
+                                      },
+                        "limitation":  "原油密度高，电阻率偏低，容易误判为水层",
+                        "reference_case":  "Patos-Marinza, Kuçova"
+                    },
+    "gwc":  {
+                "Oligocene Sand":  "逆冲断块各自油水界面"
+            }
+}

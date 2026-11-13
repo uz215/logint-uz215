@@ -1,31 +1,58 @@
-﻿[
-  {
-    "country": "格鲁吉亚",
-    "basin": "Black Sea 东部次盆",
-    "sag": "格鲁吉亚近海凹陷",
-    "block": "Black Sea Georgia 近海区块",
-    "oilfield": "Shallow Black Sea 油气远景区",
-    "structure": "断块、挤压背斜",
-    "well": "GEO-01",
-    "formation": "Eocene – Miocene Sand & Carbonate",
-    "strata_meta": {
-      "sub_layer": "始新统灰岩、中新统浊积砂岩",
-      "lithology": ["粒屑灰岩", "白云岩", "石英砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "5–51", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "油气远景，以气为主"
-    },
-    "method_name": "格鲁吉亚黑海砂-灰岩解释法",
-    "method_meta": {
-      "applicable_condition": "前陆挤压带，灰岩与浊积砂叠置",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "岩相分支判定，灰岩孔洞校正、浊积砂泥质 Archie",
-      "threshold": {"sw_max": "0.57", "gas_cut": "0.04"},
-      "limitation": "断层密集，储层连续性差，勘探程度偏低",
-      "reference_case": "Black Sea Georgia prospect cluster"
-    },
-    "gwc": {"Eocene Carbonate": "滩块独立界面", "Miocene Sand": "扇体独立界面"}
-  }
-]
+﻿{
+    "country":  "格鲁吉亚",
+    "basin":  "Black Sea 东部次盆",
+    "sag":  "格鲁吉亚近海凹陷",
+    "block":  "Black Sea Georgia 近海区块",
+    "oilfield":  "Shallow Black Sea 油气远景区",
+    "structure":  "断块、挤压背斜",
+    "well":  "GEO-01",
+    "formation":  "Eocene – Miocene Sand \u0026 Carbonate",
+    "strata_meta":  {
+                        "sub_layer":  "始新统灰岩、中新统浊积砂岩",
+                        "lithology":  [
+                                          "粒屑灰岩",
+                                          "白云岩",
+                                          "石英砂岩",
+                                          "泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "5–51",
+                                                               "RT":  "14–220",
+                                                               "DEN":  "2.32–2.57",
+                                                               "CNL":  "3–22",
+                                                               "AC":  "43–87"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "76–127",
+                                                                   "RT":  "1.0–700+",
+                                                                   "DEN":  "2.52–2.71",
+                                                                   "CNL":  "0–32",
+                                                                   "AC":  "38–104"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "油气远景，以气为主"
+                    },
+    "method_name":  "格鲁吉亚黑海砂-灰岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "前陆挤压带，灰岩与浊积砂叠置",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "岩相分支判定，灰岩孔洞校正、浊积砂泥质 Archie",
+                        "threshold":  {
+                                          "sw_max":  "0.57",
+                                          "gas_cut":  "0.04"
+                                      },
+                        "limitation":  "断层密集，储层连续性差，勘探程度偏低",
+                        "reference_case":  "Black Sea Georgia prospect cluster"
+                    },
+    "gwc":  {
+                "Eocene Carbonate":  "滩块独立界面",
+                "Miocene Sand":  "扇体独立界面"
+            }
+}

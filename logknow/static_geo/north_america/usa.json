@@ -1,31 +1,84 @@
-﻿[
-  {
-    "country": "美国",
-    "basin": "Permian 盆地 / Gulf Coast",
-    "sag": "Midland & Delaware 次盆",
-    "block": "Permian 核心区块、墨西哥湾近海",
-    "oilfield": "Wolfcamp / Bone Spring 页岩、Gulf Coast 浊积砂油田",
-    "structure": "地层圈闭、盐相关圈闭",
-    "well": "USA-01",
-    "formation": "Wolfcamp / Bone Spring / Tertiary Turbidite",
-    "strata_meta": {
-      "sub_layer": "Wolfcamp、Bone Spring 富有机质页岩与致密碳酸盐岩；湾岸深水浊积砂岩",
-      "lithology": ["页岩", "泥灰岩", "致密灰岩", "石英砂岩", "盐岩"],
-      "log_response": {
-        "reservoir": {"GR": "35–110", "RT": "6–95", "DEN": "2.33–2.57", "CNL": "12–28", "AC": "64–96"},
-        "non_reservoir": {"GR": "85–130", "RT": "1–4", "DEN": "2.56–2.70", "CNL": "25–35", "AC": "90–110"}
-      },
-      "hydrocarbon_type": "页岩油、页岩气、致密油、常规原油、凝析油"
-    },
-    "method_name": "美国二叠纪+湾岸双体系解释法",
-    "method_meta": {
-      "applicable_condition": "Permian 页岩/致密碳酸盐岩；墨西哥湾盐上深水浊积砂",
-      "input_curves": ["GR","RT","DEN","CNL","AC","TOC"],
-      "formula": "非常规饱和度、TOC 估算；盐区曲线校正，浊积砂泥质 Archie",
-      "threshold": {"sw_max": "0.65", "toc_min": "2.0"},
-      "limitation": "二叠系以连续油气聚集为主；湾岸盐岩畸变曲线严重",
-      "reference_case": "Wolfcamp, Bone Spring, Mars-Ursa"
-    },
-    "gwc": {"Wolfcamp": "连续聚集无统一界面", "Gulf Turbidite": "扇体独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Bakken"
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Bakken Core"
+                                         }
+                                     ],
+                       "name":  "威利斯顿盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Wolfcamp"
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "二叠盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "墨西哥湾盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   }
+               ],
+    "continent":  "north_america",
+    "country":  "美国"
+}

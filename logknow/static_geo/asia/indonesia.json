@@ -1,31 +1,133 @@
-﻿[
+﻿{
+  "country": "印度尼西亚",
+  "country_en": "Indonesia",
+  "continent": "asia",
+  "notes": "印尼众多新生代弧前、弧后盆地，以砂岩、碳酸盐岩气油藏为主；大量区块采用 Indonesia 泥质饱和度模型",
+  "basins": [
     {
-        "country": "印度尼西亚",
-        "basin": "库泰盆地",
-        "sag": "中央凹陷",
-        "block": "Balikpapan 区块",
-        "oilfield": "Balikpapan 气田",
-        "structure": "三角洲背斜构造",
-        "well": "BAL-01",
-        "formation": "Balikpapan",
-        "strata_meta": {
-            "sub_layer": "中新统三角洲砂岩",
-            "lithology": ["岩屑砂岩", "泥岩夹层"],
-            "log_response": {
-                "reservoir": {"GR": "20–60", "RT": "10–50", "DEN": "2.40–2.52", "CNL": "14–24", "DT": "76–90"},
-                "non_reservoir": {"GR": "80–140", "RT": "1–3.5", "DEN": "2.54–2.64", "CNL": "24–34", "DT": "92–108"}
-            },
-            "hydrocarbon_type": "天然气、凝析油"
-        },
-        "method_name": "三角洲砂岩气层判别法",
-        "method_meta": {
-            "applicable_condition": "近海三角洲砂岩，泥质含量中等",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "孔隙度-电阻率交会判气",
-            "threshold": {"gas_index": 0.035},
-            "limitation": "薄互层分辨率不足",
-            "reference_case": "印尼库泰盆地"
-        },
-        "gwc": {"Balikpapan": "各个构造独立气水界面"}
+      "name": "苏门答腊中部盆地",
+      "name_en": "Central Sumatra Basin",
+      "depressions": [
+        {
+          "name": "主凹陷",
+          "blocks": [],
+          "oilfields": [],
+          "structures": [],
+          "wells": []
+        }
+      ],
+      "formations": [
+        {
+          "name": "Talang Akar",
+          "aliases": ["Talang Akar Fm", "塔朗阿卡尔组"],
+          "litho_main": "河流三角洲长石砂岩，夹薄层煤与泥岩",
+          "porosity_range": [0.14, 0.28],
+          "perm_range": [20, 750],
+          "gwc": "断块独立油水界面",
+          "cutoff": {
+            "por": 0.10,
+            "sw": 0.60,
+            "vsh": 0.40
+          },
+          "log_response": {
+            "GR": "中低伽马，40–85 API",
+            "RT": "油层 8–60 Ω·m，气层更高",
+            "DEN": "2.34–2.56 g/cm³",
+            "CNL": "气层可见挖掘效应",
+            "DT": "70–92 μs/ft"
+          }
+        }
+      ],
+      "interp_methods": [
+        {
+          "method_name": "苏门答腊盆地 Talang Akar Indonesia 模型",
+          "formula": "Sw = [(1 / Rt) ** 0.5] / [(Vsh ** Vsh / Rsh ** 0.5) + ((1 - Vsh) * phi ** m / (a * Rw)) ** 0.5]",
+          "params": {
+            "a": 0.81,
+            "m": 1.84
+          },
+          "threshold": {
+            "vsh_upper": 0.40
+          },
+          "condition": "中高泥质三角洲砂岩，印尼最常用解释方案",
+          "source": "印尼国家石油区块规范，第24届测井年会东南亚泥质储层专题"
+        }
+      ]
+    },
+    {
+      "name": "库泰盆地",
+      "name_en": "Kutei Basin",
+      "depressions": [
+        {
+          "name": "马哈坎凹陷",
+          "blocks": [
+            {
+              "name": "马哈坎深水区块",
+              "oilfields": [
+                {
+                  "name": "马哈坎油田群",
+                  "structures": [
+                    {
+                      "name": "Mahakam 构造",
+                      "wells": [
+                        {
+                          "name": "Mahakam‑01",
+                          "td": "4486 m",
+                          "intervals": [
+                            {
+                              "fm": "Balikpapan",
+                              "top": "3620 m",
+                              "bot": "4110 m",
+                              "lithology": "深水浊积砂岩",
+                              "fluid_type": "原油伴生气",
+                              "test_result": "工业油气流",
+                              "log_response": {
+                                "GR": "低伽马",
+                                "RT": "中高阻",
+                                "DEN": "2.33–2.55 g/cm³",
+                                "CNL": "中等中子孔隙度",
+                                "DT": "72–90 μs/ft"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "formations": [
+        {
+          "name": "Balikpapan",
+          "aliases": ["巴厘巴板组"],
+          "litho_main": "深水浊积砂岩，泥岩夹层发育",
+          "porosity_range": [0.15, 0.27],
+          "perm_range": [30, 900],
+          "gwc": "砂体各自独立",
+          "cutoff": {
+            "por": 0.12,
+            "sw": 0.62,
+            "vsh": 0.42
+          }
+        }
+      ],
+      "interp_methods": [
+        {
+          "method_name": "库泰盆地浊积砂岩饱和度解释",
+          "formula": "Sw = (0.80 * Rw / (Rt * phi ** 1.85)) ** (1 / 2.00)",
+          "params": {
+            "a": 0.80,
+            "m": 1.85,
+            "n": 2.00
+          },
+          "condition": "低泥质浊积砂；泥质升高切换 Indonesia",
+          "source": "马哈坎区块测井评价报告"
+        }
+      ]
     }
-]
+  ]
+}

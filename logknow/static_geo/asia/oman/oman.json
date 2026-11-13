@@ -1,0 +1,39 @@
+﻿{
+    "country":  "阿曼",
+    "basin":  "阿曼盆地",
+    "sag":  "北阿曼凹陷",
+    "block":  "Sultanate Block 6",
+    "oilfield":  "Yibal 油田",
+    "structure":  "断块圈闭",
+    "well":  "Yibal-1",
+    "formation":  "Natih 组",
+    "strata_meta":  {
+                        "lithology":  "碳酸盐岩、粒屑灰岩",
+                        "gamma_range":  [
+                                            10,
+                                            50
+                                        ],
+                        "resistivity_range":  [
+                                                  10,
+                                                  1100
+                                              ],
+                        "porosity_range":  [
+                                               0.06,
+                                               0.2
+                                           ],
+                        "permeability_range":  [
+                                                   0.3,
+                                                   220
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.16,
+                                                       0.66
+                                                   ]
+                    },
+    "method_name":  "碳酸盐岩双孔隙模型",
+    "method_meta":  {
+                        "threshold":  "GR\u003c40",
+                        "formula":  "Phi_total = Phi_matrix + Phi_vug",
+                        "condition":  "Natih 组礁滩灰岩"
+                    }
+}

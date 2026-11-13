@@ -1,31 +1,137 @@
-﻿[
-    {
-        "country": "越南",
-        "basin": "湄公盆地",
-        "sag": "基底凹陷",
-        "block": "White Tiger 区块",
-        "oilfield": "White Tiger 油田",
-        "structure": "基底风化隆起构造",
-        "well": "WT-01",
-        "formation": "White Tiger",
-        "strata_meta": {
-            "sub_layer": "前第三系基底花岗岩风化壳",
-            "lithology": ["风化花岗岩、碎裂花岗岩，裂缝溶孔"],
-            "log_response": {
-                "reservoir": {"GR": "40–90", "RT": "20–200", "DEN": "2.48–2.62", "CNL": "6–16", "DT": "55–75"},
-                "non_reservoir": {"GR": "10–30", "RT": "500+", "DEN": "2.66–2.74", "CNL": "0–4", "DT": "42–50"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "花岗岩风化壳解释法",
-        "method_meta": {
-            "applicable_condition": "基底花岗岩风化壳裂缝-溶孔储层",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "裂缝孔隙度估算 + 烃类判识",
-            "threshold": {"frac_por_min": 0.02},
-            "limitation": "致密无风化段无效，裂缝非均质性极强",
-            "reference_case": "越南白虎油田"
-        },
-        "gwc": {"White Tiger": "风化壳分块油水界面"}
-    }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "古近系河流三角洲砂岩",
+                                              "rt_range":  [
+                                                               2.5,
+                                                               50
+                                                           ],
+                                              "aliases":  [
+                                                              "九龙组"
+                                                          ],
+                                              "gr_range":  [
+                                                               30,
+                                                               85
+                                                           ],
+                                              "sw_base":  0.4,
+                                              "den_range":  [
+                                                                2.39,
+                                                                2.6
+                                                            ],
+                                              "name":  "Cuu Long",
+                                              "porosity_base":  0.17,
+                                              "cnl_range":  [
+                                                                0.1,
+                                                                0.26
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "湄公盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.046,
+                                                                 "m":  2.08,
+                                                                 "a":  0.66,
+                                                                 "n":  1.87
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  90
+                                                                },
+                                                  "condition":  "越南九龙盆地三角洲砂岩油藏",
+                                                  "method_name":  "九龙组砂岩 Archie"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "湄公河盆地",
+                       "name_en":  "Mekong Basin",
+                       "notes":  "越南近海新生代三角洲，砂岩油藏为主，部分气藏，泥质变化大",
+                       "depressions":  [
+                                           {
+                                               "name":  "湄公河主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Cuu Long",
+                                              "aliases":  [
+                                                              "九龙组",
+                                                              "Cuu Long Fm"
+                                                          ],
+                                              "litho_main":  "三角洲细‑中粒砂岩，泥岩夹层频繁",
+                                              "porosity_range":  [
+                                                                     0.13,
+                                                                     0.27
+                                                                 ],
+                                              "perm_range":  [
+                                                                 15,
+                                                                 620
+                                                             ],
+                                              "gwc":  "断块独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.1,
+                                                             "sw":  0.63,
+                                                             "vsh":  0.4
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中低伽马，35–80 API",
+                                                                   "RT":  "油层 7–45 Ω·m，气层高阻",
+                                                                   "DEN":  "2.33–2.55 g/cm³",
+                                                                   "CNL":  "气层挖掘效应可见",
+                                                                   "DT":  "70–90 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "湄公河盆地 Cuu Long 砂岩饱和度",
+                                                  "formula":  "Sw = (0.80 * Rw / (Rt * phi ** 1.85)) ** (1 / 2.02)",
+                                                  "params":  {
+                                                                 "a":  0.8,
+                                                                 "m":  1.85,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.4
+                                                                },
+                                                  "condition":  "低‑中泥质三角洲砂岩；高泥质段切换 Indonesia",
+                                                  "source":  "越南近海测井评价，第24届测井年会东南亚近海专题"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "越南"
+}

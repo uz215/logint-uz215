@@ -1,0 +1,39 @@
+﻿{
+    "country":  "刚果（布）",
+    "basin":  "刚果扇盆地",
+    "sag":  "深水主凹陷",
+    "block":  "Mer Profonde 区块",
+    "oilfield":  "Moho 油田",
+    "structure":  "深水扇朵体",
+    "well":  "Moho-1",
+    "formation":  "Congo Fan 砂体",
+    "strata_meta":  {
+                        "lithology":  "深水浊积砂岩",
+                        "gamma_range":  [
+                                            36,
+                                            96
+                                        ],
+                        "resistivity_range":  [
+                                                  1.4,
+                                                  50
+                                              ],
+                        "porosity_range":  [
+                                               0.18,
+                                               0.33
+                                           ],
+                        "permeability_range":  [
+                                                   25,
+                                                   1400
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.24,
+                                                       0.74
+                                                   ]
+                    },
+    "method_name":  "深水浊积砂岩解释",
+    "method_meta":  {
+                        "threshold":  "GR\u003c72",
+                        "formula":  "泥质校正 Archie",
+                        "condition":  "刚果扇深水浊积砂体"
+                    }
+}

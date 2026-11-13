@@ -1,31 +1,32 @@
-﻿[
-  {
-    "country": "毛里塔尼亚",
-    "basin": "Mauritania 海岸盆地",
-    "sag": "Chinguetti 近海凹陷",
-    "block": "Mauritania 近海区块",
-    "oilfield": "Tortue 气田",
-    "structure": "滚动背斜、浊积扇圈闭",
-    "well": "MRT-01",
-    "formation": "Cretaceous – Tertiary Turbidite Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系—古近系深水浊积石英砂岩",
-      "lithology": ["纯净石英砂岩", "细粒浊积砂", "深海泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "18–49", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
-        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
-      },
-      "hydrocarbon_type": "天然气、凝析油"
-    },
-    "method_name": "毛里塔尼亚海岸深水浊积砂气层解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘多期深水扇",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "低泥质 Archie，气挖掘校正",
-      "threshold": {"sw_max": "0.55", "gas_cut": "0.041"},
-      "limitation": "扇体孤立，横向相变极快，埋深差异大",
-      "reference_case": "Tortue, Chinguetti"
-    },
-    "gwc": {"Turbidite Sand": "单个浊积扇独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "毛里塔尼亚近海盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "毛里塔尼亚",
+    "country_en":  "",
+    "notes":  ""
+}

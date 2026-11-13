@@ -1,31 +1,34 @@
-﻿[
-  {
-    "country": "加拿大",
-    "basin": "Western Canada Sedimentary Basin",
-    "sag": "Deep Basin 凹陷",
-    "block": "Alberta 中部区块",
-    "oilfield": "Athabasca 油砂、Montney 致密油气区",
-    "structure": "平缓单斜、地层圈闭",
-    "well": "CAN-01",
-    "formation": "Montney / McMurray",
-    "strata_meta": {
-      "sub_layer": "McMurray 油砂；Montney 致密粉砂岩、页岩，非常规为主",
-      "lithology": ["疏松砂岩", "致密粉砂岩", "页岩", "白云岩夹层"],
-      "log_response": {
-        "reservoir": {"GR": "30–105", "RT": "5–90", "DEN": "2.34–2.56", "CNL": "12–28", "AC": "64–96"},
-        "non_reservoir": {"GR": "85–130", "RT": "1–4", "DEN": "2.56–2.70", "CNL": "25–35", "AC": "90–110"}
-      },
-      "hydrocarbon_type": "油砂、致密油、致密气、页岩气"
-    },
-    "method_name": "西加盆地非常规储层解释法",
-    "method_meta": {
-      "applicable_condition": "地层圈闭，油砂、致密砂、页岩连续聚集",
-      "input_curves": ["GR","RT","DEN","CNL","AC","TOC"],
-      "formula": "油砂黏度校正；非常规饱和度模型，TOC 估算",
-      "threshold": {"sw_max": "0.65", "toc_min": "1.8"},
-      "limitation": "常规 Archie 适用性差，孔隙类型复杂，无统一界面",
-      "reference_case": "Athabasca, Montney"
-    },
-    "gwc": {"Montney": "连续型聚集，无统一油水界面", "McMurray": "局部底水"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "McMurray"
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Athabasca Oil Sands"
+                                         }
+                                     ],
+                       "name":  "阿尔伯塔盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   }
+               ],
+    "continent":  "north_america",
+    "country":  "加拿大"
+}

@@ -1,0 +1,68 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "深水浊积砂岩",
+                                              "rt_range":  [
+                                                               3.5,
+                                                               70
+                                                           ],
+                                              "aliases":  [
+                                                              "墨西哥湾浊积砂"
+                                                          ],
+                                              "gr_range":  [
+                                                               26,
+                                                               74
+                                                           ],
+                                              "sw_base":  0.37,
+                                              "den_range":  [
+                                                                2.36,
+                                                                2.58
+                                                            ],
+                                              "name":  "Turbidite GOM",
+                                              "porosity_base":  0.17,
+                                              "cnl_range":  [
+                                                                0.08,
+                                                                0.23
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "墨西哥湾深水盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.042,
+                                                                 "m":  2.07,
+                                                                 "a":  0.64,
+                                                                 "n":  1.86
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  80
+                                                                },
+                                                  "condition":  "墨西哥湾第三系深水浊积砂岩",
+                                                  "method_name":  "墨西哥湾深水浊积砂解释"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "north_america",
+    "country":  "美国（墨西哥湾）"
+}

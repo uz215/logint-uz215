@@ -1,31 +1,70 @@
-﻿[
-  {
-    "country": "新西兰",
-    "basin": "Taranaki 盆地",
-    "sag": "Taranaki 中央凹陷",
-    "block": "Taranaki 近海区块",
-    "oilfield": "Maui 气田",
-    "structure": "背斜、断块",
-    "well": "NZL-01",
-    "formation": "Miocene Sandstone",
-    "strata_meta": {
-      "sub_layer": "中新统三角洲、水道砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "20–53", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油，少量原油"
-    },
-    "method_name": "Taranaki 中新统砂岩气层解释法",
-    "method_meta": {
-      "applicable_condition": "弧后裂谷盆地，水道砂与三角洲砂",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，气挖掘校正",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "断层切割复杂，砂体规模偏小",
-      "reference_case": "Maui, Pohokura"
-    },
-    "gwc": {"Miocene Sandstone": "背斜、断块独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "古近系砂岩气藏",
+                                              "rt_range":  [
+                                                               2.4,
+                                                               38
+                                                           ],
+                                              "aliases":  [
+                                                              "卡普尼组"
+                                                          ],
+                                              "gr_range":  [
+                                                               34,
+                                                               84
+                                                           ],
+                                              "sw_base":  0.41,
+                                              "den_range":  [
+                                                                2.4,
+                                                                2.6
+                                                            ],
+                                              "name":  "Kapuni",
+                                              "porosity_base":  0.15,
+                                              "cnl_range":  [
+                                                                0.1,
+                                                                0.26
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "塔拉纳基盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.048,
+                                                                 "m":  2.08,
+                                                                 "a":  0.67,
+                                                                 "n":  1.89
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  90
+                                                                },
+                                                  "condition":  "新西兰塔拉纳基盆地 Kapuni 砂岩气藏",
+                                                  "method_name":  "Kapuni 砂岩气层解释"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "oceania",
+    "country":  "新西兰",
+    "country_en":  "New Zealand",
+    "notes":  "塔拉纳基弧后盆地，始新—中新统火山碎屑质砂岩与泥灰岩，气油并存，凝灰质使伽马与骨架密度偏高"
+}

@@ -1,31 +1,102 @@
-﻿[
-  {
-    "country": "意大利",
-    "basin": "Po 平原盆地",
-    "sag": "Po 主凹陷",
-    "block": "Po Valley 区块",
-    "oilfield": "Malossa 气田",
-    "structure": "挤压背斜",
-    "well": "MLS-01",
-    "formation": "Pliocene Sand",
-    "strata_meta": {
-      "sub_layer": "上新统三角洲砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–55", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–23", "AC": "75–89"},
-        "non_reservoir": {"GR": "80–130", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
-      },
-      "hydrocarbon_type": "天然气、凝析油"
-    },
-    "method_name": "Po 平原上新统砂岩气层解释法",
-    "method_meta": {
-      "applicable_condition": "前陆盆地三角洲砂，埋深中等",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "气层挖掘效应识别，泥质 Archie",
-      "threshold": {"sw_max": "0.58", "gas_cut": "0.04"},
-      "limitation": "砂泥互层密集，横向相变快",
-      "reference_case": "Malossa, Ravenna"
-    },
-    "gwc": {"Pliocene Sand": "背斜砂组独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "波河盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "亚得里亚—亚平宁台地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Apulia 台地",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Adriatic-Apulia Platform",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.55–2.75 g/cm³",
+                                                                   "CNL":  "0.02–0.10",
+                                                                   "GR":  "5–30 API",
+                                                                   "DT":  "45–58 μs/ft",
+                                                                   "RT":  "50–500 Ω·m（裂缝段骤降）"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.01,
+                                                                 80
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.03,
+                                                                     0.12
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.08,
+                                                             "por":  0.03,
+                                                             "sw":  0.75
+                                                         },
+                                              "gwc":  "裂缝带与构造共同控制",
+                                              "name":  "Maiella",
+                                              "aliases":  [
+                                                              "马耶拉灰岩",
+                                                              "Maiella Limestone"
+                                                          ],
+                                              "litho_main":  "中生代台地灰岩，裂缝与孔洞发育"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "先按 DT-DEN 交会判定裂缝段，再引入 phi_f；单一 Archie 在裂缝段严重失真",
+                                                  "source":  "意大利亚平宁碳酸盐岩测井评价",
+                                                  "formula":  "Sw=((a*Rw)/(Rt*(phi_b**m_b+phi_f**m_f)))**(1/n)",
+                                                  "params":  {
+                                                                 "m_b":  2.4,
+                                                                 "m_f":  1.3,
+                                                                 "a":  0.9,
+                                                                 "n":  2.15
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "method_name":  "裂缝型碳酸盐岩双孔隙模型"
+                                              }
+                                          ],
+                       "notes":  "中生代台地碳酸盐岩，裂缝—孔洞复合储层"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "意大利",
+    "country_en":  "Italy",
+    "notes":  "波河盆地浅层上新统浊积气与亚平宁—亚得里亚中生代台地碳酸盐岩并存，后者以裂缝孔洞为主"
+}

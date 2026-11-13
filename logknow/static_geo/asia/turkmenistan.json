@@ -1,31 +1,346 @@
-﻿[
-    {
-        "country": "土库曼斯坦",
-        "basin": "阿姆河盆地",
-        "sag": "东南部凹陷",
-        "block": "Kugitang 区块",
-        "oilfield": "Kugitang 气田",
-        "structure": "台地边缘礁构造",
-        "well": "KGT-01",
-        "formation": "Kugitang",
-        "strata_meta": {
-            "sub_layer": "上侏罗统碳酸盐岩",
-            "lithology": ["灰岩", "白云岩，孔洞型储层"],
-            "log_response": {
-                "reservoir": {"GR": "5–25", "RT": "50–400", "DEN": "2.43–2.58", "CNL": "4–12", "DT": "45–65"},
-                "non_reservoir": {"GR": "2–12", "RT": "500+", "DEN": "2.62–2.71", "CNL": "0–3", "DT": "38–48"}
-            },
-            "hydrocarbon_type": "天然气、凝析油"
-        },
-        "method_name": "礁相碳酸盐岩气层解释法",
-        "method_meta": {
-            "applicable_condition": "台地边缘礁体，孔洞储层",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "中子-密度挖掘效应判气",
-            "threshold": {"gas_cut": 0.045},
-            "limitation": "大型溶洞造成测井畸变",
-            "reference_case": "土库曼斯坦阿姆河盆地"
-        },
-        "gwc": {"Kugitang": "礁体独立气水界面"}
-    }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "礁滩碳酸盐岩，大型气藏",
+                                              "rt_range":  [
+                                                               9,
+                                                               320
+                                                           ],
+                                              "aliases":  [
+                                                              "卡拉博加兹组"
+                                                          ],
+                                              "gr_range":  [
+                                                               10,
+                                                               52
+                                                           ],
+                                              "sw_base":  0.27,
+                                              "den_range":  [
+                                                                2.31,
+                                                                2.54
+                                                            ],
+                                              "name":  "Karabogaz",
+                                              "porosity_base":  0.1,
+                                              "cnl_range":  [
+                                                                0.04,
+                                                                0.17
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "阿姆河盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.017,
+                                                                 "m":  2.26,
+                                                                 "a":  0.96,
+                                                                 "n":  2.06
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.05,
+                                                                    "gr_max":  58
+                                                                },
+                                                  "condition":  "土库曼斯坦阿姆河盆地礁滩碳酸盐岩气藏",
+                                                  "method_name":  "阿姆河礁滩气层解释"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "卡拉库姆盆地",
+                       "name_en":  "Karakum Basin",
+                       "notes":  "卡拉库姆盆地巨型气区，以碳酸盐岩、砂岩凝析气藏为主，构造‑岩性复合圈闭",
+                       "depressions":  [
+                                           {
+                                               "name":  "中央卡拉库姆凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Gokdjar",
+                                              "aliases":  [
+                                                              "戈克贾尔组",
+                                                              "Gokdjar Fm"
+                                                          ],
+                                              "litho_main":  "细粒石英砂岩，致密‑常规共存，泥质条带发育",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 360
+                                                             ],
+                                              "gwc":  "断块独立气水界面",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.7,
+                                                             "vsh":  0.35
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马，30–80 API",
+                                                                   "RT":  "气层高阻，20–180 Ω·m",
+                                                                   "DEN":  "2.38–2.60 g/cm³",
+                                                                   "CNL":  "气层挖掘效应明显",
+                                                                   "DT":  "64–82 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "卡拉库姆 Gokdjar 砂岩气层 Archie",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.87)) ** (1 / 2.03)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.87,
+                                                                 "n":  2.03
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "土库曼斯坦常规砂岩气藏；致密段建议改用双孔隙模型",
+                                                  "source":  "土库曼斯坦卡拉库姆盆地岩石物理标定，第24届测井年会中亚气藏专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "卡拉库姆盆地",
+                       "name_en":  "Karakum Basin",
+                       "notes":  "卡拉库姆盆地巨型气区，以碳酸盐岩、砂岩凝析气藏为主，构造‑岩性复合圈闭",
+                       "depressions":  [
+                                           {
+                                               "name":  "中央卡拉库姆凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Gokdjar",
+                                              "aliases":  [
+                                                              "戈克贾尔组",
+                                                              "Gokdjar Fm"
+                                                          ],
+                                              "litho_main":  "细粒石英砂岩，致密‑常规共存，泥质条带发育",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 360
+                                                             ],
+                                              "gwc":  "断块独立气水界面",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.7,
+                                                             "vsh":  0.35
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马，30–80 API",
+                                                                   "RT":  "气层高阻，20–180 Ω·m",
+                                                                   "DEN":  "2.38–2.60 g/cm³",
+                                                                   "CNL":  "气层挖掘效应明显",
+                                                                   "DT":  "64–82 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "卡拉库姆 Gokdjar 砂岩气层 Archie",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.87)) ** (1 / 2.03)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.87,
+                                                                 "n":  2.03
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "土库曼斯坦常规砂岩气藏；致密段建议改用双孔隙模型",
+                                                  "source":  "土库曼斯坦卡拉库姆盆地岩石物理标定，第24届测井年会中亚气藏专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "卡拉库姆盆地",
+                       "name_en":  "Karakum Basin",
+                       "notes":  "卡拉库姆盆地巨型气区，以碳酸盐岩、砂岩凝析气藏为主，构造‑岩性复合圈闭",
+                       "depressions":  [
+                                           {
+                                               "name":  "中央卡拉库姆凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Gokdjar",
+                                              "aliases":  [
+                                                              "戈克贾尔组",
+                                                              "Gokdjar Fm"
+                                                          ],
+                                              "litho_main":  "细粒石英砂岩，致密‑常规共存，泥质条带发育",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 360
+                                                             ],
+                                              "gwc":  "断块独立气水界面",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.7,
+                                                             "vsh":  0.35
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马，30–80 API",
+                                                                   "RT":  "气层高阻，20–180 Ω·m",
+                                                                   "DEN":  "2.38–2.60 g/cm³",
+                                                                   "CNL":  "气层挖掘效应明显",
+                                                                   "DT":  "64–82 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "卡拉库姆 Gokdjar 砂岩气层 Archie",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.87)) ** (1 / 2.03)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.87,
+                                                                 "n":  2.03
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "土库曼斯坦常规砂岩气藏；致密段建议改用双孔隙模型",
+                                                  "source":  "土库曼斯坦卡拉库姆盆地岩石物理标定，第24届测井年会中亚气藏专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "阿姆河盆地（土库曼段）",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Gaurdak 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Amu Darya Basin (Turkmenistan)",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.50–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–30 API",
+                                                                   "DT":  "48–62 μs/ft",
+                                                                   "RT":  "气层 20–200 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 80
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.08,
+                                                             "por":  0.05,
+                                                             "sw":  0.7
+                                                         },
+                                              "gwc":  "构造控制，气柱高度大",
+                                              "name":  "Gaurdak",
+                                              "aliases":  [
+                                                              "高伊尔达克组",
+                                                              "Gaurdak Fm"
+                                                          ],
+                                              "litho_main":  "上侏罗统礁灰岩、白云岩化灰岩，夹硬石膏"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "膏岩与致密段先剔除；孔洞段 m 下调至 2.0 左右",
+                                                  "source":  "土库曼斯坦阿姆河盆地测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.12,
+                                                                 "a":  0.7,
+                                                                 "n":  2.22
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.04
+                                                                },
+                                                  "method_name":  "Gaurdak 礁灰岩气层饱和度"
+                                              }
+                                          ],
+                       "notes":  "上侏罗统礁灰岩为主力气层，膏岩盖层"
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "土库曼斯坦",
+    "country_en":  "",
+    "notes":  ""
+}

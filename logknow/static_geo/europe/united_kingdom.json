@@ -1,0 +1,194 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+                                           {
+                                               "name":  "中央地堑"
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Brent Group"
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Forties"
+                                         },
+                                         {
+                                             "name":  "Brent"
+                                         }
+                                     ],
+                       "name":  "北海盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "北海中央地堑",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "中央地堑轴部",
+                                               "oilfields":  [
+
+                                                             ]
+                                           },
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Forties 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Central Graben",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–80 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "油层 8–60 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 30,
+                                                                 900
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.25,
+                                                             "por":  0.11,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "断块与构造控制",
+                                              "name":  "Brent",
+                                              "aliases":  [
+                                                              "布伦特群",
+                                                              "Brent Group"
+                                                          ],
+                                              "litho_main":  "中侏罗统三角洲—浅海砂岩，分选好"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "低泥质段适用；HPHT 井必须按温度压力校正 Rw 与 Rt",
+                                                  "source":  "英国北海测井解释规范；第24届测井年会 HPHT 专题",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.84,
+                                                                 "a":  0.8,
+                                                                 "n":  1.98
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "Brent 砂岩 Archie（温压校正）"
+                                              }
+                                          ],
+                       "notes":  "侏罗系布伦特三角洲砂与上白垩统白垩，高压高温"
+                   },
+                   {
+                       "name":  "北海南部盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Leman 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Southern North Sea Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.40–2.62 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "15–50 API",
+                                                                   "DT":  "60–78 μs/ft",
+                                                                   "RT":  "气层 10–90 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 120
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.18,
+                                                             "por":  0.07,
+                                                             "sw":  0.66
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Rotliegend",
+                                              "aliases":  [
+                                                              "赤底统",
+                                                              "Rotliegend Sandstone"
+                                                          ],
+                                              "litho_main":  "二叠系风成细—中砂岩，泥质低但硅质胶结强"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "低孔低渗，建议结合核磁或毛管压力校正束缚水",
+                                                  "source":  "英国南部盆地致密气测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.92,
+                                                                 "a":  0.77,
+                                                                 "n":  2.06
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "method_name":  "赤底统致密砂岩气层 Archie"
+                                              }
+                                          ],
+                       "notes":  "二叠系赤底统风成砂岩，致密气，胶结强"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "英国",
+    "country_en":  "United Kingdom",
+    "notes":  "北海中央地堑侏罗系三角洲砂与南部二叠系风成砂并存；高温高压井多，Rw 必须做温压校正"
+}

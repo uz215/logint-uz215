@@ -1,0 +1,102 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "丹麦北海盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "丹麦中央地堑",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Danish 中央地堑",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Danish Central Graben",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.05–2.40 g/cm³",
+                                                                   "CNL":  "0.30–0.45（束缚水偏高）",
+                                                                   "GR":  "5–25 API",
+                                                                   "DT":  "55–75 μs/ft",
+                                                                   "RT":  "5–80 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 10
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.2,
+                                                                     0.42
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.18,
+                                                             "sw":  0.45
+                                                         },
+                                              "gwc":  "构造与裂缝分布共同控制",
+                                              "name":  "Chalk",
+                                              "aliases":  [
+                                                              "白垩群",
+                                                              "Chalk Group"
+                                                          ],
+                                              "litho_main":  "上白垩统白垩，微孔发育，基质渗透率极低"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "必须先用 DEN 区分基质孔隙、CNL 判断束缚水，再按裂缝发育段引入 phi_f；纯 Archie 会严重低估 Sw",
+                                                  "source":  "丹麦白垩岩测井评价；第24届测井年会白垩储层专题",
+                                                  "formula":  "Sw=((a*Rw)/(Rt*(phi_m**m_m+phi_f**m_f)))**(1/n)",
+                                                  "params":  {
+                                                                 "m_f":  1.4,
+                                                                 "n":  2.1,
+                                                                 "a":  0.85,
+                                                                 "m_m":  2.3
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.18
+                                                                },
+                                                  "method_name":  "白垩岩双孔隙饱和度模型"
+                                              }
+                                          ],
+                       "notes":  "上白垩统白垩岩为主力，裂缝型储层"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "丹麦",
+    "country_en":  "Denmark",
+    "notes":  "丹麦中央地堑上白垩统白垩岩，高孔低渗、裂缝控制产能，饱和度不能用单一 Archie 处理"
+}

@@ -1,31 +1,137 @@
-﻿[
-  {
-    "country": "苏丹",
-    "basin": "Muglad 穆格莱德盆地",
-    "sag": "Muglad 中央凹陷",
-    "block": "穆格莱德核心陆上区块",
-    "oilfield": "Heglig 油田",
-    "structure": "断块、滚动背斜",
-    "well": "SDN-01",
-    "formation": "Cretaceous Fluvial Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系河流相砂岩，多期河道叠置",
-      "lithology": ["石英砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "20–53", "RT": "12–65", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "穆格莱德盆地白垩系河流砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "中非裂谷湖盆，河道砂孤立分布",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，薄层校正",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "砂体规模小、相变快，地层水矿化度变化明显",
-      "reference_case": "Heglig, Unity"
-    },
-    "gwc": {"Cretaceous Sand": "单河道砂、断块各自油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "白垩系河流砂岩",
+                                              "rt_range":  [
+                                                               2.9,
+                                                               48
+                                                           ],
+                                              "aliases":  [
+                                                              "阿布加布拉组"
+                                                          ],
+                                              "gr_range":  [
+                                                               33,
+                                                               83
+                                                           ],
+                                              "sw_base":  0.44,
+                                              "den_range":  [
+                                                                2.39,
+                                                                2.59
+                                                            ],
+                                              "name":  "Abu Gabra",
+                                              "porosity_base":  0.16,
+                                              "cnl_range":  [
+                                                                0.1,
+                                                                0.26
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "穆格莱德盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.052,
+                                                                 "m":  2.06,
+                                                                 "a":  0.67,
+                                                                 "n":  1.89
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  88
+                                                                },
+                                                  "condition":  "苏丹穆格莱德盆地 Abu Gabra 砂岩",
+                                                  "method_name":  "穆格莱德砂岩饱和度"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "穆格莱德盆地",
+                       "name_en":  "Muglad Basin",
+                       "notes":  "中非裂谷系，白垩系三角洲砂岩为主，断块油藏，泥质含量变化剧烈",
+                       "depressions":  [
+                                           {
+                                               "name":  "中央凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Abu Gabra",
+                                              "aliases":  [
+                                                              "阿布加布拉组",
+                                                              "Abu Gabra Fm"
+                                                          ],
+                                              "litho_main":  "三角洲、滨岸细‑中粒砂岩，泥岩夹层发育",
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 20,
+                                                                 780
+                                                             ],
+                                              "gwc":  "断块各自独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.62,
+                                                             "vsh":  0.38
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中‑高伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "70–90 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "穆格莱德 Abu Gabra 泥质砂岩饱和度",
+                                                  "formula":  "Sw = (0.82 * Rw / (Rt * phi ** 1.83)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.83,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.38
+                                                                },
+                                                  "condition":  "裂谷盆地砂岩，高泥质段采用 Waxman‑Smits",
+                                                  "source":  "苏丹穆格莱德盆地测井解释规范，第24届测井年会非洲裂谷专题"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "苏丹"
+}

@@ -1,0 +1,76 @@
+﻿{
+    "country":  "阿富汗",
+    "country_en":  "Afghanistan",
+    "continent":  "asia",
+    "notes":  "阿姆河盆地阿富汗北段，侏罗系碳酸盐岩与碎屑岩气藏，资料基础薄弱",
+    "basins":  [
+                   {
+                       "name":  "阿姆河盆地（阿富汗段）",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "阿富汗北缘凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Amu Darya Basin (Afghanistan)",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.50–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–32 API",
+                                                                   "DT":  "48–62 μs/ft",
+                                                                   "RT":  "气层 15–150 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 60
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.05,
+                                                             "sw":  0.7
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Upper Jurassic Carbonate",
+                                              "aliases":  [
+                                                              "上侏罗统碳酸盐岩"
+                                                          ],
+                                              "litho_main":  "上侏罗统礁灰岩、白云岩，夹硬石膏"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "膏岩段剔除后再算；井况差，需先做井径与泥浆侵入校正",
+                                                  "source":  "阿姆河盆地阿富汗段测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.1,
+                                                                 "a":  0.71,
+                                                                 "n":  2.2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "method_name":  "上侏罗统碳酸盐岩气层饱和度"
+                                              }
+                                          ],
+                       "notes":  "上侏罗统礁灰岩与膏岩互层，气藏"
+                   }
+               ]
+}

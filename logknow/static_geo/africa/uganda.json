@@ -1,31 +1,30 @@
-﻿[
-  {
-    "country": "乌干达",
-    "basin": "Albertine 阿尔伯特湖盆地",
-    "sag": "Albertine 中央凹陷",
-    "block": "湖区陆上区块",
-    "oilfield": "Kingfisher 油田",
-    "structure": "断块、滚动背斜",
-    "well": "UGA-01",
-    "formation": "Miocene Fluvial-Delta Sand",
-    "strata_meta": {
-      "sub_layer": "中新统河流—三角洲砂岩，砂泥互层，湖相沉积",
-      "lithology": ["石英砂岩", "粉砂岩", "暗色湖相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "20–54", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "阿尔伯特湖盆地中新统砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "东非裂谷湖盆，河道砂成群分布",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，薄层识别",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "砂体横向相变快，局部存在低阻油层",
-      "reference_case": "Kingfisher, Tilenga"
-    },
-    "gwc": {"Miocene Sand": "断块、砂组各自独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "阿尔伯特湖盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "乌干达"
+}

@@ -1,31 +1,61 @@
-﻿[
+﻿{
+  "country": "孟加拉国",
+  "country_en": "Bangladesh",
+  "continent": "asia",
+  "notes": "孟加拉盆地以新近系三角洲气藏为主；Bhuban 为主力气层",
+  "basins": [
     {
-        "country": "孟加拉",
-        "basin": "孟加拉盆地",
-        "sag": "东北凹陷",
-        "block": "Surma 区块",
-        "oilfield": "Bhuban 气田",
-        "structure": "北部背斜构造",
-        "well": "BH-01",
-        "formation": "Bhuban",
-        "strata_meta": {
-            "sub_layer": "上部气组",
-            "lithology": ["石英砂岩", "粉砂岩", "泥岩夹层"],
-            "log_response": {
-                "reservoir": {"GR": "25–55", "RT": "8–30", "DEN": "2.38–2.50", "CNL": "12–20", "DT": "72–86"},
-                "non_reservoir": {"GR": "85–130", "RT": "1–4", "DEN": "2.52–2.62", "CNL": "22–32", "DT": "90–105"}
-            },
-            "hydrocarbon_type": "天然气"
-        },
-        "method_name": "REG气层综合解释法",
-        "method_meta": {
-            "applicable_condition": "碎屑岩气藏，中高孔隙度，三角洲、滨海砂体",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "电阻率-中子密度挖掘效应联合判气",
-            "threshold": {"gas_cut": 0.04},
-            "limitation": "高矿化度水层易误判，裂缝碳酸盐岩不适用",
-            "reference_case": "孟加拉 Bhuban 组"
-        },
-        "gwc": {"Bhuban Upper": "本构造独立气水界面"}
+      "name": "孟加拉盆地",
+      "name_en": "Bengal Basin",
+      "depressions": [
+        {
+          "name": "Surma 凹陷",
+          "blocks": [],
+          "oilfields": [],
+          "structures": [],
+          "wells": []
+        }
+      ],
+      "formations": [
+        {
+          "name": "Bhuban",
+          "aliases": ["布班组", "Bhuban Formation", "Bhuban Fm"],
+          "litho_main": "细‑中粒石英砂岩，薄层泥岩互层",
+          "porosity_range": [0.12, 0.26],
+          "perm_range": [10, 420],
+          "gwc": "区域 GWC 随构造起伏，无统一界面",
+          "cutoff": {
+            "por": 0.10,
+            "sw": 0.65,
+            "vsh": 0.40
+          },
+          "log_response": {
+            "GR": "低伽马，30–75 API",
+            "RT": "高阻气层，15–120 Ω·m",
+            "DEN": "2.32–2.54 g/cm³",
+            "CNL": "中子偏低，气挖掘效应明显",
+            "DT": "68–86 μs/ft"
+          }
+        }
+      ],
+      "interp_methods": [
+        {
+          "method_name": "孟加拉盆地 Bhuban 气层 Archie",
+          "formula": "Sw = (0.82 * Rw / (Rt * phi ** 1.88)) ** (1 / 2.05)",
+          "params": {
+            "a": 0.82,
+            "m": 1.88,
+            "n": 2.05,
+            "Rw": "0.04–0.08 Ω·m"
+          },
+          "threshold": {
+            "por_min": 0.10,
+            "sw_cut": 0.65
+          },
+          "condition": "Bhuban 纯净砂岩气层；泥质较重段切换 Indonesia 模型",
+          "source": "孟加拉区块测井报告，第24届测井年会南亚气藏解释专题"
+        }
+      ]
     }
-]
+  ]
+}

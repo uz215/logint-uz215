@@ -1,0 +1,77 @@
+﻿{
+    "country":  "土耳其",
+    "country_en":  "Turkey",
+    "continent":  "europe",
+    "notes":  "东南安纳托利亚白垩系 Mardin 碳酸盐岩为主力，重质原油，沥青影响电阻率",
+    "basins":  [
+                   {
+                       "name":  "东南安纳托利亚盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Batman 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "SE Anatolia Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.50–2.70 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "6–28 API",
+                                                                   "DT":  "48–62 μs/ft",
+                                                                   "RT":  "油层 10–200 Ω·m（重油段偏低）"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.3,
+                                                                 80
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.05,
+                                                             "sw":  0.7
+                                                         },
+                                              "gwc":  "构造与裂缝共同控制",
+                                              "name":  "Mardin",
+                                              "aliases":  [
+                                                              "马尔丁灰岩",
+                                                              "Mardin Limestone"
+                                                          ],
+                                              "litho_main":  "白垩系台地灰岩、白云质灰岩，裂缝发育"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "重油与沥青使 Rt 偏低，n 需按黏度分区间标定，不能套用轻油参数",
+                                                  "source":  "土耳其东南安纳托利亚测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.08,
+                                                                 "a":  0.72,
+                                                                 "n":  2.18
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "method_name":  "Mardin 碳酸盐岩重油饱和度"
+                                              }
+                                          ],
+                       "notes":  "白垩系台地碳酸盐岩，重油为主"
+                   }
+               ]
+}

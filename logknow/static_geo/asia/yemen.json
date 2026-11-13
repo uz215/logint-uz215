@@ -1,31 +1,131 @@
-﻿[
-  {
-    "country": "也门",
-    "basin": "Marib–Al Jawf 盆地",
-    "sag": "Marib 凹陷",
-    "block": "Marib 陆上区块",
-    "oilfield": "Marib 油田",
-    "structure": "断块隆起",
-    "well": "YEM-01",
-    "formation": "Jurassic Sand",
-    "strata_meta": {
-      "sub_layer": "侏罗系陆相、浅海相石英砂岩",
-      "lithology": ["石英砂岩", "长石砂岩", "粉砂岩", "页岩"],
-      "log_response": {
-        "reservoir": {"GR": "18–50", "RT": "14–72", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–3.2", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Marib 侏罗系砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷盆地砂岩，局部裂缝发育",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，裂缝电阻率校正",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "断层切割破碎，同一地层多套压力系统",
-      "reference_case": "Marib, Alif"
-    },
-    "gwc": {"Jurassic Sand": "断块独立油水界面"}
-  }
-]
+﻿{
+    "country":  "也门",
+    "basin":  "Marib–Al Jawf 盆地",
+    "sag":  "Marib 凹陷",
+    "block":  "Marib 陆上区块",
+    "oilfield":  "Marib 油田",
+    "structure":  "断块隆起",
+    "well":  "YEM-01",
+    "formation":  "Jurassic Sand",
+    "strata_meta":  {
+                        "sub_layer":  "侏罗系陆相、浅海相石英砂岩",
+                        "lithology":  [
+                                          "石英砂岩",
+                                          "长石砂岩",
+                                          "粉砂岩",
+                                          "页岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "18–50",
+                                                               "RT":  "14–72",
+                                                               "DEN":  "2.32–2.46",
+                                                               "CNL":  "12–22",
+                                                               "AC":  "73–87"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "76–127",
+                                                                   "RT":  "1.0–3.2",
+                                                                   "DEN":  "2.52–2.62",
+                                                                   "CNL":  "22–32",
+                                                                   "AC":  "89–104"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气"
+                    },
+    "method_name":  "Marib 侏罗系砂岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "裂谷盆地砂岩，局部裂缝发育",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "泥质 Archie，裂缝电阻率校正",
+                        "threshold":  {
+                                          "sw_max":  "0.57"
+                                      },
+                        "limitation":  "断层切割破碎，同一地层多套压力系统",
+                        "reference_case":  "Marib, Alif"
+                    },
+    "gwc":  {
+                "Jurassic Sand":  "断块独立油水界面"
+            },
+    "country_en":  "",
+    "continent":  "asia",
+    "notes":  "",
+    "basins":  [
+                   null,
+                   {
+                       "name":  "马里布—沙布瓦盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Shabwa 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Marib-Shabwa Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.33–2.55 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "25–70 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "油层 6–45 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 15,
+                                                                 600
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.13,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.26,
+                                                             "por":  0.11,
+                                                             "sw":  0.6
+                                                         },
+                                              "gwc":  "断块与盐构造控制",
+                                              "name":  "Alif",
+                                              "aliases":  [
+                                                              "阿利夫组",
+                                                              "Alif Sandstone"
+                                                          ],
+                                              "litho_main":  "下侏罗统河流—浅海砂岩，分选好"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "盐岩段电阻率畸变，须先做盐层校正",
+                                                  "source":  "也门马里布—沙布瓦测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.86,
+                                                                 "a":  0.79,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "Alif 砂岩 Archie（盐校正）"
+                                              }
+                                          ],
+                       "notes":  "侏罗系 Alif 砂岩，盐岩与断块控制"
+                   }
+               ]
+}

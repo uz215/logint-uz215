@@ -1,0 +1,77 @@
+﻿{
+    "country":  "日本",
+    "country_en":  "Japan",
+    "continent":  "asia",
+    "notes":  "新潟盆地中新统火山碎屑质砂岩，凝灰使伽马与骨架密度偏高，需先做骨架校正",
+    "basins":  [
+                   {
+                       "name":  "新潟盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Niigata 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Niigata Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.36–2.62 g/cm³",
+                                                                   "CNL":  "中等偏高",
+                                                                   "GR":  "45–95 API（凝灰抬升）",
+                                                                   "DT":  "68–86 μs/ft",
+                                                                   "RT":  "气层 4–28 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 5,
+                                                                 300
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.32,
+                                                             "por":  0.11,
+                                                             "sw":  0.63
+                                                         },
+                                              "gwc":  "背斜与断层控制",
+                                              "name":  "Shiiya",
+                                              "aliases":  [
+                                                              "椎谷阶",
+                                                              "Shiiya Fm"
+                                                          ],
+                                              "litho_main":  "中新统火山碎屑质砂岩，含凝灰与泥岩"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "凝灰质高，须先按 DEN-CNL 求骨架密度再算孔隙度",
+                                                  "source":  "日本新潟盆地测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.92,
+                                                                 "a":  0.76,
+                                                                 "n":  2.04
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "火山碎屑砂岩骨架校正 Archie"
+                                              }
+                                          ],
+                       "notes":  "中新统寺泊、椎谷阶砂岩，火山碎屑来源丰富"
+                   }
+               ]
+}

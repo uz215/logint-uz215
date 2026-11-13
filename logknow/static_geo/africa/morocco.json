@@ -1,31 +1,100 @@
-﻿[
-  {
-    "country": "摩洛哥",
-    "basin": "Essaouira 盆地",
-    "sag": "Essaouira 近海凹陷",
-    "block": "Essaouira 近海区块",
-    "oilfield": "Chinguetti 油田",
-    "structure": "滚动背斜",
-    "well": "MAR-01",
-    "formation": "Cretaceous Turonian Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系深水浊积石英砂岩",
-      "lithology": ["纯净石英砂岩", "细粒浊积砂", "深海泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "18–49", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
-        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Essaouira 白垩系浊积砂解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘深水扇，低泥质储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "低泥质 Archie",
-      "threshold": {"sw_max": "0.56"},
-      "limitation": "扇体孤立，埋深变化大",
-      "reference_case": "Chinguetti"
-    },
-    "gwc": {"Cretaceous Turonian Sand": "独立扇体油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "里夫盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "摩洛哥大西洋边缘盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Essaouira 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Moroccan Atlantic Margin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.46–2.68 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "10–40 API",
+                                                                   "DT":  "50–68 μs/ft",
+                                                                   "RT":  "油层 8–70 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 70
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.15,
+                                                             "por":  0.05,
+                                                             "sw":  0.7
+                                                         },
+                                              "gwc":  "断块与构造控制",
+                                              "name":  "Cretaceous Carbonate (MA)",
+                                              "aliases":  [
+                                                              "白垩系碳酸盐岩"
+                                                          ],
+                                              "litho_main":  "白垩系礁灰岩、泥灰岩互层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "泥灰岩段先剔除；井况差异大，需逐井做井径校正",
+                                                  "source":  "摩洛哥大西洋边缘测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.08,
+                                                                 "a":  0.72,
+                                                                 "n":  2.18
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "method_name":  "摩洛哥白垩系碳酸盐岩饱和度"
+                                              }
+                                          ],
+                       "notes":  "白垩系碳酸盐岩与砂岩，断层与盐构造发育"
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "摩洛哥",
+    "country_en":  "",
+    "notes":  ""
+}

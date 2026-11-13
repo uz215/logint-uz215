@@ -1,31 +1,77 @@
-﻿[
-  {
-    "country": "巴基斯坦",
-    "basin": "Indus 盆地",
-    "sag": "Lower Indus 凹陷",
-    "block": "Sindh 区块",
-    "oilfield": "Qadirpur 气田",
-    "structure": "断块背斜",
-    "well": "PAK-01",
-    "formation": "Eocene Limestone",
-    "strata_meta": {
-      "sub_layer": "始新统碳酸盐岩，生物碎屑灰岩",
-      "lithology": ["生物灰岩", "白云岩", "页岩夹层"],
-      "log_response": {
-        "reservoir": {"GR": "5–28", "RT": "22–230", "DEN": "2.41–2.57", "CNL": "4–13", "AC": "44–66"},
-        "non_reservoir": {"GR": "1–9", "RT": "680+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
-      },
-      "hydrocarbon_type": "天然气为主，少量凝析油"
-    },
-    "method_name": "印度河盆地始新统灰岩气层解释法",
-    "method_meta": {
-      "applicable_condition": "陆表海碳酸盐岩，裂缝-孔洞复合储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "裂缝校正 Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
-      "limitation": "裂缝非均质性极强，高渗条带孤立",
-      "reference_case": "Qadirpur, Sawan"
-    },
-    "gwc": {"Eocene Limestone": "断块独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "name":  "印度河盆地（中部）",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Sui 凸起",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Central Indus Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.44–2.66 g/cm³",
+                                                                   "CNL":  "0.05–0.20",
+                                                                   "GR":  "6–28 API",
+                                                                   "DT":  "52–68 μs/ft",
+                                                                   "RT":  "气层 15–150 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 1,
+                                                                 60
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.1,
+                                                                     0.24
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.08,
+                                                             "sw":  0.65
+                                                         },
+                                              "gwc":  "气柱高度与礁体形态控制",
+                                              "name":  "Sui Main Limestone",
+                                              "aliases":  [
+                                                              "Sui 组",
+                                                              "SML"
+                                                          ],
+                                              "litho_main":  "下始新统礁灰岩，孔洞与裂缝并存"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "礁体与非礁相分带标定；孔洞段 m 下调",
+                                                  "source":  "巴基斯坦 Sui 气田岩石物理标定",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.05,
+                                                                 "a":  0.74,
+                                                                 "n":  2.15
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.08
+                                                                },
+                                                  "method_name":  "Sui 礁灰岩饱和度"
+                                              }
+                                          ],
+                       "notes":  "下始新统 Sui 组礁灰岩气藏，孔洞型"
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "巴基斯坦",
+    "country_en":  "Pakistan",
+    "notes":  "印度河盆地下始新统 Sui 组礁灰岩为主要气源层，另有上印度河 Pab 砂岩"
+}

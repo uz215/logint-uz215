@@ -26,8 +26,16 @@ def check_dependency(module_name, install_command=None):
     except (ImportError, ModuleNotFoundError):
         return False, None
 
-def print_dependency_status():
-    """打印依赖状态"""
+def print_dependency_status(wait: bool | None = None):
+    """打印依赖状态。
+
+    ``wait``：依赖缺失时是否等待用户按 Enter。
+    - ``None``（默认）：按环境变量 ``LOGINT_NONINTERACTIVE`` 判定；
+    - ``True``：总是等待（脚本通道在主进程跑解释流程时用）；
+    - ``False``：从不等待（GUI 启动走项目工作台，主进程不跑解释流程）。
+    """
+    if wait is None:
+        wait = os.environ.get('LOGINT_NONINTERACTIVE') != '1'
     print("="*60)
     print("  测井资料处理系统 - 依赖检查")
     print("="*60)
@@ -82,14 +90,34 @@ def print_dependency_status():
         print()
         print("或者运行项目根目录下的 setup.bat 自动配置环境")
         print()
-        print("按 Enter 键继续尝试运行...")
-        input()
+        # 【2026-11-11】非交互环境（项目浏览器派生的作业子进程，stdin=DEVNULL）
+        # 下 input() 会抛 EOFError 导致作业直接退出。设 LOGINT_NONINTERACTIVE=1
+        # 时跳过等待，直接继续（依赖缺失会在后续步骤自然报错）。
+        if not wait:
+            print("[非交互模式] 跳过等待，继续尝试运行...")
+        else:
+            print("按 Enter 键继续尝试运行...")
+            input()
         print()
-    
+
     return mod_installed
 
+
+def _runs_interpretation_in_process() -> bool:
+    """当前启动是否要在**主进程**里跑解释流程（决定依赖检查要不要等 Enter）。
+
+    - ``--quicklook <目录>`` / 直接传 LAS 路径 → 主进程跑流程 → 需要等待；
+    - 无参启动（项目工作台）→ 主进程只做界面，解释在子进程里跑 → 不等待。
+    """
+    if '--quicklook' in sys.argv:
+        return True
+    if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
+        return True
+    return False
+
+
 # 执行依赖检查
-has_core_deps = print_dependency_status()
+has_core_deps = print_dependency_status(wait=_runs_interpretation_in_process())
 
 # =============================================================================
 # 错误处理工具模块
@@ -619,6 +647,126 @@ def refine_element_mineral_volumes(data):
         logger.warning('元素矿物精化跳过: %s', _e)
         return data
 
+def _dlis_semantics(file_path):
+    """从 DLIS 提取曲线语义（long_name/units）与钻头位长参数。
+
+    返回 (curve_descriptions, bit_sizes)；失败返回 ({}, [])。
+    供 standardize_curve_names 判定 GR/CAL/BS 语义（远端线 v2.2/v2.5 能力）。
+    """
+    sem, bits = {}, []
+    try:
+        from dlisio import dlis as _dlis
+    except ImportError:
+        return sem, bits
+    try:
+        with _dlis.load(str(file_path)) as f:
+            for logical_file in f:
+                _chans = list(logical_file.channels) if hasattr(logical_file, 'channels') else []
+                if not _chans and hasattr(logical_file, 'frames'):
+                    for _fr in logical_file.frames:
+                        _chans.extend(list(getattr(_fr, 'channels', []) or []))
+                for channel in _chans:
+                    ch_name = str(getattr(channel, 'name', '') or '').strip()
+                    if not ch_name:
+                        continue
+                    _ln = str(getattr(channel, 'long_name', '') or '').strip()
+                    _un = str(getattr(channel, 'units', '') or '').strip()
+                    sem[ch_name.upper()] = {'desc': _ln, 'unit': _un, 'tags': []}
+                try:
+                    for _par in list(logical_file.parameters):
+                        _pn = str(getattr(_par, 'name', '')).upper()
+                        _pl = str(getattr(_par, 'long_name', ''))
+                        _vals = getattr(_par, 'values', None)
+                        if ('BIT' in _pn or 'bit size' in _pl.lower()) and _vals:
+                            try:
+                                bits.append((_pn, float(str(_vals[0]).replace(',', '.'))))
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+    except Exception:
+        pass
+    return sem, bits
+
+
+def _read_dlis_via_external(file_path, py_exe=None):
+    """Python3.15 无 dlisio 时，调用隔离的 Python3.12（已装 dlisio）读取 DLIS。
+
+    返回 (DataFrame, curve_descriptions, bit_sizes)；失败返回 (None, {}, [])。
+    仅提取 1D 通道；通道 long_name/units 与 BS* 参数一并返回，供 GR/CAL/BS 语义识别。
+    可用环境变量 LOGINT_DLIS_PYTHON 覆盖解释器路径。
+    """
+    import subprocess as _sp
+    import tempfile as _tf
+    import json as _json
+    exe = py_exe or os.environ.get('LOGINT_DLIS_PYTHON') or r'C:\Python312\python.exe'
+    if not os.path.exists(exe):
+        return None, {}, []
+    script = r"""
+import sys, os, json
+import numpy as np
+import pandas as pd
+from dlisio import dlis
+p, csv, meta = sys.argv[1:4]
+sem = {}; bits = []; data = {}
+with dlis.load(p) as f:
+    for lf in f:
+        chans = list(getattr(lf, 'channels', []) or [])
+        if not chans and hasattr(lf, 'frames'):
+            for fr in lf.frames:
+                chans.extend(list(getattr(fr, 'channels', []) or []))
+        for ch in chans:
+            name = str(getattr(ch, 'name', '') or '').strip()
+            if not name:
+                continue
+            try:
+                arr = np.asarray(ch.curves())
+            except Exception:
+                continue
+            if arr.ndim != 1:
+                continue
+            if name not in data:
+                data[name] = arr
+            sem[name.upper()] = {'desc': str(getattr(ch, 'long_name', '') or ''),
+                                 'unit': str(getattr(ch, 'units', '') or ''), 'tags': []}
+        try:
+            for par in list(getattr(lf, 'parameters', []) or []):
+                pn = str(getattr(par, 'name', '') or '').upper()
+                pl = str(getattr(par, 'long_name', '') or '')
+                vals = getattr(par, 'values', None)
+                if ('BIT' in pn or 'bit size' in pl.lower()) and vals:
+                    try:
+                        bits.append((pn, float(str(vals[0]).replace(',', '.'))))
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+pd.DataFrame(data).to_csv(csv, index=False, encoding='utf-8')
+json.dump({'sem': sem, 'bits': bits}, open(meta, 'w', encoding='utf-8'), ensure_ascii=False)
+"""
+    td = _tf.mkdtemp(prefix='dlis_bridge_')
+    csv_p = os.path.join(td, 'data.csv')
+    meta_p = os.path.join(td, 'meta.json')
+    try:
+        r = _sp.run([exe, '-c', script, str(file_path), csv_p, meta_p],
+                    capture_output=True, text=True, timeout=1800)
+        if r.returncode != 0 or not os.path.exists(csv_p):
+            logger.warning('外部DLIS读取失败(%s): %s', exe, (r.stderr or '')[-500:])
+            return None, {}, []
+        df = pd.read_csv(csv_p, low_memory=False)
+        meta = _json.load(open(meta_p, encoding='utf-8')) if os.path.exists(meta_p) else {}
+        return df, (meta.get('sem') or {}), (meta.get('bits') or [])
+    except Exception as e:
+        logger.warning('外部DLIS读取异常: %s', e)
+        return None, {}, []
+    finally:
+        try:
+            import shutil as _sh
+            _sh.rmtree(td, ignore_errors=True)
+        except Exception:
+            pass
+
+
 class DataLoader:
     """数据加载类"""
     
@@ -686,6 +834,21 @@ class DataLoader:
                     # COREANALYSIS），解析建立语义标签，供核磁孔隙度/渗透率
                     # 选择与综合图岩心点绘制使用
                     self.curve_descriptions = self._mine_curve_semantics(las)
+                    # 【2026-11-02】补 lasio 未解析的 TLFamily_*/BS*（巴西 LQC 等）
+                    try:
+                        _raw_sem = parse_las_semantics_raw(str(file_path))
+                        for _nm, _fam in (_raw_sem.get('families') or {}).items():
+                            _d = self.curve_descriptions.setdefault(
+                                _nm, {'desc': '', 'unit': '', 'tags': []})
+                            if not (_d.get('desc') or '').strip():
+                                _d['desc'] = _fam
+                            _d['family'] = _fam
+                        self.bit_sizes = _raw_sem.get('bit_sizes') or []
+                        if self.bit_sizes:
+                            logger.info('LAS参数 bit size: %s', self.bit_sizes)
+                    except Exception as _rse:
+                        logger.warning('LAS原始头段语义解析失败（忽略）: %s', _rse)
+                        self.bit_sizes = []
                     try:
                         from logvis import set_depth_unit
                         set_depth_unit(du)
@@ -712,30 +875,38 @@ class DataLoader:
                     return None
             elif file_ext == '.dlis':
                 try:
+                    # ① 优先本地 DlisTool：多帧声波/元素矿物提取 + 静默丢数据留痕
+                    #    （本地线 R58/249c00e 修复，远端线无此能力；缺失会退化回
+                    #    "SPS-108 岩性全判泥岩"）
                     from logint.dlis_tool import DlisTool
                     tool = DlisTool()
                     df, info = tool.load_dlis(str(file_path))
                     self.data = df if df is not None else pd.DataFrame()
                     self.file_info = info
                     self.las_info = info  # 向后兼容
+                    # ② 叠加远端线能力：曲线语义(long_name/units) + 钻头位长
+                    #    → 供 standardize_curve_names 判定 GR/CAL/BS 语义
+                    try:
+                        self.curve_descriptions, self.bit_sizes = _dlis_semantics(str(file_path))
+                    except Exception as _e_sem:
+                        logger.warning('DLIS 曲线语义提取失败(不影响主数据): %s', _e_sem)
                 except ImportError:
-                    logger.error("需要安装 dlisio 库: pip install dlisio")
-                    return None
+                    # 无 dlisio：调隔离 Python(3.12) 桥接读取（远端线做法）
+                    logger.info('当前解释器无dlisio，尝试外部Python(3.12)桥接读取DLIS...')
+                    _df, _sem, _bits = _read_dlis_via_external(str(file_path))
+                    if _df is None:
+                        logger.error("需要安装dlisio库（无匹配轮子时可装到3.12并设置LOGINT_DLIS_PYTHON）")
+                        return None
+                    self.data = _df
+                    self.curve_descriptions = _sem
+                    self.bit_sizes = _bits
+                    self.file_info = {'well': {}, 'parameter': {}}
+                    self.las_info = self.file_info
                 except Exception as e:
                     logger.error(f"DLIS文件读取失败: {e}")
                     import traceback
                     traceback.print_exc()
                     return None
-            elif file_ext in ('.xlsx', '.xls'):
-                try:
-                    self.data = pd.read_excel(file_path, engine='calamine')
-                except (ValueError, ImportError):
-                    if file_ext == '.xlsx':
-                        self.data = pd.read_excel(file_path, engine='openpyxl')
-                    else:
-                        self.data = pd.read_excel(file_path)
-                self.file_info = None
-                self.las_info = None
             else:
                 raise ValueError(f"不支持的文件格式: {file_ext}")
             
@@ -768,7 +939,16 @@ class DataLoader:
             # 为中子, 导致评价错位/声波误判不合格; 归一化后QC/岩性/孔隙度/
             # 绘图/解释全流程共用统一口径。须在大写化之后执行(别名表全大写)。
             self.data = standardize_curve_names(
-                self.data, context=os.path.basename(str(file_path)))
+                self.data, context=os.path.basename(str(file_path)),
+                descriptions=getattr(self, 'curve_descriptions', None),
+                bit_sizes=getattr(self, 'bit_sizes', None))
+            # 岩心/XRD/XRF 标定：按同井目录挂接（无资料则跳过）
+            try:
+                from logsys.core_calib import attach_core_calibration
+                self.data = attach_core_calibration(
+                    self.data, os.path.dirname(str(file_path)))
+            except Exception as _e_cal:
+                logger.warning('岩心标定挂接失败（跳过）: %s', _e_cal)
 
             # ========== 全局缺测标记清洗(2026-10-15) ==========
             # -999/-999.25/-9999等负大值是缺测标记不是有效值，置NaN后方可
@@ -2432,7 +2612,12 @@ class DataLoader:
         返回与 _extract_las_info 相同的结构:
             {'well': {...}, 'parameter': {...}}
         """
+        info = {
+            'well': {},
+            'parameter': {}
+        }
         try:
+            # 首选 dlis_tool 兼容层（本地线引入：兼容 dlisio 0.x/1.x、多帧安全）
             from logint.dlis_tool import _load_logical_files, _extract_well_info
             pf, logical_files = _load_logical_files(str(file_path))
             try:
@@ -2443,6 +2628,57 @@ class DataLoader:
                         pf.close()
                     except Exception:
                         pass
+            # 叠加远端线能力：Origin→well 字段映射 + Frame index_type + Channel 参数信息
+            try:
+                from dlisio import dlis as _dlis
+                with _dlis.load(str(file_path)) as f:
+                    _lfs = list(f)
+                    if _lfs:
+                        lf = _lfs[0]
+                        # dlisio 属性名可能因版本而异，故用 hasattr 探测
+                        origin_fields = [
+                            ('company', 'company'),
+                            ('well_name', 'well_name'),
+                            ('well_id', 'api_number'),
+                            ('field_name', 'field_name'),
+                            ('producer', 'company'),
+                            ('run_number', 'run_number'),
+                            ('service_company', 'service_company_name'),
+                        ]
+                        if hasattr(lf, 'origins') and lf.origins:
+                            origin = lf.origins[0]
+                            for attr, field_name in origin_fields:
+                                try:
+                                    val = getattr(origin, attr, None)
+                                    if val is not None and str(val).strip():
+                                        info['well'][field_name] = str(val).strip()
+                                except Exception:
+                                    pass
+                        if hasattr(lf, 'frames') and lf.frames:
+                            for frame in lf.frames:
+                                try:
+                                    if hasattr(frame, 'index_type') and frame.index_type:
+                                        info['well']['index_type'] = str(frame.index_type).strip()
+                                except Exception:
+                                    pass
+                        if hasattr(lf, 'channels') and lf.channels:
+                            param_info = {}
+                            for channel in lf.channels:
+                                try:
+                                    ch_name = str(channel.name).strip() if hasattr(channel, 'name') else ''
+                                    ch_unit = str(channel.units).strip() if hasattr(channel, 'units') and channel.units else ''
+                                    ch_desc = str(channel.long_name).strip() if hasattr(channel, 'long_name') and channel.long_name else ''
+                                    if ch_name:
+                                        param_info[ch_name] = {
+                                            'unit': ch_unit,
+                                            'description': ch_desc,
+                                        }
+                                except Exception:
+                                    continue
+                            if param_info:
+                                info['parameter']['channel_info'] = param_info
+            except Exception as _e_ov:
+                logger.warning('DLIS Origin 元信息叠加失败(不影响主流程): %s', _e_ov)
             # 确保返回结构完整
             if not isinstance(info, dict):
                 info = {'well': {}, 'parameter': {}}
@@ -2840,30 +3076,229 @@ CURVE_NAME_ALIASES = {
     'GR':  ['GR_XMAC', 'GRGC', 'GRTO', 'GRAP', 'GR_EDTC'],
 }
 
-def standardize_curve_names(data, context=""):
-    """把曲线列名统一归一化为程序标准名（DEN/CNL/DT/RT/CAL/PE/GR）。
+def parse_las_semantics_raw(file_path):
+    """从 LAS 原始头段解析语义信息（lasio 未解析的 TLFamily_*/BS* 等）。
 
-    在 DataLoader.load_data 加载数据后、QC 之前调用一次 —— 此后 QC 的
-    2012国标曲线质量评价、岩性识别、孔隙度计算、绘图、解释全部使用统一
-    标准名, 无需各环节再做各自的别名猜测。
+    返回 {'families': {曲线名: 描述}, 'bit_sizes': [(参数名, 英寸值), ...]}
+    典型（CuraCao-1 LQC.las）：
+      TLFamily_GR_EDTC ... Gamma Ray
+      TLFamily_CALC1 ... Caliper
+      BS/BS1..BS6 .in 8.5/42/26/21/16/14 3/4/8 1/2
+    """
+    import re as _re
+    import io
+    out = {'families': {}, 'bit_sizes': []}
+    try:
+        txt = io.open(str(file_path), encoding='latin-1', errors='replace').read(500000)
+    except Exception:
+        try:
+            txt = open(str(file_path), encoding='utf-8', errors='ignore').read(500000)
+        except Exception:
+            return out
+    for line in txt.splitlines():
+        s = line.strip()
+        if s.startswith('TLFamily_'):
+            m = _re.match(r'TLFamily_([A-Za-z0-9_\-]+)\s+\.\s*(.+?)\s*:\s*$', s)
+            if m:
+                val = m.group(2).strip().strip('.')
+                if val:
+                    out['families'][m.group(1).upper()] = val
+        m = _re.match(r'^(BS\d*)\s+\.\s*(in|inch|inches)\s+([0-9]+(?:\s+[0-9]+/[0-9]+)?(?:\.[0-9]+)?)\s*:', s, _re.I)
+        if m:
+            raw = m.group(3).strip()
+            try:
+                if ' ' in raw:
+                    a, b = raw.split()
+                    val = float(a) + float(b.split('/')[0]) / float(b.split('/')[1])
+                elif '/' in raw:
+                    val = float(raw.split('/')[0]) / float(raw.split('/')[1])
+                else:
+                    val = float(raw)
+                out['bit_sizes'].append((m.group(1).upper(), val))
+            except Exception:
+                pass
+    return out
+
+
+def _valid_ratio(data, col):
+    try:
+        v = pd.to_numeric(data[col], errors='coerce')
+        return float(v.notna().mean())
+    except Exception:
+        return 0.0
+
+
+def standardize_curve_names(data, context="", descriptions=None, bit_sizes=None):
+    """把曲线列名统一归一化为程序标准名（DEN/CNL/DT/RT/CAL/PE/GR/BS）。
+
+    除固定别名外，利用 LAS 注释/TLFamily 语义识别：
+    - Gamma Ray（GR_EDTC/GRN/...）→ GR；
+    - Caliper（CALC1/3/5/...）→ 合并为 CAL（优先有效值覆盖高的列）；
+    - Bit size（BS/BS1..BSn 参数）→ 合成 BS（用户口径：取最后一个=最小 bit size）。
+    在 DataLoader.load_data 加载后、QC 之前调用一次，全流程共用标准名。
     """
     if data is None or len(data.columns) == 0:
         return data
+    descriptions = descriptions or {}
     rename_map = {}
     for std, aliases in CURVE_NAME_ALIASES.items():
         if std in data.columns:
-            continue  # 已有标准名, 不覆盖
-        for alias in aliases:
-            if alias in data.columns:
-                rename_map[alias] = std
+            continue
+        _cands = [a for a in aliases if a in data.columns]
+        if not _cands:
+            continue
+        # 选有效值最多的别名（避免选到全空列）
+        _best = max(_cands, key=lambda c: _valid_ratio(data, c))
+        rename_map[_best] = std
+    if rename_map:
+        data = data.rename(columns=rename_map)
+        renamed = ', '.join(f'{k}→{v}' for k, v in rename_map.items())
+        logger.info(f"曲线名统一归一化{('(' + context + ')') if context else ''}: {renamed}")
+        print(f"★ 曲线名统一: {renamed}"
+              f"{(' [' + context + ']') if context else ''} —— QC/解释/绘图共用标准名")
+
+    # ---- 语义补充：GR / CAL / BS ----
+    def _label(col):
+        d = descriptions.get(str(col).upper()) or {}
+        return (str(d.get('desc') or '') + ' ' + str(d.get('family') or '')).lower()
+
+    # GR：注释含 gamma ray；优先有效值覆盖高的
+    if 'GR' not in data.columns:
+        _grs = [c for c in data.columns
+                if 'gamma' in _label(c) or re.match(r'^GR(_|$)', str(c).upper())]
+        if _grs:
+            def _gr_score(c):
+                _nm = str(c).upper()
+                _lb = _label(c)
+                _sc = 0.0
+                # 注释明确 gamma ray 优先；gamma EVR 仅兜底
+                if 'gamma ray' in _lb:
+                    _sc += 40
+                elif 'gamma evr' in _lb:
+                    _sc += 5
+                elif 'gamma' in _lb:
+                    _sc += 15
+                if re.search(r'spectr|spectro|spectrometry', _lb):
+                    _sc -= 60
+                # 名称优先级：GR/GR_EDTC/GRN(归一化)/GR_CAL > CGR/SGR > GREV
+                if _nm == 'GR':
+                    _sc += 30
+                elif _nm == 'GR_EDTC':
+                    _sc += 28
+                elif _nm == 'GRN':
+                    _sc += 26
+                elif _nm in ('GR_CAL', 'GR_CALI', 'CGR', 'SGR'):
+                    _sc += 22
+                elif _nm.startswith('GREV'):
+                    _sc -= 10
+                elif _nm.startswith(('GRSPEC', 'GR_SPEC', 'SPCGR')):
+                    _sc -= 30
+                # 有效覆盖作第二排序（同语义下取数据更全的）
+                _sc += min(1.0, _valid_ratio(data, c)) * 3
+                return _sc
+            _rank = sorted(_grs, key=_gr_score, reverse=True)
+            _best = _rank[0]
+            data = data.rename(columns={_best: 'GR'})
+            logger.info('LAS/DLIS注释语义: GR ← %s（candidates=%s）', _best,
+                        {c: round(_gr_score(c), 1) for c in _rank[:5]})
+            print(f"★ 注释语义: GR ← {_best}")
+
+    # CAL：必须是真的 Caliper（排除 CALC1/3/5 —— 用户口径：
+    # CALC1=前1分钟CO2→灰岩指示；CALC3/CALC5=3–5分钟CO2→白云岩指示，均不是井径）
+    def _is_calcite_like(col):
+        _nm = str(col).upper()
+        _lb = _label(col)
+        if re.match(r'^CALC\d+$', _nm):
+            return True
+        return any(k in _lb for k in ('calcite', 'limestone', 'fraction'))
+    if 'CAL' not in data.columns:
+        _cals = [c for c in data.columns
+                 if not _is_calcite_like(c) and (
+                     'caliper' in _label(c) or
+                     str(c).upper() in ('CALI', 'HCAL', 'CALA', 'CALIPER', 'CAL_AVERAGE'))]
+        _good = []
+        for _c in sorted(_cals, key=lambda c: _valid_ratio(data, c), reverse=True):
+            _x = pd.to_numeric(data[_c], errors='coerce')
+            if _x.notna().sum() == 0:
+                continue
+            _med = float(_x.median())
+            _q95 = float(_x.quantile(0.95))
+            # 真井径物理范围：中位 2–30in、95% <60in；否则判为误标（如灰岩含量 0–1）
+            if 2.0 <= _med <= 30.0 and _q95 <= 60.0:
+                _good.append(_c)
+            else:
+                logger.info('LAS注释语义: %s 标为Caliper但数值不像井径（中位%.2f/95%%%.2f），不作为CAL', _c, _med, _q95)
+        if _good:
+            _ser = pd.to_numeric(data[_good[0]], errors='coerce')
+            for _c in _good[1:]:
+                _ser = _ser.fillna(pd.to_numeric(data[_c], errors='coerce'))
+            _bad = (_ser < 3) | (_ser > 40)
+            _n_bad = int(_bad.sum())
+            if _n_bad and (_ser.notna().sum() - _n_bad) > 0:
+                _ser = _ser.where(~_bad)
+            data['CAL'] = _ser
+            logger.info('LAS注释语义: CAL ← %s（Caliper%s）', _good,
+                        '，剔除异常 %d 点' % _n_bad if _n_bad else '')
+            print(f"★ LAS注释语义: CAL ← {'+'.join(_good)}（Caliper）"
+                  + (f"，剔除异常 {_n_bad} 点" if _n_bad else ""))
+        elif _cals:
+            logger.info('LAS注释语义: 找到标称Caliper曲线 %s，但均不符合井径特征；跳过（CALC1/3/5是酸解CO2，不是井径）', _cals)
+            print('★ LAS注释语义: 标称Caliper曲线不符合井径特征，跳过')
+
+    # BS：已有 BS/BIT 类列则归一；否则用参数 bit size 合成（最后一个=最小）
+    if 'BS' not in data.columns:
+        _bs_cols = [c for c in data.columns
+                    if str(c).upper() in ('BS', 'BIT', 'BITSIZE', 'BIT_SIZE', 'BSIZE', 'DRILL_BIT')]
+        if _bs_cols:
+            data = data.rename(columns={_bs_cols[0]: 'BS'})
+            logger.info('LAS曲线: BS ← %s', _bs_cols[0])
+        elif bit_sizes:
+            _vals = []
+            for _n, _v in bit_sizes:
+                try:
+                    _vals.append(float(_v))
+                except Exception:
+                    pass
+            if _vals:
+                _bs = min(_vals)  # 用户口径：最后一个/最小 bit size
+                data['BS'] = _bs
+                logger.info('LAS参数: BS=%s in（由 BS*/Bit size 参数合成，取最小/最后）', _bs)
+                print(f"★ LAS参数: BS={_bs} in（Bit size 合成）")
+
+    # ---- 元素测井矿物曲线归一（Quanti.Elan *_QE → VOL_*，元素第一）----
+    # Quanti.Elan 交付名如 CALCITE_QE/DOLOMITE_QE/SHALE_QE/QUARTZ_QE；
+    # 岩性识别/元素泥质定源/元素仲裁只认 VOL_CALCITE/VOL_DOLOM/VOL_ILLITE 等。
+    _min_canon = {
+        'CALCITE_QE': 'VOL_CALCITE',
+        'DOLOMITE_QE': 'VOL_DOLOM',
+        'ANHYDRITE_QE': 'VOL_ANHY',
+        'HALITE_QE': 'VOL_HALITE',
+        'SHALE_QE': 'VOL_ILLITE',
+    }
+    _min_quartz = ('QUARTZ_QE', 'SAND_QE', 'QUARTZ')
+    _mapped = []
+    for _src, _dst in _min_canon.items():
+        if _src in data.columns and _dst not in data.columns:
+            data[_dst] = pd.to_numeric(data[_src], errors='coerce')
+            _mapped.append(f'{_src}→{_dst}')
+    if 'VOL_QUARTZ' not in data.columns:
+        for _q in _min_quartz:
+            if _q in data.columns:
+                data['VOL_QUARTZ'] = pd.to_numeric(data[_q], errors='coerce')
+                _mapped.append(f'{_q}→VOL_QUARTZ')
                 break
-    if not rename_map:
-        return data
-    data = data.rename(columns=rename_map)
-    renamed = ', '.join(f'{k}→{v}' for k, v in rename_map.items())
-    logger.info(f"曲线名统一归一化{('(' + context + ')') if context else ''}: {renamed}")
-    print(f"★ 曲线名统一: {renamed}"
-          f"{(' [' + context + ']') if context else ''} —— QC/解释/绘图共用标准名")
+    if 'VOL_ILLITE' in data.columns and 'VOL_CLAY' not in data.columns:
+        data['VOL_CLAY'] = data['VOL_ILLITE']
+    if _mapped:
+        logger.info('元素矿物曲线映射: %s（元素测井优先）', ', '.join(_mapped))
+        print('★ 元素矿物曲线映射: ' + ', '.join(_mapped))
+
+    # ---- 酸解 CO2 曲线语义（标准 LITH-2026-11-02-v2）----
+    try:
+        from logsys.lith_standard import annotate_calc_curves
+        data = annotate_calc_curves(data)
+    except Exception as _e_calcstd:
+        logger.warning('酸解CO2标准规则应用失败（跳过派生列）: %s', _e_calcstd)
     return data
 
 def select_resistivity_column(data, candidates=None, min_positive_ratio=0.3):
@@ -3259,6 +3694,850 @@ def load_archie_params(well_dir, well_name='', src_dir=None):
     else:
         print('  archie参数: 未找到 <井名>info.json（用程序默认 Rw=0.05）')
     return out
+
+
+# =============================================================================
+# 知识库调用层（kb.db 统一入口）【2026-11-08 R50】
+# 目的：解释现场直接调知识——不是"再查一堆方法条目"，而是回答三件事：
+#   1) 这口井这个层，库里有哪些可比证据：区域标定（截止值来源）/机读条款
+#      （判据 rule_json）/邻井层段案例（横向对比）/可校正判据条目/本井六类
+#      事实/区域知识（info.json）；
+#   2) 证据够不够解释：分项加权 score（满分 100），不足列缺口；
+#   3) 每条证据在哪：source（文档/文件/表-行）+ conf，可人工复核。
+# 只读：连接开 query_only，绝不写生产库；任何异常降级 ok=False，不阻断解释。
+# =============================================================================
+KB_ROOT = Path(__file__).resolve().parent
+KB_DB_PATH = KB_ROOT / 'data' / 'kb' / 'kb.db'
+KB_ENTRIES_DIR = KB_ROOT / 'knowledge' / 'entries'
+KB_WELL_KN_DIR = KB_ROOT / 'data' / 'kb' / 'well_knowledge'
+
+KB_GATE_MIN = 55           # 解释前闸门阈值（分项合计 100）
+KB_W = {'region': 30, 'clause': 25, 'cases': 20, 'entry': 15, 'well': 10}
+_KB_LITH_KW = ('岩性', '剖面', '碳酸盐', '砂泥岩', '煤', '蒸发岩', '灰岩', '白云岩')
+_KB_FLUID_KW = ('流体', '气层', '油层', '水层', '干层', '混合')
+KB_WELL_KINDS = ('basic_data', 'stratigraphy', 'lithology', 'testing',
+                 'log_interpretation', 'gas_show', 'oil_gas_show', 'engineering')
+# 国家 → 区域岩性条款关键词（条款按国别收敛，避免把别国剖面判据灌进来）
+_KB_COUNTRY_CN = {'brazil': ('巴西',), 'indonesia': ('印尼',), 'bangladesh': ('孟加拉',),
+                  'chad': ('乍得',), 'niger': ('尼日尔',), 'kuwait': ('科威特',)}
+
+_KB_CONN = None
+_KB_ENTRIES = None
+_KB_CASES = None
+
+
+# ---- 知识框架（国家→盆地→凹陷→构造→油田→井）与分类（logKnow 口径）----
+# 框架：与 data/kb/well_knowledge 的目录层级、taxonomy.json 的 hierarchy 同构；
+# 分类：与井知识文件的 kind（basic_data/stratigraphy/lithology/testing/
+#       log_interpretation/gas_show/oil_gas_show/engineering）一一对应，
+#       中文名对齐 logKnow 的业务分类（基础数据/地质·地层/地层岩性/试油/
+#       测井/气测异常/油气显示/工程）。
+KB_FRAME_KEYS = ('country', 'basin', 'sag', 'structure', 'field', 'well')
+KB_FRAME_LABELS = {'country': '国家', 'basin': '盆地', 'sag': '凹陷',
+                   'structure': '构造', 'field': '油田', 'well': '井'}
+KB_CAT_ORDER = ('basic_data', 'stratigraphy', 'lithology', 'testing',
+                'log_interpretation', 'gas_show', 'oil_gas_show', 'engineering')
+KB_CAT_LABELS = {'basic_data': '基础数据', 'stratigraphy': '地质·地层',
+                 'lithology': '地层岩性', 'testing': '试油',
+                 'log_interpretation': '测井', 'gas_show': '气测异常',
+                 'oil_gas_show': '油气显示', 'engineering': '工程'}
+KB_CAT_CORE = ('basic_data', 'lithology', 'log_interpretation', 'testing')
+
+# 文档分类关键词（按 doc.path 命中即归入该分类；顺序在前者优先）
+_KB_CAT_KW = {
+    'testing': ('试油', 'DST', '测试', 'WellTest', 'well_test', '试采'),
+    'gas_show': ('气测', 'gas_show', 'GasShow', '录井图', 'mudlog'),
+    'oil_gas_show': ('油气显示', '油显示', 'oil_gas_show'),
+    'lithology': ('岩性', 'lith', 'XRD', 'XRF', 'SWC', '岩心', 'lithall'),
+    'stratigraphy': ('地层', 'strat', '分层', '层位'),
+    'log_interpretation': ('解释', 'interp', '综合', '成果'),
+    'engineering': ('工程', '套管', '固井', '水泥', '井身'),
+    'basic_data': ('基础', '井信息', 'basic', 'info'),
+}
+
+_KB_CFG = None
+_KB_CAT_COVER = None
+
+
+def kb_cfg():
+    """知识框架/分类配置（logint.json「kb_framework」段，缺省=内置默认）。
+
+    外置项：框架层级名、分类名、解释必需分类、闸门阈值 gate_min、分项权重。
+    配置缺失或损坏一律回落默认，不影响解释；改配置无需动代码。
+    """
+    global _KB_CFG
+    if _KB_CFG is None:
+        d = {'enabled': True, 'gate_min': KB_GATE_MIN, 'weights': dict(KB_W),
+             'levels': [KB_FRAME_LABELS[k] for k in KB_FRAME_KEYS],
+             'categories': dict(KB_CAT_LABELS),
+             'core_categories': list(KB_CAT_CORE)}
+        try:
+            p = KB_ROOT / 'logint.json'
+            if p.exists():
+                sec = (json.loads(p.read_text(encoding='utf-8')) or {}).get('kb_framework')
+                if isinstance(sec, dict):
+                    for k, v in sec.items():
+                        if isinstance(d.get(k), dict) and isinstance(v, dict):
+                            d[k].update(v)
+                        else:
+                            d[k] = v
+        except Exception:
+            pass
+        _KB_CFG = d
+    return _KB_CFG
+
+
+def _kb_cat_cover():
+    """kb.db 各分类文档数（按 doc.path 关键词归类，缓存）。"""
+    global _KB_CAT_COVER
+    if _KB_CAT_COVER is not None:
+        return _KB_CAT_COVER
+    out = {}
+    try:
+        for r in _kb_conn().execute('SELECT path FROM doc'):
+            _p = str(r[0] or '')
+            for _k, _kws in _KB_CAT_KW.items():
+                if any(x in _p for x in _kws):
+                    out[_k] = out.get(_k, 0) + 1
+                    break
+    except Exception:
+        out = {}
+    _KB_CAT_COVER = out
+    return out
+
+
+def kb_categories():
+    """分类清单（logKnow 口径）：kind / 中文名 / 是否解释必需 / kb.db 覆盖数。"""
+    cfg = kb_cfg()
+    labels = cfg.get('categories') or KB_CAT_LABELS
+    core = tuple(cfg.get('core_categories') or KB_CAT_CORE)
+    cov = _kb_cat_cover()
+    return [{'kind': k, 'label': labels.get(k, k), 'core': k in core,
+             'docs': cov.get(k, 0)} for k in KB_CAT_ORDER]
+
+
+def kb_well_taxonomy(well):
+    """井的六层框架 + 分类清单（国家/盆地/凹陷/构造/油田/井）。
+
+    优先级：well_knowledge/<井>/taxonomy.json → 目录层级 → kb.db 事实（国家）。
+    缺项填「未填写」并计入 filled，不猜；来源写进 source 便于复核。
+    """
+    out = {'well': str(well or ''), 'path': '', 'source': '',
+           'hierarchy': {k: '' for k in KB_FRAME_KEYS},
+           'levels': {KB_FRAME_LABELS[k]: '' for k in KB_FRAME_KEYS},
+           'categories': [], 'filled': 0}
+
+    def _put(h):
+        for k in KB_FRAME_KEYS:
+            v = str((h or {}).get(k) or '').strip()
+            if v and v not in ('未填写', '未知', '-'):
+                out['hierarchy'][k] = v
+                out['levels'][KB_FRAME_LABELS[k]] = v
+
+    wd = kb_find_well_dir(well)
+    if wd:
+        out['path'] = str(wd)
+        try:
+            tp = wd / 'taxonomy.json'
+            if tp.exists():
+                tx = json.loads(tp.read_text(encoding='utf-8'))
+                _put(tx.get('hierarchy'))
+                out['categories'] = list(tx.get('categories') or [])
+                out['source'] = 'taxonomy.json'
+            if not any(out['hierarchy'].values()):
+                _put(dict(zip(KB_FRAME_KEYS,
+                              Path(wd).relative_to(KB_WELL_KN_DIR).parts)))
+                out['source'] = out['source'] or '目录层级'
+        except Exception:
+            pass
+        out['hierarchy']['well'] = out['hierarchy']['well'] or wd.name
+        out['levels']['井'] = out['levels']['井'] or wd.name
+    if not out['hierarchy']['country']:
+        _c = kb_well_location(str(well or ''))
+        out['hierarchy']['country'] = _c
+        out['levels']['国家'] = _c
+        out['source'] = out['source'] or 'kb.db 事实'
+    out['filled'] = sum(1 for v in out['hierarchy'].values() if v)
+    return out
+
+
+def kb_well_coverage(well):
+    """本井分类覆盖：每类有没有文件、多大、是否解释必需。"""
+    cfg = kb_cfg()
+    labels = cfg.get('categories') or KB_CAT_LABELS
+    core = tuple(cfg.get('core_categories') or KB_CAT_CORE)
+    wd = kb_find_well_dir(well)
+    rows, present = [], []
+    for kind in KB_CAT_ORDER:
+        p, size = None, 0
+        if wd:
+            for ext in ('.md', '.json'):
+                q = wd / (kind + ext)
+                if q.exists():
+                    p, size = q, q.stat().st_size
+                    break
+        rows.append({'kind': kind, 'label': labels.get(kind, kind),
+                     'core': kind in core, 'present': bool(p), 'bytes': size,
+                     'path': str(p) if p else ''})
+        if p:
+            present.append(kind)
+    return {'rows': rows, 'present': present,
+            'missing_core': [r['label'] for r in rows
+                             if r['core'] and not r['present']]}
+
+
+def kb_well_dirs(limit=None):
+    """well_knowledge 下的井目录（含 taxonomy.json 或任一分类 md 的叶子）。"""
+    out = []
+    try:
+        for root, dirs, files in os.walk(str(KB_WELL_KN_DIR)):
+            _fs = [f.lower() for f in files]
+            if 'taxonomy.json' in _fs or any(
+                    any(f.startswith(k) for k in KB_WELL_KINDS) and f.endswith('.md')
+                    for f in _fs):
+                out.append(Path(root))
+                dirs[:] = []
+                if limit and len(out) >= limit:
+                    break
+    except Exception:
+        pass
+    return out
+
+
+def kb_frame_tree(level='国家', limit=30):
+    """按框架层级聚合井知识（哪个层级有资料可直接支撑解释、缺在哪）。"""
+    key = next((k for k in KB_FRAME_KEYS if KB_FRAME_LABELS[k] == level), 'country')
+    depth = KB_FRAME_KEYS.index(key) + 1
+    agg = {}
+    for wd in kb_well_dirs():
+        try:
+            parts = Path(wd).relative_to(KB_WELL_KN_DIR).parts
+        except Exception:
+            continue
+        if len(parts) < depth:
+            continue
+        v = parts[depth - 1] or '（空）'
+        if v in ('未填写', '未知'):
+            v = '（未填写）'
+        row = agg.setdefault(v, {'level': level, 'value': v, 'wells': 0,
+                                 'files': 0, 'cats': {}})
+        row['wells'] += 1
+        for kind in KB_CAT_ORDER:
+            for ext in ('.md', '.json'):
+                if (wd / (kind + ext)).exists():
+                    row['cats'][kind] = row['cats'].get(kind, 0) + 1
+                    row['files'] += 1
+                    break
+    return sorted(agg.values(), key=lambda r: (-r['wells'], r['value']))[:limit]
+
+
+
+def _kb_conn():
+    """只读连接 kb.db（懒加载单例）。库不存在 → 抛给调用方降级处理。"""
+    global _KB_CONN
+    if _KB_CONN is None:
+        import sqlite3
+        if not KB_DB_PATH.exists():
+            raise FileNotFoundError('kb.db 不存在: %s' % KB_DB_PATH)
+        c = sqlite3.connect(str(KB_DB_PATH), timeout=10)
+        c.row_factory = sqlite3.Row
+        c.execute('PRAGMA query_only=1')      # 只读，防误写生产库
+        _KB_CONN = c
+    return _KB_CONN
+
+
+def kb_close():
+    """用完即关（长驻进程可不关；退出时调用）。"""
+    global _KB_CONN
+    if _KB_CONN is not None:
+        try:
+            _KB_CONN.close()
+        except Exception:
+            pass
+        _KB_CONN = None
+
+
+def _kb_json(s, default=None):
+    try:
+        return json.loads(s) if s else (default if default is not None else {})
+    except Exception:
+        return default if default is not None else {}
+
+
+def _kb_short(s, n=220):
+    import re as _re
+    t = _re.sub(r'\s+', ' ', str(s or '')).strip()
+    return t if len(t) <= n else t[:n] + '…'
+
+
+def kb_stats():
+    """库资产统计（doc/chunk/案例/条款/区域标定/条目）。"""
+    try:
+        c = _kb_conn()
+        q = lambda sql: c.execute(sql).fetchone()[0]
+        return {'ok': True, 'db': str(KB_DB_PATH),
+                'doc': q('SELECT COUNT(*) FROM doc'),
+                'chunk': q('SELECT COUNT(*) FROM chunk'),
+                'case_layer': q('SELECT COUNT(*) FROM case_layer'),
+                'clause': q('SELECT COUNT(*) FROM clause'),
+                'fact': q('SELECT COUNT(*) FROM fact'),
+                'entity': q('SELECT COUNT(*) FROM entity'),
+                'region_calib': q('SELECT COUNT(*) FROM region_calib'),
+                'entries': len(kb_entries())}
+    except Exception as e:
+        return {'ok': False, 'reason': '%s: %s' % (type(e).__name__, e)}
+
+
+def kb_region_calib(country='', region=''):
+    """区域参数标定（cutoffs_json = 解释截止值的区域来源，替代"全局默认值"）。"""
+    out = []
+    try:
+        c = _kb_conn()
+        sql = ('SELECT country, region, wells, n_wells, n_points, cutoffs_json, '
+               'metrics_json, source_doc, conf FROM region_calib WHERE 1=1')
+        args = []
+        if country:
+            sql += ' AND (country LIKE ? OR region LIKE ?)'
+            args += ['%%%s%%' % country, '%%%s%%' % country]
+        if region:
+            sql += ' AND (region LIKE ? OR country LIKE ?)'
+            args += ['%%%s%%' % region, '%%%s%%' % region]
+        for r in c.execute(sql, args):
+            out.append({'kind': 'region_calib', 'country': r['country'],
+                        'region': r['region'], 'wells': r['wells'],
+                        'n_wells': r['n_wells'], 'n_points': r['n_points'],
+                        'cutoffs': _kb_json(r['cutoffs_json']),
+                        'metrics': _kb_json(r['metrics_json']),
+                        'source': r['source_doc'], 'conf': r['conf']})
+    except Exception:
+        return []
+    return out
+
+
+def kb_clauses(rule_type='', keywords=None, limit=12):
+    """机读条款：流体判据（FLUID-*）/区域岩性（LITH-*）/层表（QL-STD-01）等。"""
+    out = []
+    try:
+        c = _kb_conn()
+        sql = ('SELECT std_no, section, text, rule_type, rule_json, source_doc '
+               'FROM clause WHERE 1=1')
+        args = []
+        if rule_type:
+            sql += ' AND rule_type=?'
+            args.append(rule_type)
+        if keywords:
+            sql += ' AND (' + ' OR '.join(['section LIKE ? OR text LIKE ?'] * len(keywords)) + ')'
+            for k in keywords:
+                args += ['%%%s%%' % k, '%%%s%%' % k]
+        sql += ' LIMIT ?'
+        args.append(int(limit))
+        for r in c.execute(sql, args):
+            out.append({'kind': 'clause', 'std_no': r['std_no'],
+                        'section': r['section'], 'rule_type': r['rule_type'],
+                        'rule': _kb_json(r['rule_json']), 'text': r['text'],
+                        'source': r['source_doc'], 'conf': 0.9})
+    except Exception:
+        return []
+    return out
+
+
+def kb_all_cases():
+    """全部层段案例（一次读入缓存；横向对比的基础数据）。"""
+    global _KB_CASES
+    if _KB_CASES is not None:
+        return _KB_CASES
+    rows = []
+    try:
+        c = _kb_conn()
+        for r in c.execute('SELECT well_id, top_m, base_m, formation, lithology, '
+                           'fluid, evidence_json, source_doc, conf FROM case_layer'):
+            rows.append({'well': r['well_id'], 'top_m': r['top_m'], 'base_m': r['base_m'],
+                         'formation': r['formation'] or '', 'lithology': r['lithology'] or '',
+                         'fluid': (r['fluid'] or '').upper(), 'extra': _kb_json(r['evidence_json']),
+                         'source': r['source_doc'], 'conf': r['conf'], 'kind': 'case'})
+    except Exception:
+        rows = []
+    _KB_CASES = rows
+    return rows
+
+
+def kb_cases(fluid='', exclude_well='', region_wells=None, limit=8):
+    """邻井层段案例：同流体/同区井优先（跨井才是横向对比价值）。"""
+    rows = kb_all_cases()
+    pool = [x for x in rows if not exclude_well or x['well'] != exclude_well]
+    if region_wells:
+        same = [x for x in pool if x['well'] in region_wells]
+        other = [x for x in pool if x['well'] not in region_wells]
+    else:
+        same, other = pool, []
+    if fluid:
+        f = str(fluid).upper()
+        same = [x for x in same if x['fluid'] == f] + [x for x in same if x['fluid'] != f]
+    return (same + other)[:limit]
+
+
+def kb_fluid_mix(exclude_well=''):
+    """横向流体基线：库里其他井的流体分布，给解释一个先验（油/水/干层占比）。"""
+    out = {}
+    for x in kb_all_cases():
+        if exclude_well and x['well'] == exclude_well:
+            continue
+        out[x['fluid']] = out.get(x['fluid'], 0) + 1
+    return dict(sorted(out.items(), key=lambda kv: -kv[1]))
+
+
+def _kb_tokens(text):
+    """FTS5 索引是 jieba 预分词建的 → 查询必须同样分词，否则中文检索为 0。"""
+    import re as _re
+    try:
+        import jieba
+        toks = [t.strip() for t in jieba.lcut(str(text or '')) if t.strip()]
+    except Exception:
+        toks = [t for t in _re.split(r'[\s,，、;；]+', str(text or '')) if t.strip()]
+    return [t for t in toks if not _re.fullmatch(r'[\W_]+', t)]
+
+
+def kb_search(q, limit=8):
+    """kb.db 全文检索（FTS5+bm25），返回带文件路径的片段（可溯源）。"""
+    fq = ' OR '.join('"%s"' % t.replace('"', '""') for t in _kb_tokens(q))
+    if not fq:
+        return []
+    try:
+        c = _kb_conn()
+        sql = ('SELECT f.doc_id, f.title, d.path, d.region, d.well, '
+               'snippet(doc_fts, 2, "[", "]", "…", 16) AS snip, bm25(doc_fts) AS rank '
+               'FROM doc_fts f JOIN doc d ON d.id = f.doc_id '
+               'WHERE doc_fts MATCH ? ORDER BY rank LIMIT ?')
+        return [{'kind': 'doc', 'title': r['title'], 'path': r['path'], 'region': r['region'],
+                 'well': r['well'], 'snippet': _kb_short(r['snip'], 300),
+                 'rank': round(float(r['rank']), 4)}
+                for r in c.execute(sql, [fq, int(limit)])]
+    except Exception:
+        return []
+
+
+def kb_entries():
+    """可校正知识条目（knowledge/entries/*.md）：元数据 + 判据表（不依赖 frontmatter 库）。"""
+    global _KB_ENTRIES
+    if _KB_ENTRIES is not None:
+        return _KB_ENTRIES
+    import re as _re
+    items = []
+    try:
+        if KB_ENTRIES_DIR.exists():
+            for fn in sorted(os.listdir(str(KB_ENTRIES_DIR))):
+                if not fn.endswith('.md'):
+                    continue
+                p = KB_ENTRIES_DIR / fn
+                text = p.read_text(encoding='utf-8')
+                meta, body = {}, text
+                m = _re.match(r'^---\s*\n(.*?)\n---\s*\n', text, _re.S)
+                if m:
+                    body = text[m.end():]
+                    for line in m.group(1).splitlines():
+                        if ':' not in line:
+                            continue
+                        k, v = line.split(':', 1)
+                        k, v = k.strip(), v.strip()
+                        if v.startswith('[') and v.endswith(']'):
+                            v = [x.strip() for x in v[1:-1].split(',') if x.strip()]
+                        meta[k] = v
+                rows = []
+                for line in body.splitlines():
+                    s = line.strip()
+                    if not s.startswith('|'):
+                        continue
+                    cells = [x.strip() for x in s.strip('|').split('|')]
+                    if len(cells) < 3:
+                        continue
+                    if set(cells[0]) <= set('-: ') or cells[0] in ('知识点', '特征', '知识点 '):
+                        continue
+                    rows.append({'point': cells[0], 'rule': cells[1], 'level': cells[2]})
+                items.append({'id': meta.get('id', fn[:12]), 'title': meta.get('title', fn),
+                              'scope': meta.get('scope', ''), 'status': meta.get('status', ''),
+                              'version': meta.get('version', ''), 'date': meta.get('date', ''),
+                              'tags': meta.get('tags', []), 'path': str(p),
+                              'rules': rows, 'body': body})
+    except Exception:
+        items = []
+    _KB_ENTRIES = items
+    return items
+
+
+def kb_lith_rules(profile=''):
+    """按剖面挑可校正判据条目（岩性识别器的依据来源）。"""
+    kws = []
+    if profile:
+        kws.append('碳酸盐' if 'carbon' in str(profile).lower() else '砂泥')
+    res = []
+    for e in kb_entries():
+        hay = ' '.join([str(e.get('title', '')), str(e.get('scope', '')),
+                        str(e.get('tags', '')), str(e.get('body', ''))[:600]])
+        if kws and not any(k in hay for k in kws):
+            continue
+        res.append({'kind': 'entry', 'id': e['id'], 'title': e['title'],
+                    'status': e['status'], 'version': e['version'],
+                    'scope': _kb_short(e['scope'], 120), 'rules': e['rules'][:12],
+                    'source': Path(e['path']).name, 'conf': 0.85})
+    return res
+
+
+def kb_find_well_dir(well):
+    """在 well_knowledge 层级目录（国家/盆地/凹陷/构造/油田/井）里按井名定位。"""
+    try:
+        if not well or not KB_WELL_KN_DIR.exists():
+            return None
+        want = str(well).strip().lower()
+        for root, dirs, _files in os.walk(str(KB_WELL_KN_DIR)):
+            for d in dirs:
+                if d.strip().lower() == want:
+                    return Path(root) / d
+    except Exception:
+        pass
+    return None
+
+
+def kb_well_facts(well, max_chars=1200):
+    """本井分类事实：按框架定位井目录，按 logKnow 分类取各类文件正文。
+
+    返回 {kind: {kind, label, path, text, note, bytes}}。本井已试油/已有结论
+    时优先复用，不重复解释；分类缺项由 kb_well_coverage 报缺口。
+    """
+    cfg = kb_cfg()
+    labels = cfg.get('categories') or KB_CAT_LABELS
+    out = {}
+    wd = kb_find_well_dir(well)
+    if not wd:
+        return out
+    for kind in KB_CAT_ORDER:
+        for ext in ('.md', '.json'):
+            p = wd / (kind + ext)
+            if not p.exists():
+                continue
+            try:
+                if ext == '.json':
+                    txt = json.dumps(json.loads(p.read_text(encoding='utf-8')),
+                                     ensure_ascii=False)[:max_chars]
+                    note = 'JSON 结构化分类'
+                else:
+                    txt = p.read_text(encoding='utf-8')[:max_chars]
+                    note = ''
+                out[kind] = {'kind': kind, 'label': labels.get(kind, kind),
+                             'path': str(p), 'text': txt, 'note': note,
+                             'bytes': p.stat().st_size}
+            except Exception:
+                continue
+            break
+    return out
+
+
+
+def kb_well_location(well):
+    """井所在国家：先查 kb.db 事实（精确→模糊），再回退 well_knowledge 目录层级
+    （国家/盆地/凹陷/构造/油田/井）的首层；区域标定与条款都靠它收敛。"""
+    try:
+        c = _kb_conn()
+        for sql, arg in (("SELECT obj FROM fact WHERE subj=? AND rel='LOCATED_IN' LIMIT 1",
+                          str(well)),
+                         ("SELECT obj FROM fact WHERE subj LIKE ? AND rel='LOCATED_IN' "
+                          "LIMIT 1", '%%%s%%' % well)):
+            r = c.execute(sql, [arg]).fetchone()
+            if r and str(r[0] or '').strip():
+                return str(r[0]).strip()
+    except Exception:
+        pass
+    try:
+        wd = kb_find_well_dir(well)
+        if wd:
+            top = Path(wd).relative_to(KB_WELL_KN_DIR).parts[0]
+            if top and top not in ('未填写', 'unknown', 'Unknown'):
+                return top
+    except Exception:
+        pass
+    return ''
+
+
+def kb_evidence(well, formation='', depth=None, fluid='', profile='', country=''):
+    """解释现场证据卡：有什么依据 / 缺什么 / 够不够解释。
+
+    返回 dict：ok / score / items / by_kind / missing / sources / text / fluid_baseline
+    失败（库缺失/表缺失）→ ok=False + reason，调用方按"不阻断"处理。
+    """
+    ev = {'ok': True, 'well': str(well or ''), 'formation': str(formation or ''),
+          'depth': depth, 'fluid': str(fluid or ''), 'profile': str(profile or ''),
+          'items': [], 'by_kind': {}, 'missing': [], 'score': 0, 'sources': [], 'text': ''}
+    try:
+        if not profile:      # 未指定剖面 → 取当前生效区域知识，避免口径不一致
+            profile = str((get_active_regional() or {}).get('剖面类型') or '')
+        ev['profile'] = profile
+        _w = kb_cfg().get('weights') or KB_W
+        if not country:
+            country = kb_well_location(ev['well'])
+        ev['country'] = country or ''
+
+        # 1) 区域标定：参数的"区域来源"（30 分；国家不明=不算数，列缺口）
+        calibs = kb_region_calib(country=country) if country else []
+        _cc = str(country or '').strip().lower()
+        if _cc:
+            calibs = [c for c in calibs
+                      if _cc in str(c.get('country') or '').lower()]
+        if calibs:
+            ev['score'] += _w['region']
+            for c in calibs[:2]:
+                ev['items'].append({
+                    'kind': 'region_calib',
+                    'title': '区域标定 %s/%s（%s 井 %s 点）' % (c['country'], c['region'],
+                                                          c['n_wells'], c['n_points']),
+                    'text': '截止值: ' + ', '.join('%s=%s' % (k, v)
+                                              for k, v in (c['cutoffs'] or {}).items()),
+                    'source': c['source'], 'conf': c['conf']})
+        else:
+            ev['missing'].append('区域标定（region_calib 无 %s）'
+                                 % (country or '未知国家'))
+        ev['calib'] = calibs[0]['cutoffs'] if calibs else {}
+
+        # 2) 机读条款：通用岩性/流体判据 + 本井所在国的区域岩性条款（25 分）
+        _cn = _KB_COUNTRY_CN.get(_cc, ())
+        _lith_all = kb_clauses(keywords=list(_KB_LITH_KW), limit=40)
+        if _cn:
+            lith_cl = [c for c in _lith_all
+                       if c.get('rule_type') != 'lithology_region'
+                       or any(k in ((c.get('section') or '') +
+                                    (c.get('text') or '')) for k in _cn)]
+        else:
+            lith_cl = [c for c in _lith_all
+                       if c.get('rule_type') != 'lithology_region']
+        fluid_cl = kb_clauses(keywords=list(_KB_FLUID_KW), limit=6)
+        if lith_cl and fluid_cl:
+            ev['score'] += _w['clause']
+        elif lith_cl or fluid_cl:
+            ev['score'] += int(_w['clause'] * 0.5)
+            ev['missing'].append('机读条款不全（岩性%d/流体%d）'
+                                 % (len(lith_cl), len(fluid_cl)))
+        else:
+            ev['missing'].append('机读条款（clause 未命中岩性/流体）')
+        if not _cn:
+            ev['missing'].append('区域岩性条款（国家未知，仅用通用判据）')
+        for c in (lith_cl[:3] + fluid_cl[:3])[:5]:
+            ev['items'].append({'kind': 'clause',
+                                'title': '%s %s（%s）' % (c['std_no'], c['section'],
+                                                       c['rule_type']),
+                                'text': _kb_short(c['text'], 300),
+                                'source': c['source'], 'conf': c['conf']})
+
+        # 3) 邻井层段案例：横向对比（20 分）
+        import re as _re
+        rw = []
+        for c in calibs:
+            rw += [x.strip() for x in _re.split(r'[,;，；\s]+', str(c.get('wells') or ''))
+                   if x.strip()]
+        cases = kb_cases(fluid=fluid, exclude_well=ev['well'],
+                         region_wells=rw or None, limit=6)
+        cross = [x for x in cases if x['well'] != ev['well']]
+        if len(cross) >= 3:
+            ev['score'] += _w['cases']
+        elif cross:
+            ev['score'] += int(_w['cases'] * 0.5)
+            ev['missing'].append('邻井案例偏少（%d 条）' % len(cross))
+        else:
+            ev['missing'].append('邻井层段案例（case_layer 无他井可比）')
+        for x in cases[:4]:
+            ev['items'].append({'kind': 'case',
+                                'title': '%s %.1f-%.1f m %s' % (x['well'], x['top_m'] or 0,
+                                                               x['base_m'] or 0,
+                                                               x['fluid'] or '-'),
+                                'text': '层段案例（conf %.2f）' % (x['conf'] or 0),
+                                'source': x['source'], 'conf': x['conf']})
+        ev['fluid_baseline'] = kb_fluid_mix(exclude_well=ev['well'])
+
+        # 4) 可校正判据条目（15 分）
+        ents = kb_lith_rules(profile=profile)
+        if ents:
+            ev['score'] += _w['entry']
+            for e in ents[:2]:
+                ev['items'].append({'kind': 'entry',
+                                    'title': '%s %s（%s v%s）' % (e['id'], e['title'],
+                                                               e['status'], e['version']),
+                                    'text': '；'.join('%s→%s' % (r['point'], r['rule'])
+                                                    for r in e['rules'][:4]) or e['scope'],
+                                    'source': e['source'], 'conf': e['conf']})
+        else:
+            ev['missing'].append('可校正判据（entries 未命中本剖面）')
+
+        # 5) 框架定位 + 分类覆盖 + 区域知识（10 分）
+        #    按框架（国家-盆地-凹陷-构造-油田-井）定位本井，按 logKnow 分类
+        #    （基础数据/地质·地层/地层岩性/试油/测井/气测异常/油气显示/工程）
+        #    点覆盖：哪类有据可依、哪类缺。缺口即下一轮补资料清单。
+        tx = kb_well_taxonomy(ev['well'])
+        ev['frame'] = tx['levels']
+        ev['frame_source'] = tx.get('source')
+        ev['frame_filled'] = tx.get('filled', 0)
+        cov = kb_well_coverage(ev['well'])
+        ev['coverage'] = {r['label']: bool(r['present']) for r in cov['rows']}
+        ev['coverage_detail'] = cov['rows']
+        _ncat = len(cov['present'])
+        _pts = 0
+        if _ncat >= 4:
+            _pts = _w['well']
+        elif _ncat >= 2:
+            _pts = int(_w['well'] * 0.6)
+        elif _ncat == 1:
+            _pts = int(_w['well'] * 0.3)
+        if _ncat:
+            ev['items'].append({'kind': 'well_fact',
+                                'title': '本井知识 %d/%d 类' % (_ncat, len(cov['rows'])),
+                                'text': '框架 ' + '/'.join(
+                                    (tx['levels'].get(k) or '-')
+                                    for k in (kb_cfg().get('levels') or [])) +
+                                        '；已有: ' + '、'.join(
+                                            (kb_cfg().get('categories') or {}).get(k, k)
+                                            for k in cov['present']),
+                                'source': '、'.join(Path(r['path']).name
+                                                    for r in cov['rows']
+                                                    if r['present'])[:180]
+                                          or 'well_knowledge',
+                                'conf': 0.8})
+        else:
+            ev['missing'].append('本井分类知识（well_knowledge 无任何分类文件）')
+        for _lb in cov['missing_core']:
+            ev['missing'].append('分类缺口：缺 %s' % _lb)
+        rk = get_active_regional()
+        _rk = {k: v for k, v in (rk or {}).items() if v}
+        if _rk:
+            _pts = max(_pts, _w['well'])       # 区域知识齐全视同本井知识满分
+            ev['items'].append({'kind': 'region_knowledge',
+                                'title': '区域知识（info.json）',
+                                'text': ', '.join('%s=%s' % (k, v)
+                                                  for k, v in _rk.items()),
+                                'source': 'info.json', 'conf': 0.95})
+        ev['score'] += _pts
+
+
+        for it in ev['items']:
+            ev['by_kind'].setdefault(it['kind'], []).append(it)
+            if it.get('source'):
+                ev['sources'].append(it['source'])
+        ev['score'] = int(min(100, ev['score']))
+        ev['text'] = kb_text(ev)
+    except Exception as e:
+        ev['ok'] = False
+        ev['reason'] = '%s: %s' % (type(e).__name__, e)
+    return ev
+
+
+def kb_gate(well, formation='', depth=None, fluid='', profile='',
+            min_score=None, country=''):
+    """解释前闸门：证据不足不放行，缺口随返回值一起给（便于补资料）。"""
+    ms = (int(kb_cfg().get('gate_min') or KB_GATE_MIN)
+          if min_score is None else int(min_score))
+    ev = kb_evidence(well, formation=formation, depth=depth, fluid=fluid,
+                     profile=profile, country=country)
+    allow = bool(ev.get('ok')) and ev.get('score', 0) >= ms
+    return {'ok': bool(ev.get('ok')), 'allow': allow, 'score': ev.get('score', 0),
+            'min_score': ms, 'missing': ev.get('missing', []), 'well': well,
+            'formation': formation,
+            'reason': ('证据足够（%d/%d）' % (ev.get('score', 0), ms) if allow else
+                       '证据不足（%d/%d）：%s' % (ev.get('score', 0), ms,
+                                              '、'.join(ev.get('missing', [])[:3]))),
+            'evidence': ev}
+
+
+def kb_text(ev):
+    """证据卡文本（写日志/界面右栏，无 emoji）：框架 + 分类覆盖 + 逐条依据。"""
+    lines = ['[知识证据] %s%s%s  score=%d' % (
+        ev.get('well') or '?',
+        (' / ' + ev['formation']) if ev.get('formation') else '',
+        (' @%.1fm' % ev['depth']) if ev.get('depth') else '', ev.get('score', 0))]
+    _fr = ev.get('frame') or {}
+    if _fr:
+        lines.append('  框架: ' + ' / '.join('%s:%s' % (k, v or '-')
+                                            for k, v in _fr.items()) +
+                     ('（来源 %s）' % ev['frame_source']
+                      if ev.get('frame_source') else ''))
+    _cov = ev.get('coverage') or {}
+    if _cov:
+        lines.append('  分类: ' + '、'.join('%s%s' % (k, '' if v else '(缺)')
+                                          for k, v in _cov.items()))
+    for it in ev.get('items', []):
+        lines.append('  [%s] %s ← %s' % (it['kind'], _kb_short(it['title'], 90),
+                                        Path(str(it.get('source') or '-')).name))
+    if ev.get('fluid_baseline'):
+        lines.append('  横向流体基线: ' + ', '.join('%s=%d' % (k, v)
+                                              for k, v in ev['fluid_baseline'].items()))
+    if ev.get('missing'):
+        lines.append('  缺口: ' + '、'.join(ev['missing']))
+    return '\n'.join(lines)
+
+
+
+def kb_selftest(verbose=True):
+    """调用层自检：配置/框架/分类/库连通/各数据源/证据卡/闸门。返回失败项数。"""
+    fails = []
+
+    def chk(name, cond, detail=''):
+        if cond:
+            if verbose:
+                print('PASS  %-24s %s' % (name, detail))
+        else:
+            fails.append(name)
+            print('FAIL  %-24s %s' % (name, detail))
+
+    cfg = kb_cfg()
+    chk('配置可读(logint.json)', bool(cfg.get('weights')) and bool(cfg.get('gate_min')),
+        'gate_min=%s 权重=%s' % (
+            cfg.get('gate_min'),
+            {k: (cfg.get('weights') or {}).get(k)
+             for k in ('region', 'clause', 'cases', 'entry', 'well')}))
+    chk('框架六层', len(cfg.get('levels') or []) == 6 and
+        (cfg.get('levels') or [''])[0] == '国家', '/'.join(cfg.get('levels') or []))
+    chk('分类词表(logKnow)', all(k in (cfg.get('categories') or {}) for k in
+                                ('stratigraphy', 'lithology', 'testing',
+                                 'gas_show', 'log_interpretation')),
+        '、'.join((cfg.get('categories') or {}).values()))
+    st = kb_stats()
+    chk('kb.db 可连', st.get('ok'),
+        str({k: st.get(k) for k in ('doc', 'chunk', 'case_layer', 'clause',
+                                    'region_calib')} if st.get('ok') else st.get('reason')))
+    chk('条目可读', len(kb_entries()) > 0, '%d 条' % len(kb_entries()))
+    chk('区域标定非空', len(kb_region_calib()) > 0, '%d 条' % len(kb_region_calib()))
+    chk('条款非空', len(kb_clauses()) > 0, '%d 条' % len(kb_clauses()))
+    chk('全文检索可用', len(kb_search('蒸发岩 硬石膏')) > 0,
+        '命中 %d' % len(kb_search('蒸发岩 硬石膏')))
+    chk('层段案例非空', len(kb_all_cases()) > 0, '%d 条' % len(kb_all_cases()))
+    chk('判据条目机读', any(e['rules'] for e in kb_lith_rules()),
+        str([e['id'] for e in kb_lith_rules()]))
+
+    _well = next((x for x in ('1-SPS-108', 'P19', 'BET-1')
+                  if kb_find_well_dir(x)), '')
+    tx = kb_well_taxonomy(_well) if _well else {'levels': {}, 'hierarchy': {},
+                                                'filled': 0, 'source': ''}
+    chk('井框架可解析', bool(_well) and bool(tx['hierarchy'].get('country')) and
+        bool(tx['hierarchy'].get('well')),
+        ('%s（来源 %s，%d/6 层）' % ('/'.join(tx['levels'].get(k) or '-'
+                                           for k in (cfg.get('levels') or [])),
+                                   tx.get('source'), tx.get('filled')) if _well else '无井目录'))
+    cov = kb_well_coverage(_well)
+    chk('分类覆盖可读', bool(_well) and len(cov['rows']) >= 6 and
+        len(cov['present']) >= 2,
+        '已有 %d 类（%s）；缺解释必需: %s' % (
+            len(cov['present']),
+            '、'.join(r['label'] for r in cov['rows'] if r['present']),
+            '、'.join(cov['missing_core']) or '无'))
+    chk('框架聚合', len(kb_frame_tree('国家')) > 0,
+        str([r['value'] for r in kb_frame_tree('国家')]))
+    chk('分类统计', len(kb_categories()) == len(KB_CAT_ORDER),
+        '、'.join('%s=%s' % (c['label'], c['docs']) for c in kb_categories()))
+
+    ev = kb_evidence('BET-1', country='Indonesia')
+    chk('证据卡生成', bool(ev.get('ok')) and bool(ev.get('items')),
+        'score=%s items=%d 框架=%s' % (
+            ev.get('score'), len(ev.get('items') or []),
+            '/'.join(v or '-' for v in (ev.get('frame') or {}).values())))
+    chk('闸门放行(阈0)', kb_gate('BET-1', min_score=0).get('allow') is True, '')
+    chk('闸门拦截(阈100)', kb_gate('BET-1', min_score=100).get('allow') is False, '')
+    print('\n自检结果: %s（失败 %d 项）' % ('PASS' if not fails else 'FAIL', len(fails)))
+    return len(fails)
+
 
 
 def build_interpretation_rules(cut=None):
@@ -4142,6 +5421,44 @@ def apply_elemental_vsh(data):
                     int(_covered.sum()), len(data))
     return data
 
+def element_profile_type(data):
+    """元素矿物第一的剖面判定：碳酸盐体积/泥质体积决定 carbonate/mixed/sand_shale。
+
+    与曲线剖面判定不同，这里不使用 GR 绝对阈值；GR 只在曲线特征阶段作分位参考。
+    返回 'carbonate' / 'mixed' / 'sand_shale' / ''（元素曲线不足=不约束）。
+    """
+    if data is None or len(data) == 0:
+        return ''
+    if not all(c in data.columns for c in ('VOL_CALCITE', 'VOL_DOLOM', 'VOL_ILLITE')):
+        return ''
+    # 优先使用原始元素交付列（*_QE），避免 close_mineral_balance 闭合后
+    # VOL_* 被按岩性补齐而失去“原始元素证据”含义（闭环会自证）。
+    _c = 'CALCITE_QE' if 'CALCITE_QE' in data.columns else 'VOL_CALCITE'
+    _d = 'DOLOMITE_QE' if 'DOLOMITE_QE' in data.columns else 'VOL_DOLOM'
+    _i = 'SHALE_QE' if 'SHALE_QE' in data.columns else 'VOL_ILLITE'
+    calc = pd.to_numeric(data[_c], errors='coerce')
+    dol = pd.to_numeric(data[_d], errors='coerce')
+    clay = pd.to_numeric(data[_i], errors='coerce')
+    carb = calc + dol
+    valid = carb.notna() & clay.notna()
+    if int(valid.sum()) < max(50, int(len(data) * 0.1)):
+        return ''
+    carb_frac = float((((carb >= 0.45) & (clay < 0.45))[valid]).mean())
+    clay_frac = float((clay[valid] >= 0.45).mean())
+    carb_med = float(carb[valid].median())
+    clay_med = float(clay[valid].median())
+    logger.info('元素剖面判定: 碳酸盐主导点%.1f%%, 泥质主导点%.1f%%, '
+                '碳酸盐中位%.3f, 泥质中位%.3f', carb_frac * 100,
+                clay_frac * 100, carb_med, clay_med)
+    if carb_frac >= 0.20 or (carb_med >= 0.35 and carb_med > clay_med):
+        return 'carbonate'
+    if carb_frac >= 0.10:
+        return 'mixed'
+    if clay_frac >= 0.40:
+        return 'sand_shale'
+    return ''
+
+
 def arbitrate_lithology_by_elements(data):
     """【2026-10-20 用户定案】元素含量仲裁岩性：修复"无证据泥岩"。
 
@@ -4179,8 +5496,9 @@ def arbitrate_lithology_by_elements(data):
 
     _n = 0
     # ① 无证据泥岩 → 碳酸盐岩
-    _m1 = _arb & (lith_s == 'shale') & (clay < 0.45) \
-        & ((calc + dol) >= 0.45)
+    # ① 元素优先：当前定名（泥岩/砂岩/其它）只要泥质低、碳酸盐矿物>=0.45
+    #    即改判碳酸盐岩（原逻辑只改泥岩→碳酸盐，砂岩里高钙点会漏改）
+    _m1 = _arb & (clay < 0.45) & ((calc + dol) >= 0.45)
     # ② 泥质漏判 → 泥岩
     _m2 = _arb & lith_s.isin(['limestone', 'dolomite', 'carbonate']) \
         & (clay >= 0.60)
@@ -4425,7 +5743,10 @@ class DataProcessor:
     def set_data(self, data):
         """设置数据"""
         # 曲线名统一归一化兜底(2026-10-08): 外部注入数据同样走标准名口径
-        self.data = standardize_curve_names(data, context="set_data注入")
+        self.data = standardize_curve_names(
+            data, context="set_data注入",
+            descriptions=getattr(self, 'curve_descriptions', None),
+            bit_sizes=getattr(self, 'bit_sizes', None))
         # 全局缺测标记清洗兜底：与 load_data 同一口径（幂等）
         self.data = sanitize_null_markers(self.data)
         # 泥质含量调和兜底：与 load_data 同一口径（幂等，重复调用结果不变）
@@ -6261,20 +7582,40 @@ class SegmentClassifier:
         self.output_dir.mkdir(exist_ok=True, parents=True)
     
     def load_lith_profile(self):
-        """读取井名+lithprofile.json文件"""
-        profile_path = self.output_dir / f"{self.well_name}_lithprofile.json"
+        """读取井名+lithprofile.json文件（严格校验井名/标签，禁止 Unknown 缓存）。"""
+        _wn = str(self.well_name or '').strip()
+        if not _wn or _wn.lower() == 'unknown':
+            logger.warning("剖面缓存跳过：井名为空/Unknown")
+            return None
+        profile_path = self.output_dir / f"{_wn}_lithprofile.json"
         if profile_path.exists():
             try:
                 with open(profile_path, 'r', encoding='utf-8') as f:
-                    return json.load(f)
+                    _pd = json.load(f)
+                _lab = set(map(str, (_pd.get('local_profile_type') or [])))
+                _allowed = {'sand_shale', 'carbonate', 'mixed'}
+                _bad = _lab - _allowed
+                if _bad:
+                    logger.warning("剖面缓存无效（非标准标签 %s），忽略并重算: %s",
+                                   sorted(_bad)[:6], profile_path.name)
+                    return None
+                if str(_pd.get('well_name') or '').strip() not in (_wn, ''):
+                    logger.warning("剖面缓存井名不匹配(%s≠%s)，忽略并重算",
+                                   _pd.get('well_name'), _wn)
+                    return None
+                return _pd
             except Exception as e:
                 logger.error(f"读取剖面文件失败: {e}")
                 return None
         return None
     
     def save_lith_profile(self, profile_data):
-        """保存剖面数据到井名+lithprofile.json文件"""
-        profile_path = self.output_dir / f"{self.well_name}_lithprofile.json"
+        """保存剖面数据到井名+lithprofile.json文件（Unknown 井不落盘）"""
+        _wn = str(self.well_name or '').strip()
+        if not _wn or _wn.lower() == 'unknown':
+            logger.warning("剖面缓存不保存：井名为空/Unknown")
+            return None
+        profile_path = self.output_dir / f"{_wn}_lithprofile.json"
         try:
             with open(profile_path, 'w', encoding='utf-8') as f:
                 json.dump(profile_data, f, ensure_ascii=False, indent=2)
@@ -8711,6 +10052,18 @@ class MineralAnalyzer:
             # mixed profile: load all
             relevant = knowledge
         
+        # 井目录知识摘要（录井/岩心/XRD/XRF，按大致井段；若已生成）
+        try:
+            from logsys.well_knowledge import load_well_knowledge, render_well_knowledge_md
+            _wk = load_well_knowledge(well_name)
+            if _wk:
+                relevant['well_knowledge_summary'] = render_well_knowledge_md(_wk)
+                logger.info('[%s] 已加载井目录知识摘要: 岩性段%d/XRD段%d/XRF段%d',
+                            well_name, len(_wk.get('lithology_zones') or []),
+                            len(_wk.get('xrd_bins') or []), len(_wk.get('xrf_bins') or []))
+        except Exception as _wke:
+            logger.warning('[%s] 井目录知识摘要加载失败: %s', well_name, _wke)
+
         # 记录加载的知识
         logger.info(f"[{well_name}] 知识库已加载 {len(relevant)} 个相关文档: {list(relevant.keys())}")
         
@@ -8863,6 +10216,16 @@ class MineralAnalyzer:
             except Exception as _pti_e2:
                 logger.warning("PTI 剖面判别失败（用交会图法结果）: %s", _pti_e2)
             # 将剖面类型存入data.attrs，供下游模块使用（特殊岩性检测、解释等）
+            # ========== 元素第一：元素矿物体积可直接定剖面，优先于曲线统计 ==========
+            try:
+                _elem_prof = element_profile_type(data)
+                if _elem_prof:
+                    profile_type = _elem_prof
+                    if _elem_prof == 'carbonate':
+                        has_carbonate = True
+                    logger.info("元素第一剖面覆盖(PTI/交汇图后): %s", _elem_prof)
+            except Exception as _e_ep:
+                logger.warning("元素剖面判定失败（回退曲线判定）: %s", _e_ep)
             data.attrs['profile_type'] = profile_type
             data.attrs['main_lithology'] = main_lithology
             
@@ -8955,14 +10318,21 @@ class MineralAnalyzer:
                                         if _low < 0.20 or _v.median() > 110.0:
                                             gr_supports = False
                                     break
-                            if not (cnl_supports and gr_supports):
+                            if not cnl_supports:
+                                # 用户定案：GR 绝对值不能作为否决条件；GR 只作井内分位参考
                                 den_supports_carbonate = False
                                 logger.warning(
-                                    f"PE anomaly rejected by CNL/GR: "
-                                    f"CNL_supports={cnl_supports}, "
-                                    f"GR_supports={gr_supports}. "
-                                    f"Skipping PE override (砂泥岩剖面特征)."
-                                )
+                                    "PE anomaly rejected by CNL: "
+                                    "CNL_supports=%s. Skipping PE override.",
+                                    cnl_supports)
+                            else:
+                                _grmed_ref = 'NA'
+                                if 'GR' in data.columns:
+                                    _grmed_ref = float(pd.to_numeric(
+                                        data['GR'], errors='coerce').median())
+                                logger.info(
+                                    "PE carbonate override: GR 不参与否决"
+                                    "（GR仅分位参考，井内GR中位=%s）", _grmed_ref)
                             if den_supports_carbonate:
                                 has_carbonate = True
                                 logger.info(f"PE carbonate override: PE>3.5 in {pe_carbonate_ratio*100:.1f}% of points, "
@@ -8998,16 +10368,17 @@ class MineralAnalyzer:
                                                    or _v.median() > 110.0):
                                 gr_ok = False
                             break
-                    if (den_median > 2.70 or den_high_ratio > 0.5) and cnl_ok and gr_ok:
+                    if (den_median > 2.70 or den_high_ratio > 0.5) and cnl_ok:
+                        # 用户定案：GR 绝对值不能否决；GR 只作分位参考
                         has_carbonate = True
                         logger.info(f"密度强约束：ρ中位={den_median:.3f}，>2.68占比="
                                     f"{den_high_ratio*100:.1f}%，且中子/伽马支持碳酸盐")
                         if 'limestone' not in main_lithology:
                             main_lithology.append('limestone')
                     elif den_median > 2.70 or den_high_ratio > 0.5:
-                        logger.info(f"密度偏高但中子/伽马不支持碳酸盐"
-                                    f"（ρ中位={den_median:.3f}, CNL_ok={cnl_ok}, "
-                                    f"GR_ok={gr_ok}），不注入 limestone")
+                        logger.info(f"密度偏高但中子不支持碳酸盐"
+                                    f"（ρ中位={den_median:.3f}, CNL_ok={cnl_ok}）；"
+                                    f"GR 不参与否决")
             
             if density_col and rt_col:
                 valid_density = data[density_col].dropna()
@@ -9887,40 +11258,52 @@ def detect_well_profile_type(data, well_name='Unknown',
     cnl = pick('NPHI', 'CNL', 'CNCF')
 
     def _kb_enrich(_info, _ptype):
-        """知识库联动【2026-10-15】：查询地区岩性知识交叉验证剖面判定。
-        用户质疑"知识库没用"——巴西蒸发岩-碳酸盐岩序列知识在
-        BuiltInKnowledge(brazil_evaporite_sequence)里，此前从未参与
-        剖面判定。此处把KB命中记入info['kb_hits']；若KB含巴西碳酸盐
-        知识而本井判成砂泥岩，打冲突告警提示人工复核。"""
-        # source_file 守卫【2026-10-15】：合成/自检数据无源文件时跳过KB
-        # 查询（BuiltInKnowledge 索引构建约8秒/次，自检多场景调用会拖慢
-        # --selftest；生产数据经 DataLoader 均有 source_file 不受影响）
+        """知识库联动【2026-10-15 / 2026-11-08 kb.db 版】：剖面判定后立即取
+        "解释现场证据"——区域标定（截止值来源）/机读条款（判据）/邻井层段
+        案例/可校正判据/本井事实，写入 info['kb'] 并保留 kb_hits 兼容旧报告
+        字段。用户口径：知识要能直接用于解释，不看"入库多少条"。"""
+        # source_file 守卫【2026-10-15】：合成/自检数据无源文件时跳过（自检
+        # 多场景不拖慢；生产数据经 DataLoader 均有 source_file 不受影响）
         _src = None
         try:
             _src = data.attrs.get('source_file')
         except Exception:
             _src = None
         if not _src:
-            logger.debug(f"[{well_name}] 知识库联动跳过: 数据无 source_file"
+            logger.debug(f"[{well_name}] 知识证据跳过: 数据无 source_file"
                          f"（合成/自检数据）")
             return _info
         try:
-            import logKnow as _lkw
-            _kb = _lkw.WellLogKnowledgeBase(auto_scan=False)
-            _hits = _kb.search('巴西 碳酸盐岩 硬石膏 蒸发岩 地层序列 剖面',
-                               top_n=3)
-            _names = [h.get('title', '?') for h in (_hits or [])]
+            _ev = kb_evidence(well_name, profile=_ptype)
+            if not _ev.get('ok'):
+                raise RuntimeError(_ev.get('reason') or 'kb.db 不可用')
+            _info['kb'] = {
+                'score': _ev.get('score', 0),
+                'country': _ev.get('country', ''),
+                'calib': _ev.get('calib', {}),
+                'by_kind': {k: len(v) for k, v in (_ev.get('by_kind') or {}).items()},
+                'missing': list(_ev.get('missing') or []),
+                'fluid_baseline': _ev.get('fluid_baseline', {}),
+                'sources': list(dict.fromkeys(_ev.get('sources') or []))[:8],
+            }
+            _names = [_kb_short(it.get('title', ''), 60) for it in _ev.get('items', [])
+                      if it.get('kind') in ('entry', 'clause', 'region_calib')]
             if _names:
-                _info['kb_hits'] = _names
-                logger.info(f"[{well_name}] 知识库联动: 命中知识条目 {_names}")
-                if (_ptype == 'sand_shale'
-                        and any('brazil' in str(n).lower() or '巴西' in str(n)
-                                for n in _names)):
-                    logger.warning(
-                        f"[{well_name}] 知识库冲突: KB含巴西碳酸盐岩/蒸发岩知识"
-                        f"但本井判定为砂泥岩剖面，建议人工复核剖面类型")
+                _info['kb_hits'] = _names[:5]
+            logger.info(f"[{well_name}] 知识证据: score={_ev.get('score')}"
+                        f" 依据{len(_ev.get('items') or [])}条"
+                        f" 缺口{len(_ev.get('missing') or [])}项")
+            if _ev.get('missing'):
+                logger.info(f"[{well_name}] 知识缺口: "
+                            f"{'、'.join(_ev['missing'][:3])}")
+            # 冲突：该国库内主要为碳酸盐/蒸发岩序列，本井却判砂泥岩剖面
+            _ctry = str(_ev.get('country') or '')
+            if _ptype == 'sand_shale' and (_ctry.lower() == 'brazil' or '巴西' in _ctry):
+                logger.warning(
+                    f"[{well_name}] 知识库冲突: 区域（{_ctry}）库内以碳酸盐岩-蒸发岩"
+                    f"序列为主，本井判定为砂泥岩剖面，建议人工复核剖面类型")
         except Exception as _e:   # 知识库不可用不阻断主流程
-            logger.debug(f"[{well_name}] 知识库联动跳过: {_e}")
+            logger.debug(f"[{well_name}] 知识证据跳过: {_e}")
         return _info
 
     # ---- 0. 元素测井矿物含量（VOL_*）第一优先判据【2026-10-15】----
@@ -12021,8 +13404,7 @@ LITHOLOGY_RULES = [
         'deny': [
             # 中子偏高 → 绝不可能是碳酸盐（泥质/粉砂质）
             {'all': [('CNL', '>', 15.0)]},
-            # 伽马偏高 → 是泥岩/砂泥岩，不是灰岩
-            {'all': [('GR', '>', 110.0)]},
+            # 用户定案：GR 绝对值不能否决；GR 只作井内分位参考（core 中 @GR_lime_max）
         ],
     },
     # ---------- 白云岩：比灰岩更重、Δt 更低、Pe 略低 ----------
@@ -12049,7 +13431,7 @@ LITHOLOGY_RULES = [
         ],
         'deny': [
             {'all': [('CNL', '>', 14.0)]},
-            {'all': [('GR', '>', 110.0)]},
+            # 用户定案：GR 绝对值不能否决；GR 只作井内分位参考
         ],
     },
     # ---------- 岩盐：负中子 + 低密度 + 低声波【2026-10-19 用户反馈重写】 ----------
@@ -12116,7 +13498,7 @@ LITHOLOGY_RULES = [
             ('CNL', '>', 8.0),    # 含氢响应，绝无盐
             ('DEN', '>', 2.45),   # 密度太高：硬石膏/灰岩
             ('DT',  '>', 85.0),   # 高声波：疏松层/煤
-            {'all': [('GR', '>', 120.0)]},  # 纯泥质（泥质盐 GR 65-86 不否决）
+            # GR 绝对值不否决（高伽马泥质盐 GR 65-86 是实例）
         ],
     },
     # ---------- 火成岩：ρ 高、Pe 高、CNL 极低 ----------
@@ -12142,7 +13524,7 @@ LITHOLOGY_RULES = [
         # deny 死值：含氢(CNL>18)且高伽马(GR>150)绝不是火成岩；
         # 界面抬升校验见 _lith_why_post_annotate 后置留痕
         'deny': [
-            {'all': [('CNL', '>', 18.0), ('GR', '>', 150.0)]},
+            {'all': [('CNL', '>', 18.0), ('GR', '>', '@GR_p95?150')]},
         ],
     },
     # ---------- 硬石膏：巴西蒸发岩序列特殊岩性【2026-10-15新增】 ----------
@@ -12173,9 +13555,7 @@ LITHOLOGY_RULES = [
         'deny': [
             # 中子偏高（孔隙/泥质） → 不是硬石膏
             {'all': [('CNL', '>', 12.0)]},
-            # 伽马明显偏高 → 泥岩/泥膏岩，不是纯硬石膏
-            # （碳酸盐岩剖面下此阈值由 _rule_match 自动放宽+45）
-            {'all': [('GR', '>', 85.0)]},
+            # 用户定案：GR 绝对值不能否决硬石膏；交给 CNL/DEN/DT 物理证据
         ],
     },
     # ---------- 黄铁矿：高密度 + 极高 PE ----------
@@ -14859,6 +16239,52 @@ class WellLogProcessor:
                     "PTI 灰区(%.3f∈[0.42,0.50])且区域知识无剖面类型——"
                     "保留 %s（core 裁决口径），建议人工目检密度-中子"
                     "交会图", _pti_main, _profile_type)
+            # 【2026-11-08 R50】解释前知识证据卡 + 闸门：把"依据/缺口"落到日志
+            # 与 self.results，解释不再只靠单点阈值。库不可用或证据不足一律降级
+            # 提示，不阻断解释（用户口径：结论先给，缺口随附，能补则补）。
+            try:
+                if not isinstance(getattr(self, 'results', None), dict):
+                    self.results = {}
+                _kb_min = int(kb_cfg().get('gate_min') or KB_GATE_MIN)
+                _kb_ev = kb_evidence(
+                    str(getattr(self, 'well_name', '') or ''), profile=_profile_type)
+                if _kb_ev.get('ok'):
+                    _kb_score = int(_kb_ev.get('score') or 0)
+                    _kb_allow = _kb_score >= _kb_min
+                    self.results['kb_evidence'] = {
+                        'score': _kb_score,
+                        'frame': _kb_ev.get('frame') or {},
+                        'frame_source': _kb_ev.get('frame_source'),
+                        'coverage': _kb_ev.get('coverage') or {},
+                        'country': _kb_ev.get('country'),
+                        'calib': _kb_ev.get('calib') or {},
+                        'items': [{'kind': it.get('kind'), 'title': it.get('title'),
+                                   'source': it.get('source'), 'conf': it.get('conf')}
+                                  for it in (_kb_ev.get('items') or [])],
+                        'missing': list(_kb_ev.get('missing') or []),
+                        'fluid_baseline': _kb_ev.get('fluid_baseline') or {},
+                        'sources': list(_kb_ev.get('sources') or []),
+                    }
+                    self.results['kb_gate'] = {
+                        'allow': _kb_allow, 'score': _kb_score,
+                        'min_score': _kb_min,
+                        'missing': list(_kb_ev.get('missing') or []),
+                        'reason': ('证据足够（%d/%d）' % (_kb_score, _kb_min)
+                                   if _kb_allow else
+                                   '证据不足（%d/%d）：%s' % (
+                                       _kb_score, _kb_min,
+                                       '、'.join((_kb_ev.get('missing') or [])[:3]))),
+                    }
+                    logger.info("%s", _kb_ev.get('text'))
+                    if not _kb_allow:
+                        logger.warning("知识闸门: %s",
+                                       self.results['kb_gate']['reason'])
+                else:
+                    logger.info("知识证据不可用（不阻断解释）: %s",
+                                _kb_ev.get('reason'))
+            except Exception as _kbe:
+                logger.warning("知识证据卡生成失败（不阻断解释）: %s", _kbe)
+
             logger.info("Step 2: Spring segment correction")
 
             # 检测时只用密度曲线，但校正时同时校正密度和电阻率曲线
@@ -15071,6 +16497,18 @@ class WellLogProcessor:
                                         "岩性识别前回填标准RT列: %s"
                                         "（此前识别器会误用浅探测曲线）",
                                         _rt_src_lith)
+                            # 元素第一：元素泥质定源 VSH（KTH/GR 外推，火成岩段除外）
+                            try:
+                                data = apply_elemental_vsh(data)
+                            except Exception as _e_ev2:
+                                logger.warning("元素泥质定源失败（回退曲线VSH）: %s", _e_ev2)
+                            try:
+                                _elem_prof2 = element_profile_type(data)
+                                if _elem_prof2:
+                                    _profile_type = _elem_prof2
+                                    logger.info("识别器使用元素第一剖面: %s", _elem_prof2)
+                            except Exception as _e_ep2:
+                                logger.warning("元素剖面覆盖识别器失败（回退）: %s", _e_ep2)
                             _rec = LithologyRecognizer(
                                 data, depth_unit=_unit,
                                 casing_mask=_casing_mask,
@@ -15192,6 +16630,19 @@ class WellLogProcessor:
                             if _casing_mask is not None:
                                 data['IS_CASING'] = pd.Series(
                                     _casing_mask, dtype=bool).values
+                            # 岩心/XRD/XRF 标定：井壁取芯岩性为最高优先级证据
+                            try:
+                                from logsys.core_calib import apply_core_lithology
+                                _n_core_lith = 0
+                                data, _n_core_lith = apply_core_lithology(data)
+                                if _n_core_lith:
+                                    logger.info('岩心标定覆盖: %d 点按井壁取芯岩性定名', _n_core_lith)
+                                    self.results['core_calibration'] = {
+                                        'n_points': int(_n_core_lith),
+                                        'source': 'SWC/Core + XRD/XRF',
+                                    }
+                            except Exception as _e_core:
+                                logger.warning('岩心标定覆盖失败（跳过）: %s', _e_core)
                             self.results['lithology_recognizer'] = {
                                 'summary': _rec.summary(),
                                 'rules': _rec.rule_report(),
@@ -15264,8 +16715,19 @@ class WellLogProcessor:
                             cb_count = sum(v for k, v in lith_counts.items() 
                                          if str(k).lower() in [c.lower() for c in carbonate_liths])
                             is_sand_shale_profile = ss_count > cb_count
-                            logger.info(f"剖面判定: 砂泥岩段={ss_count}, 碳酸盐岩段={cb_count}, "
+                            logger.info(f"剖面判定(点级岩性计数): 砂泥岩段={ss_count}, 碳酸盐岩段={cb_count}, "
                                       f"→ {'砂泥岩剖面' if is_sand_shale_profile else '碳酸盐岩/混合剖面'}")
+                            # 元素第一：点级岩性可能被曲线规则误判；元素体积结论优先
+                            try:
+                                _elem_prof3 = element_profile_type(data)
+                                if _elem_prof3 == 'carbonate':
+                                    is_sand_shale_profile = False
+                                    logger.info("元素第一覆盖最终剖面: carbonate（点级计数不采用）")
+                                elif _elem_prof3 == 'sand_shale':
+                                    is_sand_shale_profile = True
+                                    logger.info("元素第一覆盖最终剖面: sand_shale（点级计数不采用）")
+                            except Exception as _e_ep3:
+                                logger.warning("最终元素剖面覆盖失败（用点级计数）: %s", _e_ep3)
                         else:
                             is_sand_shale_profile = False
                             logger.info("无LITHOLOGY列，默认按碳酸盐岩/混合剖面处理")
@@ -16242,6 +17704,27 @@ class WellLogProcessor:
             except Exception as _gw:
                 logger.warning("全井气层REG复核失败（不影响主流程）: %s", _gw)
 
+
+            # 岩心/XRD/XRF 标定（最终一次，必须在 facies/全部后处理之后、
+            # 分层表生成之前）：井壁取芯岩性为最高优先级证据，避免后续
+            # facies 重算再次覆盖岩心定名。
+            try:
+                if 'processed_data' in self.results \
+                        and self.results['processed_data'] is not None:
+                    from logsys.core_calib import apply_core_lithology
+                    _pd_core, _n_core_final = apply_core_lithology(
+                        self.results['processed_data'])
+                    if _n_core_final:
+                        self.results['processed_data'] = _pd_core
+                        logger.info('岩心标定最终覆盖: %d 点（分层表前）', _n_core_final)
+                        self.results['core_calibration'] = {
+                            'n_points': int(_n_core_final),
+                            'stage': 'before_layers',
+                            'source': 'SWC/Core + XRD/XRF',
+                        }
+            except Exception as _e_core_final:
+                logger.warning('岩心标定最终覆盖失败（不影响主流程）: %s',
+                               _e_core_final)
 
             # 【2026-10-27 R27】按孔隙度截止值分层解释：储层点聚合成层、
             # 层内多数票整层统一、薄层按流体分布规律并入邻层
@@ -18207,8 +19690,36 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None, las_file=None
     # 【2026-11-02 启动界面数据选择】界面显式选定 LAS 时优先使用，否则回退主 LAS 自动发现
     las_main = Path(las_file) if las_file else _find_main_las(well_dir)
     if las_main is None or not Path(las_main).is_file():
-        print("✗ 未找到主测井 LAS 文件，退出 quick look")
-        return None
+        if las_file:
+            # 显式指定了 LAS 却不可用：属配置错误，直接报错，不静默转入知识模式
+            print("✗ 指定的主测井 LAS 文件不存在，退出 quick look")
+            return None
+        # 无 LAS 的井目录：用 quicklook 同一套知识搜集逻辑入库（不做曲线解释）
+        print("⚠ 未找到主测井 LAS：转入井目录知识搜集/入库模式")
+        try:
+            from logsys.well_knowledge import (save_well_knowledge,
+                                               ingest_well_knowledge_db,
+                                               ingest_well_knowledge_logknow)
+            _wk, _wk_md, _wk_json = save_well_knowledge(
+                well_dir, well_name=well_dir.name, write_well_dir=True)
+            try:
+                ingest_well_knowledge_db(well_dir, well_name=well_dir.name,
+                                         md_path=str(_wk_md))
+            except Exception as _e_db:
+                logger.warning('P19知识写入kb.db失败: %s', _e_db)
+            try:
+                ingest_well_knowledge_logknow(well_dir, well_name=well_dir.name,
+                                              md_path=str(_wk_md))
+            except Exception as _e_lk:
+                logger.warning('P19知识写入logKnow失败: %s', _e_lk)
+            print(f"✓ 井目录知识已入库: {_wk_md}")
+            return {'well_name': _wk.get('well'), 'well_dir': str(well_dir),
+                    'well_knowledge': _wk, 'well_knowledge_md': str(_wk_md),
+                    'knowledge_only': True,
+                    'output_dir': str(_wk_md.parent)}
+        except Exception as _e_ko:
+            logger.warning('井目录知识搜集失败: %s', _e_ko)
+            return None
     md_files = sorted(well_dir.rglob('*.md'))
     pdf_files = sorted(well_dir.rglob('*.pdf'))
     xls_files = sorted(p for p in well_dir.rglob('*') if p.suffix.lower() in ('.xls', '.xlsx'))
@@ -18230,6 +19741,65 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None, las_file=None
     if gas_files:
         kb_md_parts.append("### 气测/录井数据文件\n"
                            + '\n'.join(f"- {p.name}" for p in gas_files[:10]))
+    # ---- 2b. 地质设计/录井图结构化知识（提供给 quicklook/KB/解释） ----
+    _pre_docs = {}
+    try:
+        from logsys import well_docs as _wdocs
+        _design = _wdocs.read_design(well_dir)
+        _pre_docs['design'] = _design
+        _ml_file = _wdocs.find_masterlog_file(well_dir)
+        _ml = {}
+        _mlh = {}
+        _mudlog_k = {}
+        if _ml_file:
+            try:
+                _ml = _wdocs.read_masterlog(well_dir)
+            except Exception as _mle:
+                logger.warning('录井图结构化读取失败: %s', _mle)
+            try:
+                _mlh = _wdocs.read_masterlog_header(well_dir)
+            except Exception as _mlhe:
+                logger.warning('录井图表头读取失败: %s', _mlhe)
+            try:
+                from logsys.mudlog_knowledge import extract_mudlog_knowledge
+                _mudlog_k = extract_mudlog_knowledge(_ml_file)
+            except Exception as _mke:
+                logger.warning('录井图五类知识提取失败: %s', _mke)
+        _pre_docs['masterlog'] = _ml
+        _pre_docs['masterlog_header'] = _mlh
+        _pre_docs['mudlog_knowledge'] = _mudlog_k
+        _lines = ['### 井目录结构化资料（地质设计/录井图）']
+        _lines.append(f"- 地质设计: {'; '.join(str(x.get('file')) for x in (_design.get('sources') or [])) or '未找到'}")
+        for _k in ('well', 'well_type', 'designed_td_m', 'structure', 'target_formation',
+                   'country', 'interval'):
+            if _design.get(_k):
+                _lines.append(f"- 设计.{_k}: {_design.get(_k)}")
+        if _design.get('formation_tops'):
+            _lines.append('- 设计地层顶: ' + '; '.join(
+                f"{x.get('formation')}@{x.get('depth')}" for x in _design['formation_tops'][:20]))
+        if _design.get('casing'):
+            _lines.append('- 设计套管: ' + str(_design['casing'])[:500])
+        if _design.get('contacts'):
+            _lines.append('- 设计界面: ' + str(_design['contacts'])[:500])
+        if _ml_file:
+            _lines.append(f"- 录井图: {Path(_ml_file).name}")
+            if _ml:
+                _lines.append(f"- 录井岩性层: {len(_ml.get('lith') or [])}; 气测事件: {len(_ml.get('gas') or [])}")
+            if _mlh:
+                for _k, _v in (_mlh.get('fields') or {}).items():
+                    if _v:
+                        _lines.append(f"- 图头.{_k}: {_v}")
+            if _mudlog_k:
+                for _k in ('basic_data', 'lithology', 'gas_show', 'oil_gas_show', 'engineering'):
+                    _v = _mudlog_k.get(_k)
+                    if _v:
+                        _lines.append(f"- 录井知识.{_k}: {str(_v)[:800]}")
+        else:
+            _lines.append('- 录井图: 井目录未发现 masterlog/录井图')
+        kb_md_parts.append('\n'.join(_lines))
+    except Exception as _pde:
+        logger.warning('井目录结构化资料读取失败（跳过）: %s', _pde)
+
     _region, _well_extra = _guess_region(well_dir, None)
     # 注意: 图头字段补充(_enrich_well_info)需在 run_workflow 解释完成后、
     # 出图前执行（results 此时才有 las_info），见下文第5步前。
@@ -18252,6 +19822,11 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None, las_file=None
         print("✗ 解释流程失败")
         return None
 
+    # 井目录结构化知识挂到 results（设计/录井图/五类）
+    try:
+        results['well_docs_extract'] = _pre_docs
+    except Exception:
+        pass
     # 用解释结果里的 LAS 井信息补全知识摘要
     las_info = results.get('las_info') or {}
     _region, _well_extra = _guess_region(well_dir, las_info)
@@ -18268,6 +19843,35 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None, las_file=None
         f"- 解释深度范围: {las_well.get('start_depth', '')} - "
         f"{las_well.get('stop_depth', '')} {las_well.get('depth_unit', '')}\n"
     )
+    # 井目录知识总结：录井/岩心/XRD/XRF 按大致井段+数值范围整理入 KB
+    try:
+        from logsys.well_knowledge import save_well_knowledge
+        _wk, _wk_md, _wk_json = save_well_knowledge(
+            well_dir, well_name=well_name, write_well_dir=True, results=results)
+        _wk_text = _wk_md.read_text(encoding='utf-8')
+        kb_md_parts.append(_wk_text)
+        results['well_knowledge'] = _wk
+        try:
+            from logsys.well_knowledge import ingest_well_knowledge_db
+            ingest_well_knowledge_db(well_dir, well_name=well_name,
+                                     results=results, md_path=str(_wk_md))
+            results['well_knowledge_db'] = 'data/kb/kb.db'
+        except Exception as _wkdb:
+            logger.warning('井知识写入 kb.db 失败（保留文件/索引）: %s', _wkdb)
+        try:
+            from logsys.well_knowledge import ingest_well_knowledge_logknow
+            _wkt, _ = ingest_well_knowledge_logknow(
+                well_dir, well_name=well_name, results=results,
+                md_path=str(_wk_md))
+            if _wkt:
+                results['well_knowledge_logknow'] = _wkt
+        except Exception as _wkl:
+            logger.warning('井知识写入 logKnow 失败（保留 kb.db/文件）: %s', _wkl)
+        results['well_knowledge_md'] = str(_wk_md)
+        print(f"  井目录知识摘要: {_wk_md}（录井/XRD 按大致井段，已并入 KB）")
+    except Exception as _wke:
+        logger.warning('井目录知识总结失败（不影响主流程）: %s', _wke)
+
     knowledge_md = header + '\n\n' + '\n\n'.join(kb_md_parts)
 
     # ---- 4. 知识入库 logKnow ----
@@ -18390,6 +19994,24 @@ def well_package_inventory(well_dir):
 def select_startup_task():
     """统一启动界面：先选任务，再选井目录；自动识别并允许手动校正测井数据/气测/井目录。
 
+    【2026-11-11 界面整合】**本界面已退出默认启动路径** —— 启动后直接进入
+    项目工作台（``logsys.project_browser``），所有作业在项目里针对具体井执行。
+    本函数保留仅为兼容既有调用方；其两项能力已分别下沉为：
+      · 选任务（快速解释图 / 综合解释）→ 项目工作台右键井；
+      · 选井目录 + 校正 LAS/气测/出图格式 → 项目工作台右键井
+        （关联原始资料目录 / 指定主 LAS / 指定气测文件 / 选择甲方出图格式）。
+
+    下面是本函数的历史职责说明（**已不用于默认启动路径**）：
+
+    【2026-11-11 用户定案】入口层级调整为：
+      1) **项目**（多井项目树）—— 主入口，井/数据集/变量一目了然，
+         并可在项目内对某口井执行「快速解释图 / 综合解释」；
+      2) **单井综合解释** —— 保留原有单井直跑通道（无项目时的快捷入口）。
+
+    顶层不再并列"quicklook 快速解释图"任务 —— 它已成为**项目内的井级作业**
+    （项目浏览器右键井 → 快速解释图），因为作业需要把"原始资料"与"产物"
+    挂在同一口井上，只有项目语境能同时提供两者。
+
     返回 {'task','well_dir','inventory','las','config','gas'} 或 None（取消）。
     - las: 选定的测井 LAS 文件路径（界面可校正，防止找错/找不到）
     - gas: 选定的气测文件路径或 None（不使用气测）
@@ -18411,10 +20033,12 @@ def select_startup_task():
 
     # 任务
     tk.Label(win, text='1. 选择任务', font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=18, pady=(14, 4))
-    _tasks = ['quicklook 快速解释图（现场工程师→交甲方代表）',
-              '综合解释（岩性/流体/层表/综合图/报告，室内工程师）']
+    _tasks = ['项目（多井项目树：井/数据集/变量；项目内可对井执行快速解释图与综合解释）',
+              '单井综合解释（岩性/流体/层表/综合图/报告，室内工程师）']
     _task_var = tk.StringVar(value=_tasks[0])
     ttk.Combobox(win, textvariable=_task_var, state='readonly', values=_tasks, width=84).pack(anchor='w', padx=18)
+    _hint = tk.Label(win, text='', font=('Microsoft YaHei', 8), fg='#1a5c9e')
+    _hint.pack(anchor='w', padx=18, pady=(4, 0))
 
     # 井目录（用于提取基础数据）
     tk.Label(win, text='2. 选择井目录（用于提取基础数据：地质设计/录井图/格式/info）', font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=18, pady=(14, 4))
@@ -18442,6 +20066,19 @@ def select_startup_task():
     _inv_txt.pack(anchor='w', padx=18, pady=(2, 2))
     _note = tk.Label(win, text='未选/未找到的资料将在运行时自动跳过（不弹窗、不中断）。', font=('Microsoft YaHei', 8), fg='#777777')
     _note.pack(anchor='w', padx=18)
+
+    def _on_task_change(_evt=None):
+        """任务切换：项目模式不需要选井目录（井在项目里选）。"""
+        if _task_var.get().startswith('项目'):
+            _hint.configure(text='项目模式：进入项目树后，选中井 → 右键「快速解释图 / 综合解释」即可执行作业。')
+            _dir_var.set('（项目模式无需选择井目录）')
+        else:
+            _hint.configure(text='单井模式：直接对一口井跑综合解释流程。')
+            if _dir_var.get().startswith('（项目模式'):
+                _dir_var.set('未选择')
+
+    _task_var.trace_add('write', _on_task_change)
+    _on_task_change()
 
     def _refresh_data(wd):
         wd = _P(str(wd))
@@ -18533,10 +20170,15 @@ def select_startup_task():
         _inv_txt.configure(state='disabled')
 
     def _ok():
+        # 【2026-11-11】项目在前：项目任务无需选井目录（井在项目里选）
+        if _task_var.get().startswith('项目'):
+            res.update({'task': 'project'})
+            win.destroy()
+            return
         if not res.get('inventory'):
             _note.configure(text='请先选择井目录。', fg='#b00')
             return
-        task = 'quicklook' if _task_var.get().startswith('quicklook') else 'comprehensive'
+        task = 'comprehensive'
         las_sel = _las_var.get()
         if not las_sel or las_sel.startswith('（'):
             las_sel = inv_cache.get('las_main')
@@ -21524,10 +23166,96 @@ def scan_pdf(pdf_path, pages=(1, 2, 3), dpi=150, tmp_dir=None):
         result['scanned'].append(page)
     return result
 
+
+# ========== logknow 知识库接入（供 logint 内部使用） ==========
+# 【2026-11-13 合并修正】logknow 为**可选组件**：知识库缺失/损坏/路径不当时降级为
+# None，绝不影响主程序启动与解释流程（历史实现直接裸 import，导入失败即整个
+# logInt 起不来；且引用的 get_stats 在 knowledge_api 中并不存在，实际名为
+# get_kb_stats）。
+try:
+    from logknow.core.knowledge_api import (
+        lookup_interp_method as _lookup_interp_method,
+        match_methods as _match_methods,
+        lookup_hierarchy as _lookup_hierarchy,
+        get_kb_stats as _get_kb_stats,
+    )
+    LOGKNOW_AVAILABLE = True
+except Exception as _e_logknow:  # 知识库不可用 → 降级
+    LOGKNOW_AVAILABLE = False
+    _lookup_interp_method = _match_methods = _lookup_hierarchy = _get_kb_stats = None
+
+
+def logint_lookup_interp(country: str, basin: str = None, formation: str = None):
+    """查询区域地层对应的测井解释方法。
+
+    返回：{"ok": bool, "msg": str, "methods": [...]}；
+    methods 内含 formula / threshold / condition / log_response / source。
+    """
+    if not LOGKNOW_AVAILABLE:
+        return {"ok": False, "msg": "logknow 知识库不可用", "methods": []}
+    return _lookup_interp_method(country, basin, formation)
+
+
+def logint_match_interp(country: str, basin: str, formation: str, log_values: dict = None):
+    """带入测井读数，按阈值筛选该区域可用的解释方法。
+
+    log_values: {"GR": 60.0, "RILD": 9.0, "SP": -40.0}
+    返回：{"ok": bool, "msg": str, "matched": [...]}。
+    """
+    if not LOGKNOW_AVAILABLE:
+        return {"ok": False, "msg": "logknow 知识库不可用", "matched": []}
+    return _match_methods(country, basin, formation, log_values)
+
+
+def logint_get_geo_hierarchy(country: str):
+    """获取七层地质树：国家 → 盆地 → 凹陷 → 区块 → 油田 → 地层 → 井。"""
+    if not LOGKNOW_AVAILABLE:
+        return {"ok": False, "msg": "logknow 知识库不可用"}
+    return _lookup_hierarchy(country)
+
+
+def logint_kb_stat():
+    """知识库统计：国家/盆地/油田/地层/解释方法/边/实体总数。"""
+    if not LOGKNOW_AVAILABLE:
+        return {}
+    return _get_kb_stats()
+
+
 if __name__ == "__main__":
     if '--selftest' in sys.argv:
         _st_errs = run_selftest()
         sys.exit(1 if _st_errs else 0)
+    if '--project' in sys.argv:
+        # 【2026-11-11】项目浏览器：Project→Well→Dataset→Variable 四层树
+        #   借鉴 Techlog 2019.2 Project Browser 范式
+        #   **项目在前**：快速解释图/综合解释是项目内的井级作业
+        #   用法: python logInt.py --project [项目根目录]
+        #         python logInt.py --project --source-roots "D:\360\Indonesia;D:\360\Bangladesh"
+        _pj_root = ''
+        _pj_src = ''
+        _pj_roots = []
+        for _i, _a in enumerate(sys.argv):
+            if _a == '--project' and _i + 1 < len(sys.argv):
+                _nxt = sys.argv[_i + 1]
+                if not _nxt.startswith('-'):
+                    _pj_root = _nxt
+            elif _a == '--source-root' and _i + 1 < len(sys.argv):
+                _pj_src = sys.argv[_i + 1]
+            elif _a == '--source-roots' and _i + 1 < len(sys.argv):
+                _pj_roots = [x.strip() for x in sys.argv[_i + 1].split(';') if x.strip()]
+        try:
+            from logsys import project_browser as _pbrowser
+            from logsys import project_config as _pcfg
+            if not _pj_root:
+                _pj_root = _pbrowser.default_root()
+            if _pj_roots:
+                for _r in _pj_roots:
+                    _pcfg.add_source_root(_pj_root, _r)
+            sys.exit(_pbrowser.launch(_pj_root, _pj_src))
+        except Exception as e:
+            import traceback
+            handle_exception(type(e), e, e.__traceback__, "项目浏览器")
+            sys.exit(1)
     if '--quicklook' in sys.argv:
         # quick look 快速解释: --quicklook <井文件夹> 或 --quicklook (弹对话框)
         # 可选 --quicklook-config <格式文件>：甲方格式配置文件，未指定按默认参考格式
@@ -21556,66 +23284,18 @@ if __name__ == "__main__":
         if len(sys.argv) > 1 and not sys.argv[1].startswith('-'):
             run_well_log_workflow(file_path=sys.argv[1], plot_mode='all')
         else:
-            # 【2026-10-15 二五轮】_gas = 数据选择界面选定的气测文件（未选 None）
-            # 【2026-11-01 R72】统一启动界面：任务选择 + 井目录（资料统一存放）
-            _sel2 = select_startup_task()
-            if _sel2 is None:
-                print("已取消，未执行。")
-                sys.exit(0)
-            if _sel2.get('task') == 'quicklook':
-                quicklook_well(_sel2.get('well_dir'), config_file=_sel2.get('config'),
-                               gas_file=_sel2.get('gas'), las_file=_sel2.get('las'))
-            else:
-                run_well_log_workflow(file_path=_sel2.get('las'), plot_mode='all',
-                                      gas_file=_sel2.get('gas'))
+            # 【2026-11-11 界面整合】取消前置的"启动任务选择"对话框：
+            # 启动后**直接**进入项目工作台，在项目里选井、执行作业。
+            # 原对话框提供的两项能力已全部下沉到井级：
+            #   · 选任务（快速解释图 / 综合解释）→ 右键井
+            #   · 选井目录 + 校正 LAS/气测/出图格式 → 右键井「关联原始资料目录…」
+            #     与「指定主 LAS… / 指定气测文件… / 选择甲方出图格式…」
+            from logsys import project_browser as _pbrowser
+            _pbrowser.launch()
+            sys.exit(0)
     except Exception as e:
         import traceback
         handle_exception(type(e), e, e.__traceback__, "程序启动")
         print()
         print("按 Enter 键退出...")
         input()
-# ========== logknow 知识库简易封装（供 logint 内部使用） ==========
-from logknow.core.knowledge_api import (
-    lookup_interp_method as _lookup_interp_method,
-    match_methods as _match_methods,
-    lookup_hierarchy as _lookup_hierarchy,
-    get_stats as _get_stats
-)
-
-
-def logint_lookup_interp(country: str, basin: str = None, formation: str = None):
-    """
-    logint 专用：查询区域地层对应的测井解释方法
-    返回字典：ok / msg / methods
-    methods 内包含 formula、threshold、condition、log_response、source
-    """
-    return _lookup_interp_method(country, basin, formation)
-
-
-def logint_match_interp(country: str, basin: str, formation: str, log_values: dict = None):
-    """
-    logint 专用：带入测井读数，按阈值筛选可用解释方法
-    log_values: {"GR": 60.0, "RILD": 9.0, "SP": -40.0}
-    返回字典：ok / msg / matched
-    """
-    return _match_methods(country, basin, formation, log_values)
-
-
-def logint_get_geo_hierarchy(country: str):
-    """
-    获取七层地质树：国家 → 盆地 → 凹陷 → 区块 → 油田 → 地层 → 井
-    """
-    return _lookup_hierarchy(country)
-
-
-def logint_kb_stat():
-    """
-    获取知识库统计：国家、盆地、油田、地层、解释方法、边、实体总数
-    """
-    return _get_stats()
-
-
-# 示例（正式运行注释掉，仅调试）
-if __name__ == "__main__":
-    print(logint_kb_stat())
-    print(logint_lookup_interp("孟加拉国", "孟加拉盆地", "Bhuban"))

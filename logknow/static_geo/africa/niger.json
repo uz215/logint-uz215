@@ -1,31 +1,101 @@
-﻿[
-  {
-    "country": "尼日尔",
-    "basin": "Termit 特米特盆地",
-    "sag": "Termit 中央凹陷",
-    "block": "特米特陆上区块",
-    "oilfield": "Agadem 油田群",
-    "structure": "断块、滚动背斜",
-    "well": "NER-01",
-    "formation": "Cretaceous Fluvial-Delta Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系河流—三角洲砂岩，砂泥互层",
-      "lithology": ["石英砂岩", "粉砂岩", "湖相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "20–54", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "特米特盆地白垩系三角洲砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "内陆裂谷湖盆，河道砂叠置成群",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，薄层识别",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "砂体侧向尖灭快，部分层段黄铁矿造成低阻",
-      "reference_case": "Agadem"
-    },
-    "gwc": {"Cretaceous Sand": "各个断块内砂组独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "伊泽鲁安盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "泰尔米特盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Termit 主凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Termit Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "35–85 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "油层 4–32 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 12,
+                                                                 480
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.34,
+                                                             "por":  0.11,
+                                                             "sw":  0.62
+                                                         },
+                                              "gwc":  "断块独立油水界面",
+                                              "name":  "Yogou",
+                                              "aliases":  [
+                                                              "约古组",
+                                                              "Yogou Fm"
+                                                          ],
+                                              "litho_main":  "上白垩统河流—三角洲细砂岩，泥质夹层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "高泥质段切换泥质校正模型",
+                                                  "source":  "尼日尔泰尔米特盆地测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.86,
+                                                                 "a":  0.8,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "Yogou 砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "上白垩统河流—三角洲砂岩，断块圈闭"
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "尼日尔",
+    "country_en":  "",
+    "notes":  ""
+}

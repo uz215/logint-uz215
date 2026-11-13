@@ -1,31 +1,56 @@
-﻿[
-  {
-    "country": "东帝汶",
-    "basin": "Timor Sea 帝汶海盆地",
-    "sag": "帝汶海中央凹陷",
-    "block": "Greater Sunrise 区块",
-    "oilfield": "Sunrise 气田",
-    "structure": "挤压背斜",
-    "well": "TLS-01",
-    "formation": "Jurassic Sandstone",
-    "strata_meta": {
-      "sub_layer": "侏罗系三角洲石英砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "海相页岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–52", "RT": "13–69", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "78–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油"
-    },
-    "method_name": "帝汶海侏罗系砂岩气层解释法",
-    "method_meta": {
-      "applicable_condition": "前陆挤压盆地，压实较强",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "压实校正 Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "逆冲断层发育，储层压实差异大",
-      "reference_case": "Greater Sunrise"
-    },
-    "gwc": {"Jurassic Sandstone": "背斜圈闭独立气水界面"}
-  }
-]
+﻿{
+    "country":  "东帝汶",
+    "basin":  "Timor Sea 帝汶海盆地",
+    "sag":  "帝汶海中央凹陷",
+    "block":  "Greater Sunrise 区块",
+    "oilfield":  "Sunrise 气田",
+    "structure":  "挤压背斜",
+    "well":  "TLS-01",
+    "formation":  "Jurassic Sandstone",
+    "strata_meta":  {
+                        "sub_layer":  "侏罗系三角洲石英砂岩",
+                        "lithology":  [
+                                          "石英砂岩",
+                                          "粉砂岩",
+                                          "海相页岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "19–52",
+                                                               "RT":  "13–69",
+                                                               "DEN":  "2.33–2.47",
+                                                               "CNL":  "13–23",
+                                                               "AC":  "74–88"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "78–129",
+                                                                   "RT":  "1.0–3.2",
+                                                                   "DEN":  "2.53–2.63",
+                                                                   "CNL":  "23–33",
+                                                                   "AC":  "91–106"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "天然气、凝析油"
+                    },
+    "method_name":  "帝汶海侏罗系砂岩气层解释法",
+    "method_meta":  {
+                        "applicable_condition":  "前陆挤压盆地，压实较强",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "压实校正 Archie，气挖掘效应",
+                        "threshold":  {
+                                          "sw_max":  "0.56",
+                                          "gas_cut":  "0.041"
+                                      },
+                        "limitation":  "逆冲断层发育，储层压实差异大",
+                        "reference_case":  "Greater Sunrise"
+                    },
+    "gwc":  {
+                "Jurassic Sandstone":  "背斜圈闭独立气水界面"
+            }
+}

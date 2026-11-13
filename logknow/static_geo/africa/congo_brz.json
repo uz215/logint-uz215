@@ -1,31 +1,126 @@
-﻿[
-  {
-    "country": "刚果（布）",
-    "basin": "Congo Fan 刚果扇盆地",
-    "sag": "深水凹陷",
-    "block": "刚果扇深水区块",
-    "oilfield": "Moho 油田",
-    "structure": "浊积扇、断块",
-    "well": "COG-01",
-    "formation": "Tertiary Turbidite Sand",
-    "strata_meta": {
-      "sub_layer": "古近系—新近系深水浊积石英砂岩，大型复合扇体",
-      "lithology": ["纯净石英砂岩", "粉砂岩", "深海泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "18–49", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
-        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气、凝析油"
-    },
-    "method_name": "刚果扇深水浊积砂解释法",
-    "method_meta": {
-      "applicable_condition": "大型深水复合浊积扇",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "低泥质 Archie，扇体相控阈值",
-      "threshold": {"sw_max": "0.55"},
-      "limitation": "扇体叠置复杂，薄层水道多",
-      "reference_case": "Moho, Nkossa"
-    },
-    "gwc": {"Tertiary Turbidite Sand": "单个扇体、水道砂独立油水界面"}
-  }
-]
+﻿{
+    "country":  "刚果（布）",
+    "basin":  "Congo Fan 刚果扇盆地",
+    "sag":  "深水凹陷",
+    "block":  "刚果扇深水区块",
+    "oilfield":  "Moho 油田",
+    "structure":  "浊积扇、断块",
+    "well":  "COG-01",
+    "formation":  "Tertiary Turbidite Sand",
+    "strata_meta":  {
+                        "sub_layer":  "古近系—新近系深水浊积石英砂岩，大型复合扇体",
+                        "lithology":  [
+                                          "纯净石英砂岩",
+                                          "粉砂岩",
+                                          "深海泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "18–49",
+                                                               "RT":  "14–70",
+                                                               "DEN":  "2.32–2.46",
+                                                               "CNL":  "12–22",
+                                                               "AC":  "73–87"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "76–126",
+                                                                   "RT":  "1.0–3.1",
+                                                                   "DEN":  "2.52–2.62",
+                                                                   "CNL":  "22–32",
+                                                                   "AC":  "89–104"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气、凝析油"
+                    },
+    "method_name":  "刚果扇深水浊积砂解释法",
+    "method_meta":  {
+                        "applicable_condition":  "大型深水复合浊积扇",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "低泥质 Archie，扇体相控阈值",
+                        "threshold":  {
+                                          "sw_max":  "0.55"
+                                      },
+                        "limitation":  "扇体叠置复杂，薄层水道多",
+                        "reference_case":  "Moho, Nkossa"
+                    },
+    "gwc":  {
+                "Tertiary Turbidite Sand":  "单个扇体、水道砂独立油水界面"
+            },
+    "basins":  [
+                   {
+                       "name":  "刚果扇盆地",
+                       "name_en":  "Congo Fan Basin",
+                       "notes":  "西非深水，大型浊积砂体，薄层叠置，油气同存，压力体系复杂",
+                       "depressions":  [
+                                           {
+                                               "name":  "深水主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Sendji",
+                                              "aliases":  [
+                                                              "森吉组",
+                                                              "Sendji Fm"
+                                                          ],
+                                              "litho_main":  "深水浊积细‑中砂岩，块状砂与薄层互层",
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.29
+                                                                 ],
+                                              "perm_range":  [
+                                                                 45,
+                                                                 1100
+                                                             ],
+                                              "gwc":  "单个浊积砂体独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.13,
+                                                             "sw":  0.59,
+                                                             "vsh":  0.32
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "油层中阻，气层高阻",
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "气层挖掘效应",
+                                                                   "DT":  "70–89 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "刚果扇 Sendji 深水浊积砂岩",
+                                                  "formula":  "Sw = (0.79 * Rw / (Rt * phi ** 1.85)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.79,
+                                                                 "m":  1.85,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "condition":  "深水浊积砂岩，薄层段建议配合高分辨率阵列感应",
+                                                  "source":  "刚果（布）深水测井评价，第24届测井年会西非深水专题"
+                                              }
+                                          ]
+                   }
+               ]
+}

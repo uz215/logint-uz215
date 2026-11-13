@@ -1,31 +1,7 @@
-﻿[
-  {
-    "country": "索马里",
-    "basin": "Somali 海岸盆地",
-    "sag": "Obbia 近海凹陷",
-    "block": "Obbia 近海区块",
-    "oilfield": "Obbia 远景区",
-    "structure": "断块隆起",
-    "well": "SOM-01",
-    "formation": "Cretaceous Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系海相三角洲砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "20–54", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "油气远景，勘探程度低"
-    },
-    "method_name": "索马里海岸白垩系三角洲砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘，井控稀少",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie",
-      "threshold": {"sw_max": "0.58"},
-      "limitation": "实钻井极少，参数类比风险高",
-      "reference_case": "Obbia prospect"
-    },
-    "gwc": {"Cretaceous Sand": "以圈闭标定，无统一区域界面"}
-  }
-]
+﻿{
+    "basins":  [
+
+               ],
+    "continent":  "africa",
+    "country":  "索马里"
+}

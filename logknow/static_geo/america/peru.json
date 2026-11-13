@@ -1,0 +1,146 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "安第斯山前，白垩系碳酸盐岩、碎屑岩，轻质油，断层复杂，地层水矿化度偏低",
+    "basins":  [
+                   {
+                       "name":  "马拉尼翁盆地",
+                       "name_en":  "Marañón Basin",
+                       "notes":  "安第斯山前，白垩系碳酸盐岩、碎屑岩，轻质油，断层复杂，地层水矿化度偏低",
+                       "depressions":  [
+                                           {
+                                               "name":  "马拉尼翁主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Chonta",
+                                              "aliases":  [
+                                                              "琼塔组",
+                                                              "Chonta Fm"
+                                                          ],
+                                              "litho_main":  "生物碎屑灰岩、细砂岩互层",
+                                              "porosity_range":  [
+                                                                     0.09,
+                                                                     0.21
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 210
+                                                             ],
+                                              "gwc":  "断层分割，多套油水系统",
+                                              "cutoff":  {
+                                                             "por":  0.08,
+                                                             "sw":  0.67,
+                                                             "vsh":  0.2
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "中高阻",
+                                                                   "DEN":  "2.44–2.66 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "52–68 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Chonta 砂灰互层饱和度",
+                                                  "formula":  "Sw = (0.73 * Rw / (Rt * phi ** 2.05)) ** (1 / 2.18)",
+                                                  "params":  {
+                                                                 "a":  0.73,
+                                                                 "m":  2.05,
+                                                                 "n":  2.18
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.08
+                                                                },
+                                                  "condition":  "秘鲁马拉尼翁盆地混合储层，灰岩段单独标定",
+                                                  "source":  "秘鲁马拉尼翁盆地测井评价报告"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "马拉尼翁盆地",
+                       "name_en":  "Marañón Basin",
+                       "notes":  "安第斯山前，白垩系碳酸盐岩、碎屑岩，轻质油，断层复杂，地层水矿化度偏低",
+                       "depressions":  [
+                                           {
+                                               "name":  "马拉尼翁主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Chonta",
+                                              "aliases":  [
+                                                              "琼塔组",
+                                                              "Chonta Fm"
+                                                          ],
+                                              "litho_main":  "生物碎屑灰岩、细砂岩互层",
+                                              "porosity_range":  [
+                                                                     0.09,
+                                                                     0.21
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 210
+                                                             ],
+                                              "gwc":  "断层分割，多套油水系统",
+                                              "cutoff":  {
+                                                             "por":  0.08,
+                                                             "sw":  0.67,
+                                                             "vsh":  0.2
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "中高阻",
+                                                                   "DEN":  "2.44–2.66 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "52–68 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Chonta 砂灰互层饱和度",
+                                                  "formula":  "Sw = (0.73 * Rw / (Rt * phi ** 2.05)) ** (1 / 2.18)",
+                                                  "params":  {
+                                                                 "a":  0.73,
+                                                                 "m":  2.05,
+                                                                 "n":  2.18
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.08
+                                                                },
+                                                  "condition":  "秘鲁马拉尼翁盆地混合储层，灰岩段单独标定",
+                                                  "source":  "秘鲁马拉尼翁盆地测井评价报告"
+                                              }
+                                          ]
+                   }
+               ]
+}

@@ -1,0 +1,76 @@
+﻿{
+    "basins":  [
+                   {
+                       "name":  "中央缅甸盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Chindwin 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Central Myanmar Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等偏高",
+                                                                   "GR":  "40–90 API",
+                                                                   "DT":  "74–92 μs/ft",
+                                                                   "RT":  "气层 3–25 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 10,
+                                                                 420
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.32,
+                                                             "por":  0.13,
+                                                             "sw":  0.62
+                                                         },
+                                              "gwc":  "背斜与断层控制",
+                                              "name":  "Pegu",
+                                              "aliases":  [
+                                                              "勃固群",
+                                                              "Pegu Group"
+                                                          ],
+                                              "litho_main":  "始新—中新统三角洲—浅海砂岩，泥质偏高"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "泥质偏高，Archie 会低估 Sw",
+                                                  "source":  "缅甸中央盆地测井评价",
+                                                  "formula":  "Sw=((1/Rt)**0.5)/((Vsh**Vsh/Rsh**0.5)+((1-Vsh)*phi**m/(a*Rw))**0.5)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.8
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.32
+                                                                },
+                                                  "method_name":  "Pegu 群泥质砂岩 Indonesia"
+                                              }
+                                          ],
+                       "notes":  "Pegu 群砂岩，砂泥互层，气为主"
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "缅甸",
+    "country_en":  "Myanmar",
+    "notes":  "中央缅甸盆地始新—中新统 Pegu 群砂岩为主力气层，泥质普遍偏高"
+}

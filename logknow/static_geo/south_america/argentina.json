@@ -1,31 +1,68 @@
-﻿[
-  {
-    "country": "阿根廷",
-    "basin": "Neuquén 盆地",
-    "sag": "Neuquén 中央凹陷",
-    "block": "Vaca Muerta 区块",
-    "oilfield": "Vaca Muerta 页岩油气区",
-    "structure": "平缓向斜、断块",
-    "well": "ARG-01",
-    "formation": "Vaca Muerta (Jurassic) / Lajas Sand",
-    "strata_meta": {
-      "sub_layer": "侏罗系富有机质页岩；配套 Lajas 致密砂岩",
-      "lithology": ["页岩", "泥灰岩", "粉砂岩", "致密石英砂岩"],
-      "log_response": {
-        "reservoir": {"GR": "40–110", "RT": "8–80", "DEN": "2.35–2.55", "CNL": "12–28", "AC": "65–95"},
-        "non_reservoir": {"GR": "85–130", "RT": "1–4", "DEN": "2.55–2.70", "CNL": "25–35", "AC": "90–110"}
-      },
-      "hydrocarbon_type": "页岩油、页岩气、致密油"
-    },
-    "method_name": "Neuquén Vaca Muerta 页岩-致密砂解释法",
-    "method_meta": {
-      "applicable_condition": "富有机质页岩层系、相邻致密砂岩，非常规储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC","TOC"],
-      "formula": "TOC 估算，有机质孔隙校正，非常规饱和度模型",
-      "threshold": {"sw_max": "0.65", "toc_min": "2.0"},
-      "limitation": "孔隙以纳米级为主，常规 Archie 偏差大；天然裂缝复杂",
-      "reference_case": "Vaca Muerta, Lajas"
-    },
-    "gwc": {"Vaca Muerta": "无统一油水界面，为连续型聚集"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "富有机质页岩，致密油气",
+                                              "rt_range":  [
+                                                               1.2,
+                                                               12
+                                                           ],
+                                              "aliases":  [
+                                                              "瓦卡穆尔塔组"
+                                                          ],
+                                              "gr_range":  [
+                                                               80,
+                                                               160
+                                                           ],
+                                              "sw_base":  0.55,
+                                              "den_range":  [
+                                                                2.3,
+                                                                2.52
+                                                            ],
+                                              "name":  "Vaca Muerta",
+                                              "porosity_base":  0.07,
+                                              "cnl_range":  [
+                                                                0.12,
+                                                                0.32
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "内乌肯盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.06,
+                                                                 "m":  2.4,
+                                                                 "a":  0.85,
+                                                                 "n":  2.2
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.03,
+                                                                    "gr_min":  80
+                                                                },
+                                                  "condition":  "瓦卡穆尔塔富有机质页岩，致密油气层",
+                                                  "method_name":  "Vaca Muerta 页岩含烃评价"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "south_america",
+    "country":  "阿根廷"
+}

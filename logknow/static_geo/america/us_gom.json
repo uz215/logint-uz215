@@ -1,0 +1,186 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "经典深水盆地，盐刺穿广泛，新近系浊积砂岩，高压高产，气油伴生",
+    "basins":  [
+                   {
+                       "name":  "美国墨西哥湾盆地",
+                       "name_en":  "US Gulf of Mexico Basin",
+                       "notes":  "经典深水盆地，盐刺穿广泛，新近系浊积砂岩，高压高产，气油伴生",
+                       "depressions":  [
+                                           {
+                                               "name":  "深水主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Tertiary Turbidite",
+                                              "aliases":  [
+                                                              "第三系浊积砂"
+                                                          ],
+                                              "litho_main":  "深水块状石英浊积砂岩，低泥质优质砂体",
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.3
+                                                                 ],
+                                              "perm_range":  [
+                                                                 50,
+                                                                 1300
+                                                             ],
+                                              "gwc":  "单个砂体独立，压力异常普遍",
+                                              "cutoff":  {
+                                                             "por":  0.13,
+                                                             "sw":  0.58,
+                                                             "vsh":  0.26
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "油层中阻、气层高阻",
+                                                                   "DEN":  "2.31–2.53 g/cm³",
+                                                                   "CNL":  "强烈挖掘效应",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "美国墨西哥湾深水浊积砂岩",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.85)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.85,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "condition":  "高压深水储层，必须做压力‑电阻率校正",
+                                                  "source":  "US GOM 岩石物理标准，第24届测井年会深水专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "美国墨西哥湾盆地",
+                       "name_en":  "US Gulf of Mexico Basin",
+                       "notes":  "经典深水盆地，盐刺穿广泛，新近系浊积砂岩，高压高产，气油伴生",
+                       "depressions":  [
+                                           {
+                                               "name":  "深水主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Tertiary Turbidite",
+                                              "aliases":  [
+                                                              "第三系浊积砂"
+                                                          ],
+                                              "litho_main":  "深水块状石英浊积砂岩，低泥质优质砂体",
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.3
+                                                                 ],
+                                              "perm_range":  [
+                                                                 50,
+                                                                 1300
+                                                             ],
+                                              "gwc":  "单个砂体独立，压力异常普遍",
+                                              "cutoff":  {
+                                                             "por":  0.13,
+                                                             "sw":  0.58,
+                                                             "vsh":  0.26
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "油层中阻、气层高阻",
+                                                                   "DEN":  "2.31–2.53 g/cm³",
+                                                                   "CNL":  "强烈挖掘效应",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–75 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "油层 5–45 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 30,
+                                                                 900
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.13,
+                                                             "sw":  0.57
+                                                         },
+                                              "gwc":  "砂体独立，高压异常",
+                                              "name":  "Wilcox",
+                                              "aliases":  [
+                                                              "威尔科克斯组"
+                                                          ],
+                                              "litho_main":  "古近系深水浊积砂岩，块状砂发育"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "美国墨西哥湾深水浊积砂岩",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.85)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.85,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "condition":  "高压深水储层，必须做压力‑电阻率校正",
+                                                  "source":  "US GOM 岩石物理标准，第24届测井年会深水专题"
+                                              },
+                                              {
+                                                  "condition":  "高压异常段 Rt 受压力影响，须做压力与温度双向校正",
+                                                  "source":  "US GOM Wilcox 测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.85,
+                                                                 "a":  0.79,
+                                                                 "n":  1.98
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "method_name":  "Wilcox 浊积砂岩高压校正解释"
+                                              }
+                                          ]
+                   }
+               ]
+}

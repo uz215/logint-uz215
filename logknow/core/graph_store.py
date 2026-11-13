@@ -1,12 +1,29 @@
-﻿import sqlite3
+﻿import os
+import sqlite3
 import json
 from pathlib import Path
+
+
+def _default_db_path() -> Path:
+    """知识库默认路径。
+
+    历史实现硬编码 F:\\360\\src\\data\\kb\\kb.db，换机/换盘（D:\\360\\src）即报
+    "unable to open database file"，并让 logknow 整个包不可导入。
+    改为：环境变量优先 → 仓库相对定位。
+    """
+    for env in ("LOGINT_KB", "LOGKNOW_KB"):
+        val = os.environ.get(env)
+        if val:
+            return Path(val)
+    # <repo>/logknow/core/graph_store.py -> <repo>/data/kb/kb.db
+    repo_root = Path(__file__).resolve().parents[2]
+    return repo_root / "data" / "kb" / "kb.db"
 
 
 class GraphStore:
     def __init__(self, db_path: str = None):
         if db_path is None:
-            db_path = r"F:\360\src\data\kb\kb.db"
+            db_path = _default_db_path()
         self.db_path = Path(db_path)
         self.entities = dict()
         self.facts = []

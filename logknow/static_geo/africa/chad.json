@@ -1,31 +1,208 @@
-﻿[
-    {
-        "country": "乍得",
-        "basin": "Doba 盆地",
-        "sag": "中部凹陷",
-        "block": "Doba 主区块",
-        "oilfield": "Kome 油田",
-        "structure": "断块背斜",
-        "well": "KOM-01",
-        "formation": "Kome",
-        "strata_meta": {
-            "sub_layer": "白垩系陆相三角洲砂岩",
-            "lithology": ["岩屑砂岩", "粉砂岩", "泥岩夹层"],
-            "log_response": {
-                "reservoir": {"GR": "22–58", "RT": "12–65", "DEN": "2.35–2.49", "CNL": "13–24", "DT": "75–90"},
-                "non_reservoir": {"GR": "82–135", "RT": "1–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "DT": "92–108"}
-            },
-            "hydrocarbon_type": "原油、伴生气"
-        },
-        "method_name": "Doba 陆相砂岩解释法",
-        "method_meta": {
-            "applicable_condition": "乍得 Doba 盆地白垩系陆相三角洲，中泥质",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "泥质校正 Archie，地层水矿化度分区校正",
-            "threshold": {"sw_max": 0.60},
-            "limitation": "局部含盐夹层、黄铁矿拉低电阻率",
-            "reference_case": "Kome、Moundou 油田群"
-        },
-        "gwc": {"Kome": "各断块独立油水界面，差异大"}
-    }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "河流三角洲砂岩，含油",
+                                              "rt_range":  [
+                                                               3,
+                                                               40
+                                                           ],
+                                              "aliases":  [
+                                                              "Mangara Fm"
+                                                          ],
+                                              "gr_range":  [
+                                                               35,
+                                                               85
+                                                           ],
+                                              "sw_base":  0.48,
+                                              "den_range":  [
+                                                                2.4,
+                                                                2.6
+                                                            ],
+                                              "name":  "Mangara",
+                                              "porosity_base":  0.15,
+                                              "cnl_range":  [
+                                                                0.1,
+                                                                0.26
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Kome"
+                                         }
+                                     ],
+                       "name":  "邦戈尔盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.055,
+                                                                 "m":  2.05,
+                                                                 "a":  0.7,
+                                                                 "n":  1.9
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.07,
+                                                                    "gr_max":  90
+                                                                },
+                                                  "condition":  "邦戈尔 Mangara 三角洲砂岩油层",
+                                                  "method_name":  "三角洲砂岩 Archie"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "邦戈尔盆地",
+                       "name_en":  "Doba (Bongor) Basin",
+                       "notes":  "中非裂谷，白垩系河流‑三角洲砂岩，断块圈闭为主，储层泥质变化大",
+                       "depressions":  [
+                                           {
+                                               "name":  "邦戈尔主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Kome",
+                                              "aliases":  [
+                                                              "科梅组",
+                                                              "Kome Fm"
+                                                          ],
+                                              "litho_main":  "河流相细‑中粒砂岩，泥岩夹层发育",
+                                              "porosity_range":  [
+                                                                     0.13,
+                                                                     0.27
+                                                                 ],
+                                              "perm_range":  [
+                                                                 16,
+                                                                 660
+                                                             ],
+                                              "gwc":  "断块独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.1,
+                                                             "sw":  0.63,
+                                                             "vsh":  0.38
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "邦戈尔 Kome 砂岩 Archie",
+                                                  "formula":  "Sw = (0.81 * Rw / (Rt * phi ** 1.83)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.81,
+                                                                 "m":  1.83,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.38
+                                                                },
+                                                  "condition":  "乍得裂谷砂岩，高泥质段切换 Waxman‑Smits",
+                                                  "source":  "乍得邦戈尔盆地测井解释规范"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "邦戈尔盆地",
+                       "name_en":  "Doba (Bongor) Basin",
+                       "notes":  "中非裂谷，白垩系河流‑三角洲砂岩，断块圈闭为主，储层泥质变化大",
+                       "depressions":  [
+                                           {
+                                               "name":  "邦戈尔主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Kome",
+                                              "aliases":  [
+                                                              "科梅组",
+                                                              "Kome Fm"
+                                                          ],
+                                              "litho_main":  "河流相细‑中粒砂岩，泥岩夹层发育",
+                                              "porosity_range":  [
+                                                                     0.13,
+                                                                     0.27
+                                                                 ],
+                                              "perm_range":  [
+                                                                 16,
+                                                                 660
+                                                             ],
+                                              "gwc":  "断块独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.1,
+                                                             "sw":  0.63,
+                                                             "vsh":  0.38
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "邦戈尔 Kome 砂岩 Archie",
+                                                  "formula":  "Sw = (0.81 * Rw / (Rt * phi ** 1.83)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.81,
+                                                                 "m":  1.83,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.38
+                                                                },
+                                                  "condition":  "乍得裂谷砂岩，高泥质段切换 Waxman‑Smits",
+                                                  "source":  "乍得邦戈尔盆地测井解释规范"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "乍得"
+}

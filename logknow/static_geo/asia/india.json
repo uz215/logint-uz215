@@ -1,31 +1,265 @@
-﻿[
-  {
-    "country": "印度",
-    "basin": "Mumbai Offshore 盆地",
-    "sag": "Mumbai 近海凹陷",
-    "block": "Mumbai High 区块",
-    "oilfield": "Mumbai High 油田",
-    "structure": "碳酸盐岩台地隆起",
-    "well": "IND-01",
-    "formation": "Miocene Limestone",
-    "strata_meta": {
-      "sub_layer": "中新统粒屑灰岩、白云岩化台地储层",
-      "lithology": ["粒屑灰岩", "白云岩", "泥灰岩"],
-      "log_response": {
-        "reservoir": {"GR": "4–26", "RT": "20–220", "DEN": "2.40–2.56", "CNL": "3–12", "AC": "43–65"},
-        "non_reservoir": {"GR": "1–8", "RT": "700+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Mumbai High 中新统台地灰岩解释法",
-    "method_meta": {
-      "applicable_condition": "浅海台地，白云岩化改造储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "白云岩校正 Archie，孔洞识别",
-      "threshold": {"sw_max": "0.55"},
-      "limitation": "孔洞分布不均，局部硬石膏夹层干扰密度",
-      "reference_case": "Mumbai High, Bassein"
-    },
-    "gwc": {"Miocene Limestone": "独立台地块体各自油水界面"}
-  }
-]
+﻿{
+    "country":  "印度",
+    "basin":  "Mumbai Offshore 盆地",
+    "sag":  "Mumbai 近海凹陷",
+    "block":  "Mumbai High 区块",
+    "oilfield":  "Mumbai High 油田",
+    "structure":  "碳酸盐岩台地隆起",
+    "well":  "IND-01",
+    "formation":  "Miocene Limestone",
+    "strata_meta":  {
+                        "sub_layer":  "中新统粒屑灰岩、白云岩化台地储层",
+                        "lithology":  [
+                                          "粒屑灰岩",
+                                          "白云岩",
+                                          "泥灰岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "4–26",
+                                                               "RT":  "20–220",
+                                                               "DEN":  "2.40–2.56",
+                                                               "CNL":  "3–12",
+                                                               "AC":  "43–65"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "1–8",
+                                                                   "RT":  "700+",
+                                                                   "DEN":  "2.62–2.71",
+                                                                   "CNL":  "0–4",
+                                                                   "AC":  "38–46"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气"
+                    },
+    "method_name":  "Mumbai High 中新统台地灰岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "浅海台地，白云岩化改造储层",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "白云岩校正 Archie，孔洞识别",
+                        "threshold":  {
+                                          "sw_max":  "0.55"
+                                      },
+                        "limitation":  "孔洞分布不均，局部硬石膏夹层干扰密度",
+                        "reference_case":  "Mumbai High, Bassein"
+                    },
+    "gwc":  {
+                "Miocene Limestone":  "独立台地块体各自油水界面"
+            },
+    "country_en":  "India",
+    "continent":  "asia",
+    "notes":  "坎贝裂谷、克里希纳—戈达瓦里深水、阿萨姆前陆三大油气区并存，储层从古近系到新近系跨度大",
+    "basins":  [
+                   {
+                       "name":  "坎贝盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Cambay 地堑",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Cambay Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "35–80 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "油层 4–30 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 10,
+                                                                 450
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.11,
+                                                             "sw":  0.62
+                                                         },
+                                              "gwc":  "断块独立",
+                                              "name":  "Eocene Sand (Cambay)",
+                                              "aliases":  [
+                                                              "始新统砂岩"
+                                                          ],
+                                              "litho_main":  "古近系河流—三角洲砂岩，泥质夹层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "常规砂岩；高泥质段用泥质校正模型",
+                                                  "source":  "印度坎贝盆地测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.85,
+                                                                 "a":  0.8,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "坎贝始新统砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "古近系砂岩，裂谷构造，断块油藏"
+                   },
+                   {
+                       "name":  "克里希纳—戈达瓦里盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "KG 深水凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Krishna-Godavari Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "挖掘效应",
+                                                                   "GR":  "25–70 API",
+                                                                   "DT":  "72–88 μs/ft",
+                                                                   "RT":  "气层 10–80 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 20,
+                                                                 700
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.25,
+                                                             "por":  0.13,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "砂体控制",
+                                              "name":  "Cretaceous Sand (KG)",
+                                              "aliases":  [
+                                                              "白垩系砂岩"
+                                                          ],
+                                              "litho_main":  "上白垩统三角洲—浅海细砂岩"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "深水高压，Rt 需做压力校正",
+                                                  "source":  "印度 KG 盆地深水测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.84,
+                                                                 "a":  0.79,
+                                                                 "n":  1.99
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "method_name":  "KG 白垩系砂岩气层 Archie"
+                                              }
+                                          ],
+                       "notes":  "上白垩—古近系砂岩，深水气田"
+                   },
+                   {
+                       "name":  "阿萨姆盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Upper Assam 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Assam Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.28–2.50 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–75 API",
+                                                                   "DT":  "74–92 μs/ft",
+                                                                   "RT":  "油层 3–25 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 40,
+                                                                 1000
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.3
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.32,
+                                                             "por":  0.13,
+                                                             "sw":  0.6
+                                                         },
+                                              "gwc":  "构造与断层控制",
+                                              "name":  "Tipam",
+                                              "aliases":  [
+                                                              "提帕姆组",
+                                                              "Tipam Sandstone"
+                                                          ],
+                                              "litho_main":  "中新统河流相砂岩，分选好"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "高孔高渗，束缚水低，Sw 阈值可收紧",
+                                                  "source":  "印度阿萨姆盆地测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.82,
+                                                                 "a":  0.81,
+                                                                 "n":  1.97
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "method_name":  "Tipam 河流砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "新近系 Tipam 砂岩，老油田，高孔高渗"
+                   }
+               ]
+}

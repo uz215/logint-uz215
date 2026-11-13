@@ -1,31 +1,68 @@
-﻿[
-  {
-    "country": "刚果（布）",
-    "basin": "Congo 海岸盆地",
-    "sag": "Pointe-Noire 近海凹陷",
-    "block": "Pointe-Noire 近海区块",
-    "oilfield": "Nkossa 油气田",
-    "structure": "滚动背斜",
-    "well": "COG-01",
-    "formation": "Cretaceous–Tertiary Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系—古近系深水浊积砂岩",
-      "lithology": ["石英砂岩", "细粒浊积砂", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–51", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "77–127", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、天然气、凝析油"
-    },
-    "method_name": "刚果海岸深水浊积砂解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘深水复合扇体",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，气挖掘校正，油/气分支判定",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.04"},
-      "limitation": "多期扇叠合，泥质夹层多，流体纵向分异复杂",
-      "reference_case": "Nkossa, Emeraude"
-    },
-    "gwc": {"Cretaceous–Tertiary Sand": "独立扇体油水/气水界面分开"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "深水浊积砂岩",
+                                              "rt_range":  [
+                                                               2.5,
+                                                               60
+                                                           ],
+                                              "aliases":  [
+                                                              "刚果扇砂岩"
+                                                          ],
+                                              "gr_range":  [
+                                                               30,
+                                                               80
+                                                           ],
+                                              "sw_base":  0.42,
+                                              "den_range":  [
+                                                                2.38,
+                                                                2.59
+                                                            ],
+                                              "name":  "Congo Fan Sand",
+                                              "porosity_base":  0.14,
+                                              "cnl_range":  [
+                                                                0.09,
+                                                                0.25
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "刚果扇盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.048,
+                                                                 "m":  2.1,
+                                                                 "a":  0.65,
+                                                                 "n":  1.88
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.07,
+                                                                    "gr_max":  88
+                                                                },
+                                                  "condition":  "刚果扇深水浊积砂，注意砂泥互层",
+                                                  "method_name":  "深水浊积砂岩解释"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "刚果（布）"
+}

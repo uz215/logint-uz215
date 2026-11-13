@@ -1,31 +1,76 @@
-﻿[
-  {
-    "country": "克罗地亚",
-    "basin": "Pannonian 盆地",
-    "sag": "Sava 凹陷",
-    "block": "Sava 陆上区块",
-    "oilfield": "Ivanić 油田",
-    "structure": "断块背斜",
-    "well": "HRV-01",
-    "formation": "Pliocene Sand",
-    "strata_meta": {
-      "sub_layer": "上新统湖相三角洲砂岩",
-      "lithology": ["长石岩屑砂岩", "粉砂岩", "湖相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–57", "RT": "12–65", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "80–131", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Pannonian 上新统三角洲砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "内陆湖盆三角洲，薄互层发育",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，薄层校正",
-      "threshold": {"sw_max": "0.58"},
-      "limitation": "单层厚度薄，测井分辨率受限；泥质含量波动大",
-      "reference_case": "Ivanić, Žutica"
-    },
-    "gwc": {"Pliocene Sand": "砂组独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "name":  "德拉瓦盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Drava 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Drava Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "35–80 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "气层 5–40 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 10,
+                                                                 400
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.11,
+                                                             "sw":  0.62
+                                                         },
+                                              "gwc":  "断块控制",
+                                              "name":  "Miocene Sand",
+                                              "aliases":  [
+                                                              "中新统砂岩"
+                                                          ],
+                                              "litho_main":  "中新统滨岸—三角洲砂岩，分选中等"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "常规砂岩，泥质段切换泥质校正模型",
+                                                  "source":  "克罗地亚德拉瓦盆地测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.85,
+                                                                 "a":  0.8,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "德拉瓦中新统砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "中新统砂岩，构造与岩性复合圈闭"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "克罗地亚",
+    "country_en":  "Croatia",
+    "notes":  "德拉瓦盆地中新统滨岸—三角洲砂岩，气油并存"
+}

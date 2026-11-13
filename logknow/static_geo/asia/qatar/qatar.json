@@ -1,0 +1,39 @@
+﻿{
+    "country":  "卡塔尔",
+    "basin":  "波斯湾盆地",
+    "sag":  "卡塔尔北部凹陷",
+    "block":  "北部区块",
+    "oilfield":  "北方气田",
+    "structure":  "平缓背斜",
+    "well":  "North-1",
+    "formation":  "Khuff 组",
+    "strata_meta":  {
+                        "lithology":  "白云岩、石灰岩",
+                        "gamma_range":  [
+                                            10,
+                                            38
+                                        ],
+                        "resistivity_range":  [
+                                                  15,
+                                                  800
+                                              ],
+                        "porosity_range":  [
+                                               0.03,
+                                               0.16
+                                           ],
+                        "permeability_range":  [
+                                                   0.05,
+                                                   120
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.2,
+                                                       0.7
+                                                   ]
+                    },
+    "method_name":  "白云岩 Archie 改进法",
+    "method_meta":  {
+                        "threshold":  "GR\u003c38",
+                        "formula":  "Sw = (a * Rw / (Rt * Phi^m))^(1/n)",
+                        "condition":  "Khuff 致密白云岩气层，高矿化度地层水"
+                    }
+}

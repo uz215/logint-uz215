@@ -1,0 +1,22 @@
+{
+  "hierarchy": {
+    "country": "Brazil",
+    "basin": "Santos",
+    "sag": "未填写",
+    "structure": "Curacao",
+    "field": "Aram",
+    "well": "1-SPS-108"
+  },
+  "categories": [
+    "basic_data",
+    "stratigraphy",
+    "lithology",
+    "testing",
+    "log_interpretation",
+    "gas_show",
+    "oil_gas_show",
+    "engineering",
+    "core_descriptions"
+  ],
+  "summary": "D:\\360\\src\\data\\kb\\well_knowledge\\1-SPS-108_knowledge_summary.md"
+}

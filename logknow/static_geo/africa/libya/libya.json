@@ -1,0 +1,39 @@
+﻿{
+    "country":  "利比亚",
+    "basin":  "锡尔特盆地",
+    "sag":  "锡尔特主凹陷",
+    "block":  "NC-74 区块",
+    "oilfield":  "Sarir 油田",
+    "structure":  "基底隆起",
+    "well":  "Sarir-1",
+    "formation":  "Sarir 组",
+    "strata_meta":  {
+                        "lithology":  "河流砂岩",
+                        "gamma_range":  [
+                                            28,
+                                            88
+                                        ],
+                        "resistivity_range":  [
+                                                  2.2,
+                                                  75
+                                              ],
+                        "porosity_range":  [
+                                               0.13,
+                                               0.29
+                                           ],
+                        "permeability_range":  [
+                                                   10,
+                                                   950
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.21,
+                                                       0.7
+                                                   ]
+                    },
+    "method_name":  "陆相砂岩饱和度",
+    "method_meta":  {
+                        "threshold":  "GR\u003c62",
+                        "formula":  "Vsh 校正后 Archie",
+                        "condition":  "锡尔特盆地古近系河流砂岩"
+                    }
+}

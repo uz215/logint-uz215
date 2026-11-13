@@ -1,0 +1,76 @@
+﻿{
+    "basins":  [
+                   {
+                       "name":  "磨拉石盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Molasse 前缘凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Molasse Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.38–2.60 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–75 API",
+                                                                   "DT":  "66–82 μs/ft",
+                                                                   "RT":  "气层 5–40 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 3,
+                                                                 260
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.12,
+                                                                     0.24
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.24,
+                                                             "por":  0.1,
+                                                             "sw":  0.64
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Bausteinschichten",
+                                              "aliases":  [
+                                                              "砾石层组"
+                                                          ],
+                                              "litho_main":  "中新统浅海细砂岩，钙质胶结"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "钙质胶结，m 取偏高；地热井温度影响 Rw",
+                                                  "source":  "奥地利磨拉石盆地测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.9,
+                                                                 "a":  0.79,
+                                                                 "n":  2.03
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.1
+                                                                },
+                                                  "method_name":  "Bausteinschichten 砂岩气层 Archie"
+                                              }
+                                          ],
+                       "notes":  "中新统 Bausteinschichten 砂岩气，地热与油气并存"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "奥地利",
+    "country_en":  "",
+    "notes":  ""
+}

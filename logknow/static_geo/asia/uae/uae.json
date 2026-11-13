@@ -1,0 +1,39 @@
+﻿{
+    "country":  "阿联酋",
+    "basin":  "波斯湾盆地",
+    "sag":  "阿布扎比中央凹陷",
+    "block":  "ADCO 陆上区块",
+    "oilfield":  "扎库姆油田",
+    "structure":  "大型背斜",
+    "well":  "Zakum-1",
+    "formation":  "Shu\u0027aiba 组",
+    "strata_meta":  {
+                        "lithology":  "厚层灰岩、礁灰岩",
+                        "gamma_range":  [
+                                            8,
+                                            42
+                                        ],
+                        "resistivity_range":  [
+                                                  15,
+                                                  1400
+                                              ],
+                        "porosity_range":  [
+                                               0.07,
+                                               0.21
+                                           ],
+                        "permeability_range":  [
+                                                   0.4,
+                                                   280
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.14,
+                                                       0.62
+                                                   ]
+                    },
+    "method_name":  "礁灰岩测井解释法",
+    "method_meta":  {
+                        "threshold":  "GR\u003c35",
+                        "formula":  "改进 Archie，考虑孔洞",
+                        "condition":  "Shu\u0027aiba 生物礁灰岩主力油层"
+                    }
+}

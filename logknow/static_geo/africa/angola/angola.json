@@ -1,0 +1,39 @@
+﻿{
+    "country":  "安哥拉",
+    "basin":  "下刚果盆地",
+    "sag":  "宽扎凹陷",
+    "block":  "Kwanza Block 31",
+    "oilfield":  "Girassol 油田",
+    "structure":  "盐下构造圈闭",
+    "well":  "Girassol-4",
+    "formation":  "Pinda 组",
+    "strata_meta":  {
+                        "lithology":  "碳酸盐岩、碎屑岩",
+                        "gamma_range":  [
+                                            12,
+                                            55
+                                        ],
+                        "resistivity_range":  [
+                                                  8,
+                                                  900
+                                              ],
+                        "porosity_range":  [
+                                               0.05,
+                                               0.22
+                                           ],
+                        "permeability_range":  [
+                                                   0.2,
+                                                   320
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.18,
+                                                       0.68
+                                                   ]
+                    },
+    "method_name":  "盐下碳酸盐岩综合图版法",
+    "method_meta":  {
+                        "threshold":  "GR\u003c55",
+                        "formula":  "采用密度中子交会扣除盐岩影响",
+                        "condition":  "下刚果盐下 Pinda 组，盐岩干扰测井曲线"
+                    }
+}

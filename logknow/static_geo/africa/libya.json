@@ -1,31 +1,137 @@
-﻿[
-  {
-    "country": "利比亚",
-    "basin": "Sirte 锡尔特盆地",
-    "sag": "Sirte 中央凹陷",
-    "block": "锡尔特盆地核心区块",
-    "oilfield": "Sarir 油田",
-    "structure": "古隆起、断块、台地",
-    "well": "LBY-01",
-    "formation": "Cretaceous Sand / Paleocene Carbonate",
-    "strata_meta": {
-      "sub_layer": "白垩系河流砂岩、古新统碳酸盐岩台地储层",
-      "lithology": ["石英砂岩", "粒屑灰岩", "白云岩", "页岩"],
-      "log_response": {
-        "reservoir": {"GR": "4–52", "RT": "14–225", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–720+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "锡尔特盆地白垩系砂岩与古新统灰岩解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷盆地，古隆起控藏，灰岩孔洞发育",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "岩相分支，白云岩校正 Archie，砂岩泥质 Archie",
-      "threshold": {"sw_max": "0.55"},
-      "limitation": "风化壳、孔洞分布极不均匀，局部硬石膏干扰",
-      "reference_case": "Sarir, Nasser"
-    },
-    "gwc": {"Cretaceous Sand": "断块独立油水界面", "Paleocene Carbonate": "台地块独立界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "古生界石英砂岩",
+                                              "rt_range":  [
+                                                               4.5,
+                                                               100
+                                                           ],
+                                              "aliases":  [
+                                                              "努比亚砂岩"
+                                                          ],
+                                              "gr_range":  [
+                                                               15,
+                                                               60
+                                                           ],
+                                              "sw_base":  0.32,
+                                              "den_range":  [
+                                                                2.43,
+                                                                2.62
+                                                            ],
+                                              "name":  "Nubian",
+                                              "porosity_base":  0.15,
+                                              "cnl_range":  [
+                                                                0.06,
+                                                                0.2
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "锡尔特盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.033,
+                                                                 "m":  2.11,
+                                                                 "a":  0.71,
+                                                                 "n":  1.91
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.06,
+                                                                    "gr_max":  65
+                                                                },
+                                                  "condition":  "利比亚锡尔特盆地 Nubian 砂岩油藏",
+                                                  "method_name":  "努比亚砂岩饱和度计算"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "锡尔特盆地",
+                       "name_en":  "Sirte Basin",
+                       "notes":  "北非裂谷盆地，古近系碳酸盐岩与白垩系砂岩双主力，高产油田集中",
+                       "depressions":  [
+                                           {
+                                               "name":  "锡尔特中央凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Sabil",
+                                              "aliases":  [
+                                                              "萨比尔组",
+                                                              "Sabil Fm"
+                                                          ],
+                                              "litho_main":  "礁滩灰岩、粒屑灰岩，局部白云岩化",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 220
+                                                             ],
+                                              "gwc":  "大型背斜统一油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.68,
+                                                             "vsh":  0.15
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "油层中高阻",
+                                                                   "DEN":  "2.48–2.69 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "50–66 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "锡尔特 Sabil 碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.71 * Rw / (Rt * phi ** 2.10)) ** (1 / 2.22)",
+                                                  "params":  {
+                                                                 "a":  0.71,
+                                                                 "m":  2.1,
+                                                                 "n":  2.22
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "锡尔特礁滩碳酸盐岩，裂缝带 m 动态校正",
+                                                  "source":  "利比亚锡尔特盆地测井评价，第24届测井年会北非碳酸盐岩专题"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "利比亚"
+}

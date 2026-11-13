@@ -1,31 +1,100 @@
-﻿[
-  {
-    "country": "塞内加尔",
-    "basin": "Senegal 海岸盆地",
-    "sag": "Saint-Louis 近海凹陷",
-    "block": "Senegal 近海区块",
-    "oilfield": "Yakaar-Teranga 气田",
-    "structure": "滚动背斜、浊积扇",
-    "well": "SEN-01",
-    "formation": "Cretaceous Turbidite Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系深水浊积砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–51", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "77–127", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油"
-    },
-    "method_name": "塞内加尔近海白垩系浊积砂气层解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘深水复合扇体",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "多期扇叠置，泥质夹层多，流体分异复杂",
-      "reference_case": "Yakaar-Teranga"
-    },
-    "gwc": {"Cretaceous Turbidite Sand": "浊积扇独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "塞内加尔近海盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "塞内加尔盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "MSGB 深水凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Senegal Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "25–65 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "油层 5–50 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 40,
+                                                                 1100
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.18,
+                                                                     0.3
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.22,
+                                                             "por":  0.14,
+                                                             "sw":  0.56
+                                                         },
+                                              "gwc":  "单个砂体独立油水界面",
+                                              "name":  "Upper Cretaceous Turbidite",
+                                              "aliases":  [
+                                                              "上白垩统浊积砂"
+                                                          ],
+                                              "litho_main":  "上白垩统深水块状浊积砂岩，分选好、泥质低"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "低泥质块状砂，直接 Archie；薄层段做薄层校正",
+                                                  "source":  "塞内加尔 Sangomar 测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.84,
+                                                                 "a":  0.8,
+                                                                 "n":  1.98
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.14
+                                                                },
+                                                  "method_name":  "塞内加尔深水浊积砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "上白垩统—古近系浊积砂岩，Sangomar 油田群"
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "塞内加尔",
+    "country_en":  "",
+    "notes":  ""
+}

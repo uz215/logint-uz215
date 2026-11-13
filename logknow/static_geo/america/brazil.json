@@ -1,0 +1,230 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "南美被动陆缘，盐下湖相碳酸盐岩、盐上深水浊积砂；Lula 巨型油田，盐岩造成电阻率畸变，储层非均质性极强",
+    "basins":  [
+                   {
+                       "name":  "桑托斯盆地",
+                       "name_en":  "Santos Basin",
+                       "notes":  "南美被动陆缘，盐下湖相碳酸盐岩、盐上深水浊积砂；Lula 巨型油田，盐岩造成电阻率畸变，储层非均质性极强",
+                       "depressions":  [
+                                           {
+                                               "name":  "桑托斯主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Guaratiba",
+                                              "aliases":  [
+                                                              "瓜拉蒂巴组",
+                                                              "Guaratiba Fm"
+                                                          ],
+                                              "litho_main":  "湖相叠层石灰岩、介壳灰岩，白云岩化，孔洞型储层",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 260
+                                                             ],
+                                              "gwc":  "岩相与断层分割，界面破碎",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.68,
+                                                             "vsh":  0.12
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "高阻，裂缝段降阻",
+                                                                   "DEN":  "2.46–2.69 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "48–64 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "桑托斯盐下碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.69 * Rw / (Rt * phi ** 2.13)) ** (1 / 2.24)",
+                                                  "params":  {
+                                                                 "a":  0.69,
+                                                                 "m":  2.13,
+                                                                 "n":  2.24
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "盐下层，必须做盐层电阻率校正；孔洞裂缝储层动态修正 m",
+                                                  "source":  "巴西桑托斯盆地岩石物理规范，第24届测井年会南美盐下专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "桑托斯盆地",
+                       "name_en":  "Santos Basin",
+                       "notes":  "南美被动陆缘，盐下湖相碳酸盐岩、盐上深水浊积砂；Lula 巨型油田，盐岩造成电阻率畸变，储层非均质性极强",
+                       "depressions":  [
+                                           {
+                                               "name":  "桑托斯主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Guaratiba",
+                                              "aliases":  [
+                                                              "瓜拉蒂巴组",
+                                                              "Guaratiba Fm"
+                                                          ],
+                                              "litho_main":  "湖相叠层石灰岩、介壳灰岩，白云岩化，孔洞型储层",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 260
+                                                             ],
+                                              "gwc":  "岩相与断层分割，界面破碎",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.68,
+                                                             "vsh":  0.12
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "高阻，裂缝段降阻",
+                                                                   "DEN":  "2.46–2.69 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "48–64 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.46–2.69 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–35 API",
+                                                                   "DT":  "48–64 μs/ft",
+                                                                   "RT":  "油层 30–250 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.3,
+                                                                 260
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.12,
+                                                             "por":  0.07,
+                                                             "sw":  0.66
+                                                         },
+                                              "gwc":  "岩相与断层分割",
+                                              "name":  "Barra Velha",
+                                              "aliases":  [
+                                                              "巴拉维利亚组"
+                                                          ],
+                                              "litho_main":  "盐下湖相微生物碳酸盐岩、叠层石灰岩，主力储层"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–75 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "油层 4–40 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 40,
+                                                                 1200
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.18,
+                                                                     0.3
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.25,
+                                                             "por":  0.14,
+                                                             "sw":  0.56
+                                                         },
+                                              "gwc":  "砂体独立",
+                                              "name":  "Post-Salt Turbidite",
+                                              "aliases":  [
+                                                              "盐上浊积砂"
+                                                          ],
+                                              "litho_main":  "古近—新近系深水浊积砂岩"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "桑托斯盐下碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.69 * Rw / (Rt * phi ** 2.13)) ** (1 / 2.24)",
+                                                  "params":  {
+                                                                 "a":  0.69,
+                                                                 "m":  2.13,
+                                                                 "n":  2.24
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "盐下层，必须做盐层电阻率校正；孔洞裂缝储层动态修正 m",
+                                                  "source":  "巴西桑托斯盆地岩石物理规范，第24届测井年会南美盐下专题"
+                                              },
+                                              {
+                                                  "condition":  "盐层电阻率畸变须先校正；叠层石相带 m 差异大，需分相标定",
+                                                  "source":  "巴西桑托斯盐下测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.12,
+                                                                 "a":  0.72,
+                                                                 "n":  2.24
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "method_name":  "Barra Velha 盐下微生物碳酸盐岩"
+                                              },
+                                              {
+                                                  "condition":  "低泥质块状砂，直接 Archie",
+                                                  "source":  "巴西盐上储层测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.85,
+                                                                 "a":  0.79,
+                                                                 "n":  1.99
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.14
+                                                                },
+                                                  "method_name":  "盐上浊积砂岩 Archie"
+                                              }
+                                          ]
+                   }
+               ]
+}

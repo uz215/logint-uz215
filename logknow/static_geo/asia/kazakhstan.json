@@ -1,31 +1,269 @@
-﻿[
-  {
-    "country": "哈萨克斯坦",
-    "basin": "Pre-Caspian 滨里海盆地",
-    "sag": "中央凹陷",
-    "block": "滨里海南部区块",
-    "oilfield": "Kashagan 油田",
-    "structure": "盐下生物礁隆起",
-    "well": "KAZ-01",
-    "formation": "Carboniferous Reef / Permian Sand",
-    "strata_meta": {
-      "sub_layer": "石炭系生物礁碳酸盐岩、二叠系砂岩，巨厚盐岩盖层",
-      "lithology": ["礁灰岩", "白云岩", "石英砂岩", "盐岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "3–50", "RT": "15–260", "DEN": "2.30–2.56", "CNL": "2–21", "AC": "41–86"},
-        "non_reservoir": {"GR": "75–126", "RT": "1.0–950+", "DEN": "2.52–2.72", "CNL": "0–32", "AC": "36–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气、高含硫"
-    },
-    "method_name": "滨里海盐下礁体解释法",
-    "method_meta": {
-      "applicable_condition": "盐下孤立生物礁，孔洞-裂缝复合储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "盐屏蔽校正，礁体孔洞 Archie，高矿化地层水修正",
-      "threshold": {"sw_max": "0.54"},
-      "limitation": "礁体非均质性极强，硫化氢含量高，地层水矿化度波动大",
-      "reference_case": "Kashagan, Tengiz"
-    },
-    "gwc": {"Carboniferous Reef": "单个礁体独立油水界面", "Permian Sand": "砂体独立界面"}
-  }
-]
+﻿{
+    "country":  "哈萨克斯坦",
+    "basin":  "Pre-Caspian 滨里海盆地",
+    "sag":  "中央凹陷",
+    "block":  "滨里海南部区块",
+    "oilfield":  "Kashagan 油田",
+    "structure":  "盐下生物礁隆起",
+    "well":  "KAZ-01",
+    "formation":  "Carboniferous Reef / Permian Sand",
+    "strata_meta":  {
+                        "sub_layer":  "石炭系生物礁碳酸盐岩、二叠系砂岩，巨厚盐岩盖层",
+                        "lithology":  [
+                                          "礁灰岩",
+                                          "白云岩",
+                                          "石英砂岩",
+                                          "盐岩",
+                                          "泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "3–50",
+                                                               "RT":  "15–260",
+                                                               "DEN":  "2.30–2.56",
+                                                               "CNL":  "2–21",
+                                                               "AC":  "41–86"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "75–126",
+                                                                   "RT":  "1.0–950+",
+                                                                   "DEN":  "2.52–2.72",
+                                                                   "CNL":  "0–32",
+                                                                   "AC":  "36–104"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气、高含硫"
+                    },
+    "method_name":  "滨里海盐下礁体解释法",
+    "method_meta":  {
+                        "applicable_condition":  "盐下孤立生物礁，孔洞-裂缝复合储层",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "盐屏蔽校正，礁体孔洞 Archie，高矿化地层水修正",
+                        "threshold":  {
+                                          "sw_max":  "0.54"
+                                      },
+                        "limitation":  "礁体非均质性极强，硫化氢含量高，地层水矿化度波动大",
+                        "reference_case":  "Kashagan, Tengiz"
+                    },
+    "gwc":  {
+                "Carboniferous Reef":  "单个礁体独立油水界面",
+                "Permian Sand":  "砂体独立界面"
+            },
+    "basins":  [
+                   {
+                       "name":  "滨里海盆地",
+                       "name_en":  "Pre-Caspian Basin",
+                       "notes":  "滨里海盆地，盐下碳酸盐岩主力，盐层干扰测井，储层非均质性极强",
+                       "depressions":  [
+                                           {
+                                               "name":  "滨里海南部凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Asselian",
+                                              "aliases":  [
+                                                              "阿瑟尔阶",
+                                                              "Asselian Fm"
+                                                          ],
+                                              "litho_main":  "孔洞型灰岩、白云岩，局部膏岩夹层",
+                                              "porosity_range":  [
+                                                                     0.05,
+                                                                     0.18
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.05,
+                                                                 120
+                                                             ],
+                                              "gwc":  "受盐构造、裂缝控制，界面破碎",
+                                              "cutoff":  {
+                                                             "por":  0.04,
+                                                             "sw":  0.72,
+                                                             "vsh":  0.15
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "变化极大，裂缝段降阻",
+                                                                   "DEN":  "2.50–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "46–64 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "滨里海盐下碳酸盐岩饱和度模型",
+                                                  "formula":  "Sw = (0.70 * Rw / (Rt * phi ** 2.13)) ** (1 / 2.25)",
+                                                  "params":  {
+                                                                 "a":  0.7,
+                                                                 "m":  2.13,
+                                                                 "n":  2.25
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.04
+                                                                },
+                                                  "condition":  "盐下孔洞碳酸盐岩；盐层附近电阻率失真，需要先行盐校正",
+                                                  "source":  "哈萨克斯坦滨里海盆地测井评价规范"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "滨里海盆地",
+                       "name_en":  "Pre-Caspian Basin",
+                       "notes":  "滨里海盆地，盐下碳酸盐岩主力，盐层干扰测井，储层非均质性极强",
+                       "depressions":  [
+                                           {
+                                               "name":  "滨里海南部凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Asselian",
+                                              "aliases":  [
+                                                              "阿瑟尔阶",
+                                                              "Asselian Fm"
+                                                          ],
+                                              "litho_main":  "孔洞型灰岩、白云岩，局部膏岩夹层",
+                                              "porosity_range":  [
+                                                                     0.05,
+                                                                     0.18
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.05,
+                                                                 120
+                                                             ],
+                                              "gwc":  "受盐构造、裂缝控制，界面破碎",
+                                              "cutoff":  {
+                                                             "por":  0.04,
+                                                             "sw":  0.72,
+                                                             "vsh":  0.15
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "变化极大，裂缝段降阻",
+                                                                   "DEN":  "2.50–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "46–64 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "滨里海盐下碳酸盐岩饱和度模型",
+                                                  "formula":  "Sw = (0.70 * Rw / (Rt * phi ** 2.13)) ** (1 / 2.25)",
+                                                  "params":  {
+                                                                 "a":  0.7,
+                                                                 "m":  2.13,
+                                                                 "n":  2.25
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.04
+                                                                },
+                                                  "condition":  "盐下孔洞碳酸盐岩；盐层附近电阻率失真，需要先行盐校正",
+                                                  "source":  "哈萨克斯坦滨里海盆地测井评价规范"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "曼吉斯套盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "South Mangyshlak 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Mangyshlak Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.50–2.70 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–35 API",
+                                                                   "DT":  "48–62 μs/ft",
+                                                                   "RT":  "油层 10–120 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 70
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.05,
+                                                                     0.16
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.04,
+                                                             "sw":  0.72
+                                                         },
+                                              "gwc":  "断块与泥火山刺穿控制",
+                                              "name":  "Jurassic Carbonate (Mangyshlak)",
+                                              "aliases":  [
+                                                              "中侏罗统碳酸盐岩"
+                                                          ],
+                                              "litho_main":  "中侏罗统灰岩、白云岩，孔洞—裂缝型"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "泥火山附近破碎带单独标定 m；老井需做井径校正",
+                                                  "source":  "哈萨克斯坦曼吉斯套测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.09,
+                                                                 "a":  0.72,
+                                                                 "n":  2.19
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.04
+                                                                },
+                                                  "method_name":  "曼吉斯套碳酸盐岩饱和度"
+                                              }
+                                          ],
+                       "notes":  "中侏罗统碳酸盐岩，Uzen、Zhetybay 油田，断层与泥火山发育"
+                   }
+               ],
+    "country_en":  "",
+    "continent":  "asia",
+    "notes":  ""
+}

@@ -1,31 +1,186 @@
-﻿[
-    {
-        "country": "阿拉伯联合酋长国",
-        "basin": "鲁卜哈利盆地",
-        "sag": "陆上凹陷",
-        "block": "Thamama 区块",
-        "oilfield": "Thamama 油田",
-        "structure": "台地粒屑滩构造",
-        "well": "THA-01",
-        "formation": "Thamama",
-        "strata_meta": {
-            "sub_layer": "白垩系碳酸盐岩",
-            "lithology": ["灰岩、粒屑灰岩"],
-            "log_response": {
-                "reservoir": {"GR": "4–22", "RT": "25–250", "DEN": "2.44–2.59", "CNL": "4–11", "DT": "44–64"},
-                "non_reservoir": {"GR": "1–8", "RT": "1000+", "DEN": "2.90–2.98", "CNL": "-1~2", "DT": "32–40"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "碳酸盐岩粒屑滩解释法",
-        "method_meta": {
-            "applicable_condition": "白垩系粒屑滩灰岩储层",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "粒间孔隙饱和度模型",
-            "threshold": {"sw_max": 0.60},
-            "limitation": "硬石膏层干扰孔隙计算",
-            "reference_case": "阿联酋海上、陆上碳酸盐岩油田"
-        },
-        "gwc": {"Thamama": "不同构造油水界面分开"}
-    }
-]
+﻿{
+    "country":  "阿联酋",
+    "country_en":  "United Arab Emirates",
+    "continent":  "asia",
+    "notes":  "阿布扎比巨型碳酸盐岩油田为主，Thamama 群礁滩储层，裂缝普遍发育",
+    "basins":  [
+                   {
+                       "name":  "波斯湾盆地（阿联酋段）",
+                       "name_en":  "Persian Gulf Basin (UAE Sector)",
+                       "depressions":  [
+                                           {
+                                               "name":  "阿布扎比主凹陷",
+                                               "blocks":  [
+                                                              {
+                                                                  "name":  "阿布扎比陆上区块",
+                                                                  "oilfields":  [
+                                                                                    {
+                                                                                        "name":  "扎库姆油田",
+                                                                                        "structures":  [
+                                                                                                           {
+                                                                                                               "name":  "Zakum 背斜",
+                                                                                                               "wells":  [
+                                                                                                                             {
+                                                                                                                                 "name":  "Zak‑12",
+                                                                                                                                 "td":  "4312 m",
+                                                                                                                                 "intervals":  [
+                                                                                                                                                   {
+                                                                                                                                                       "fm":  "Thamama",
+                                                                                                                                                       "top":  "2740 m",
+                                                                                                                                                       "bot":  "3625 m",
+                                                                                                                                                       "lithology":  "厚层碳酸盐岩，礁滩灰岩",
+                                                                                                                                                       "fluid_type":  "黑油",
+                                                                                                                                                       "test_result":  "高产工业油流",
+                                                                                                                                                       "log_response":  {
+                                                                                                                                                                            "GR":  "低伽马 10–45 API",
+                                                                                                                                                                            "RT":  "油层 8–40 Ω·m",
+                                                                                                                                                                            "DEN":  "2.49–2.69 g/cm³",
+                                                                                                                                                                            "CNL":  "偏低",
+                                                                                                                                                                            "DT":  "52–68 μs/ft"
+                                                                                                                                                                        }
+                                                                                                                                                   }
+                                                                                                                                               ]
+                                                                                                                             }
+                                                                                                                         ]
+                                                                                                           }
+                                                                                                       ]
+                                                                                    }
+                                                                                ]
+                                                              }
+                                                          ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Thamama",
+                                              "aliases":  [
+                                                              "塔马马群",
+                                                              "Thamama Group"
+                                                          ],
+                                              "litho_main":  "礁滩相灰岩、白云岩化灰岩，孔洞‑裂缝复合储层",
+                                              "porosity_range":  [
+                                                                     0.07,
+                                                                     0.21
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 180
+                                                             ],
+                                              "gwc":  "大型背斜统一界面，裂缝带局部突破",
+                                              "cutoff":  {
+                                                             "por":  0.05,
+                                                             "sw":  0.65,
+                                                             "vsh":  0.18
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "油层中高阻",
+                                                                   "DEN":  "2.47–2.70 g/cm³",
+                                                                   "CNL":  "低中子孔隙度",
+                                                                   "DT":  "50–66 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.46–2.68 g/cm³",
+                                                                   "CNL":  "0.05–0.18",
+                                                                   "GR":  "8–30 API",
+                                                                   "DT":  "50–66 μs/ft",
+                                                                   "RT":  "油层 10–90 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 150
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.06,
+                                                             "sw":  0.66
+                                                         },
+                                              "gwc":  "构造与礁体形态控制",
+                                              "name":  "Shuaiba",
+                                              "aliases":  [
+                                                              "舒艾巴组"
+                                                          ],
+                                              "litho_main":  "下白垩统礁滩灰岩，孔洞发育"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.50–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "6–26 API",
+                                                                   "DT":  "48–62 μs/ft",
+                                                                   "RT":  "油层 15–150 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 90
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.05,
+                                                             "sw":  0.68
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Arab",
+                                              "aliases":  [
+                                                              "阿拉伯组"
+                                                          ],
+                                              "litho_main":  "上侏罗统颗粒灰岩、白云岩化灰岩，夹硬石膏"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Thamama 礁滩碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.71 * Rw / (Rt * phi ** 2.11)) ** (1 / 2.23)",
+                                                  "params":  {
+                                                                 "a":  0.71,
+                                                                 "m":  2.11,
+                                                                 "n":  2.23
+                                                             },
+                                                  "threshold":  {
+
+                                                                },
+                                                  "condition":  "孔隙型礁滩碳酸盐岩；裂缝发育段需要单独标定 m、n，建议分相带建模",
+                                                  "source":  "阿布扎比国家石油公司岩石物理手册，第24届测井年会碳酸盐岩专题"
+                                              },
+                                              {
+                                                  "condition":  "礁核与礁翼分带标定；孔洞段 m 下调",
+                                                  "source":  "阿联酋 Shuaiba 测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.07,
+                                                                 "a":  0.72,
+                                                                 "n":  2.17
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.06
+                                                                },
+                                                  "method_name":  "Shuaiba 礁滩灰岩饱和度"
+                                              },
+                                              {
+                                                  "condition":  "硬石膏夹层按 GR 与 DEN 剔除后再算",
+                                                  "source":  "阿联酋 Arab 组岩石物理标定",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.1,
+                                                                 "a":  0.71,
+                                                                 "n":  2.2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "method_name":  "Arab 组碳酸盐岩饱和度"
+                                              }
+                                          ]
+                   }
+               ]
+}

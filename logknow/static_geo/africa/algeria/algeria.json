@@ -1,0 +1,39 @@
+﻿{
+    "country":  "阿尔及利亚",
+    "basin":  "伊利济盆地",
+    "sag":  "阿赫奈特凹陷",
+    "block":  "In Salah 区块",
+    "oilfield":  "In Salah 气田",
+    "structure":  "古生界断块",
+    "well":  "InSalah-1",
+    "formation":  "Tassili 组",
+    "strata_meta":  {
+                        "lithology":  "石英砂岩，致密砂岩",
+                        "gamma_range":  [
+                                            22,
+                                            78
+                                        ],
+                        "resistivity_range":  [
+                                                  4,
+                                                  220
+                                              ],
+                        "porosity_range":  [
+                                               0.05,
+                                               0.16
+                                           ],
+                        "permeability_range":  [
+                                                   0.05,
+                                                   60
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.25,
+                                                       0.78
+                                                   ]
+                    },
+    "method_name":  "致密砂岩气层解释",
+    "method_meta":  {
+                        "threshold":  "Rt\u003e4, GR\u003c60",
+                        "formula":  "低孔条件下 Archie",
+                        "condition":  "阿尔及利亚古生界致密砂岩气藏"
+                    }
+}

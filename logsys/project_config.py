@@ -1,0 +1,575 @@
+# -*- coding: utf-8 -*-
+"""项目配置：井 ↔ 原始资料目录 的绑定关系。
+
+为什么需要这个模块
+------------------
+项目树（Project → Well → Dataset → Variable）扫描的是**产物目录**
+（如 ``D:\\360\\src\\output``），而 QuickLook / 综合解释这类作业需要的是
+**原始井目录**（含原始 LAS、地质设计、录井图、气测、甲方格式），例如
+``D:\\360\\Indonesia\\BET-1``。
+
+两者的对应关系**无法靠文件名自动推断**：
+- 目录名可能不同（井 ``RASHIDPUR_13`` 的资料目录叫 ``RP-13``）；
+- 同一口井的资料可能散在多个目录；
+- 产物目录里没有原始 LAS（只有 ``*_interpreted.LAS`` 解释成果）。
+
+因此这里采用 Techlog 的做法：把映射关系**显式存下来**，而不是猜。
+配置文件为项目根下的 ``project.json``：
+
+```json
+{
+  "version": 1,
+  "source_roots": ["D:\\\\360\\\\Indonesia", "D:\\\\360\\\\Bangladesh"],
+  "wells": {
+    "BET-1": {"source_dir": "D:\\\\360\\\\Indonesia\\\\BET-1"},
+    "TRAKES-1": {
+      "source_dir": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1",
+      "las": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1\\\\TK1.las",
+      "gas": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1\\\\gas.xlsx",
+      "config": "D:\\\\360\\\\Indonesia\\\\Trakes KE-1\\\\qlpt.json"
+    }
+  }
+}
+```
+
+约定：
+- ``source_roots``：候选原始资料根目录，探测时按井名在这些根下找子目录；
+- ``wells``：**已登记的项目成员**（井名 → 源目录 + 资料指定），
+  是「把井添加到项目里」这个动作的结果，也是**项目成员名单**本身；
+  优先级高于自动探测；
+- ``las`` / ``gas`` / ``config``：**井级资料指定**（手工挑好的主 LAS、气测文件、
+  甲方出图格式），优先级高于自动探测；原启动界面的"手动校正资料"能力
+  随项目界面下沉到井级，保存在这里；
+- 写入采用**原子替换**（临时文件 + os.replace），避免半截文件；
+- 任何失败都降级为"空配置"，不抛错（与 logsys 约定一致）。
+
+项目成员 ≠ 目录内容
+------------------
+项目树扫的是**产物目录**（``output/<井名>/``），但一口**刚加入、还没出产物**的
+井在产物目录里并不存在。因此"项目"用一个**显式成员名单**（``wells``）来表达，
+成员 = 已登记的井 ∪ 产物目录下的子目录。新加进来的井先以"待解释"状态出现，
+作业跑完产物落回 ``output/<井名>/``，状态随之升级 —— 这才是完整闭环。
+
+本模块只依赖标准库，不依赖 tkinter，可独立单测。
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import tempfile
+
+#: 项目配置文件名（位于项目根目录）
+CONFIG_NAME = 'project.json'
+
+#: 配置格式版本
+CONFIG_VERSION = 1
+
+
+def config_path(root: str) -> str:
+    """项目配置文件绝对路径。"""
+    return os.path.join(os.path.abspath(root), CONFIG_NAME)
+
+
+#: 井级资料覆盖项（手工指定，优先于自动探测）
+WELL_OPTIONS = ('las', 'gas', 'config')
+
+#: 覆盖项的中文标签（GUI 用）
+WELL_OPTION_LABELS = {
+    'las': '主 LAS 文件',
+    'gas': '气测文件',
+    'config': '甲方出图格式',
+}
+
+
+def _empty_config() -> dict:
+    return {'version': CONFIG_VERSION, 'source_roots': [], 'wells': {}}
+
+
+def load_config(root: str) -> dict:
+    """读取项目配置。
+
+    返回结构：``{'version': int, 'source_roots': [str], 'wells': {井名: {...}}}``
+    文件不存在 / 损坏 → 返回空配置（不抛错）。
+    """
+    cfg = _empty_config()
+    p = config_path(root)
+    try:
+        with open(p, 'r', encoding='utf-8') as f:
+            raw = json.load(f)
+    except Exception:
+        return cfg
+    if not isinstance(raw, dict):
+        return cfg
+    try:
+        cfg['version'] = int(raw.get('version') or CONFIG_VERSION)
+    except Exception:
+        cfg['version'] = CONFIG_VERSION
+    roots = raw.get('source_roots')
+    if isinstance(roots, (list, tuple)):
+        cfg['source_roots'] = [str(x) for x in roots if str(x).strip()]
+    wells = raw.get('wells')
+    if isinstance(wells, dict):
+        for name, val in wells.items():
+            if isinstance(val, dict):
+                cfg['wells'][str(name)] = dict(val)
+    return cfg
+
+
+def save_config(root: str, cfg: dict) -> bool:
+    """原子写回项目配置。成功返回 True。
+
+    空条目（``{}``）不写入 —— 避免留下"配过但没内容"的空壳井记录。
+    """
+    p = config_path(root)
+    data = {
+        'version': int(cfg.get('version') or CONFIG_VERSION),
+        'source_roots': list(cfg.get('source_roots') or []),
+        'wells': {str(k): dict(v) for k, v in (cfg.get('wells') or {}).items()
+                  if isinstance(v, dict) and v},
+    }
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=os.path.dirname(p), suffix='.tmp')
+        try:
+            with os.fdopen(fd, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            os.replace(tmp, p)
+        except Exception:
+            try:
+                os.unlink(tmp)
+            except Exception:
+                pass
+            raise
+        return True
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------- 绑定操作
+
+def bind_well(root: str, well_name: str, source_dir: str,
+              extra: dict | None = None) -> bool:
+    """绑定一口井的原始资料目录。
+
+    重新绑定**不覆盖**既有的资料指定（las / gas / config）——
+    换源目录不等于换掉用户手工挑好的主 LAS。
+    """
+    cfg = load_config(root)
+    name = str(well_name)
+    old = dict((cfg.get('wells') or {}).get(name) or {})
+    entry = {'source_dir': os.path.abspath(source_dir)}
+    for k in WELL_OPTIONS:
+        if old.get(k):
+            entry[k] = old[k]
+    if extra:
+        for k, v in extra.items():
+            if v:
+                entry[k] = v
+    cfg['wells'][name] = entry
+    return save_config(root, cfg)
+
+
+def unbind_well(root: str, well_name: str) -> bool:
+    """解除一口井的原始资料目录绑定。"""
+    cfg = load_config(root)
+    if str(well_name) in cfg['wells']:
+        del cfg['wells'][str(well_name)]
+        return save_config(root, cfg)
+    return True
+
+
+def add_source_root(root: str, source_root: str) -> bool:
+    """追加一个候选原始资料根目录。
+
+    路径先经 :func:`normalize_source_root` 规范化 —— 修复 ``:\\<数字>``
+    片段在中间传递环节被吞掉的损坏。
+    """
+    cfg = load_config(root)
+    p = os.path.abspath(normalize_source_root(source_root))
+    if p not in cfg['source_roots']:
+        cfg['source_roots'].append(p)
+        return save_config(root, cfg)
+    return True
+
+
+def remove_source_root(root: str, source_root: str) -> bool:
+    """移除一个候选原始资料根目录。"""
+    cfg = load_config(root)
+    p = os.path.abspath(source_root)
+    if p in cfg['source_roots']:
+        cfg['source_roots'].remove(p)
+        return save_config(root, cfg)
+    return True
+
+
+# ---------------------------------------------------------------- 井级资料指定
+
+def set_well_option(root: str, well_name: str, key: str, value: str) -> bool:
+    """设置井级资料覆盖项（``las`` / ``gas`` / ``config``）。
+
+    ``value`` 为空字符串 → 清除该项（回到自动探测）。
+    这三项对应原启动界面里"手动校正测井数据 / 气测 / 出图格式"的能力，
+    现在随项目界面一起下沉到井级。
+    """
+    if key not in WELL_OPTIONS:
+        return False
+    cfg = load_config(root)
+    name = str(well_name)
+    entry = dict((cfg.get('wells') or {}).get(name) or {})
+    v = str(value or '').strip()
+    if v:
+        entry[key] = os.path.abspath(v)
+    else:
+        entry.pop(key, None)
+    cfg['wells'][name] = entry
+    return save_config(root, cfg)
+
+
+def clear_well_options(root: str, well_name: str) -> bool:
+    """清除该井的全部资料覆盖项（保留 source_dir 绑定）。"""
+    cfg = load_config(root)
+    name = str(well_name)
+    entry = dict((cfg.get('wells') or {}).get(name) or {})
+    for k in WELL_OPTIONS:
+        entry.pop(k, None)
+    cfg['wells'][name] = entry
+    return save_config(root, cfg)
+
+
+def well_options(root: str, well_name: str) -> dict:
+    """读取井级资料覆盖项。
+
+    返回 ``{'las': 路径, 'gas': 路径, 'config': 路径}``（未指定的键不出现）。
+    """
+    cfg = load_config(root)
+    entry = (cfg.get('wells') or {}).get(str(well_name)) or {}
+    out = {}
+    for k in WELL_OPTIONS:
+        v = str(entry.get(k) or '').strip()
+        if v:
+            out[k] = os.path.abspath(v)
+    return out
+
+
+# ---------------------------------------------------------------- 解析
+
+def _norm(name: str) -> str:
+    """井名归一：去空格/下划线/连字符并大写，用于宽松匹配。
+
+    ``RASHIDPUR_13`` / ``RP-13`` 归一后不同（无法匹配），
+    但 ``Trakes KE-1`` / ``TrakesKE-1`` 归一后相同（可匹配）。
+    """
+    return ''.join(ch for ch in str(name or '').upper() if ch.isalnum())
+
+
+def _match_dir(dirname: str, well_name: str) -> bool:
+    """目录名是否可视为该井的资料目录。
+
+    归一化后完全相等，或一方为另一方的前缀。
+    较短一方须 **≥4 个字符**，否则短名井（如 ``3``、``1``）会误匹配到
+    ``3-SPS-111D`` 这类目录上。
+    """
+    d = _norm(dirname)
+    w = _norm(well_name)
+    if not d or not w:
+        return False
+    if d == w:
+        return True
+    short, long_ = (d, w) if len(d) < len(w) else (w, d)
+    if len(short) < 4:
+        return False
+    return long_.startswith(short)
+
+
+def detect_source_dir(well_name: str, source_roots: list[str],
+                      extra_roots: list[str] | None = None) -> str:
+    """在候选源根中探测某口井的原始资料目录。
+
+    策略（按优先级）：
+      1. 源根下**同名子目录**；
+      2. 源根下**归一化后宽松匹配**的子目录（RASHIDPUR_13 → RP-13 这类
+         明显不同的命名不会被匹配上，属预期——那需要显式绑定；
+         ``Trakes KE-1`` ↔ ``TrakesKE-1`` 则可匹配）；
+      3. 源根下**包含井名 LAS 文件**的子目录；
+      4. **源根本身**直接含该井的 LAS（资料以散文件形式放在源根里的情形，
+         如 TITAS-31 的 LAS 就在 Bangladesh/ 根部）。
+
+    找不到返回 ''。
+    """
+    roots = [r for r in (list(source_roots or []) + list(extra_roots or [])) if r]
+    for root in roots:
+        if not os.path.isdir(root):
+            continue
+        # 1) 同名子目录
+        direct = os.path.join(root, well_name)
+        if os.path.isdir(direct):
+            return os.path.abspath(direct)
+        # 2) 宽松匹配的子目录
+        try:
+            entries = sorted(os.listdir(root))
+        except Exception:
+            entries = []
+        for e in entries:
+            d = os.path.join(root, e)
+            if os.path.isdir(d) and _match_dir(e, well_name):
+                return os.path.abspath(d)
+        # 3) 含该井名 LAS 文件的子目录
+        for e in entries:
+            d = os.path.join(root, e)
+            if not os.path.isdir(d):
+                continue
+            try:
+                files = os.listdir(d)
+            except Exception:
+                continue
+            for fn in files:
+                if _is_well_las(fn, well_name):
+                    return os.path.abspath(d)
+        # 4) 源根本身直接含该井 LAS
+        for fn in entries:
+            if _is_well_las(fn, well_name):
+                return os.path.abspath(root)
+    return ''
+
+
+def _is_well_las(filename: str, well_name: str) -> bool:
+    """文件名是否为该井的 LAS 文件。
+
+    归一化后完全相等，或一方为另一方前缀（短者须 ≥4 字符，避免
+    ``3`` 井误匹配 ``3-SPS-111D`` 的 LAS）。
+    """
+    low = filename.lower()
+    if not low.endswith('.las'):
+        return False
+    w = _norm(well_name)
+    if not w:
+        return False
+    stem = _norm(os.path.splitext(filename)[0])
+    if not stem:
+        return False
+    if stem == w:
+        return True
+    short, long_ = (stem, w) if len(stem) < len(w) else (w, stem)
+    if len(short) < 4:
+        return False
+    return long_.startswith(short)
+
+
+def resolve_source_dir(root: str, well_name: str,
+                       extra_roots: list[str] | None = None) -> str:
+    """解析一口井的原始资料目录。
+
+    优先级：**显式绑定** > **自动探测** > 空。
+    """
+    cfg = load_config(root)
+    entry = (cfg.get('wells') or {}).get(str(well_name)) or {}
+    bound = str(entry.get('source_dir') or '').strip()
+    if bound and os.path.isdir(bound):
+        return os.path.abspath(bound)
+    detected = detect_source_dir(well_name, cfg.get('source_roots') or [], extra_roots)
+    return detected
+
+
+def project_member_names(root: str) -> list[str]:
+    """项目成员井名清单 = 已登记的井 ∪ 项目根下的子目录。
+
+    项目不是"目录里有什么"，而是"**登记了哪些井**"。两者的并集才是
+    完整成员名单 —— 新加进来的井还没有产物目录，只存在于登记里。
+    """
+    names = set(registered_wells(root).keys())
+    try:
+        for e in os.listdir(os.path.abspath(root)):
+            if e.startswith('.') or e.startswith('_'):
+                continue
+            if os.path.isdir(os.path.join(os.path.abspath(root), e)):
+                names.add(e)
+    except Exception:
+        pass
+    return sorted(names)
+
+
+def source_map(root: str, well_names: list[str] | None = None,
+               extra_roots: list[str] | None = None) -> dict:
+    """批量解析井 → 原始资料目录 的映射（供 scan_project 使用）。
+
+    ``well_names`` 为 None 时自动取全部项目成员（已登记井 ∪ 项目根子目录），
+    确保"刚添加进项目、尚无产物"的井也能拿到源目录。
+    """
+    cfg = load_config(root)
+    roots = cfg.get('source_roots') or []
+    names = list(well_names) if well_names is not None else project_member_names(root)
+    out: dict[str, str] = {}
+    for name in names:
+        entry = (cfg.get('wells') or {}).get(str(name)) or {}
+        bound = str(entry.get('source_dir') or '').strip()
+        if bound and os.path.isdir(bound):
+            out[str(name)] = os.path.abspath(bound)
+            continue
+        det = detect_source_dir(name, roots, extra_roots)
+        if det:
+            out[str(name)] = det
+    return out
+
+
+def registered_wells(root: str) -> dict:
+    """已登记（显式加入项目）的井 → 配置条目。
+
+    "登记"是「把井添加到项目里」这个动作的结果：井名 → 原始资料目录。
+    与 `source_roots` 的区别是——后者是**候选探测范围**（被动、模糊），
+    前者是**项目成员名单**（主动、确定）。
+    """
+    return dict(load_config(root).get('wells') or {})
+
+
+def add_well_to_project(root: str, well_name: str, source_dir: str,
+                        extra: dict | None = None) -> bool:
+    """把一口井**添加到项目**。
+
+    井名即项目内的标识，也是作业产物的落盘目录名（``output/<井名>/``），
+    所以它应当与源目录同名 —— 但允许用户改名（例如源目录叫
+    ``Trakes KE-1``，项目内叫 ``TRAKES-1``）。
+
+    源目录不存在 → 拒绝登记（返回 False），避免留下一口"查无此井"的空壳。
+    """
+    name = str(well_name or '').strip()
+    if not name:
+        return False
+    src = os.path.abspath(str(source_dir or '').strip())
+    if not src or not os.path.isdir(src):
+        return False
+    return bind_well(root, name, src, extra=extra)
+
+
+def remove_well_from_project(root: str, well_name: str) -> bool:
+    """把一口井**从项目移除**。
+
+    只删登记，不动产物目录 —— 产物是解释成果，不该因为移出项目而丢失。
+    """
+    return unbind_well(root, well_name)
+
+
+def discover_wells_in_dir(path: str) -> list[dict]:
+    """在一个目录里发现候选井。
+
+    返回 ``[{'name', 'dir', 'has_las', 'files', 'las', 'las_path'}, ...]``：
+    - 每个**含 LAS 文件的子目录**算一口井（井名 = 子目录名）；
+    - 若目录**自身**含 LAS 文件，也算一口井（资料以散文件形式存放的情形）。
+
+    这用于"把一个资料根下的多口井一次性加进项目"。
+    """
+    out = []
+    p = os.path.abspath(str(path or '').strip())
+    if not os.path.isdir(p):
+        return out
+    try:
+        entries = sorted(os.listdir(p))
+    except Exception:
+        return out
+    for e in entries:
+        d = os.path.join(p, e)
+        if not os.path.isdir(d) or e.startswith('.') or e.startswith('_'):
+            continue
+        try:
+            files = [f for f in os.listdir(d) if os.path.isfile(os.path.join(d, f))]
+        except Exception:
+            continue
+        las = [f for f in files if f.lower().endswith('.las')]
+        if not las:
+            continue
+        out.append({'name': e, 'dir': d, 'has_las': True,
+                    'files': len(files), 'las': las[0],
+                    'las_path': os.path.join(d, las[0])})
+    # 目录自身含 LAS → 也是一口井
+    own = [f for f in entries if f.lower().endswith('.las')
+           and os.path.isfile(os.path.join(p, f))]
+    if own:
+        out.insert(0, {'name': os.path.basename(p) or '井', 'dir': p,
+                       'has_las': True, 'files': len(own), 'las': own[0],
+                       'las_path': os.path.join(p, own[0])})
+    return out
+
+
+def source_roots(root: str) -> list[str]:
+    """已登记的候选源根列表。"""
+    return list(load_config(root).get('source_roots') or [])
+
+
+def invalid_source_roots(root: str) -> list[str]:
+    """返回**不存在**的候选源根列表。
+
+    路径在命令行/脚本中传递时，``:\\<数字>`` 这类片段可能被中间环节吞掉
+    （曾出现 ``D:\\360\\Niger`` 被写成 ``D360\\Niger``）。这类损坏路径
+    不会报错、只是让该源根下的井永远探测不到，因此需要显式诊断。
+    """
+    out = []
+    for r in source_roots(root):
+        if not os.path.isdir(r):
+            out.append(r)
+    return out
+
+
+def repair_source_roots(root: str) -> list[str]:
+    """修复已登记但损坏的源根路径，返回被修复的原值列表。
+
+    修复是**保守**的：只有"补回后目录确实存在"才会改写，否则原样保留
+    （避免把用户有意指向的临时目录改坏）。
+    """
+    cfg = load_config(root)
+    fixed = []
+    roots = []
+    for r in cfg.get('source_roots') or []:
+        n = normalize_source_root(r)
+        if n != r:
+            fixed.append(r)
+        if n not in roots:
+            roots.append(n)
+    # 空壳井条目（配过但没内容）也借这次保存清掉
+    has_empty = any(isinstance(v, dict) and not v
+                    for v in (cfg.get('wells') or {}).values())
+    if fixed or has_empty:
+        if fixed:
+            cfg['source_roots'] = roots
+        save_config(root, cfg)
+    return fixed
+
+
+def normalize_source_root(path: str) -> str:
+    """规范化源根路径，并修复"反斜杠被吞"的常见损坏。
+
+    损坏形态：``D360\\Niger``（原应为 ``D:\\360\\Niger``）——
+    即盘符后的 ``:\\<数字>`` 片段整体丢失（含冒号）。
+    这里按"能定位到就修"的原则处理：若补回后目录确实存在，则采用补回值；
+    否则**原样保留**（不做无把握的改写）。
+    """
+    p = str(path or '').strip()
+    if not p or os.path.isdir(p):
+        return p
+    # 形态1：盘符后丢了 ":\<数字>" —— D360\Niger / D:360\Niger → D:\360\Niger
+    m = re.match(r'^([A-Za-z])(:?)(\d)', p)
+    if m:
+        tail = p[2:] if m.group(2) else p[1:]
+        cand = '%s:\\%s' % (m.group(1), tail)
+        if os.path.isdir(cand):
+            return cand
+    # 形态2：路径分隔符被换成正斜杠以外的怪字符 —— 直接规整
+    cand = p.replace('/', '\\')
+    if os.path.isdir(cand):
+        return cand
+    return p
+
+
+if __name__ == '__main__':
+    import sys
+    r = sys.argv[1] if len(sys.argv) > 1 else '.'
+    cfg = load_config(r)
+    print('配置文件:', config_path(r))
+    print('候选源根:')
+    for x in cfg['source_roots']:
+        print('   ', x)
+    print('显式绑定:')
+    for k, v in cfg['wells'].items():
+        print('   %-24s %s' % (k, v.get('source_dir', '')))
+        for ok in WELL_OPTIONS:
+            if v.get(ok):
+                print('       %-8s %s' % (ok, v[ok]))

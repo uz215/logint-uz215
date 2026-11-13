@@ -1,31 +1,57 @@
-﻿[
-  {
-    "country": "也门",
-    "basin": "Masila 盆地",
-    "sag": "Masila 凹陷",
-    "block": "也门东部陆上区块",
-    "oilfield": "Al Barakah 油田",
-    "structure": "断块、古隆起",
-    "well": "YEM-01",
-    "formation": "Cretaceous Sand / Jurassic Carbonate",
-    "strata_meta": {
-      "sub_layer": "白垩系砂岩、侏罗系碳酸盐岩风化壳储层",
-      "lithology": ["石英砂岩", "粒屑灰岩", "白云岩", "页岩"],
-      "log_response": {
-        "reservoir": {"GR": "5–50", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "也门 Masila 盆地砂灰岩储层解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷盆地，风化壳孔洞储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "风化壳识别，灰岩孔洞校正 Archie，砂岩泥质 Archie",
-      "threshold": {"sw_max": "0.56"},
-      "limitation": "孔洞分布极不均匀，断层复杂",
-      "reference_case": "Al Barakah, Canaan"
-    },
-    "gwc": {"Jurassic Carbonate": "古隆起块独立界面", "Cretaceous Sand": "断块独立界面"}
-  }
-]
+﻿{
+    "country":  "也门",
+    "basin":  "Masila 盆地",
+    "sag":  "Masila 凹陷",
+    "block":  "也门东部陆上区块",
+    "oilfield":  "Al Barakah 油田",
+    "structure":  "断块、古隆起",
+    "well":  "YEM-01",
+    "formation":  "Cretaceous Sand / Jurassic Carbonate",
+    "strata_meta":  {
+                        "sub_layer":  "白垩系砂岩、侏罗系碳酸盐岩风化壳储层",
+                        "lithology":  [
+                                          "石英砂岩",
+                                          "粒屑灰岩",
+                                          "白云岩",
+                                          "页岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "5–50",
+                                                               "RT":  "14–220",
+                                                               "DEN":  "2.32–2.57",
+                                                               "CNL":  "3–22",
+                                                               "AC":  "43–87"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "76–127",
+                                                                   "RT":  "1.0–700+",
+                                                                   "DEN":  "2.52–2.71",
+                                                                   "CNL":  "0–32",
+                                                                   "AC":  "38–104"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气"
+                    },
+    "method_name":  "也门 Masila 盆地砂灰岩储层解释法",
+    "method_meta":  {
+                        "applicable_condition":  "裂谷盆地，风化壳孔洞储层",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "风化壳识别，灰岩孔洞校正 Archie，砂岩泥质 Archie",
+                        "threshold":  {
+                                          "sw_max":  "0.56"
+                                      },
+                        "limitation":  "孔洞分布极不均匀，断层复杂",
+                        "reference_case":  "Al Barakah, Canaan"
+                    },
+    "gwc":  {
+                "Jurassic Carbonate":  "古隆起块独立界面",
+                "Cretaceous Sand":  "断块独立界面"
+            }
+}

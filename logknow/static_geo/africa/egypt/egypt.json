@@ -1,0 +1,39 @@
+﻿{
+    "country":  "埃及",
+    "basin":  "苏伊士湾盆地",
+    "sag":  "苏伊士中央凹陷",
+    "block":  "Gulf of Suez 区块",
+    "oilfield":  "Belayim 油田",
+    "structure":  "地堑内断块",
+    "well":  "Belayim-1",
+    "formation":  "Nubia 砂岩",
+    "strata_meta":  {
+                        "lithology":  "石英砂岩，风化壳储层",
+                        "gamma_range":  [
+                                            18,
+                                            72
+                                        ],
+                        "resistivity_range":  [
+                                                  2.5,
+                                                  90
+                                              ],
+                        "porosity_range":  [
+                                               0.12,
+                                               0.28
+                                           ],
+                        "permeability_range":  [
+                                                   8,
+                                                   800
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.2,
+                                                       0.68
+                                                   ]
+                    },
+    "method_name":  "努比亚砂岩解释",
+    "method_meta":  {
+                        "threshold":  "GR\u003c50",
+                        "formula":  "Archie，淡水地层水",
+                        "condition":  "苏伊士湾 Nubia 砂岩油藏"
+                    }
+}

@@ -1,0 +1,145 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.55–2.75 g/cm³",
+                                                                   "CNL":  "0.02–0.10",
+                                                                   "GR":  "6–30 API",
+                                                                   "DT":  "45–60 μs/ft",
+                                                                   "RT":  "油层 50–500 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 200
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.04,
+                                                                     0.14
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.08,
+                                                             "por":  0.03,
+                                                             "sw":  0.72
+                                                         },
+                                              "gwc":  "背斜统一界面，裂缝带突破",
+                                              "name":  "Bangestan",
+                                              "aliases":  [
+                                                              "班格斯坦群",
+                                                              "Sarvak"
+                                                          ],
+                                              "litho_main":  "白垩系礁滩灰岩，裂缝发育"
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "South Pars"
+                                         }
+                                     ],
+                       "name":  "扎格罗斯盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "裂缝段 Rt 骤降不可直接判水；须成像与生产测井联合判识",
+                                                  "source":  "伊朗班格斯坦群测井评价",
+                                                  "formula":  "Sw=((a*Rw)/(Rt*(phi_b**m_b+phi_f**m_f)))**(1/n)",
+                                                  "params":  {
+                                                                 "m_b":  2.38,
+                                                                 "m_f":  1.32,
+                                                                 "a":  0.88,
+                                                                 "n":  2.12
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "method_name":  "Bangestan 裂缝性碳酸盐岩双孔隙"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "波斯湾盆地（伊朗段）",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "South Pars 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Persian Gulf Basin (Iran)",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.56–2.76 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "5–25 API",
+                                                                   "DT":  "44–58 μs/ft",
+                                                                   "RT":  "气层 50–500 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 40
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.04,
+                                                                     0.12
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.08,
+                                                             "por":  0.03,
+                                                             "sw":  0.75
+                                                         },
+                                              "gwc":  "气柱高度控制",
+                                              "name":  "Kangan",
+                                              "aliases":  [
+                                                              "坎甘组",
+                                                              "Kangan Fm"
+                                                          ],
+                                              "litho_main":  "二叠—三叠系白云岩、灰岩，孔洞型"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "含硫气与高温使 Rw、n 显著偏移，必须按温压分井标定",
+                                                  "source":  "伊朗南帕斯气田岩石物理规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.15,
+                                                                 "a":  0.7,
+                                                                 "n":  2.25
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "method_name":  "Kangan 白云岩气层饱和度"
+                                              }
+                                          ],
+                       "notes":  "Kangan、Dalan 深层白云岩气藏，高温高压、含硫气"
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "伊朗",
+    "country_en":  "Iran",
+    "notes":  "扎格罗斯巨型背斜，阿斯马里礁滩灰岩为主力，裂缝控制产能；另有 Kangan/Dalan 深层气"
+}

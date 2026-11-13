@@ -1,0 +1,168 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "卡鲁盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "奥兰治盆地",
+                       "name_en":  "Orange Basin",
+                       "notes":  "南非西海岸被动陆缘，白垩系砂岩，以气为主，储层偏致密",
+                       "depressions":  [
+                                           {
+                                               "name":  "奥兰治近海凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Albian Sand",
+                                              "aliases":  [
+                                                              "阿尔布砂岩",
+                                                              "Albian Fm"
+                                                          ],
+                                              "litho_main":  "滨岸、陆棚细砂岩，压实较强",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.18
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.4,
+                                                                 160
+                                                             ],
+                                              "gwc":  "岩性圈闭，气水关系复杂",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.72,
+                                                             "vsh":  0.28
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.40–2.62 g/cm³",
+                                                                   "CNL":  "挖掘效应可见",
+                                                                   "DT":  "60–78 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "奥兰治 Albian 砂岩气层",
+                                                  "formula":  "Sw = (0.77 * Rw / (Rt * phi ** 1.90)) ** (1 / 2.06)",
+                                                  "params":  {
+                                                                 "a":  0.77,
+                                                                 "m":  1.9,
+                                                                 "n":  2.06
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "南非奥兰治盆地中‑低孔砂岩气藏",
+                                                  "source":  "南非近海测井评价报告"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "奥兰治盆地",
+                       "name_en":  "Orange Basin",
+                       "notes":  "南非西海岸被动陆缘，白垩系砂岩，以气为主，储层偏致密",
+                       "depressions":  [
+                                           {
+                                               "name":  "奥兰治近海凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Albian Sand",
+                                              "aliases":  [
+                                                              "阿尔布砂岩",
+                                                              "Albian Fm"
+                                                          ],
+                                              "litho_main":  "滨岸、陆棚细砂岩，压实较强",
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.18
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.4,
+                                                                 160
+                                                             ],
+                                              "gwc":  "岩性圈闭，气水关系复杂",
+                                              "cutoff":  {
+                                                             "por":  0.07,
+                                                             "sw":  0.72,
+                                                             "vsh":  0.28
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.40–2.62 g/cm³",
+                                                                   "CNL":  "挖掘效应可见",
+                                                                   "DT":  "60–78 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "奥兰治 Albian 砂岩气层",
+                                                  "formula":  "Sw = (0.77 * Rw / (Rt * phi ** 1.90)) ** (1 / 2.06)",
+                                                  "params":  {
+                                                                 "a":  0.77,
+                                                                 "m":  1.9,
+                                                                 "n":  2.06
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "condition":  "南非奥兰治盆地中‑低孔砂岩气藏",
+                                                  "source":  "南非近海测井评价报告"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "南非"
+}

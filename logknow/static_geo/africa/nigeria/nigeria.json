@@ -1,0 +1,39 @@
+﻿{
+    "country":  "尼日利亚",
+    "basin":  "尼日尔三角洲盆地",
+    "sag":  "近海主凹陷",
+    "block":  "OML130",
+    "oilfield":  "Bonga 油田",
+    "structure":  "滚动背斜",
+    "well":  "Bonga-2",
+    "formation":  "Agbada 组",
+    "strata_meta":  {
+                        "lithology":  "砂岩、泥岩互层",
+                        "gamma_range":  [
+                                            40,
+                                            110
+                                        ],
+                        "resistivity_range":  [
+                                                  1.2,
+                                                  60
+                                              ],
+                        "porosity_range":  [
+                                               0.18,
+                                               0.34
+                                           ],
+                        "permeability_range":  [
+                                                   10,
+                                                   1200
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.25,
+                                                       0.75
+                                                   ]
+                    },
+    "method_name":  "三角洲砂岩 QuickLook",
+    "method_meta":  {
+                        "threshold":  "GR\u003c75, Rt\u003e1.8",
+                        "formula":  "Vsh = (GR - GR_min)/(GR_max - GR_min)",
+                        "condition":  "尼日尔三角洲新近系水道砂岩，泥质含量变化大"
+                    }
+}

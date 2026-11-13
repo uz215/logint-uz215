@@ -1,0 +1,39 @@
+﻿{
+    "country":  "文莱",
+    "basin":  "文莱盆地",
+    "sag":  "近海主凹陷",
+    "block":  "Block L",
+    "oilfield":  "Champion 油田",
+    "structure":  "滚动背斜",
+    "well":  "Champion-1",
+    "formation":  "Setap 组",
+    "strata_meta":  {
+                        "lithology":  "河口坝砂岩",
+                        "gamma_range":  [
+                                            26,
+                                            82
+                                        ],
+                        "resistivity_range":  [
+                                                  1.7,
+                                                  58
+                                              ],
+                        "porosity_range":  [
+                                               0.16,
+                                               0.3
+                                           ],
+                        "permeability_range":  [
+                                                   16,
+                                                   1050
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.21,
+                                                       0.69
+                                                   ]
+                    },
+    "method_name":  "河口坝砂岩 QuickLook",
+    "method_meta":  {
+                        "threshold":  "GR\u003c60",
+                        "formula":  "泥质伽马校正",
+                        "condition":  "文莱近海中新统河口坝砂体"
+                    }
+}

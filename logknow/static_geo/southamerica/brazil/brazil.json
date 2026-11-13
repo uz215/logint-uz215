@@ -1,0 +1,39 @@
+﻿{
+    "country":  "巴西",
+    "basin":  "桑托斯盆地",
+    "sag":  "桑托斯中央凹陷",
+    "block":  "BM-S-11",
+    "oilfield":  "Lula 油田",
+    "structure":  "盐下碳酸盐岩台地",
+    "well":  "Lula-1",
+    "formation":  "Guaratiba 组",
+    "strata_meta":  {
+                        "lithology":  "微生物碳酸盐岩",
+                        "gamma_range":  [
+                                            6,
+                                            40
+                                        ],
+                        "resistivity_range":  [
+                                                  20,
+                                                  1800
+                                              ],
+                        "porosity_range":  [
+                                               0.08,
+                                               0.22
+                                           ],
+                        "permeability_range":  [
+                                                   0.5,
+                                                   350
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.12,
+                                                       0.6
+                                                   ]
+                    },
+    "method_name":  "盐下微生物灰岩解释",
+    "method_meta":  {
+                        "threshold":  "GR\u003c32",
+                        "formula":  "扣除盐层影响，双孔隙模型",
+                        "condition":  "桑托斯盆地盐下微生物岩油藏"
+                    }
+}

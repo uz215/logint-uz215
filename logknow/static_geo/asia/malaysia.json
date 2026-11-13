@@ -1,31 +1,135 @@
-﻿[
-  {
-    "country": "马来西亚",
-    "basin": "Malay 盆地",
-    "sag": "中央凹陷",
-    "block": "马来盆地中部近海区块",
-    "oilfield": "Kikeh 油田",
-    "structure": "断块、滚动背斜",
-    "well": "MYS-01",
-    "formation": "Miocene Fluvial-Delta Sand",
-    "strata_meta": {
-      "sub_layer": "中新统河流—三角洲砂岩，薄互层极其发育",
-      "lithology": ["石英砂岩", "岩屑砂岩", "粉砂岩", "湖相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "20–54", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "79–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、天然气、凝析油"
-    },
-    "method_name": "马来盆地中新统三角洲砂解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷湖盆，多期河道砂叠置，薄层成群",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "薄层校正，泥质 Archie，气挖掘分支",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "砂体侧向尖灭快，薄层低于仪器分辨率，局部黄铁矿低阻",
-      "reference_case": "Kikeh, Dulang"
-    },
-    "gwc": {"Miocene Sand": "独立砂组、河道砂各自油水/气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "近海三角洲砂岩，含煤",
+                                              "rt_range":  [
+                                                               2,
+                                                               35
+                                                           ],
+                                              "aliases":  [
+                                                              "米里组"
+                                                          ],
+                                              "gr_range":  [
+                                                               40,
+                                                               105
+                                                           ],
+                                              "sw_base":  0.41,
+                                              "den_range":  [
+                                                                2.37,
+                                                                2.59
+                                                            ],
+                                              "name":  "Miri",
+                                              "porosity_base":  0.17,
+                                              "cnl_range":  [
+                                                                0.11,
+                                                                0.29
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "马来盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.049,
+                                                                 "m":  2.09,
+                                                                 "a":  0.64,
+                                                                 "n":  1.89
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  110
+                                                                },
+                                                  "condition":  "马来盆地近海砂，煤层干扰伽马",
+                                                  "method_name":  "马来盆地含煤砂岩解释"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "马来盆地",
+                       "name_en":  "Malay Basin",
+                       "notes":  "马来盆地近海，新生代碎屑岩，油气共存，薄层砂泥互层普遍",
+                       "depressions":  [
+                                           {
+                                               "name":  "中央凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Kampung Baru",
+                                              "aliases":  [
+                                                              "甘榜巴鲁组"
+                                                          ],
+                                              "litho_main":  "滨岸、三角洲砂岩，薄砂泥互层",
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 25,
+                                                                 720
+                                                             ],
+                                              "gwc":  "砂体、断块各自独立",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.61,
+                                                             "vsh":  0.42
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马，40–85 API",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等中子孔隙",
+                                                                   "DT":  "72–91 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "马来盆地薄层砂岩解释",
+                                                  "formula":  "Sw = [(1 / Rt) ** 0.5] / [(Vsh ** Vsh / Rsh ** 0.5) + ((1 - Vsh) * phi ** m / (a * Rw)) ** 0.5]",
+                                                  "params":  {
+                                                                 "a":  0.81,
+                                                                 "m":  1.84
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.42
+                                                                },
+                                                  "condition":  "薄层互层泥质砂岩，马来盆地常规推荐模型",
+                                                  "source":  "马来西亚石油岩石物理规范"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "马来西亚"
+}

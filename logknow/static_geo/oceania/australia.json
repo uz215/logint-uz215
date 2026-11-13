@@ -1,31 +1,208 @@
-﻿[
-  {
-    "country": "澳大利亚",
-    "basin": "North West Shelf 盆地",
-    "sag": "Dampier 凹陷",
-    "block": "North West Shelf 区块",
-    "oilfield": "North West Shelf 油气田群",
-    "structure": "断块背斜、礁块",
-    "well": "AUS-01",
-    "formation": "Jurassic Sand / Cretaceous Carbonate",
-    "strata_meta": {
-      "sub_layer": "侏罗系陆相砂岩 + 白垩系碳酸盐岩",
-      "lithology": ["石英砂岩", "鲕粒灰岩", "白云岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "4–50", "RT": "15–230", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "天然气、凝析油、原油"
-    },
-    "method_name": "西北陆架侏罗砂岩 / 白垩礁灰岩解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷砂岩与台地生物礁两套储层，两套参数",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "岩相自动分支，砂岩用泥质 Archie；碳酸盐岩用礁滩校正 Archie，气挖掘",
-      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
-      "limitation": "两套储层参数差异巨大，埋深跨度大，胶结多变",
-      "reference_case": "North West Shelf, Gorgon, Barrow Island"
-    },
-    "gwc": {"Jurassic Sand": "砂组独立气水/油水界面", "Cretaceous Carbonate": "礁块独立界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "三叠系三角洲砂岩，大气藏",
+                                              "rt_range":  [
+                                                               2.2,
+                                                               32
+                                                           ],
+                                              "aliases":  [
+                                                              "芒加鲁组"
+                                                          ],
+                                              "gr_range":  [
+                                                               36,
+                                                               88
+                                                           ],
+                                              "sw_base":  0.4,
+                                              "den_range":  [
+                                                                2.4,
+                                                                2.6
+                                                            ],
+                                              "name":  "Mungaroo",
+                                              "porosity_base":  0.14,
+                                              "cnl_range":  [
+                                                                0.11,
+                                                                0.27
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "卡那封盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.046,
+                                                                 "m":  2.1,
+                                                                 "a":  0.66,
+                                                                 "n":  1.88
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.07,
+                                                                    "gr_max":  94
+                                                                },
+                                                  "condition":  "澳大利亚西北大陆架 Mungaroo 砂岩气藏",
+                                                  "method_name":  "Mungaroo 砂岩气层解释"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "布劳斯盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Browse 深水凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Browse Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.36–2.57 g/cm³",
+                                                                   "CNL":  "挖掘效应",
+                                                                   "GR":  "20–60 API",
+                                                                   "DT":  "68–86 μs/ft",
+                                                                   "RT":  "气层 20–160 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 15,
+                                                                 800
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.1,
+                                                                     0.23
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.22,
+                                                             "por":  0.09,
+                                                             "sw":  0.6
+                                                         },
+                                              "gwc":  "构造控制，气柱高度大",
+                                              "name":  "Plover",
+                                              "aliases":  [
+                                                              "普洛弗组",
+                                                              "Plover Fm"
+                                                          ],
+                                              "litho_main":  "侏罗系河流—三角洲石英砂岩，孔渗优"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "深水大气田低泥质砂岩",
+                                                  "source":  "澳大利亚 Browse 盆地岩石物理标定",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.85,
+                                                                 "a":  0.78,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.09
+                                                                },
+                                                  "method_name":  "Plover 侏罗系砂岩气层 Archie"
+                                              }
+                                          ],
+                       "notes":  "被动陆缘深水，侏罗系河流—三角洲砂与白垩系浅海砂，超大型气田"
+                   },
+                   {
+                       "name":  "吉普斯兰盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "中央地堑",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Gippsland Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–75 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "油层 5–45 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 50,
+                                                                 1500
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.15,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.12,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "断层与构造控制",
+                                              "name":  "Latrobe",
+                                              "aliases":  [
+                                                              "拉特罗布群",
+                                                              "Latrobe Group"
+                                                          ],
+                                              "litho_main":  "上白垩—古近系河流三角洲细—中砂岩，含煤夹层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "含煤段先剔除煤，再算饱和度",
+                                                  "source":  "澳大利亚吉普斯兰盆地测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.82,
+                                                                 "a":  0.8,
+                                                                 "n":  1.98
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.12
+                                                                },
+                                                  "method_name":  "Latrobe 三角洲砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "东南陆上与近海裂谷，上白垩—古近系河流三角洲砂，以油为主"
+                   }
+               ],
+    "continent":  "oceania",
+    "country":  "澳大利亚",
+    "country_en":  "Australia",
+    "notes":  "西北陆架被动陆缘与东南裂谷并存，三叠—白垩系三角洲砂、河流砂为主力，气田规模大、储层横向连续"
+}

@@ -1,31 +1,101 @@
-﻿[
-  {
-    "country": "罗马尼亚",
-    "basin": "Pannonian / Moesian 盆地",
-    "sag": "Moesian 凹陷",
-    "block": "罗马尼亚南部陆上区块",
-    "oilfield": "Ticleni 油田",
-    "structure": "断块、挤压背斜",
-    "well": "ROU-01",
-    "formation": "Miocene – Pliocene Sand",
-    "strata_meta": {
-      "sub_layer": "中新统—上新统三角洲、河流砂岩，频繁砂泥互层",
-      "lithology": ["石英砂岩", "岩屑砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–56", "RT": "12–67", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "80–130", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "莫埃西亚盆地新近系砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "前陆挤压盆地，薄互层发育，局部超压",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "薄层校正，泥质 Archie，超压压实修正",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "地层水矿化度横向变化大，低阻油层常见",
-      "reference_case": "Ticleni, Balaria"
-    },
-    "gwc": {"Miocene-Pliocene Sand": "各个断块砂组独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "喀尔巴阡前渊盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "喀尔巴阡前陆盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Carpathian 前缘凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Carpathian Foredeep",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.36–2.58 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "35–85 API",
+                                                                   "DT":  "68–86 μs/ft",
+                                                                   "RT":  "气层 5–40 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 5,
+                                                                 320
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.12,
+                                                                     0.24
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.3,
+                                                             "por":  0.1,
+                                                             "sw":  0.64
+                                                         },
+                                              "gwc":  "背斜与盐构造控制",
+                                              "name":  "Sarmatian",
+                                              "aliases":  [
+                                                              "萨尔马特阶",
+                                                              "Sarmatian Sandstone"
+                                                          ],
+                                              "litho_main":  "中新统浅海细砂岩，夹盐与泥岩"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "盐岩段 Rt 失真，须先做井眼与盐层校正",
+                                                  "source":  "罗马尼亚喀尔巴阡前陆测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.86,
+                                                                 "a":  0.8,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.1
+                                                                },
+                                                  "method_name":  "萨尔马特砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "中新统浅海砂岩，盐岩、泥火山发育"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "罗马尼亚",
+    "country_en":  "Romania",
+    "notes":  "喀尔巴阡前陆，中新统萨尔马特砂岩为主力，盐岩与泥火山构造发育，井眼条件差"
+}

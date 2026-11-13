@@ -1,31 +1,475 @@
-﻿[
-    {
-        "country": "俄罗斯",
-        "basin": "西西伯利亚盆地",
-        "sag": "中部凹陷",
-        "block": "Surgut 区块",
-        "oilfield": "Surgut 油田",
-        "structure": "平缓隆起",
-        "well": "RUS-SUR-01",
-        "formation": "Bazhenov / Tyumen",
-        "strata_meta": {
-            "sub_layer": "侏罗—白垩系砂岩、富有机质页岩",
-            "lithology": ["石英砂岩", "泥岩、页岩"],
-            "log_response": {
-                "reservoir": {"GR": "22–56", "RT": "12–68", "DEN": "2.35–2.49", "CNL": "13–24", "DT": "75–90"},
-                "non_reservoir": {"GR": "82–134", "RT": "1–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "DT": "92–108"}
+﻿{
+    "country":  "俄罗斯",
+    "basin":  "西西伯利亚盆地",
+    "sag":  "中部凹陷",
+    "block":  "Surgut 区块",
+    "oilfield":  "Surgut 油田",
+    "structure":  "平缓隆起",
+    "well":  "RUS-SUR-01",
+    "formation":  "Bazhenov / Tyumen",
+    "strata_meta":  {
+                        "sub_layer":  "侏罗—白垩系砂岩、富有机质页岩",
+                        "lithology":  [
+                                          "石英砂岩",
+                                          "泥岩、页岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "22–56",
+                                                               "RT":  "12–68",
+                                                               "DEN":  "2.35–2.49",
+                                                               "CNL":  "13–24",
+                                                               "DT":  "75–90"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "82–134",
+                                                                   "RT":  "1–3.4",
+                                                                   "DEN":  "2.54–2.64",
+                                                                   "CNL":  "24–35",
+                                                                   "DT":  "92–108"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、天然气、页岩油"
+                    },
+    "method_name":  "西西伯利亚砂岩与页岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "西西伯利亚侏罗—白垩系碎屑岩",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "常规砂体用 Archie；页岩段采用 TOC 与烃指数",
+                        "threshold":  {
+                                          "sw_max":  0.60,
+                                          "toc_min":  1.8
+                                      },
+                        "limitation":  "地层水矿化度横向差异巨大",
+                        "reference_case":  "Surgut、Samotlor"
+                    },
+    "gwc":  {
+                "Tyumen":  "各个砂组独立油水界面"
             },
-            "hydrocarbon_type": "原油、天然气、页岩油"
-        },
-        "method_name": "西西伯利亚砂岩与页岩解释法",
-        "method_meta": {
-            "applicable_condition": "西西伯利亚侏罗—白垩系碎屑岩",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "常规砂体用 Archie；页岩段采用 TOC 与烃指数",
-            "threshold": {"sw_max": 0.60, "toc_min": 1.8},
-            "limitation": "地层水矿化度横向差异巨大",
-            "reference_case": "Surgut、Samotlor"
-        },
-        "gwc": {"Tyumen": "各个砂组独立油水界面"}
-    }
-]
+    "country_en":  "Russia",
+    "continent":  "europe",
+    "notes":  "西西伯利亚白垩系砂岩为绝对主力，巴热诺夫为源岩兼非常规；另有伏尔加—乌拉尔、蒂曼—伯朝拉碳酸盐岩与萨哈林中新统砂岩",
+    "basins":  [
+                   {
+                       "name":  "西西伯利亚盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "中部鄂毕凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           },
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Nadym 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "West Siberia Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.36–2.58 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "40–85 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "油层 5–35 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 1,
+                                                                 120
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.24
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.35,
+                                                             "por":  0.1,
+                                                             "sw":  0.6
+                                                         },
+                                              "gwc":  "砂体与构造控制",
+                                              "name":  "Achimov",
+                                              "aliases":  [
+                                                              "阿奇莫夫组",
+                                                              "Ачимов"
+                                                          ],
+                                              "litho_main":  "下白垩统深水浊积细砂岩，薄层叠置"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.55 g/cm³",
+                                                                   "CNL":  "偏高",
+                                                                   "GR":  "90–160 API（铀异常）",
+                                                                   "DT":  "80–110 μs/ft",
+                                                                   "RT":  "高阻 20–200 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.0001,
+                                                                 0.05
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.03,
+                                                                     0.1
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.3,
+                                                             "por":  0.03,
+                                                             "sw":  0.8
+                                                         },
+                                              "gwc":  "源内滞留，无统一界面",
+                                              "name":  "Bazhenov",
+                                              "aliases":  [
+                                                              "巴热诺夫组",
+                                                              "Баженов"
+                                                          ],
+                                              "litho_main":  "上侏罗统富有机质页岩，源岩兼非常规储层"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.34–2.58 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "40–85 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "油层 5–35 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 5,
+                                                                 300
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.24
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.3,
+                                                             "por":  0.11,
+                                                             "sw":  0.6
+                                                         },
+                                              "gwc":  "构造与砂体控制",
+                                              "name":  "Tyumen",
+                                              "aliases":  [
+                                                              "秋明组",
+                                                              "Тюменская"
+                                                          ],
+                                              "litho_main":  "上侏罗统河流—三角洲砂岩，含砾"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.32–2.56 g/cm³",
+                                                                   "CNL":  "中等偏高",
+                                                                   "GR":  "50–95 API",
+                                                                   "DT":  "74–92 μs/ft",
+                                                                   "RT":  "油层 4–30 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 10,
+                                                                 400
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.32,
+                                                             "por":  0.12,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Vikulov",
+                                              "aliases":  [
+                                                              "维库洛夫组"
+                                                          ],
+                                              "litho_main":  "下白垩统浅海细砂岩，泥质偏高"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "薄层叠置，需高分辨率测井并做薄层校正",
+                                                  "source":  "俄罗斯西西伯利亚测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.88,
+                                                                 "a":  0.78,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.1
+                                                                },
+                                                  "method_name":  "阿奇莫夫浊积砂岩 Archie"
+                                              },
+                                              {
+                                                  "condition":  "必须扣除有机质孔隙与吸附油，phi_eff 取黏土束缚水之外的自由孔隙",
+                                                  "source":  "俄罗斯巴热诺夫页岩评价；第24届测井年会页岩专题",
+                                                  "formula":  "Sw=((a*Rw)/(Rt*(phi_eff**m)))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2,
+                                                                 "a":  0.8,
+                                                                 "n":  2.1
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "method_name":  "巴热诺夫页岩双水模型"
+                                              },
+                                              {
+                                                  "condition":  "含砾段按岩相分单元标定",
+                                                  "source":  "俄罗斯西西伯利亚测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.86,
+                                                                 "a":  0.79,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "Tyumen 砂岩 Archie"
+                                              },
+                                              {
+                                                  "condition":  "泥质偏高，Archie 会低估 Sw",
+                                                  "source":  "俄罗斯西西伯利亚测井规范",
+                                                  "formula":  "Sw=((1/Rt)**0.5)/((Vsh**Vsh/Rsh**0.5)+((1-Vsh)*phi**m/(a*Rw))**0.5)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.83
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.32
+                                                                },
+                                                  "method_name":  "Vikulov 泥质砂岩 Indonesia"
+                                              }
+                                          ],
+                       "notes":  "巨型中生代盆地，阿奇莫夫浊积砂与巴热诺夫页岩"
+                   },
+                   {
+                       "name":  "伏尔加—乌拉尔盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "南乌拉尔凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Volga-Ural Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.50–2.70 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–35 API",
+                                                                   "DT":  "48–64 μs/ft",
+                                                                   "RT":  "油层 20–250 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.3,
+                                                                 100
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.05,
+                                                             "sw":  0.7
+                                                         },
+                                              "gwc":  "构造与礁体形态控制",
+                                              "name":  "Devonian Carbonate",
+                                              "aliases":  [
+                                                              "泥盆系碳酸盐岩"
+                                                          ],
+                                              "litho_main":  "泥盆—石炭系灰岩、白云岩，生物礁发育"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "礁体与层状灰岩分别标定 m；老井需做井径校正",
+                                                  "source":  "俄罗斯伏尔加—乌拉尔测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.09,
+                                                                 "a":  0.71,
+                                                                 "n":  2.19
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "method_name":  "泥盆系碳酸盐岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "泥盆—石炭系碎屑岩与碳酸盐岩，老油田长期开发"
+                   },
+                   {
+                       "name":  "蒂曼—伯朝拉盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Pechora 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Timan-Pechora Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.52–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "6–30 API",
+                                                                   "DT":  "46–62 μs/ft",
+                                                                   "RT":  "油层 30–300 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 70
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.05,
+                                                                     0.16
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.04,
+                                                             "sw":  0.72
+                                                         },
+                                              "gwc":  "礁体独立油水界面",
+                                              "name":  "Devonian Reef",
+                                              "aliases":  [
+                                                              "泥盆系礁灰岩"
+                                                          ],
+                                              "litho_main":  "泥盆系生物礁灰岩、白云岩"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "礁体与非礁相分带标定，孔洞段 m 下调",
+                                                  "source":  "俄罗斯蒂曼—伯朝拉测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.12,
+                                                                 "a":  0.7,
+                                                                 "n":  2.22
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.04
+                                                                },
+                                                  "method_name":  "蒂曼礁灰岩饱和度"
+                                              }
+                                          ],
+                       "notes":  "泥盆系碳酸盐岩与二叠系碎屑岩，高纬度、井况复杂"
+                   },
+                   {
+                       "name":  "萨哈林陆架",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Sakhalin 陆架",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Sakhalin Shelf",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "35–80 API",
+                                                                   "DT":  "74–92 μs/ft",
+                                                                   "RT":  "气层 3–25 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 30,
+                                                                 900
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.18,
+                                                                     0.3
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.3,
+                                                             "por":  0.15,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "砂体与构造控制",
+                                              "name":  "Miocene Sand (Sakhalin)",
+                                              "aliases":  [
+                                                              "中新统砂岩"
+                                                          ],
+                                              "litho_main":  "中新统细砂岩，分选好"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "优质中新统砂，直接 Archie",
+                                                  "source":  "俄罗斯萨哈林测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.82,
+                                                                 "a":  0.81,
+                                                                 "n":  1.98
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.15
+                                                                },
+                                                  "method_name":  "萨哈林中新统砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "中新统砂岩，深水与陆架并存，气油伴生"
+                   }
+               ]
+}

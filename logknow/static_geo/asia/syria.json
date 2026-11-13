@@ -1,31 +1,132 @@
-﻿[
-  {
-    "country": "叙利亚",
-    "basin": "Euphrates 裂谷盆地",
-    "sag": "Deir ez-Zor 凹陷",
-    "block": "Deir ez-Zor 陆上区块",
-    "oilfield": "Omar 油田",
-    "structure": "断块背斜",
-    "well": "SYR-01",
-    "formation": "Cretaceous Sand / Carbonate",
-    "strata_meta": {
-      "sub_layer": "白垩系砂岩与台地碳酸盐岩互层",
-      "lithology": ["石英砂岩", "粒屑灰岩", "白云岩", "泥灰岩"],
-      "log_response": {
-        "reservoir": {"GR": "5–52", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "幼发拉底白垩系砂-灰岩互层解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷台地，砂岩滩、碳酸盐岩储层叠置",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "岩相分支判定，砂岩泥质 Archie，灰岩白云岩校正 Archie",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "岩性频繁互层，薄层多，裂缝随机发育",
-      "reference_case": "Omar, Tanak"
-    },
-    "gwc": {"Cretaceous Sand": "砂组独立油水界面", "Cretaceous Carbonate": "滩块独立界面"}
-  }
-]
+﻿{
+    "country":  "叙利亚",
+    "basin":  "Euphrates 裂谷盆地",
+    "sag":  "Deir ez-Zor 凹陷",
+    "block":  "Deir ez-Zor 陆上区块",
+    "oilfield":  "Omar 油田",
+    "structure":  "断块背斜",
+    "well":  "SYR-01",
+    "formation":  "Cretaceous Sand / Carbonate",
+    "strata_meta":  {
+                        "sub_layer":  "白垩系砂岩与台地碳酸盐岩互层",
+                        "lithology":  [
+                                          "石英砂岩",
+                                          "粒屑灰岩",
+                                          "白云岩",
+                                          "泥灰岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "5–52",
+                                                               "RT":  "14–220",
+                                                               "DEN":  "2.32–2.57",
+                                                               "CNL":  "3–22",
+                                                               "AC":  "43–87"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "76–127",
+                                                                   "RT":  "1.0–700+",
+                                                                   "DEN":  "2.52–2.71",
+                                                                   "CNL":  "0–32",
+                                                                   "AC":  "38–104"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气"
+                    },
+    "method_name":  "幼发拉底白垩系砂-灰岩互层解释法",
+    "method_meta":  {
+                        "applicable_condition":  "裂谷台地，砂岩滩、碳酸盐岩储层叠置",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "岩相分支判定，砂岩泥质 Archie，灰岩白云岩校正 Archie",
+                        "threshold":  {
+                                          "sw_max":  "0.57"
+                                      },
+                        "limitation":  "岩性频繁互层，薄层多，裂缝随机发育",
+                        "reference_case":  "Omar, Tanak"
+                    },
+    "gwc":  {
+                "Cretaceous Sand":  "砂组独立油水界面",
+                "Cretaceous Carbonate":  "滩块独立界面"
+            },
+    "country_en":  "",
+    "continent":  "asia",
+    "notes":  "",
+    "basins":  [
+                   null,
+                   {
+                       "name":  "幼发拉底地堑",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Deir ez-Zor 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Euphrates Graben",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.42–2.64 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "10–45 API",
+                                                                   "DT":  "52–70 μs/ft",
+                                                                   "RT":  "油层 8–80 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 120
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.2
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.15,
+                                                             "por":  0.07,
+                                                             "sw":  0.68
+                                                         },
+                                              "gwc":  "断块独立油水界面",
+                                              "name":  "Shiranish",
+                                              "aliases":  [
+                                                              "希拉尼什组",
+                                                              "Shiranish Fm"
+                                                          ],
+                                              "litho_main":  "上白垩统泥灰岩、礁灰岩，局部白云岩化"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "泥灰质段先按 GR-DEN 剔除；裂缝段单列双孔隙处理",
+                                                  "source":  "叙利亚幼发拉底地堑测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.05,
+                                                                 "a":  0.73,
+                                                                 "n":  2.16
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "method_name":  "Shiranish 碳酸盐岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "白垩系 Shiranish 碳酸盐岩为主力，断块油藏"
+                   }
+               ]
+}

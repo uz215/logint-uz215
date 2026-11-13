@@ -1,0 +1,75 @@
+﻿{
+    "basins":  [
+                   {
+                       "name":  "潘诺尼亚盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Pannonian 主凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Pannonian Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等偏高",
+                                                                   "GR":  "40–90 API",
+                                                                   "DT":  "74–92 μs/ft",
+                                                                   "RT":  "油层 3–30 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 20,
+                                                                 500
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.32,
+                                                             "por":  0.13,
+                                                             "sw":  0.62
+                                                         },
+                                              "gwc":  "砂体与构造控制",
+                                              "name":  "Pannonian",
+                                              "aliases":  [
+                                                              "潘诺尼亚阶砂岩"
+                                                          ],
+                                              "litho_main":  "中新统深水浊积细砂岩，砂泥互层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "高泥质薄互层，必须做泥质校正",
+                                                  "source":  "匈牙利潘诺尼亚盆地测井评价",
+                                                  "formula":  "Sw=((1/Rt)**0.5)/((Vsh**Vsh/Rsh**0.5)+((1-Vsh)*phi**m/(a*Rw))**0.5)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.82
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.32
+                                                                },
+                                                  "method_name":  "潘诺尼亚浊积砂岩 Indonesia 模型"
+                                              }
+                                          ],
+                       "notes":  "中新统浊积砂岩与湖相泥灰岩，Algyő 油田为代表"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "匈牙利",
+    "country_en":  "Hungary",
+    "notes":  "潘诺尼亚盆地中新统深水浊积砂岩，砂泥互层密集，泥质普遍偏高"
+}

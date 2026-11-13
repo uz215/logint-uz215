@@ -1,0 +1,77 @@
+﻿{
+    "country":  "巴林",
+    "country_en":  "Bahrain",
+    "continent":  "asia",
+    "notes":  "波斯湾盆地巴林背斜，侏罗系 Arab 组灰岩，老油田长期开发",
+    "basins":  [
+                   {
+                       "name":  "波斯湾盆地（巴林段）",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "巴林背斜",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Persian Gulf Basin (Bahrain)",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.48–2.70 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–30 API",
+                                                                   "DT":  "48–64 μs/ft",
+                                                                   "RT":  "油层 10–90 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 90
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.2
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.06,
+                                                             "sw":  0.66
+                                                         },
+                                              "gwc":  "背斜统一油水界面",
+                                              "name":  "Arab (Bahrain)",
+                                              "aliases":  [
+                                                              "Arab 组",
+                                                              "Arab Formation"
+                                                          ],
+                                              "litho_main":  "上侏罗统礁滩灰岩、白云岩化灰岩，夹硬石膏"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "硬石膏夹层按 GR 与 DEN 剔除；老井井径影响需校正",
+                                                  "source":  "巴林 Arab 组岩石物理标定",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.08,
+                                                                 "a":  0.72,
+                                                                 "n":  2.18
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.06
+                                                                },
+                                                  "method_name":  "Arab 组礁滩灰岩饱和度"
+                                              }
+                                          ],
+                       "notes":  "侏罗系 Arab 组礁滩灰岩，背斜圈闭"
+                   }
+               ]
+}

@@ -1,31 +1,170 @@
-﻿[
-  {
-    "country": "加纳",
-    "basin": "Tano 盆地",
-    "sag": "近海凹陷",
-    "block": "Jubilee 区块",
-    "oilfield": "Jubilee 油田",
-    "structure": "断块滚动背斜",
-    "well": "JBL-01",
-    "formation": "Turonian Sand",
-    "strata_meta": {
-      "sub_layer": "上白垩统海相浊积砂岩",
-      "lithology": ["石英砂岩", "细粒浊积砂", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–52", "RT": "12–66", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "78–128", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Tano 盆地 Turonian 浊积砂解释法",
-    "method_meta": {
-      "applicable_condition": "深水浊积扇，海相高矿化度",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "浊积岩 Vsh 校正，Archie",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "砂体横向变化极快，泥质夹层多",
-      "reference_case": "Jubilee, Tweneboa-Enyenra-Ntomme"
-    },
-    "gwc": {"Turonian Sand": "断块独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Jubilee"
+                                         }
+                                     ],
+                       "name":  "塔诺盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "塔诺盆地",
+                       "name_en":  "Tano Basin",
+                       "notes":  "西非深水，白垩‑古近系浊积砂岩，优质块状砂，压力体系复杂，以油藏为主",
+                       "depressions":  [
+                                           {
+                                               "name":  "塔诺深水凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Senonian",
+                                              "aliases":  [
+                                                              "塞诺曼组",
+                                                              "Senonian Fm"
+                                                          ],
+                                              "litho_main":  "深水浊积中细砂岩，泥岩夹层少",
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.29
+                                                                 ],
+                                              "perm_range":  [
+                                                                 42,
+                                                                 1050
+                                                             ],
+                                              "gwc":  "单个浊积砂体独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.12,
+                                                             "sw":  0.59,
+                                                             "vsh":  0.3
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "塔诺 Senonian 浊积砂岩 Archie",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.84,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.12
+                                                                },
+                                                  "condition":  "加纳深水块状浊积砂岩",
+                                                  "source":  "加纳深水油田岩石物理标定，第24届测井年会西非深水专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "塔诺盆地",
+                       "name_en":  "Tano Basin",
+                       "notes":  "西非深水，白垩‑古近系浊积砂岩，优质块状砂，压力体系复杂，以油藏为主",
+                       "depressions":  [
+                                           {
+                                               "name":  "塔诺深水凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Senonian",
+                                              "aliases":  [
+                                                              "塞诺曼组",
+                                                              "Senonian Fm"
+                                                          ],
+                                              "litho_main":  "深水浊积中细砂岩，泥岩夹层少",
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.29
+                                                                 ],
+                                              "perm_range":  [
+                                                                 42,
+                                                                 1050
+                                                             ],
+                                              "gwc":  "单个浊积砂体独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.12,
+                                                             "sw":  0.59,
+                                                             "vsh":  0.3
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "70–88 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "塔诺 Senonian 浊积砂岩 Archie",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.84,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.12
+                                                                },
+                                                  "condition":  "加纳深水块状浊积砂岩",
+                                                  "source":  "加纳深水油田岩石物理标定，第24届测井年会西非深水专题"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "加纳"
+}

@@ -1,31 +1,79 @@
-﻿[
+﻿{
+  "country": "阿曼",
+  "country_en": "Oman",
+  "continent": "asia",
+  "notes": "阿曼盆地古生界、中生界并存，石英砂岩与白云岩储层，低矿化到中等矿化地层水",
+  "basins": [
     {
-        "country": "阿曼",
-        "basin": "阿曼盆地",
-        "sag": "北部凹陷",
-        "block": "Q 区块",
-        "oilfield": "Q 油田",
-        "structure": "古生界台地构造",
-        "well": "Q-01",
-        "formation": "Q",
-        "strata_meta": {
-            "sub_layer": "古生界碳酸盐岩",
-            "lithology": ["白云岩", "灰岩，溶孔发育"],
-            "log_response": {
-                "reservoir": {"GR": "3–18", "RT": "30–300", "DEN": "2.42–2.58", "CNL": "3–10", "DT": "42–62"},
-                "non_reservoir": {"GR": "2–12", "RT": "500+", "DEN": "2.62–2.71", "CNL": "0–3", "DT": "38–48"}
-            },
-            "hydrocarbon_type": "原油"
+      "name": "阿曼盆地",
+      "name_en": "Oman Basin",
+      "depressions": [
+        {
+          "name": "北阿曼凹陷",
+          "blocks": [],
+          "oilfields": [],
+          "structures": [],
+          "wells": []
+        }
+      ],
+      "formations": [
+        {
+          "name": "Barik",
+          "aliases": ["巴里克组", "Barik Fm"],
+          "litho_main": "海相石英砂岩，分选较好",
+          "porosity_range": [0.14, 0.26],
+          "perm_range": [30, 650],
+          "gwc": "断块独立油水界面",
+          "cutoff": {
+            "por": 0.11,
+            "sw": 0.60,
+            "vsh": 0.32
+          },
+          "log_response": {
+            "GR": "低‑中伽马",
+            "RT": "油层中阻、气层高阻",
+            "DEN": "2.34–2.55 g/cm³",
+            "CNL": "中等",
+            "DT": "70–88 μs/ft"
+          }
         },
-        "method_name": "白云岩孔洞储层解释法",
-        "method_meta": {
-            "applicable_condition": "古生界白云岩，溶孔为主",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "孔洞孔隙度 + 烃类识别",
-            "threshold": {"por_min": 0.05},
-            "limitation": "大型溶洞容易造成测井失真",
-            "reference_case": "阿曼古生界油田"
-        },
-        "gwc": {"Q": "每个构造独立界面"}
+        {
+          "name": "Khufai",
+          "aliases": ["库法伊组", "Khufai Fm"],
+          "litho_main": "白云岩、粒屑灰岩，孔洞型储层",
+          "porosity_range": [0.06, 0.17],
+          "perm_range": [0.15, 70],
+          "gwc": "岩相控制",
+          "cutoff": {
+            "por": 0.05,
+            "sw": 0.70,
+            "vsh": 0.20
+          },
+          "log_response": {
+            "GR": "低伽马",
+            "RT": "高阻",
+            "DEN": "2.50–2.71 g/cm³",
+            "CNL": "偏低",
+            "DT": "52–66 μs/ft"
+          }
+        }
+      ],
+      "interp_methods": [
+        {
+          "method_name": "Barik 砂岩饱和度解释",
+          "formula": "Sw = (0.79 * Rw / (Rt * phi ** 1.86)) ** (1 / 2.01)",
+          "params": {
+            "a": 0.79,
+            "m": 1.86,
+            "n": 2.01
+          },
+          "threshold": {
+            "vsh_upper": 0.32
+          },
+          "condition": "Barik 海相砂岩，中等泥质段切换 Waxman‑Smits",
+          "source": "阿曼石油开发公司测井报告，第24届测井年会"
+        }
+      ]
     }
-]
+  ]
+}

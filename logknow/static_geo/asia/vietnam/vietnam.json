@@ -1,0 +1,39 @@
+﻿{
+    "country":  "越南",
+    "basin":  "湄公盆地",
+    "sag":  "九龙凹陷",
+    "block":  "09-1区块",
+    "oilfield":  "白虎油田",
+    "structure":  "基底潜山",
+    "well":  "WhiteTiger-1",
+    "formation":  "Basement Granite",
+    "strata_meta":  {
+                        "lithology":  "风化花岗岩、裂缝型储层",
+                        "gamma_range":  [
+                                            60,
+                                            130
+                                        ],
+                        "resistivity_range":  [
+                                                  12,
+                                                  2000
+                                              ],
+                        "porosity_range":  [
+                                               0.02,
+                                               0.12
+                                           ],
+                        "permeability_range":  [
+                                                   0.01,
+                                                   80
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.3,
+                                                       0.8
+                                                   ]
+                    },
+    "method_name":  "潜山裂缝储层综合解释",
+    "method_meta":  {
+                        "threshold":  "双侧向差异明显",
+                        "formula":  "利用深浅侧向差识别裂缝",
+                        "condition":  "越南九龙凹陷花岗岩潜山油藏"
+                    }
+}

@@ -1,31 +1,124 @@
-﻿[
-    {
-        "country": "卡塔尔",
-        "basin": "波斯湾盆地",
-        "sag": "北部凹陷",
-        "block": "Khuff 区块",
-        "oilfield": "Khuff 气田",
-        "structure": "巨型台地构造",
-        "well": "KHF-01",
-        "formation": "Khuff",
-        "strata_meta": {
-            "sub_layer": "二叠系碳酸盐岩",
-            "lithology": ["白云岩，孔洞储层"],
-            "log_response": {
-                "reservoir": {"GR": "4–20", "RT": "40–350", "DEN": "2.41–2.56", "CNL": "3–10", "DT": "43–63"},
-                "non_reservoir": {"GR": "1–7", "RT": "1200+", "DEN": "2.91–2.99", "CNL": "-2~2", "DT": "31–39"}
+﻿{
+    "country":  "卡塔尔",
+    "basin":  "波斯湾盆地",
+    "sag":  "北部凹陷",
+    "block":  "Khuff 区块",
+    "oilfield":  "Khuff 气田",
+    "structure":  "巨型台地构造",
+    "well":  "KHF-01",
+    "formation":  "Khuff",
+    "strata_meta":  {
+                        "sub_layer":  "二叠系碳酸盐岩",
+                        "lithology":  [
+                                          "白云岩，孔洞储层"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "4–20",
+                                                               "RT":  "40–350",
+                                                               "DEN":  "2.41–2.56",
+                                                               "CNL":  "3–10",
+                                                               "DT":  "43–63"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "1–7",
+                                                                   "RT":  "1200+",
+                                                                   "DEN":  "2.91–2.99",
+                                                                   "CNL":  "-2~2",
+                                                                   "DT":  "31–39"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "天然气"
+                    },
+    "method_name":  "Khuff 白云岩气层解释法",
+    "method_meta":  {
+                        "applicable_condition":  "二叠系台地白云岩孔洞储层",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "孔洞孔隙度 + 烃类识别",
+                        "threshold":  {
+                                          "por_min":  0.055
+                                      },
+                        "limitation":  "硬石膏层挤占孔隙空间",
+                        "reference_case":  "卡塔尔北部气田"
+                    },
+    "gwc":  {
+                "Khuff":  "巨型台地，分区气水界面"
             },
-            "hydrocarbon_type": "天然气"
-        },
-        "method_name": "Khuff 白云岩气层解释法",
-        "method_meta": {
-            "applicable_condition": "二叠系台地白云岩孔洞储层",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "孔洞孔隙度 + 烃类识别",
-            "threshold": {"por_min": 0.055},
-            "limitation": "硬石膏层挤占孔隙空间",
-            "reference_case": "卡塔尔北部气田"
-        },
-        "gwc": {"Khuff": "巨型台地，分区气水界面"}
-    }
-]
+    "basins":  [
+                   {
+                       "name":  "阿拉伯盆地（卡塔尔区块）",
+                       "name_en":  "Arabian Basin (Qatar)",
+                       "notes":  "卡塔尔北部巨型气田，Khuff 组深层碳酸盐岩气藏，超深层、高温高压",
+                       "depressions":  [
+                                           {
+                                               "name":  "北部凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Khuff",
+                                              "aliases":  [
+                                                              "胡夫组",
+                                                              "Khuff Fm"
+                                                          ],
+                                              "litho_main":  "白云岩、灰岩互层，硬石膏夹层，孔洞‑裂缝复合储层",
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.16
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 85
+                                                             ],
+                                              "gwc":  "大面积连片气藏，局部受断层分割",
+                                              "cutoff":  {
+                                                             "por":  0.05,
+                                                             "sw":  0.72,
+                                                             "vsh":  0.1
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "气层高阻，30–250 Ω·m",
+                                                                   "DEN":  "2.52–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "44–60 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Khuff 深层白云岩气层饱和度",
+                                                  "formula":  "Sw = (0.72 * Rw / (Rt * phi ** 2.18)) ** (1 / 2.28)",
+                                                  "params":  {
+                                                                 "a":  0.72,
+                                                                 "m":  2.18,
+                                                                 "n":  2.28
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "condition":  "Khuff 超深层白云岩；高温下 Rw 校正不可省略",
+                                                  "source":  "卡塔尔北部气田测井评价规范"
+                                              }
+                                          ]
+                   }
+               ]
+}

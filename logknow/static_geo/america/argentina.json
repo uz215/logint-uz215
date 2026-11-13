@@ -1,0 +1,146 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "南美安第斯前陆，Vaca Muerta 页岩油/气为主，同时含常规砂岩、碳酸盐岩，低孔低渗，有机质富集",
+    "basins":  [
+                   {
+                       "name":  "内乌肯盆地",
+                       "name_en":  "Neuquén Basin",
+                       "notes":  "南美安第斯前陆，Vaca Muerta 页岩油/气为主，同时含常规砂岩、碳酸盐岩，低孔低渗，有机质富集",
+                       "depressions":  [
+                                           {
+                                               "name":  "内乌肯中央凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Vaca Muerta",
+                                              "aliases":  [
+                                                              "瓦卡穆尔塔组",
+                                                              "Vaca Muerta Fm"
+                                                          ],
+                                              "litho_main":  "富有机质泥灰岩、页岩，夹层状颗粒灰岩",
+                                              "porosity_range":  [
+                                                                     0.04,
+                                                                     0.14
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.0001,
+                                                                 0.8
+                                                             ],
+                                              "gwc":  "无统一油水界面，源内滞留油气",
+                                              "cutoff":  {
+                                                             "por":  0.03,
+                                                             "sw":  0.8,
+                                                             "vsh":  0.3
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "高伽马，铀异常",
+                                                                   "RT":  "有机质段高阻",
+                                                                   "DEN":  "2.38–2.62 g/cm³",
+                                                                   "CNL":  "偏高",
+                                                                   "DT":  "72–96 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Vaca Muerta 页岩含油饱和度",
+                                                  "formula":  "Sw = (0.75 * Rw / (Rt * phi ** 1.95)) ** (1 / 2.10)",
+                                                  "params":  {
+                                                                 "a":  0.75,
+                                                                 "m":  1.95,
+                                                                 "n":  2.1
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "condition":  "页岩储层，必须扣除有机质孔隙，优先采用双水模型",
+                                                  "source":  "阿根廷 Vaca Muerta 测井评价规范"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "内乌肯盆地",
+                       "name_en":  "Neuquén Basin",
+                       "notes":  "南美安第斯前陆，Vaca Muerta 页岩油/气为主，同时含常规砂岩、碳酸盐岩，低孔低渗，有机质富集",
+                       "depressions":  [
+                                           {
+                                               "name":  "内乌肯中央凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Vaca Muerta",
+                                              "aliases":  [
+                                                              "瓦卡穆尔塔组",
+                                                              "Vaca Muerta Fm"
+                                                          ],
+                                              "litho_main":  "富有机质泥灰岩、页岩，夹层状颗粒灰岩",
+                                              "porosity_range":  [
+                                                                     0.04,
+                                                                     0.14
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.0001,
+                                                                 0.8
+                                                             ],
+                                              "gwc":  "无统一油水界面，源内滞留油气",
+                                              "cutoff":  {
+                                                             "por":  0.03,
+                                                             "sw":  0.8,
+                                                             "vsh":  0.3
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "高伽马，铀异常",
+                                                                   "RT":  "有机质段高阻",
+                                                                   "DEN":  "2.38–2.62 g/cm³",
+                                                                   "CNL":  "偏高",
+                                                                   "DT":  "72–96 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Vaca Muerta 页岩含油饱和度",
+                                                  "formula":  "Sw = (0.75 * Rw / (Rt * phi ** 1.95)) ** (1 / 2.10)",
+                                                  "params":  {
+                                                                 "a":  0.75,
+                                                                 "m":  1.95,
+                                                                 "n":  2.1
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "condition":  "页岩储层，必须扣除有机质孔隙，优先采用双水模型",
+                                                  "source":  "阿根廷 Vaca Muerta 测井评价规范"
+                                              }
+                                          ]
+                   }
+               ]
+}

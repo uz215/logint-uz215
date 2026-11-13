@@ -1,0 +1,68 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "三角洲砂岩",
+                                              "rt_range":  [
+                                                               3,
+                                                               62
+                                                           ],
+                                              "aliases":  [
+                                                              "布伦特组"
+                                                          ],
+                                              "gr_range":  [
+                                                               25,
+                                                               78
+                                                           ],
+                                              "sw_base":  0.38,
+                                              "den_range":  [
+                                                                2.39,
+                                                                2.59
+                                                            ],
+                                              "name":  "Brent",
+                                              "porosity_base":  0.16,
+                                              "cnl_range":  [
+                                                                0.09,
+                                                                0.25
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "北海中央地堑",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.043,
+                                                                 "m":  2.06,
+                                                                 "a":  0.68,
+                                                                 "n":  1.87
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  84
+                                                                },
+                                                  "condition":  "北海布伦特组三角洲砂岩油藏",
+                                                  "method_name":  "Brent 砂岩 Archie"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "英国（北海）"
+}

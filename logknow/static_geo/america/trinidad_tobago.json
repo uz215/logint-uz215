@@ -1,0 +1,144 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "加勒比近海，上新统三角洲砂，大量气藏，泥质重，砂泥互层密集",
+    "basins":  [
+                   {
+                       "name":  "哥伦布盆地",
+                       "name_en":  "Columbus Basin",
+                       "notes":  "加勒比近海，上新统三角洲砂，大量气藏，泥质重，砂泥互层密集",
+                       "depressions":  [
+                                           {
+                                               "name":  "哥伦布凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Pliocene Delta Sand",
+                                              "aliases":  [
+                                                              "上新统三角洲砂"
+                                                          ],
+                                              "litho_main":  "三角洲前缘细砂岩，泥岩频繁互层",
+                                              "porosity_range":  [
+                                                                     0.13,
+                                                                     0.27
+                                                                 ],
+                                              "perm_range":  [
+                                                                 12,
+                                                                 540
+                                                             ],
+                                              "gwc":  "砂体独立气水界面",
+                                              "cutoff":  {
+                                                             "por":  0.1,
+                                                             "sw":  0.63,
+                                                             "vsh":  0.42
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中‑高伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "挖掘效应",
+                                                                   "DT":  "72–90 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "哥伦布泥质砂岩气层",
+                                                  "formula":  "Sw = (0.82 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.02)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.84,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.42
+                                                                },
+                                                  "condition":  "高泥质三角洲储层，优先 Waxman‑Smits",
+                                                  "source":  "特立尼达近海气田岩石物理规范"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "哥伦布盆地",
+                       "name_en":  "Columbus Basin",
+                       "notes":  "加勒比近海，上新统三角洲砂，大量气藏，泥质重，砂泥互层密集",
+                       "depressions":  [
+                                           {
+                                               "name":  "哥伦布凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Pliocene Delta Sand",
+                                              "aliases":  [
+                                                              "上新统三角洲砂"
+                                                          ],
+                                              "litho_main":  "三角洲前缘细砂岩，泥岩频繁互层",
+                                              "porosity_range":  [
+                                                                     0.13,
+                                                                     0.27
+                                                                 ],
+                                              "perm_range":  [
+                                                                 12,
+                                                                 540
+                                                             ],
+                                              "gwc":  "砂体独立气水界面",
+                                              "cutoff":  {
+                                                             "por":  0.1,
+                                                             "sw":  0.63,
+                                                             "vsh":  0.42
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中‑高伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "挖掘效应",
+                                                                   "DT":  "72–90 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "哥伦布泥质砂岩气层",
+                                                  "formula":  "Sw = (0.82 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.02)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.84,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.42
+                                                                },
+                                                  "condition":  "高泥质三角洲储层，优先 Waxman‑Smits",
+                                                  "source":  "特立尼达近海气田岩石物理规范"
+                                              }
+                                          ]
+                   }
+               ]
+}

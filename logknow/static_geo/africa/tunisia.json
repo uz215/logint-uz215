@@ -1,31 +1,100 @@
-﻿[
-  {
-    "country": "突尼斯",
-    "basin": "Pelagian 盆地",
-    "sag": "Pelagian 近海凹陷",
-    "block": "突尼斯东部近海区块",
-    "oilfield": "Ashtart 油田",
-    "structure": "断块、台地隆起",
-    "well": "TUN-01",
-    "formation": "Cretaceous Carbonate / Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系碳酸盐岩台地与三角洲砂岩互层",
-      "lithology": ["粒屑灰岩", "白云岩", "石英砂岩", "泥灰岩"],
-      "log_response": {
-        "reservoir": {"GR": "4–51", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Pelagian 白垩系砂灰岩解释法",
-    "method_meta": {
-      "applicable_condition": "陆表海台地，灰岩孔洞与砂岩储层叠置",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "岩相分支，灰岩白云岩校正 Archie，砂岩泥质 Archie",
-      "threshold": {"sw_max": "0.56"},
-      "limitation": "硬石膏夹层干扰密度，孔洞分布不均",
-      "reference_case": "Ashtart, Miskar"
-    },
-    "gwc": {"Cretaceous Carbonate": "滩块独立界面", "Cretaceous Sand": "砂组独立界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "杰法拉盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "佩拉杰盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Pelagian 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Pelagian Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.44–2.66 g/cm³",
+                                                                   "CNL":  "0.05–0.18",
+                                                                   "GR":  "8–32 API",
+                                                                   "DT":  "50–66 μs/ft",
+                                                                   "RT":  "油层 10–100 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 150
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.22
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.12,
+                                                             "por":  0.07,
+                                                             "sw":  0.66
+                                                         },
+                                              "gwc":  "构造与礁体形态控制",
+                                              "name":  "Eocene Carbonate (TN)",
+                                              "aliases":  [
+                                                              "始新统碳酸盐岩"
+                                                          ],
+                                              "litho_main":  "始新统礁灰岩、粒屑灰岩，孔洞发育"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "孔洞段 m 下调；海上井注意泥浆滤液侵入",
+                                                  "source":  "突尼斯佩拉杰盆地测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.06,
+                                                                 "a":  0.73,
+                                                                 "n":  2.16
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "method_name":  "佩拉杰始新统碳酸盐岩饱和度"
+                                              }
+                                          ],
+                       "notes":  "始新统碳酸盐岩与中新统砂岩，海上油田"
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "突尼斯",
+    "country_en":  "",
+    "notes":  ""
+}

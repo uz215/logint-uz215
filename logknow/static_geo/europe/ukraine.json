@@ -1,31 +1,129 @@
-﻿[
-  {
-    "country": "乌克兰",
-    "basin": "第聂伯—顿涅茨盆地",
-    "sag": "中央凹陷",
-    "block": "Poltava 区块",
-    "oilfield": "Shebelinka 气田",
-    "structure": "背斜隆起",
-    "well": "SHB-01",
-    "formation": "Visean Sandstone",
-    "strata_meta": {
-      "sub_layer": "石炭系陆相石英砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "煤系泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–53", "RT": "14–75", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "78–128", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油"
-    },
-    "method_name": "第聂伯顿涅茨石炭系砂岩气层法",
-    "method_meta": {
-      "applicable_condition": "石炭系煤系地层河道砂体",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "煤质夹层识别，泥质校正 Archie",
-      "threshold": {"sw_max": "0.57", "gas_cut": "0.04"},
-      "limitation": "煤层、碳质泥岩造成电阻率假高",
-      "reference_case": "Shebelinka, Yefremovka"
-    },
-    "gwc": {"Visean Sandstone": "背斜砂组独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "第聂伯-顿涅茨盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "第聂伯—顿涅茨盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Dnieper-Donets 轴部",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Dnieper-Donets Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.52–2.72 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–35 API",
+                                                                   "DT":  "46–60 μs/ft",
+                                                                   "RT":  "气层 30–300 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 50
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.05,
+                                                                     0.15
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.04,
+                                                             "sw":  0.72
+                                                         },
+                                              "gwc":  "盐丘与断块控制",
+                                              "name":  "Visean",
+                                              "aliases":  [
+                                                              "维宪阶碳酸盐岩",
+                                                              "Visean Carbonate"
+                                                          ],
+                                              "litho_main":  "下石炭统灰岩、白云岩，孔洞—裂缝复合"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.38–2.60 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–75 API",
+                                                                   "DT":  "66–84 μs/ft",
+                                                                   "RT":  "气层 5–45 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 2,
+                                                                 180
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.1,
+                                                                     0.2
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.25,
+                                                             "por":  0.08,
+                                                             "sw":  0.66
+                                                         },
+                                              "gwc":  "断块控制",
+                                              "name":  "Carboniferous Sand",
+                                              "aliases":  [
+                                                              "石炭系砂岩"
+                                                          ],
+                                              "litho_main":  "石炭系河流—三角洲砂岩"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "孔洞型储层，裂缝段单列 dual-porosity",
+                                                  "source":  "乌克兰第聂伯—顿涅茨测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.1,
+                                                                 "a":  0.71,
+                                                                 "n":  2.2
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.04
+                                                                },
+                                                  "method_name":  "维宪阶碳酸盐岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "石炭—二叠系碎屑岩与维宪阶碳酸盐岩，盐丘构造"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "乌克兰",
+    "country_en":  "Ukraine",
+    "notes":  "第聂伯—顿涅茨盆地，石炭系碎屑岩与维宪阶碳酸盐岩双储层，盐丘构造发育"
+}

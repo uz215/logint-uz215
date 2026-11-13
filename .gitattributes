@@ -1,0 +1,11 @@
+# 知识库 SQLite 数据库（logknow 线扩充后约 2.4GB）用 Git LFS 版本化。
+# GitHub LFS 单文件硬上限 2GiB，原库 2.37GB 直接推送被拒（422）；
+# 故先 gzip 压缩再入 LFS（实测 2.37GB → 476MB，18.7%），工作区仍是可直读的 SQLite 文件。
+# 依赖过滤器配置（每台机器一次，与 git lfs install 同批）：
+#   git config filter.gzip-lfs.clean  "gzip -n -c | git lfs clean -- %f"
+#   git config filter.gzip-lfs.smudge "git lfs smudge -- %f | gunzip"
+#   git config filter.gzip-lfs.required true
+data/kb/kb.db filter=gzip-lfs diff=lfs merge=lfs -text
+# 其他二进制（如模型）如纳入时按需加规则
+# 知识图谱 SQLite（约12MB）用 Git LFS
+graph/graph.db filter=lfs diff=lfs merge=lfs -text

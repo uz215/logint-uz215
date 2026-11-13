@@ -1,0 +1,103 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Groningen"
+                                         }
+                                     ],
+                       "name":  "北海荷兰盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "北海荷兰段",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Central 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Dutch North Sea / West Netherlands Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.35–2.56 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "15–45 API",
+                                                                   "DT":  "66–84 μs/ft",
+                                                                   "RT":  "气层 30–200 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 50,
+                                                                 1500
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.24
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.15,
+                                                             "por":  0.11,
+                                                             "sw":  0.55
+                                                         },
+                                              "gwc":  "气柱高度与构造共同控制",
+                                              "name":  "Slochteren",
+                                              "aliases":  [
+                                                              "斯洛赫特伦组",
+                                                              "Rotliegend Slochteren"
+                                                          ],
+                                              "litho_main":  "二叠系风成砂岩，分选好、泥质低"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "低泥质风成砂；气柱高中束缚水影响小，Sw 阈值可收紧",
+                                                  "source":  "荷兰格罗宁根气田岩石物理规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.84,
+                                                                 "a":  0.78,
+                                                                 "n":  1.96
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "Slochteren 风成砂岩气层 Archie"
+                                              }
+                                          ],
+                       "notes":  "二叠系赤底统风成砂岩，气柱高度大"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "荷兰",
+    "country_en":  "Netherlands",
+    "notes":  "二叠系 Slochteren 风成砂岩为绝对主力，格罗宁根大气田；储层孔渗优、泥质极低"
+}

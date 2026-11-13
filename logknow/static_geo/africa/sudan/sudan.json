@@ -1,0 +1,39 @@
+﻿{
+    "country":  "苏丹",
+    "basin":  "穆格莱德盆地",
+    "sag":  "北部凹陷",
+    "block":  "Block 1/2/4",
+    "oilfield":  "Heglig 油田",
+    "structure":  "断块隆起",
+    "well":  "Heglig-1",
+    "formation":  "Abu Gabra 组",
+    "strata_meta":  {
+                        "lithology":  "湖相三角洲砂岩",
+                        "gamma_range":  [
+                                            31,
+                                            89
+                                        ],
+                        "resistivity_range":  [
+                                                  2.1,
+                                                  70
+                                              ],
+                        "porosity_range":  [
+                                               0.14,
+                                               0.29
+                                           ],
+                        "permeability_range":  [
+                                                   11,
+                                                   900
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.22,
+                                                       0.71
+                                                   ]
+                    },
+    "method_name":  "穆格莱德湖相砂岩解释",
+    "method_meta":  {
+                        "threshold":  "GR\u003c66",
+                        "formula":  "Archie，淡水地层水",
+                        "condition":  "Abu Gabra 组主力油层"
+                    }
+}

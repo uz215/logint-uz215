@@ -1,31 +1,209 @@
-﻿[
-    {
-        "country": "科威特",
-        "basin": "大布尔干盆地",
-        "sag": "南部凹陷",
-        "block": "Burgan 区块",
-        "oilfield": "Burgan 油田",
-        "structure": "大型平缓背斜构造",
-        "well": "BUR-01",
-        "formation": "Burgan",
-        "strata_meta": {
-            "sub_layer": "白垩统砂岩",
-            "lithology": ["石英砂岩", "泥质砂岩"],
-            "log_response": {
-                "reservoir": {"GR": "15–45", "RT": "6–40", "DEN": "2.32–2.46", "CNL": "12–22", "DT": "74–88"},
-                "non_reservoir": {"GR": "75–130", "RT": "1–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "DT": "91–106"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "滨岸砂岩油层解释法",
-        "method_meta": {
-            "applicable_condition": "滨岸滩坝纯净砂岩",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "Archie 饱和度计算",
-            "threshold": {"sw_max": 0.55},
-            "limitation": "含硬石膏夹层干扰",
-            "reference_case": "科威特布尔干油田"
-        },
-        "gwc": {"Burgan": "区域统一油水界面，局部构造微调"}
-    }
-]
+﻿{
+    "country":  "科威特",
+    "country_en":  "Kuwait",
+    "continent":  "asia",
+    "notes":  "波斯湾盆地碳酸盐岩为主，大型背斜油藏，主力白垩系、侏罗系储层，高矿化度地层水",
+    "basins":  [
+                   {
+                       "name":  "波斯湾盆地（科威特段）",
+                       "name_en":  "Persian Gulf Basin (Kuwait Sector)",
+                       "depressions":  [
+                                           {
+                                               "name":  "科威特中央凹陷",
+                                               "blocks":  [
+                                                              {
+                                                                  "name":  "大布尔干区块",
+                                                                  "oilfields":  [
+                                                                                    {
+                                                                                        "name":  "布尔干油田",
+                                                                                        "structures":  [
+                                                                                                           {
+                                                                                                               "name":  "Burgan 背斜",
+                                                                                                               "wells":  [
+                                                                                                                             {
+                                                                                                                                 "name":  "Burgan‑A01",
+                                                                                                                                 "td":  "3940 m",
+                                                                                                                                 "intervals":  [
+                                                                                                                                                   {
+                                                                                                                                                       "fm":  "Burgan",
+                                                                                                                                                       "top":  "2410 m",
+                                                                                                                                                       "bot":  "3360 m",
+                                                                                                                                                       "lithology":  "石英砂岩",
+                                                                                                                                                       "fluid_type":  "黑油",
+                                                                                                                                                       "test_result":  "高产工业油流",
+                                                                                                                                                       "log_response":  {
+                                                                                                                                                                            "GR":  "很低伽马，15–50 API",
+                                                                                                                                                                            "RT":  "油层 4–25 Ω·m",
+                                                                                                                                                                            "DEN":  "2.38–2.58 g/cm³",
+                                                                                                                                                                            "CNL":  "中等",
+                                                                                                                                                                            "DT":  "66–84 μs/ft"
+                                                                                                                                                                        }
+                                                                                                                                                   }
+                                                                                                                                               ]
+                                                                                                                             }
+                                                                                                                         ]
+                                                                                                           }
+                                                                                                       ]
+                                                                                    }
+                                                                                ]
+                                                              }
+                                                          ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Burgan",
+                                              "aliases":  [
+                                                              "布尔干组"
+                                                          ],
+                                              "litho_main":  "纯净石英砂岩，巨厚层",
+                                              "porosity_range":  [
+                                                                     0.18,
+                                                                     0.32
+                                                                 ],
+                                              "perm_range":  [
+                                                                 100,
+                                                                 2200
+                                                             ],
+                                              "gwc":  "区域统一油水界面，受背斜控制",
+                                              "cutoff":  {
+                                                             "por":  0.14,
+                                                             "sw":  0.55,
+                                                             "vsh":  0.25
+                                                         }
+                                          },
+                                          {
+                                              "name":  "Minagish",
+                                              "aliases":  [
+                                                              "米纳吉什组"
+                                                          ],
+                                              "litho_main":  "粒屑灰岩、白云岩化灰岩",
+                                              "porosity_range":  [
+                                                                     0.07,
+                                                                     0.16
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.2,
+                                                                 40
+                                                             ],
+                                              "gwc":  "断块控制",
+                                              "cutoff":  {
+                                                             "por":  0.05,
+                                                             "sw":  0.70,
+                                                             "vsh":  0.20
+                                                         }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.32–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "45–90 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "油层 4–25 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 30,
+                                                                 800
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.3,
+                                                             "por":  0.13,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "构造与砂体控制",
+                                              "name":  "Wara",
+                                              "aliases":  [
+                                                              "瓦拉组"
+                                                          ],
+                                              "litho_main":  "白垩系三角洲砂岩与页岩互层，薄层发育"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.56–2.76 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "8–32 API",
+                                                                   "DT":  "44–58 μs/ft",
+                                                                   "RT":  "油层 30–300 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.05,
+                                                                 20
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.03,
+                                                                     0.1
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.03,
+                                                             "sw":  0.75
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Marrat",
+                                              "aliases":  [
+                                                              "马拉特组"
+                                                          ],
+                                              "litho_main":  "下侏罗统碳酸盐岩，致密、局部裂缝"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Burgan 砂岩 Archie 标准",
+                                                  "formula":  "Sw = (0.78 * Rw / (Rt * phi ** 1.83)) ** (1 / 1.97)",
+                                                  "params":  {
+                                                                 "a":  0.78,
+                                                                 "m":  1.83,
+                                                                 "n":  1.97,
+                                                                 "Rw":  "0.012–0.025 Ω·m"
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.14
+                                                                },
+                                                  "condition":  "布尔干纯净砂岩，地层水超高矿化度",
+                                                  "source":  "科威特石油公司测井解释规范，第24届测井年会波斯湾碳酸盐‑砂岩对比专题"
+                                              },
+                                              {
+                                                  "method_name":  "科威特白垩系碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.74 * Rw / (Rt * phi ** 2.10)) ** (1 / 2.22)",
+                                                  "params":  {
+                                                                 "a":  0.74,
+                                                                 "m":  2.10,
+                                                                 "n":  2.22
+                                                             },
+                                                  "condition":  "粒屑灰岩、孔隙‑裂缝型碳酸盐岩储层",
+                                                  "source":  "科威特碳酸盐岩岩石物理标定报告"
+                                              },
+                                              {
+                                                  "condition":  "薄互层，Archie 会高估含油饱和度，须做薄层与泥质双校正",
+                                                  "source":  "科威特 Wara 组测井评价",
+                                                  "formula":  "Sw=((1/Rt)**0.5)/((Vsh**Vsh/Rsh**0.5)+((1-Vsh)*phi**m/(a*Rw))**0.5)",
+                                                  "params":  {
+                                                                 "a":  0.8,
+                                                                 "m":  1.84
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.3
+                                                                },
+                                                  "method_name":  "Wara 薄互层砂岩解释"
+                                              },
+                                              {
+                                                  "condition":  "基质孔隙度低，储量主要靠裂缝；须成像测井配合",
+                                                  "source":  "科威特 Marrat 组测井评价",
+                                                  "formula":  "phi_f 由成像或阵列声波统计，Sw 用双孔隙模型",
+                                                  "params":  {
+                                                                 "m_b":  2.4,
+                                                                 "m_f":  1.4
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "method_name":  "Marrat 致密碳酸盐岩裂缝识别"
+                                              }
+                                          ]
+                   }
+               ]
+}

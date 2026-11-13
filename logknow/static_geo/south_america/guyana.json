@@ -1,31 +1,68 @@
-﻿[
-  {
-    "country": "圭亚那",
-    "basin": "圭亚那近海盆地",
-    "sag": "Stabroek 凹陷",
-    "block": "Stabroek 区块",
-    "oilfield": "Liza 油田",
-    "structure": "挤压断块背斜",
-    "well": "LZA-01",
-    "formation": "Campanian Sand",
-    "strata_meta": {
-      "sub_layer": "上白垩统深水浊积砂岩",
-      "lithology": ["纯净石英砂岩", "细粒浊积砂", "深海泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "18–48", "RT": "14–70", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
-        "non_reservoir": {"GR": "76–126", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "Stabroek 深水浊积砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "深水纯净石英砂，低泥质",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "低泥质 Archie，高比重原油校正",
-      "threshold": {"sw_max": "0.55"},
-      "limitation": "砂体孤立，相变快，缺少稳定标志层",
-      "reference_case": "Liza, Payara, Yellowtail"
-    },
-    "gwc": {"Campanian Sand": "每个独立砂体油水界面分开"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "深水浊积砂岩",
+                                              "rt_range":  [
+                                                               3.2,
+                                                               65
+                                                           ],
+                                              "aliases":  [
+                                                              "斯塔布鲁克砂岩"
+                                                          ],
+                                              "gr_range":  [
+                                                               28,
+                                                               76
+                                                           ],
+                                              "sw_base":  0.38,
+                                              "den_range":  [
+                                                                2.37,
+                                                                2.58
+                                                            ],
+                                              "name":  "Stabroek Sand",
+                                              "porosity_base":  0.16,
+                                              "cnl_range":  [
+                                                                0.08,
+                                                                0.24
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "斯塔布鲁克盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.044,
+                                                                 "m":  2.09,
+                                                                 "a":  0.66,
+                                                                 "n":  1.88
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  82
+                                                                },
+                                                  "condition":  "斯塔布鲁克深水浊积砂岩油藏",
+                                                  "method_name":  "圭亚那深水浊积砂解释"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "south_america",
+    "country":  "圭亚那"
+}

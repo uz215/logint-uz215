@@ -1,31 +1,166 @@
-﻿[
-  {
-    "country": "肯尼亚",
-    "basin": "Lamu 拉穆盆地",
-    "sag": "Lamu 近海凹陷",
-    "block": "拉穆近海区块",
-    "oilfield": "Kipini 油气发现区",
-    "structure": "断块、滚动背斜",
-    "well": "KEN-01",
-    "formation": "Cretaceous – Tertiary Delta Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系—古近系三角洲砂岩，被动陆缘沉积",
-      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–52", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "78–129", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油，少量原油"
-    },
-    "method_name": "拉穆盆地三角洲砂岩气层解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘三角洲体系",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "勘探程度偏低，储层预测不确定性高",
-      "reference_case": "Kipini"
-    },
-    "gwc": {"Cretaceous-Tertiary Sand": "圈闭独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "拉穆盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "拉穆盆地",
+                       "name_en":  "Lamu Basin",
+                       "notes":  "东非近海，白垩‑古近系碎屑岩，陆架‑深水过渡，以气为主",
+                       "depressions":  [
+                                           {
+                                               "name":  "拉穆主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Cretaceous Sand",
+                                              "aliases":  [
+                                                              "白垩系砂岩"
+                                                          ],
+                                              "litho_main":  "滨岸、三角洲细砂岩，局部浊积",
+                                              "porosity_range":  [
+                                                                     0.11,
+                                                                     0.24
+                                                                 ],
+                                              "perm_range":  [
+                                                                 8,
+                                                                 460
+                                                             ],
+                                              "gwc":  "断块、砂体控制",
+                                              "cutoff":  {
+                                                             "por":  0.09,
+                                                             "sw":  0.65,
+                                                             "vsh":  0.34
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.36–2.58 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "拉穆白垩系砂岩饱和度",
+                                                  "formula":  "Sw = (0.80 * Rw / (Rt * phi ** 1.87)) ** (1 / 2.03)",
+                                                  "params":  {
+                                                                 "a":  0.8,
+                                                                 "m":  1.87,
+                                                                 "n":  2.03
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.34
+                                                                },
+                                                  "condition":  "肯尼亚拉穆盆地砂岩储层",
+                                                  "source":  "肯尼亚近海测井评价"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "拉穆盆地",
+                       "name_en":  "Lamu Basin",
+                       "notes":  "东非近海，白垩‑古近系碎屑岩，陆架‑深水过渡，以气为主",
+                       "depressions":  [
+                                           {
+                                               "name":  "拉穆主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Cretaceous Sand",
+                                              "aliases":  [
+                                                              "白垩系砂岩"
+                                                          ],
+                                              "litho_main":  "滨岸、三角洲细砂岩，局部浊积",
+                                              "porosity_range":  [
+                                                                     0.11,
+                                                                     0.24
+                                                                 ],
+                                              "perm_range":  [
+                                                                 8,
+                                                                 460
+                                                             ],
+                                              "gwc":  "断块、砂体控制",
+                                              "cutoff":  {
+                                                             "por":  0.09,
+                                                             "sw":  0.65,
+                                                             "vsh":  0.34
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.36–2.58 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "拉穆白垩系砂岩饱和度",
+                                                  "formula":  "Sw = (0.80 * Rw / (Rt * phi ** 1.87)) ** (1 / 2.03)",
+                                                  "params":  {
+                                                                 "a":  0.8,
+                                                                 "m":  1.87,
+                                                                 "n":  2.03
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.34
+                                                                },
+                                                  "condition":  "肯尼亚拉穆盆地砂岩储层",
+                                                  "source":  "肯尼亚近海测井评价"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "肯尼亚"
+}

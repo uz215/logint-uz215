@@ -1,31 +1,55 @@
-﻿[
-  {
-    "country": "俄罗斯",
-    "basin": "西西伯利亚盆地",
-    "sag": "中鄂毕凹陷",
-    "block": "Surgut 区块",
-    "oilfield": "Surgut 油田",
-    "structure": "平缓背斜",
-    "well": "SRG-01",
-    "formation": "Cretaceous Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系陆相三角洲砂岩",
-      "lithology": ["石英—长石砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–56", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "81–132", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "西西伯利亚白垩系三角洲砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "大型陆相三角洲砂体，地层水矿化度横向变化",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，低阻油层判别",
-      "threshold": {"sw_max": "0.58"},
-      "limitation": "大面积薄互层，存在低阻油层、高阻水层",
-      "reference_case": "Surgut, Samotlor"
-    },
-    "gwc": {"Cretaceous Sand": "背斜内各个砂层组油水界面独立"}
-  }
-]
+﻿{
+    "country":  "俄罗斯",
+    "basin":  "西西伯利亚盆地",
+    "sag":  "中鄂毕凹陷",
+    "block":  "Surgut 区块",
+    "oilfield":  "Surgut 油田",
+    "structure":  "平缓背斜",
+    "well":  "SRG-01",
+    "formation":  "Cretaceous Sand",
+    "strata_meta":  {
+                        "sub_layer":  "白垩系陆相三角洲砂岩",
+                        "lithology":  [
+                                          "石英—长石砂岩",
+                                          "粉砂岩",
+                                          "泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "21–56",
+                                                               "RT":  "12–66",
+                                                               "DEN":  "2.34–2.48",
+                                                               "CNL":  "13–24",
+                                                               "AC":  "75–89"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "81–132",
+                                                                   "RT":  "1.0–3.3",
+                                                                   "DEN":  "2.54–2.64",
+                                                                   "CNL":  "24–34",
+                                                                   "AC":  "92–107"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气"
+                    },
+    "method_name":  "西西伯利亚白垩系三角洲砂岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "大型陆相三角洲砂体，地层水矿化度横向变化",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "泥质校正 Archie，低阻油层判别",
+                        "threshold":  {
+                                          "sw_max":  "0.58"
+                                      },
+                        "limitation":  "大面积薄互层，存在低阻油层、高阻水层",
+                        "reference_case":  "Surgut, Samotlor"
+                    },
+    "gwc":  {
+                "Cretaceous Sand":  "背斜内各个砂层组油水界面独立"
+            }
+}

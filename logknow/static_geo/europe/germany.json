@@ -1,0 +1,32 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "北德盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "德国",
+    "country_en":  "Germany",
+    "notes":  "北德盆地二叠系赤底统砂岩与蔡希斯坦 Ca2 碳酸盐岩双层系，盐丘发育、井眼条件差"
+}

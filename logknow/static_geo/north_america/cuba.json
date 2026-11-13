@@ -1,31 +1,7 @@
-﻿[
-  {
-    "country": "古巴",
-    "basin": "North Cuba 盆地",
-    "sag": "北部近海凹陷",
-    "block": "North Cuba offshore 区块",
-    "oilfield": "Varadero 油田",
-    "structure": "断块背斜",
-    "well": "CUB-01",
-    "formation": "Eocene Carbonate",
-    "strata_meta": {
-      "sub_layer": "始新统碳酸盐岩、碎屑岩互层",
-      "lithology": ["粒屑灰岩", "白云岩", "砂岩", "泥灰岩"],
-      "log_response": {
-        "reservoir": {"GR": "5–29", "RT": "21–210", "DEN": "2.41–2.57", "CNL": "4–13", "AC": "44–66"},
-        "non_reservoir": {"GR": "1–9", "RT": "680+", "DEN": "2.62–2.71", "CNL": "0–4", "AC": "38–46"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "古巴北部始新统碳酸盐岩解释法",
-    "method_meta": {
-      "applicable_condition": "台地滩相，砂灰岩互层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "岩相切换识别，Archie",
-      "threshold": {"sw_max": "0.57"},
-      "limitation": "岩性横向快速变化，裂缝发育",
-      "reference_case": "Varadero"
-    },
-    "gwc": {"Eocene Carbonate": "断块独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+
+               ],
+    "continent":  "north_america",
+    "country":  "古巴"
+}

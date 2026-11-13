@@ -1,0 +1,229 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "前陆叠合，常规砂岩、碳酸盐岩，大量页岩气、油砂；Mannville、Cardium、Montney 主力层",
+    "basins":  [
+                   {
+                       "name":  "加拿大西部沉积盆地",
+                       "name_en":  "Western Canada Sedimentary Basin",
+                       "notes":  "前陆叠合，常规砂岩、碳酸盐岩，大量页岩气、油砂；Mannville、Cardium、Montney 主力层",
+                       "depressions":  [
+                                           {
+                                               "name":  "西加主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Montney",
+                                              "aliases":  [
+                                                              "蒙特尼组",
+                                                              "Montney Fm"
+                                                          ],
+                                              "litho_main":  "粉砂质白云岩、页岩互层，致密非常规储层",
+                                              "porosity_range":  [
+                                                                     0.03,
+                                                                     0.12
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.0005,
+                                                                 0.5
+                                                             ],
+                                              "gwc":  "源内滞留，无统一界面",
+                                              "cutoff":  {
+                                                             "por":  0.02,
+                                                             "sw":  0.82,
+                                                             "vsh":  0.35
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中高伽马",
+                                                                   "RT":  "变化大；含气段高阻",
+                                                                   "DEN":  "2.40–2.64 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "66–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Montney 致密含气储层",
+                                                  "formula":  "Sw = (0.74 * Rw / (Rt * phi ** 1.96)) ** (1 / 2.12)",
+                                                  "params":  {
+                                                                 "a":  0.74,
+                                                                 "m":  1.96,
+                                                                 "n":  2.12
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.02
+                                                                },
+                                                  "condition":  "致密混积岩，采用双水模型，吸附气单独估算",
+                                                  "source":  "加拿大西加盆地测井评价手册"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "加拿大西部沉积盆地",
+                       "name_en":  "Western Canada Sedimentary Basin",
+                       "notes":  "前陆叠合，常规砂岩、碳酸盐岩，大量页岩气、油砂；Mannville、Cardium、Montney 主力层",
+                       "depressions":  [
+                                           {
+                                               "name":  "西加主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Montney",
+                                              "aliases":  [
+                                                              "蒙特尼组",
+                                                              "Montney Fm"
+                                                          ],
+                                              "litho_main":  "粉砂质白云岩、页岩互层，致密非常规储层",
+                                              "porosity_range":  [
+                                                                     0.03,
+                                                                     0.12
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.0005,
+                                                                 0.5
+                                                             ],
+                                              "gwc":  "源内滞留，无统一界面",
+                                              "cutoff":  {
+                                                             "por":  0.02,
+                                                             "sw":  0.82,
+                                                             "vsh":  0.35
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中高伽马",
+                                                                   "RT":  "变化大；含气段高阻",
+                                                                   "DEN":  "2.40–2.64 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "66–86 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.36–2.60 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "50–95 API",
+                                                                   "DT":  "66–82 μs/ft",
+                                                                   "RT":  "油层 10–80 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.01,
+                                                                 2
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.16
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.05,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "无统一界面，受物性控制",
+                                              "name":  "Cardium",
+                                              "aliases":  [
+                                                              "卡迪姆组"
+                                                          ],
+                                              "litho_main":  "上白垩统滨岸细砂岩，致密油"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.38–2.62 g/cm³",
+                                                                   "CNL":  "偏高",
+                                                                   "GR":  "80–150 API",
+                                                                   "DT":  "70–95 μs/ft",
+                                                                   "RT":  "高阻 10–120 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.0001,
+                                                                 0.02
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.02,
+                                                                     0.08
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.35,
+                                                             "por":  0.02,
+                                                             "sw":  0.78
+                                                         },
+                                              "gwc":  "源内滞留",
+                                              "name":  "Duvernay",
+                                              "aliases":  [
+                                                              "杜弗内组"
+                                                          ],
+                                              "litho_main":  "上泥盆统富有机质泥灰岩，页岩油气"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Montney 致密含气储层",
+                                                  "formula":  "Sw = (0.74 * Rw / (Rt * phi ** 1.96)) ** (1 / 2.12)",
+                                                  "params":  {
+                                                                 "a":  0.74,
+                                                                 "m":  1.96,
+                                                                 "n":  2.12
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.02
+                                                                },
+                                                  "condition":  "致密混积岩，采用双水模型，吸附气单独估算",
+                                                  "source":  "加拿大西加盆地测井评价手册"
+                                              },
+                                              {
+                                                  "condition":  "致密油，束缚水占比高，须双水或核磁校正",
+                                                  "source":  "加拿大 Cardium 测井评价",
+                                                  "formula":  "Sw=((a*Rw)/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2,
+                                                                 "a":  0.83,
+                                                                 "n":  2.08
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "method_name":  "Cardium 致密砂岩饱和度"
+                                              },
+                                              {
+                                                  "condition":  "须用 TOC、脆性指数与含气量综合评价，饱和度不能单独定产",
+                                                  "source":  "加拿大 Duvernay 测井评价",
+                                                  "formula":  "含烃量=TOC 与 Langmuir 吸附结合自由气计算",
+                                                  "params":  {
+                                                                 "TOC":  "2–7%",
+                                                                 "Ro":  "1.2–2.5%"
+                                                             },
+                                                  "threshold":  {
+                                                                    "TOC_min":  2
+                                                                },
+                                                  "method_name":  "Duvernay 页岩含烃评价"
+                                              }
+                                          ]
+                   }
+               ]
+}

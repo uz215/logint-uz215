@@ -1,0 +1,39 @@
+﻿{
+    "country":  "乍得",
+    "basin":  "邦戈尔盆地",
+    "sag":  "邦戈尔主凹陷",
+    "block":  "H block",
+    "oilfield":  "Kome 油田",
+    "structure":  "滚动背斜",
+    "well":  "Kome-1",
+    "formation":  "Mangara 组",
+    "strata_meta":  {
+                        "lithology":  "三角洲砂岩",
+                        "gamma_range":  [
+                                            32,
+                                            92
+                                        ],
+                        "resistivity_range":  [
+                                                  1.6,
+                                                  55
+                                              ],
+                        "porosity_range":  [
+                                               0.17,
+                                               0.31
+                                           ],
+                        "permeability_range":  [
+                                                   15,
+                                                   1000
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.22,
+                                                       0.73
+                                                   ]
+                    },
+    "method_name":  "湖相三角洲 QuickLook",
+    "method_meta":  {
+                        "threshold":  "GR\u003c68",
+                        "formula":  "Vsh 伽马法",
+                        "condition":  "邦戈尔盆地下白垩统"
+                    }
+}

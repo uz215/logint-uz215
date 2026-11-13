@@ -1,0 +1,19 @@
+{
+  "hierarchy": {
+    "country": "Brazil",
+    "basin": "未填写",
+    "sag": "未填写",
+    "structure": "未填写",
+    "field": "Aram",
+    "well": "1-SPS-108"
+  },
+  "categories": [
+    "basic_data",
+    "stratigraphy",
+    "lithology",
+    "testing",
+    "log_interpretation",
+    "gas_show"
+  ],
+  "summary": "D:\\360\\src\\data\\kb\\well_knowledge\\1-SPS-108_knowledge_summary.md"
+}

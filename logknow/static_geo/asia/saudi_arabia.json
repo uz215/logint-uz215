@@ -1,31 +1,221 @@
-﻿[
-    {
-        "country": "沙特阿拉伯",
-        "basin": "波斯湾盆地",
-        "sag": "东部凹陷",
-        "block": "Arab 区块",
-        "oilfield": "Arab 油田",
-        "structure": "台地粒屑滩构造",
-        "well": "ARB-01",
-        "formation": "Arab",
-        "strata_meta": {
-            "sub_layer": "白垩系碳酸盐岩",
-            "lithology": ["粒屑灰岩、藻灰岩"],
-            "log_response": {
-                "reservoir": {"GR": "3–19", "RT": "22–220", "DEN": "2.43–2.58", "CNL": "3–10", "DT": "43–63"},
-                "non_reservoir": {"GR": "1–8", "RT": "1100+", "DEN": "2.90–2.98", "CNL": "-1~2", "DT": "32–40"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "Arab 组碳酸盐岩解释法",
-        "method_meta": {
-            "applicable_condition": "白垩系台地粒屑灰岩",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "粒间孔隙 Archie",
-            "threshold": {"sw_max": 0.55},
-            "limitation": "石膏夹层干扰孔隙计算",
-            "reference_case": "沙特陆上巨型油田"
-        },
-        "gwc": {"Arab": "不同油田独立油水界面"}
-    }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "上侏罗统颗粒滩碳酸盐岩",
+                                              "rt_range":  [
+                                                               12,
+                                                               350
+                                                           ],
+                                              "aliases":  [
+                                                              "Arab-D Fm"
+                                                          ],
+                                              "gr_range":  [
+                                                               8,
+                                                               48
+                                                           ],
+                                              "sw_base":  0.24,
+                                              "den_range":  [
+                                                                2.3,
+                                                                2.53
+                                                            ],
+                                              "name":  "Arab-D",
+                                              "porosity_base":  0.12,
+                                              "cnl_range":  [
+                                                                0.03,
+                                                                0.15
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "阿拉伯盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.015,
+                                                                 "m":  2.28,
+                                                                 "a":  0.97,
+                                                                 "n":  2.08
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.04,
+                                                                    "gr_max":  52
+                                                                },
+                                                  "condition":  "沙特 Arab-D 滩相碳酸盐岩主力油藏",
+                                                  "method_name":  "Arab-D 碳酸盐岩解释"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "阿拉伯盆地",
+                       "name_en":  "Arabian Basin",
+                       "notes":  "沙特主力碳酸盐岩巨型油田，Arab 组为经典储层，高孔高渗，地层水矿化度极高",
+                       "depressions":  [
+                                           {
+                                               "name":  "东部凹陷带",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Arab",
+                                              "aliases":  [
+                                                              "Arab 组",
+                                                              "Arab Fm"
+                                                          ],
+                                              "litho_main":  "颗粒灰岩、鲕粒灰岩，局部白云岩化，孔洞发育",
+                                              "porosity_range":  [
+                                                                     0.12,
+                                                                     0.3
+                                                                 ],
+                                              "perm_range":  [
+                                                                 10,
+                                                                 3200
+                                                             ],
+                                              "gwc":  "大型构造圈闭内统一油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.1,
+                                                             "sw":  0.55,
+                                                             "vsh":  0.12
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马，5–30 API",
+                                                                   "RT":  "油层高阻，10–100 Ω·m",
+                                                                   "DEN":  "2.45–2.68 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "48–64 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.38–2.60 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "15–50 API",
+                                                                   "DT":  "62–80 μs/ft",
+                                                                   "RT":  "气层 20–150 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 120
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.08,
+                                                                     0.18
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.2,
+                                                             "por":  0.07,
+                                                             "sw":  0.62
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Unayzah",
+                                              "aliases":  [
+                                                              "乌奈扎组"
+                                                          ],
+                                              "litho_main":  "二叠系河流—风成石英砂岩，气层"
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.56–2.76 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "6–28 API",
+                                                                   "DT":  "44–58 μs/ft",
+                                                                   "RT":  "气层 50–400 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 40
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.04,
+                                                                     0.12
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.1,
+                                                             "por":  0.03,
+                                                             "sw":  0.72
+                                                         },
+                                              "gwc":  "构造与气柱高度控制",
+                                              "name":  "Khuff",
+                                              "aliases":  [
+                                                              "胡夫组"
+                                                          ],
+                                              "litho_main":  "二叠系白云岩、灰岩，夹硬石膏，气层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "沙特 Arab 组碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.68 * Rw / (Rt * phi ** 2.15)) ** (1 / 2.24)",
+                                                  "params":  {
+                                                                 "a":  0.68,
+                                                                 "m":  2.15,
+                                                                 "n":  2.24
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.1
+                                                                },
+                                                  "condition":  "Arab 组颗粒灰岩；裂缝段 m 下调，需要分相带标定",
+                                                  "source":  "沙特阿美岩石物理标准，第24届测井年会中东碳酸盐岩专题"
+                                              },
+                                              {
+                                                  "condition":  "低孔低渗，须引入束缚水校正；胶结强段 m 上调",
+                                                  "source":  "沙特 Unayzah 气藏测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.92,
+                                                                 "a":  0.78,
+                                                                 "n":  2.06
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "method_name":  "Unayzah 致密砂岩气层 Archie"
+                                              },
+                                              {
+                                                  "condition":  "含硫气与高温使 n 偏移；硬石膏段先剔除",
+                                                  "source":  "沙特 Khuff 气藏岩石物理标定",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  2.14,
+                                                                 "a":  0.7,
+                                                                 "n":  2.24
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.03
+                                                                },
+                                                  "method_name":  "Khuff 白云岩含硫气层"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "asia",
+    "country":  "沙特阿拉伯"
+}

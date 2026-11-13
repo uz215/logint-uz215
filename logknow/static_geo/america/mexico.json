@@ -1,0 +1,144 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "被动陆缘，盐岩发育，盐下碳酸盐岩、深水浊积砂，高温高压，压力体系复杂",
+    "basins":  [
+                   {
+                       "name":  "墨西哥湾（墨西哥一侧）",
+                       "name_en":  "Gulf of Mexico (Mexico)",
+                       "notes":  "被动陆缘，盐岩发育，盐下碳酸盐岩、深水浊积砂，高温高压，压力体系复杂",
+                       "depressions":  [
+                                           {
+                                               "name":  "墨西哥湾南部凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Kimmeridgian Carbonate",
+                                              "aliases":  [
+                                                              "启莫里阶灰岩"
+                                                          ],
+                                              "litho_main":  "礁灰岩、颗粒灰岩，局部白云岩化",
+                                              "porosity_range":  [
+                                                                     0.07,
+                                                                     0.2
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.15,
+                                                                 180
+                                                             ],
+                                              "gwc":  "礁体独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.06,
+                                                             "sw":  0.69,
+                                                             "vsh":  0.14
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "高阻",
+                                                                   "DEN":  "2.47–2.69 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "48–64 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "墨西哥湾礁灰岩饱和度",
+                                                  "formula":  "Sw = (0.70 * Rw / (Rt * phi ** 2.12)) ** (1 / 2.23)",
+                                                  "params":  {
+                                                                 "a":  0.7,
+                                                                 "m":  2.12,
+                                                                 "n":  2.23
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.06
+                                                                },
+                                                  "condition":  "礁相碳酸盐岩，裂缝、孔洞需要分相标定",
+                                                  "source":  "墨西哥湾南岸测井评价规范"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "墨西哥湾（墨西哥一侧）",
+                       "name_en":  "Gulf of Mexico (Mexico)",
+                       "notes":  "被动陆缘，盐岩发育，盐下碳酸盐岩、深水浊积砂，高温高压，压力体系复杂",
+                       "depressions":  [
+                                           {
+                                               "name":  "墨西哥湾南部凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Kimmeridgian Carbonate",
+                                              "aliases":  [
+                                                              "启莫里阶灰岩"
+                                                          ],
+                                              "litho_main":  "礁灰岩、颗粒灰岩，局部白云岩化",
+                                              "porosity_range":  [
+                                                                     0.07,
+                                                                     0.2
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.15,
+                                                                 180
+                                                             ],
+                                              "gwc":  "礁体独立油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.06,
+                                                             "sw":  0.69,
+                                                             "vsh":  0.14
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "高阻",
+                                                                   "DEN":  "2.47–2.69 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "48–64 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "墨西哥湾礁灰岩饱和度",
+                                                  "formula":  "Sw = (0.70 * Rw / (Rt * phi ** 2.12)) ** (1 / 2.23)",
+                                                  "params":  {
+                                                                 "a":  0.7,
+                                                                 "m":  2.12,
+                                                                 "n":  2.23
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.06
+                                                                },
+                                                  "condition":  "礁相碳酸盐岩，裂缝、孔洞需要分相标定",
+                                                  "source":  "墨西哥湾南岸测井评价规范"
+                                              }
+                                          ]
+                   }
+               ]
+}

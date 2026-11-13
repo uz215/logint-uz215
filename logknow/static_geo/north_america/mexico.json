@@ -1,31 +1,32 @@
-﻿[
-  {
-    "country": "墨西哥",
-    "basin": "Gulf of Mexico 墨西哥次盆",
-    "sag": "Sureste 凹陷",
-    "block": "Sureste 陆上与近海区块",
-    "oilfield": "Ku-Maloob-Zaap 油田",
-    "structure": "盐丘相关断块、滚动背斜",
-    "well": "MEX-01",
-    "formation": "Cretaceous / Tertiary Sand & Carbonate",
-    "strata_meta": {
-      "sub_layer": "白垩系碳酸盐岩、古近系深水浊积砂岩，盐岩广泛发育",
-      "lithology": ["粒屑灰岩", "白云岩", "石英砂岩", "盐岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "4–52", "RT": "13–240", "DEN": "2.31–2.57", "CNL": "3–22", "AC": "42–87"},
-        "non_reservoir": {"GR": "76–128", "RT": "1.0–850+", "DEN": "2.52–2.72", "CNL": "0–33", "AC": "37–105"}
-      },
-      "hydrocarbon_type": "原油、伴生气、凝析油"
-    },
-    "method_name": "墨西哥湾盐相关储层解释法",
-    "method_meta": {
-      "applicable_condition": "盐下灰岩孔洞储层、盐上深水浊积砂",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "盐层曲线畸变校正，灰岩孔洞 Archie，浊积砂泥质 Archie",
-      "threshold": {"sw_max": "0.55"},
-      "limitation": "盐丘造成测井曲线严重畸变，储层非均质性极强",
-      "reference_case": "Ku-Maloob-Zaap, Cantarell"
-    },
-    "gwc": {"Cretaceous Carbonate": "圈闭独立油水界面", "Tertiary Sand": "浊积扇独立界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Ku-Maloob-Zaap"
+                                         }
+                                     ],
+                       "name":  "墨西哥湾南部盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   }
+               ],
+    "continent":  "north_america",
+    "country":  "墨西哥"
+}

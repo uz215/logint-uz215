@@ -1,0 +1,68 @@
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "河流三角洲砂岩",
+                                              "rt_range":  [
+                                                               3.1,
+                                                               66
+                                                           ],
+                                              "aliases":  [
+                                                              "斯塔菲尤德组"
+                                                          ],
+                                              "gr_range":  [
+                                                               24,
+                                                               76
+                                                           ],
+                                              "sw_base":  0.37,
+                                              "den_range":  [
+                                                                2.4,
+                                                                2.59
+                                                            ],
+                                              "name":  "Statfjord",
+                                              "porosity_base":  0.16,
+                                              "cnl_range":  [
+                                                                0.09,
+                                                                0.24
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "北海维京地堑",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.041,
+                                                                 "m":  2.05,
+                                                                 "a":  0.67,
+                                                                 "n":  1.86
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.08,
+                                                                    "gr_max":  82
+                                                                },
+                                                  "condition":  "挪威北海 Statfjord 砂岩油藏",
+                                                  "method_name":  "Statfjord 砂岩饱和度"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "挪威（北海）"
+}

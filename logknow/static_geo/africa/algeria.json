@@ -1,31 +1,137 @@
-﻿[
-  {
-    "country": "阿尔及利亚",
-    "basin": "Illizi 盆地",
-    "sag": "Illizi 中央凹陷",
-    "block": "Hassi R'Mel / Hassi Messaoud 区块",
-    "oilfield": "Hassi R'Mel 大气田、Hassi Messaoud 大油田",
-    "structure": "古隆起、断块",
-    "well": "DZA-01",
-    "formation": "Cambro-Ordovician Sand / Devonian Carbonate",
-    "strata_meta": {
-      "sub_layer": "寒武—奥陶系石英砂岩，泥盆系碳酸盐岩，古生界深层储层",
-      "lithology": ["石英砂岩", "致密砂岩", "粒屑灰岩", "页岩"],
-      "log_response": {
-        "reservoir": {"GR": "18–54", "RT": "14–230", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–750+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "天然气、原油、凝析油"
-    },
-    "method_name": "阿尔及利亚古生界深层储层解释法",
-    "method_meta": {
-      "applicable_condition": "古老克拉通隆起，深层强压实，存在常规与致密储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "深层压实校正，砂岩/灰岩双分支 Archie，高矿化水修正",
-      "threshold": {"sw_max": "0.55", "gas_cut": "0.04"},
-      "limitation": "埋深巨大、压实强，局部裂缝为主要渗流通道",
-      "reference_case": "Hassi R'Mel, Hassi Messaoud"
-    },
-    "gwc": {"Paleozoic Sand": "古隆起圈闭独立油水/气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "寒武系石英砂岩",
+                                              "rt_range":  [
+                                                               4,
+                                                               90
+                                                           ],
+                                              "aliases":  [
+                                                              "哈西迈萨乌德组"
+                                                          ],
+                                              "gr_range":  [
+                                                               18,
+                                                               65
+                                                           ],
+                                              "sw_base":  0.33,
+                                              "den_range":  [
+                                                                2.42,
+                                                                2.61
+                                                            ],
+                                              "name":  "Hassi Messaoud",
+                                              "porosity_base":  0.14,
+                                              "cnl_range":  [
+                                                                0.07,
+                                                                0.21
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "伊利济盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.034,
+                                                                 "m":  2.12,
+                                                                 "a":  0.72,
+                                                                 "n":  1.92
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.07,
+                                                                    "gr_max":  70
+                                                                },
+                                                  "condition":  "阿尔及利亚哈西迈萨乌德古老砂岩油藏",
+                                                  "method_name":  "寒武系石英砂岩 Archie"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "伊利济盆地",
+                       "name_en":  "Illizi Basin",
+                       "notes":  "北非古生界，致密砂岩、奥陶系石英砂岩，深层低孔低渗，气藏为主",
+                       "depressions":  [
+                                           {
+                                               "name":  "伊利济凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Tassili",
+                                              "aliases":  [
+                                                              "塔西里组",
+                                                              "Tassili Fm"
+                                                          ],
+                                              "litho_main":  "奥陶系石英砂岩，压实强，致密‑常规并存",
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.16
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.03,
+                                                                 120
+                                                             ],
+                                              "gwc":  "岩性‑构造圈闭，气水关系复杂",
+                                              "cutoff":  {
+                                                             "por":  0.05,
+                                                             "sw":  0.75,
+                                                             "vsh":  0.25
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "气层高阻",
+                                                                   "DEN":  "2.42–2.65 g/cm³",
+                                                                   "CNL":  "挖掘效应明显",
+                                                                   "DT":  "56–76 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "阿尔及利亚 Tassili 致密砂岩气层",
+                                                  "formula":  "Sw = (0.77 * Rw / (Rt * phi ** 1.92)) ** (1 / 2.08)",
+                                                  "params":  {
+                                                                 "a":  0.77,
+                                                                 "m":  1.92,
+                                                                 "n":  2.08
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "condition":  "古生界致密石英砂岩，低孔段优先考虑双水模型",
+                                                  "source":  "阿尔及利亚国家石油公司测井手册"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "阿尔及利亚"
+}

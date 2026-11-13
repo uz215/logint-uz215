@@ -1,31 +1,76 @@
-﻿[
-  {
-    "country": "塞尔维亚",
-    "basin": "Pannonian 盆地",
-    "sag": "Banat 凹陷",
-    "block": "Banat 区块",
-    "oilfield": "Banat 油田群",
-    "structure": "断块、平缓背斜",
-    "well": "SRB-01",
-    "formation": "Miocene–Pliocene Sand",
-    "strata_meta": {
-      "sub_layer": "中新—上新统湖相三角洲砂岩",
-      "lithology": ["岩屑砂岩", "粉砂岩", "暗色湖相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–57", "RT": "12–65", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "80–131", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "塞尔维亚 Pannonian 湖相三角洲砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "陆相湖盆三角洲，局部含低阻油层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，低阻识别分支",
-      "threshold": {"sw_max": "0.58"},
-      "limitation": "泥质、黄铁矿局部富集，压低电阻率",
-      "reference_case": "Banat, Vojvodina field cluster"
-    },
-    "gwc": {"Miocene–Pliocene Sand": "各砂体独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "name":  "潘诺尼亚盆地（塞尔维亚段）",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Vojvodina 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Pannonian Basin (Serbia)",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "35–82 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "气层 4–35 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 10,
+                                                                 380
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.11,
+                                                             "sw":  0.63
+                                                         },
+                                              "gwc":  "断块控制",
+                                              "name":  "Miocene Sand (Serbia)",
+                                              "aliases":  [
+                                                              "中新统砂岩"
+                                                          ],
+                                              "litho_main":  "中新统滨岸砂岩，泥质夹层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "常规砂岩；高泥质段用泥质校正模型",
+                                                  "source":  "塞尔维亚潘诺尼亚段测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.86,
+                                                                 "a":  0.8,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "塞尔维亚中新统砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "中新统滨岸—三角洲砂岩，断层控制"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "塞尔维亚",
+    "country_en":  "",
+    "notes":  ""
+}

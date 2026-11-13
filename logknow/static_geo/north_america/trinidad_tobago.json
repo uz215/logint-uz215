@@ -1,31 +1,56 @@
-﻿[
-  {
-    "country": "特立尼达和多巴哥",
-    "basin": "East Venezuela 盆地（特立尼达子盆）",
-    "sag": "东部近海凹陷",
-    "block": "Atlantic offshore 区块",
-    "oilfield": "Manatee 气田",
-    "structure": "滚动背斜",
-    "well": "TTO-01",
-    "formation": "Miocene Sand",
-    "strata_meta": {
-      "sub_layer": "中新统深水浊积砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–51", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "77–127", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油，少量原油"
-    },
-    "method_name": "特立尼达中新统浊积砂气层解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘深水浊积扇",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.04"},
-      "limitation": "扇体叠置，泥质夹层多",
-      "reference_case": "Manatee, Loran"
-    },
-    "gwc": {"Miocene Sand": "扇体独立气水界面"}
-  }
-]
+﻿{
+    "country":  "特立尼达和多巴哥",
+    "basin":  "East Venezuela 盆地（特立尼达子盆）",
+    "sag":  "东部近海凹陷",
+    "block":  "Atlantic offshore 区块",
+    "oilfield":  "Manatee 气田",
+    "structure":  "滚动背斜",
+    "well":  "TTO-01",
+    "formation":  "Miocene Sand",
+    "strata_meta":  {
+                        "sub_layer":  "中新统深水浊积砂岩",
+                        "lithology":  [
+                                          "石英砂岩",
+                                          "粉砂岩",
+                                          "海相泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "19–51",
+                                                               "RT":  "13–68",
+                                                               "DEN":  "2.33–2.47",
+                                                               "CNL":  "13–23",
+                                                               "AC":  "74–88"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "77–127",
+                                                                   "RT":  "1.0–3.2",
+                                                                   "DEN":  "2.53–2.63",
+                                                                   "CNL":  "23–33",
+                                                                   "AC":  "91–106"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "天然气、凝析油，少量原油"
+                    },
+    "method_name":  "特立尼达中新统浊积砂气层解释法",
+    "method_meta":  {
+                        "applicable_condition":  "被动陆缘深水浊积扇",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "泥质校正 Archie，气挖掘效应",
+                        "threshold":  {
+                                          "sw_max":  "0.56",
+                                          "gas_cut":  "0.04"
+                                      },
+                        "limitation":  "扇体叠置，泥质夹层多",
+                        "reference_case":  "Manatee, Loran"
+                    },
+    "gwc":  {
+                "Miocene Sand":  "扇体独立气水界面"
+            }
+}

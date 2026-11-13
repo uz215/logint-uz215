@@ -1,31 +1,168 @@
-﻿[
-  {
-    "country": "加蓬",
-    "basin": "Gabon Coastal 加蓬海岸盆地",
-    "sag": "近海中央凹陷",
-    "block": "加蓬近海区块",
-    "oilfield": "Rabi-Kounga 油田",
-    "structure": "盐相关断块、滚动背斜",
-    "well": "GAB-01",
-    "formation": "Cretaceous Sand & Carbonate",
-    "strata_meta": {
-      "sub_layer": "白垩系砂岩与碳酸盐岩，盐岩广泛发育",
-      "lithology": ["石英砂岩", "粒屑灰岩", "白云岩", "盐岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "4–52", "RT": "14–220", "DEN": "2.32–2.57", "CNL": "3–22", "AC": "43–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–700+", "DEN": "2.52–2.71", "CNL": "0–32", "AC": "38–104"}
-      },
-      "hydrocarbon_type": "原油、伴生气、凝析油"
-    },
-    "method_name": "加蓬海岸盆地盐控砂灰岩解释法",
-    "method_meta": {
-      "applicable_condition": "裂谷被动陆缘，盐构造改造储层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "盐畸变校正，灰岩孔洞 Archie，砂岩泥质 Archie",
-      "threshold": {"sw_max": "0.55"},
-      "limitation": "盐丘造成曲线畸变，孔洞分布不均",
-      "reference_case": "Rabi-Kounga"
-    },
-    "gwc": {"Cretaceous Carbonate": "滩块独立界面", "Cretaceous Sand": "断块独立油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "加蓬近海盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "加蓬盆地",
+                       "name_en":  "Gabon Basin",
+                       "notes":  "西非被动陆缘，盐下湖相灰岩、盐上浊积砂岩，湖相烃源品质高",
+                       "depressions":  [
+                                           {
+                                               "name":  "加蓬中央凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Melania",
+                                              "aliases":  [
+                                                              "梅拉尼娅组",
+                                                              "Melania Fm"
+                                                          ],
+                                              "litho_main":  "湖相介壳灰岩、泥灰岩互层",
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.19
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.08,
+                                                                 130
+                                                             ],
+                                              "gwc":  "受岩相与断层控制",
+                                              "cutoff":  {
+                                                             "por":  0.05,
+                                                             "sw":  0.71,
+                                                             "vsh":  0.2
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "中高阻",
+                                                                   "DEN":  "2.47–2.68 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "50–66 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Melania 湖相碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.72 * Rw / (Rt * phi ** 2.10)) ** (1 / 2.21)",
+                                                  "params":  {
+                                                                 "a":  0.72,
+                                                                 "m":  2.1,
+                                                                 "n":  2.21
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "condition":  "加蓬盐下湖相灰岩，泥灰岩夹层多时增加泥质校正",
+                                                  "source":  "加蓬国家石油岩石物理手册"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "加蓬盆地",
+                       "name_en":  "Gabon Basin",
+                       "notes":  "西非被动陆缘，盐下湖相灰岩、盐上浊积砂岩，湖相烃源品质高",
+                       "depressions":  [
+                                           {
+                                               "name":  "加蓬中央凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Melania",
+                                              "aliases":  [
+                                                              "梅拉尼娅组",
+                                                              "Melania Fm"
+                                                          ],
+                                              "litho_main":  "湖相介壳灰岩、泥灰岩互层",
+                                              "porosity_range":  [
+                                                                     0.06,
+                                                                     0.19
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.08,
+                                                                 130
+                                                             ],
+                                              "gwc":  "受岩相与断层控制",
+                                              "cutoff":  {
+                                                             "por":  0.05,
+                                                             "sw":  0.71,
+                                                             "vsh":  0.2
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "中高阻",
+                                                                   "DEN":  "2.47–2.68 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "50–66 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Melania 湖相碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.72 * Rw / (Rt * phi ** 2.10)) ** (1 / 2.21)",
+                                                  "params":  {
+                                                                 "a":  0.72,
+                                                                 "m":  2.1,
+                                                                 "n":  2.21
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.05
+                                                                },
+                                                  "condition":  "加蓬盐下湖相灰岩，泥灰岩夹层多时增加泥质校正",
+                                                  "source":  "加蓬国家石油岩石物理手册"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "加蓬"
+}

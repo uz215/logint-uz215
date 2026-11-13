@@ -1,0 +1,76 @@
+﻿{
+    "basins":  [
+                   {
+                       "name":  "波兰槽",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Fore-Sudetic 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Polish Trough",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.40–2.62 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "GR":  "18–55 API",
+                                                                   "DT":  "62–80 μs/ft",
+                                                                   "RT":  "气层 8–70 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 0.5,
+                                                                 130
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.09,
+                                                                     0.19
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.18,
+                                                             "por":  0.07,
+                                                             "sw":  0.66
+                                                         },
+                                              "gwc":  "构造控制",
+                                              "name":  "Rotliegend (PL)",
+                                              "aliases":  [
+                                                              "赤底统砂岩"
+                                                          ],
+                                              "litho_main":  "二叠系风成细砂岩，胶结较强"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "低孔段束缚水影响大，建议引入束缚水饱和度校正",
+                                                  "source":  "波兰波兰槽测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.9,
+                                                                 "a":  0.77,
+                                                                 "n":  2.05
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.07
+                                                                },
+                                                  "method_name":  "波兰赤底统砂岩气层 Archie"
+                                              }
+                                          ],
+                       "notes":  "二叠系赤底统风成细砂岩，低孔低渗气藏"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "波兰",
+    "country_en":  "Poland",
+    "notes":  "波兰槽二叠系赤底统砂岩气，储层偏致密；另有前喀尔巴阡中新统砂岩"
+}

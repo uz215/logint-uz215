@@ -1,0 +1,111 @@
+﻿{
+  "scope": "global",
+  "title": "全球测井解释通用基准库",
+  "notes": "通用岩石物理模型、测井校正、标准图版、行业截止参考，各国盆地可引用",
+  "general_interp_models": [
+    {
+      "method_name": "Archie 经典饱和度模型",
+      "formula": "Sw = (a * Rw / (Rt * phi ** m)) ** (1 / n)",
+      "params": {
+        "a": "岩性系数",
+        "m": "胶结指数",
+        "n": "饱和度指数",
+        "Rw": "地层水电阻率",
+        "Rt": "真电阻率",
+        "phi": "有效孔隙度"
+      },
+      "threshold": {
+        "recommended_a_range": [0.6, 1.0],
+        "recommended_m_range": [1.7, 2.2],
+        "recommended_n_range": [1.8, 2.5]
+      },
+      "condition": "纯净砂岩、低泥质、连通孔隙；不适用于高泥质、富含导电矿物、强裂缝储层",
+      "source": "经典岩石物理；第24届测井年会，砂岩 Archie 参数分区选取规范"
+    },
+    {
+      "method_name": "Waxman‑Smits 泥质砂岩饱和度模型",
+      "formula": "Sw = ((b * Rw * (1 + B * Qv * Rw)) / (Rt * phi ** m)) ** (1 / n)",
+      "params": {
+        "Qv": "阳离子交换容量",
+        "B": "粘土交换电导",
+        "b": "岩性系数"
+      },
+      "threshold": {
+        "applicable_vsh_min": 0.05,
+        "applicable_vsh_max": 0.55
+      },
+      "condition": "含分散粘土泥质砂岩，校正粘土附加电导",
+      "source": "岩石物理手册；第24届测井年会泥质储层饱和度专题"
+    },
+    {
+      "method_name": "Timur 砂岩渗透率模型",
+      "formula": "k = 0.136 * phi ** 4.4 / Swi ** 2",
+      "params": {
+        "phi": "有效孔隙度",
+        "Swi": "束缚水饱和度"
+      },
+      "condition": "常规砂岩估算渗透率，碳酸盐岩、致密储层慎用",
+      "source": "经典 Timur 公式"
+    },
+    {
+      "method_name": "Indonesia 泥质砂岩饱和度模型",
+      "formula": "Sw = [(1 / Rt) ** 0.5] / [(Vsh ** Vsh / Rsh ** 0.5) + ((1 - Vsh) * phi ** m / (a * Rw)) ** 0.5]",
+      "params": {
+        "Rsh": "泥岩电阻率",
+        "Vsh": "泥质含量"
+      },
+      "condition": "中东、东南亚常用泥质砂岩解释",
+      "source": "Indonesia 模型，海外区块广泛标定"
+    }
+  ],
+  "standard_cutoff_ref": {
+    "sand_reservoir": {
+      "por_min": 0.08,
+      "vsh_max": 0.40,
+      "sw_max": 0.60
+    },
+    "tight_sand": {
+      "por_min": 0.04,
+      "vsh_max": 0.35,
+      "sw_max": 0.70
+    },
+    "carbonate": {
+      "por_min": 0.04,
+      "vsh_max": 0.30
+    }
+  },
+  "log_correction": [
+    {
+      "name": "井眼扩径密度校正",
+      "type": "DEN",
+      "notes": "扩径段密度测井偏低，配合 CAL 逐点校正"
+    },
+    {
+      "name": "中子‑密度气层识别校正",
+      "type": "CNL-DEN",
+      "notes": "气层中子降低、密度降低，气层挖掘效应校正"
+    },
+    {
+      "name": "自然伽马泥质基线校正",
+      "type": "GR",
+      "notes": "区域泥岩基线标定，用于 Vsh 计算"
+    }
+  ],
+  "figure_plates": [
+    {
+      "name": "Pickett 图版",
+      "purpose": "求取 Rw、饱和度分区、油水界面判定",
+      "source": "测井解释标准图版，区块本地化标定"
+    },
+    {
+      "name": "M‑N 岩性图版",
+      "purpose": "碳酸盐岩、碎屑岩岩性识别，区分灰岩、白云岩、硬石膏",
+      "source": "声波‑密度‑中子组合岩性识别"
+    },
+    {
+      "name": "Rho‑Phi 孔隙度交会图",
+      "purpose": "储层划分、气层识别、泥岩剔除",
+      "source": "常规测井解释基础交会图"
+    }
+  ]
+}

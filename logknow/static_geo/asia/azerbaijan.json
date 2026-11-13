@@ -1,31 +1,130 @@
-﻿[
-  {
-    "country": "阿塞拜疆",
-    "basin": "South Caspian 南里海盆地",
-    "sag": "巴库凹陷",
-    "block": "Azeri-Chirag-Guneshli 区块",
-    "oilfield": "Azeri-Chirag-Guneshli 油田群",
-    "structure": "挤压背斜",
-    "well": "AZE-01",
-    "formation": "Pliocene Sand",
-    "strata_meta": {
-      "sub_layer": "上新统巨厚河流-三角洲砂岩，多套砂组叠置",
-      "lithology": ["岩屑砂岩", "长石砂岩", "粉砂岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "22–59", "RT": "12–68", "DEN": "2.34–2.48", "CNL": "13–24", "AC": "75–89"},
-        "non_reservoir": {"GR": "82–134", "RT": "1.0–3.4", "DEN": "2.54–2.64", "CNL": "24–35", "AC": "92–108"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "南里海上新统砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "挤压盆地，巨厚砂泥互层，高压地层",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "高压压实校正，泥质 Archie，薄层识别",
-      "threshold": {"sw_max": "0.59"},
-      "limitation": "地层超压普遍，砂泥薄互层，部分低阻油层",
-      "reference_case": "Azeri-Chirag-Guneshli, Shah Deniz"
-    },
-    "gwc": {"Pliocene Sand": "每个背斜砂组各自油水/气水界面"}
-  }
-]
+﻿{
+    "country":  "阿塞拜疆",
+    "basin":  "South Caspian 南里海盆地",
+    "sag":  "巴库凹陷",
+    "block":  "Azeri-Chirag-Guneshli 区块",
+    "oilfield":  "Azeri-Chirag-Guneshli 油田群",
+    "structure":  "挤压背斜",
+    "well":  "AZE-01",
+    "formation":  "Pliocene Sand",
+    "strata_meta":  {
+                        "sub_layer":  "上新统巨厚河流-三角洲砂岩，多套砂组叠置",
+                        "lithology":  [
+                                          "岩屑砂岩",
+                                          "长石砂岩",
+                                          "粉砂岩",
+                                          "泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "22–59",
+                                                               "RT":  "12–68",
+                                                               "DEN":  "2.34–2.48",
+                                                               "CNL":  "13–24",
+                                                               "AC":  "75–89"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "82–134",
+                                                                   "RT":  "1.0–3.4",
+                                                                   "DEN":  "2.54–2.64",
+                                                                   "CNL":  "24–35",
+                                                                   "AC":  "92–108"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油、伴生气"
+                    },
+    "method_name":  "南里海上新统砂岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "挤压盆地，巨厚砂泥互层，高压地层",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "高压压实校正，泥质 Archie，薄层识别",
+                        "threshold":  {
+                                          "sw_max":  "0.59"
+                                      },
+                        "limitation":  "地层超压普遍，砂泥薄互层，部分低阻油层",
+                        "reference_case":  "Azeri-Chirag-Guneshli, Shah Deniz"
+                    },
+    "gwc":  {
+                "Pliocene Sand":  "每个背斜砂组各自油水/气水界面"
+            },
+    "country_en":  "Azerbaijan",
+    "continent":  "asia",
+    "notes":  "南里海盆地上新统生产层系砂岩，砂体巨厚、分选好，泥火山与超压普遍",
+    "basins":  [
+                   {
+                       "name":  "南里海盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Absheron 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "South Caspian Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "30–70 API",
+                                                                   "DT":  "70–90 μs/ft",
+                                                                   "RT":  "油层 5–40 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 50,
+                                                                 1200
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.16,
+                                                                     0.3
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.13,
+                                                             "sw":  0.58
+                                                         },
+                                              "gwc":  "断层与泥火山刺穿控制",
+                                              "name":  "Productive Series",
+                                              "aliases":  [
+                                                              "生产层系",
+                                                              "PS Sand"
+                                                          ],
+                                              "litho_main":  "上新统河流—三角洲砂岩，砂体巨厚、分选好"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "超压井 Rt 受压力影响，需做压力校正；泥火山附近断层破碎带单独标定",
+                                                  "source":  "阿塞拜疆南里海测井规范",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.83,
+                                                                 "a":  0.8,
+                                                                 "n":  1.98
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.13
+                                                                },
+                                                  "method_name":  "生产层系砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "上新统生产层系，泥火山刺穿与超压"
+                   }
+               ]
+}

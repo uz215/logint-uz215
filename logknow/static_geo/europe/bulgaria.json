@@ -1,31 +1,75 @@
-﻿[
-  {
-    "country": "保加利亚",
-    "basin": "Black Sea 西部次盆",
-    "sag": "保加利亚黑海近海凹陷",
-    "block": "保加利亚黑海近海区块",
-    "oilfield": "Galata 气田",
-    "structure": "滚动背斜、断块",
-    "well": "BGR-01",
-    "formation": "Eocene – Oligocene Sand",
-    "strata_meta": {
-      "sub_layer": "始新统、渐新统深水浊积砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "深海泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "19–51", "RT": "13–68", "DEN": "2.33–2.47", "CNL": "13–23", "AC": "74–88"},
-        "non_reservoir": {"GR": "77–127", "RT": "1.0–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "AC": "91–106"}
-      },
-      "hydrocarbon_type": "天然气、凝析油"
-    },
-    "method_name": "保加利亚黑海古近系浊积砂气层解释法",
-    "method_meta": {
-      "applicable_condition": "被动陆缘深水扇体系",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质 Archie，气挖掘效应",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "扇体孤立，相变快，断层切割储层",
-      "reference_case": "Galata"
-    },
-    "gwc": {"Paleogene Turbidite Sand": "单个浊积扇独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "name":  "黑海西部盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Galata 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Western Black Sea Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.31–2.53 g/cm³",
+                                                                   "CNL":  "中等偏高",
+                                                                   "GR":  "38–88 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "气层 3–28 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 15,
+                                                                 520
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.15,
+                                                                     0.28
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.32,
+                                                             "por":  0.12,
+                                                             "sw":  0.61
+                                                         },
+                                              "gwc":  "砂体控制",
+                                              "name":  "Miocene Sand (Bulgaria)",
+                                              "aliases":  [
+                                                              "中新统砂岩"
+                                                          ],
+                                              "litho_main":  "中新统深水浊积细砂岩，砂泥互层"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "砂泥互层，薄层需高分辨率测井；泥质校正优先",
+                                                  "source":  "保加利亚黑海西部测井评价",
+                                                  "formula":  "Sw=((1/Rt)**0.5)/((Vsh**Vsh/Rsh**0.5)+((1-Vsh)*phi**m/(a*Rw))**0.5)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.82
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.32
+                                                                },
+                                                  "method_name":  "黑海西部浊积砂岩气层"
+                                              }
+                                          ],
+                       "notes":  "中新统—上新统砂岩气，深水扇发育"
+                   }
+               ],
+    "continent":  "europe",
+    "country":  "保加利亚",
+    "country_en":  "",
+    "notes":  ""
+}

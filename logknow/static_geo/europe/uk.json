@@ -1,31 +1,54 @@
-﻿[
-    {
-        "country": "英国",
-        "basin": "北海盆地",
-        "sag": "中央地堑南部",
-        "block": "Forties 区块",
-        "oilfield": "Forties 油田",
-        "structure": "河道充填砂体背斜",
-        "well": "UK-FOR-01",
-        "formation": "Forties",
-        "strata_meta": {
-            "sub_layer": "古近系深水水道砂岩",
-            "lithology": ["石英砂岩，水道充填", "深海泥岩"],
-            "log_response": {
-                "reservoir": {"GR": "16–46", "RT": "10–60", "DEN": "2.33–2.47", "CNL": "12–22", "DT": "74–88"},
-                "non_reservoir": {"GR": "76–129", "RT": "1–3.2", "DEN": "2.53–2.63", "CNL": "23–33", "DT": "91–106"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "Forties 深水水道砂岩解释法",
-        "method_meta": {
-            "applicable_condition": "古近系深水水道砂体",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "Archie，深水低矿化度校正",
-            "threshold": {"sw_max": 0.56},
-            "limitation": "水道边缘泥质加重，物性变差",
-            "reference_case": "Forties 油田"
-        },
-        "gwc": {"Forties": "水道砂体独立油水界面"}
-    }
-]
+﻿{
+    "country":  "英国",
+    "basin":  "北海盆地",
+    "sag":  "中央地堑南部",
+    "block":  "Forties 区块",
+    "oilfield":  "Forties 油田",
+    "structure":  "河道充填砂体背斜",
+    "well":  "UK-FOR-01",
+    "formation":  "Forties",
+    "strata_meta":  {
+                        "sub_layer":  "古近系深水水道砂岩",
+                        "lithology":  [
+                                          "石英砂岩，水道充填",
+                                          "深海泥岩"
+                                      ],
+                        "log_response":  {
+                                             "reservoir":  {
+                                                               "GR":  "16–46",
+                                                               "RT":  "10–60",
+                                                               "DEN":  "2.33–2.47",
+                                                               "CNL":  "12–22",
+                                                               "DT":  "74–88"
+                                                           },
+                                             "non_reservoir":  {
+                                                                   "GR":  "76–129",
+                                                                   "RT":  "1–3.2",
+                                                                   "DEN":  "2.53–2.63",
+                                                                   "CNL":  "23–33",
+                                                                   "DT":  "91–106"
+                                                               }
+                                         },
+                        "hydrocarbon_type":  "原油"
+                    },
+    "method_name":  "Forties 深水水道砂岩解释法",
+    "method_meta":  {
+                        "applicable_condition":  "古近系深水水道砂体",
+                        "input_curves":  [
+                                             "GR",
+                                             "RT",
+                                             "DEN",
+                                             "CNL",
+                                             "AC"
+                                         ],
+                        "formula":  "Archie，深水低矿化度校正",
+                        "threshold":  {
+                                          "sw_max":  0.56
+                                      },
+                        "limitation":  "水道边缘泥质加重，物性变差",
+                        "reference_case":  "Forties 油田"
+                    },
+    "gwc":  {
+                "Forties":  "水道砂体独立油水界面"
+            }
+}

@@ -1,0 +1,39 @@
+﻿{
+    "country":  "印度尼西亚",
+    "basin":  "苏门答腊盆地",
+    "sag":  "中苏门答腊凹陷",
+    "block":  "Jambi 区块",
+    "oilfield":  "Minas 油田",
+    "structure":  "滚动背斜",
+    "well":  "Minas-1",
+    "formation":  "Talang Akar 组",
+    "strata_meta":  {
+                        "lithology":  "河流三角洲砂岩",
+                        "gamma_range":  [
+                                            30,
+                                            100
+                                        ],
+                        "resistivity_range":  [
+                                                  1.5,
+                                                  45
+                                              ],
+                        "porosity_range":  [
+                                               0.16,
+                                               0.32
+                                           ],
+                        "permeability_range":  [
+                                                   20,
+                                                   1500
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.2,
+                                                       0.7
+                                                   ]
+                    },
+    "method_name":  "三角洲砂岩 QuickLook",
+    "method_meta":  {
+                        "threshold":  "GR\u003c65, Rt\u003e1.5",
+                        "formula":  "Vsh = (GR-GRmin)/(GRmax-GRmin)",
+                        "condition":  "苏门答腊古近系河流相砂岩"
+                    }
+}

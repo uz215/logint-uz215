@@ -1,31 +1,172 @@
-﻿[
-  {
-    "country": "安哥拉",
-    "basin": "Kwanza 盆地",
-    "sag": "Kwanza 近海凹陷",
-    "block": "Kwanza 盐下区块",
-    "oilfield": "Dalia 油田",
-    "structure": "盐下断块、盐上浊积扇",
-    "well": "AGO-01",
-    "formation": "Cretaceous Pre-Salt Carbonate / Post-Salt Sand",
-    "strata_meta": {
-      "sub_layer": "白垩系盐下微生物碳酸盐岩；盐上深水浊积砂岩两套体系",
-      "lithology": ["微生物灰岩", "白云岩", "石英砂岩", "盐岩", "泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "3–51", "RT": "13–250", "DEN": "2.30–2.58", "CNL": "2–22", "AC": "42–88"},
-        "non_reservoir": {"GR": "76–128", "RT": "1.0–900+", "DEN": "2.52–2.72", "CNL": "0–33", "AC": "37–105"}
-      },
-      "hydrocarbon_type": "原油为主，伴生气、凝析油"
-    },
-    "method_name": "安哥拉盐下碳酸盐岩 / 盐上浊积砂双模式解释法",
-    "method_meta": {
-      "applicable_condition": "盐下微生物碳酸盐岩孔洞储层；盐上深水浊积砂",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "盐层屏蔽校正；盐下孔洞型 Archie，盐上泥质 Archie",
-      "threshold": {"sw_max": "0.54"},
-      "limitation": "盐岩强烈畸变曲线；盐下孔洞分布极不均，裂缝随机",
-      "reference_case": "Dalia, Girassol, Lula（邻区类比）"
-    },
-    "gwc": {"Pre-Salt Carbonate": "每个盐下圈闭独立油水界面", "Post-Salt Sand": "浊积扇独立界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Pinda"
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Girassol"
+                                         }
+                                     ],
+                       "name":  "下刚果盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "宽扎盆地",
+                       "name_en":  "Kwanza Basin",
+                       "notes":  "西非被动陆缘，盐下碳酸盐岩、盐上深水浊积砂，盐岩造成电阻率畸变，储层非均质性极强",
+                       "depressions":  [
+                                           {
+                                               "name":  "宽扎主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Toca",
+                                              "aliases":  [
+                                                              "托卡组",
+                                                              "Toca Fm"
+                                                          ],
+                                              "litho_main":  "盐下湖相碳酸盐岩，叠层石、介壳灰岩，局部白云岩化",
+                                              "porosity_range":  [
+                                                                     0.07,
+                                                                     0.2
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 160
+                                                             ],
+                                              "gwc":  "岩相、断层分割，界面破碎",
+                                              "cutoff":  {
+                                                             "por":  0.06,
+                                                             "sw":  0.7,
+                                                             "vsh":  0.15
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "变化剧烈；裂缝降阻",
+                                                                   "DEN":  "2.48–2.70 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "48–64 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "宽扎盐下碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.70 * Rw / (Rt * phi ** 2.12)) ** (1 / 2.24)",
+                                                  "params":  {
+                                                                 "a":  0.7,
+                                                                 "m":  2.12,
+                                                                 "n":  2.24
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.06
+                                                                },
+                                                  "condition":  "盐下层，必须先做盐层电阻率校正；裂缝段单独标定 m",
+                                                  "source":  "安哥拉深水盐下测井评价"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "宽扎盆地",
+                       "name_en":  "Kwanza Basin",
+                       "notes":  "西非被动陆缘，盐下碳酸盐岩、盐上深水浊积砂，盐岩造成电阻率畸变，储层非均质性极强",
+                       "depressions":  [
+                                           {
+                                               "name":  "宽扎主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Toca",
+                                              "aliases":  [
+                                                              "托卡组",
+                                                              "Toca Fm"
+                                                          ],
+                                              "litho_main":  "盐下湖相碳酸盐岩，叠层石、介壳灰岩，局部白云岩化",
+                                              "porosity_range":  [
+                                                                     0.07,
+                                                                     0.2
+                                                                 ],
+                                              "perm_range":  [
+                                                                 0.1,
+                                                                 160
+                                                             ],
+                                              "gwc":  "岩相、断层分割，界面破碎",
+                                              "cutoff":  {
+                                                             "por":  0.06,
+                                                             "sw":  0.7,
+                                                             "vsh":  0.15
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "极低伽马",
+                                                                   "RT":  "变化剧烈；裂缝降阻",
+                                                                   "DEN":  "2.48–2.70 g/cm³",
+                                                                   "CNL":  "偏低",
+                                                                   "DT":  "48–64 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "宽扎盐下碳酸盐岩饱和度",
+                                                  "formula":  "Sw = (0.70 * Rw / (Rt * phi ** 2.12)) ** (1 / 2.24)",
+                                                  "params":  {
+                                                                 "a":  0.7,
+                                                                 "m":  2.12,
+                                                                 "n":  2.24
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.06
+                                                                },
+                                                  "condition":  "盐下层，必须先做盐层电阻率校正；裂缝段单独标定 m",
+                                                  "source":  "安哥拉深水盐下测井评价"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "安哥拉"
+}

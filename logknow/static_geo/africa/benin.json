@@ -1,0 +1,76 @@
+﻿{
+    "basins":  [
+                   {
+                       "name":  "贝宁湾盆地",
+                       "depressions":  [
+                                           {
+                                               "blocks":  [
+
+                                                          ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ],
+                                               "name":  "Sèmè 凹陷",
+                                               "oilfields":  [
+
+                                                             ]
+                                           }
+                                       ],
+                       "name_en":  "Bight of Benin Basin",
+                       "formations":  [
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "32–80 API",
+                                                                   "DT":  "70–88 μs/ft",
+                                                                   "RT":  "油层 4–30 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 10,
+                                                                 400
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.26
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.3,
+                                                             "por":  0.11,
+                                                             "sw":  0.63
+                                                         },
+                                              "gwc":  "断块控制",
+                                              "name":  "Cretaceous Sand (BJ)",
+                                              "aliases":  [
+                                                              "白垩系砂岩"
+                                                          ],
+                                              "litho_main":  "白垩系滨岸—浅海细砂岩"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "condition":  "常规砂岩；海上井做泥浆侵入校正",
+                                                  "source":  "贝宁近海测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.87,
+                                                                 "a":  0.8,
+                                                                 "n":  2.02
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.11
+                                                                },
+                                                  "method_name":  "贝宁白垩系砂岩 Archie"
+                                              }
+                                          ],
+                       "notes":  "白垩系浅海砂岩，断块与砂体圈闭"
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "贝宁",
+    "country_en":  "",
+    "notes":  ""
+}

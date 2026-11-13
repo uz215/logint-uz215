@@ -1,0 +1,39 @@
+﻿{
+    "country":  "乌兹别克斯坦",
+    "basin":  "阿姆河盆地",
+    "sag":  "布哈拉凹陷",
+    "block":  "Kandym 区块",
+    "oilfield":  "Kandym 气田",
+    "structure":  "断背斜",
+    "well":  "Kandym-1",
+    "formation":  "Kandym 碳酸盐岩",
+    "strata_meta":  {
+                        "lithology":  "灰岩、白云岩",
+                        "gamma_range":  [
+                                            12,
+                                            48
+                                        ],
+                        "resistivity_range":  [
+                                                  12,
+                                                  950
+                                              ],
+                        "porosity_range":  [
+                                               0.05,
+                                               0.18
+                                           ],
+                        "permeability_range":  [
+                                                   0.2,
+                                                   180
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.18,
+                                                       0.66
+                                                   ]
+                    },
+    "method_name":  "阿姆河碳酸盐岩气层",
+    "method_meta":  {
+                        "threshold":  "GR\u003c40",
+                        "formula":  "孔洞型饱和度模型",
+                        "condition":  "Kandym 区块碳酸盐岩气藏"
+                    }
+}

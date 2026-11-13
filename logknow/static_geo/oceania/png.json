@@ -1,31 +1,70 @@
-﻿[
-  {
-    "country": "巴布亚新几内亚",
-    "basin": "Papuan 前陆盆地",
-    "sag": "Fly River 凹陷",
-    "block": "Hides 区块",
-    "oilfield": "Hides 气田",
-    "structure": "逆冲背斜",
-    "well": "HDS-01",
-    "formation": "Jurassic Sand",
-    "strata_meta": {
-      "sub_layer": "侏罗系陆相石英砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "煤系泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "18–50", "RT": "15–82", "DEN": "2.32–2.46", "CNL": "12–22", "AC": "73–87"},
-        "non_reservoir": {"GR": "76–127", "RT": "1.0–3.1", "DEN": "2.52–2.62", "CNL": "22–32", "AC": "89–104"}
-      },
-      "hydrocarbon_type": "天然气、凝析油"
-    },
-    "method_name": "Papuan 侏罗系砂岩气层解释法",
-    "method_meta": {
-      "applicable_condition": "前陆逆冲带煤系河道砂",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "碳质夹层识别，泥质校正 Archie，气挖掘校正",
-      "threshold": {"sw_max": "0.56", "gas_cut": "0.041"},
-      "limitation": "逆冲断层复杂，煤层干扰电阻率",
-      "reference_case": "Hides, Moran"
-    },
-    "gwc": {"Jurassic Sand": "逆冲断块独立气水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "碳酸盐岩礁体气藏",
+                                              "rt_range":  [
+                                                               7,
+                                                               260
+                                                           ],
+                                              "aliases":  [
+                                                              "Iagifu 组"
+                                                          ],
+                                              "gr_range":  [
+                                                               14,
+                                                               58
+                                                           ],
+                                              "sw_base":  0.29,
+                                              "den_range":  [
+                                                                2.32,
+                                                                2.55
+                                                            ],
+                                              "name":  "Iagifu",
+                                              "porosity_base":  0.11,
+                                              "cnl_range":  [
+                                                                0.05,
+                                                                0.18
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "巴布亚盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.019,
+                                                                 "m":  2.24,
+                                                                 "a":  0.94,
+                                                                 "n":  2.04
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.05,
+                                                                    "gr_max":  62
+                                                                },
+                                                  "condition":  "巴布亚盆地 Iagifu 礁滩碳酸盐岩气藏",
+                                                  "method_name":  "Iagifu 礁体气层解释"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "oceania",
+    "country":  "巴布亚新几内亚",
+    "country_en":  "Papua New Guinea",
+    "notes":  "前陆褶皱冲断带，侏罗系 Iagifu、Toro 砂岩为主力气层，构造复杂、逆冲断层发育，气凝析"
+}

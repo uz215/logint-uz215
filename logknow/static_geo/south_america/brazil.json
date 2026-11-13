@@ -1,31 +1,71 @@
-﻿[
-    {
-        "country": "巴西",
-        "basin": "桑托斯盆地",
-        "sag": "中央凹陷",
-        "block": "Lula 区块",
-        "oilfield": "Lula 油田",
-        "structure": "盐下碳酸盐岩台地",
-        "well": "LUL-01",
-        "formation": "Guaratiba",
-        "strata_meta": {
-            "sub_layer": "白垩系盐下微生物碳酸盐岩",
-            "lithology": ["叠层石灰岩", "溶孔灰岩，局部裂缝，无大洞"],
-            "log_response": {
-                "reservoir": {"GR": "4–22", "RT": "30–320", "DEN": "2.43–2.59", "CNL": "4–12", "DT": "44–66"},
-                "non_reservoir": {"GR": "1–8", "RT": "900+", "DEN": "2.63–2.72", "CNL": "0–3", "DT": "39–49"}
-            },
-            "hydrocarbon_type": "原油"
-        },
-        "method_name": "桑托斯盐下微生物灰岩解释法",
-        "method_meta": {
-            "applicable_condition": "盐下微生物碳酸盐岩，以基质溶孔为主，少量裂缝",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "基质孔隙饱和度模型，裂缝校正",
-            "threshold": {"sw_max": 0.55},
-            "limitation": "盐层干扰；不同构造、油田油水界面差异极大，必须精确到构造/井",
-            "reference_case": "Lula、Libra"
-        },
-        "gwc": {"Guaratiba": "分构造、分油田，单井标定油水界面"}
-    }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+                                          {
+                                              "lithology":  "微生物碳酸盐岩，盐下储层",
+                                              "rt_range":  [
+                                                               5,
+                                                               200
+                                                           ],
+                                              "aliases":  [
+                                                              "Guaratiba Fm",
+                                                              "瓜拉蒂巴组"
+                                                          ],
+                                              "gr_range":  [
+                                                               15,
+                                                               60
+                                                           ],
+                                              "sw_base":  0.3,
+                                              "den_range":  [
+                                                                2.35,
+                                                                2.58
+                                                            ],
+                                              "name":  "Guaratiba",
+                                              "porosity_base":  0.12,
+                                              "cnl_range":  [
+                                                                0.05,
+                                                                0.2
+                                                            ]
+                                          }
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+                                         {
+                                             "name":  "Lula"
+                                         }
+                                     ],
+                       "name":  "桑托斯盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+                                              {
+                                                  "formula":  "Sw = (a * Rw / (Rt * phi^m))^(1/n)",
+                                                  "params":  {
+                                                                 "rw":  0.022,
+                                                                 "m":  2.3,
+                                                                 "a":  1,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "phi_min":  0.06,
+                                                                    "gr_max":  70
+                                                                },
+                                                  "condition":  "桑托斯盐下碳酸盐岩，避开盐岩与致密灰岩",
+                                                  "method_name":  "盐下碳酸盐岩饱和度解释"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "south_america",
+    "country":  "巴西"
+}

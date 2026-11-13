@@ -1,31 +1,168 @@
-﻿[
-  {
-    "country": "喀麦隆",
-    "basin": "杜阿拉盆地",
-    "sag": "近海主凹陷",
-    "block": "Kribi 区块",
-    "oilfield": "Kribi 油田",
-    "structure": "滚动背斜",
-    "well": "KRI-01",
-    "formation": "Mundeck",
-    "strata_meta": {
-      "sub_layer": "白垩系三角洲砂岩",
-      "lithology": ["石英砂岩", "粉砂岩", "海相泥岩"],
-      "log_response": {
-        "reservoir": {"GR": "21–56", "RT": "12–66", "DEN": "2.34–2.48", "CNL": "13–23", "AC": "75–89"},
-        "non_reservoir": {"GR": "81–132", "RT": "1.0–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "AC": "92–107"}
-      },
-      "hydrocarbon_type": "原油、伴生气"
-    },
-    "method_name": "杜阿拉盆地白垩系三角洲砂岩解释法",
-    "method_meta": {
-      "applicable_condition": "近海三角洲分流河道砂",
-      "input_curves": ["GR","RT","DEN","CNL","AC"],
-      "formula": "泥质校正 Archie，海相地层水矿化度校正",
-      "threshold": {"sw_max": "0.58"},
-      "limitation": "薄层、砂体尖灭快，浊积砂混杂",
-      "reference_case": "Kribi, Lokele"
-    },
-    "gwc": {"Mundeck": "每个砂体各自油水界面"}
-  }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "杜阿拉盆地",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "杜阿拉盆地",
+                       "name_en":  "Douala Basin",
+                       "notes":  "西非近海，白垩‑新近系砂岩、灰岩，陆架‑深水过渡，油气均有发现",
+                       "depressions":  [
+                                           {
+                                               "name":  "杜阿拉凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Mundeck",
+                                              "aliases":  [
+                                                              "蒙戴克组",
+                                                              "Mundeck Fm"
+                                                          ],
+                                              "litho_main":  "滨岸砂岩、生物碎屑灰岩互层",
+                                              "porosity_range":  [
+                                                                     0.12,
+                                                                     0.25
+                                                                 ],
+                                              "perm_range":  [
+                                                                 10,
+                                                                 520
+                                                             ],
+                                              "gwc":  "断块、砂体控制",
+                                              "cutoff":  {
+                                                             "por":  0.09,
+                                                             "sw":  0.64,
+                                                             "vsh":  0.32
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "中阻",
+                                                                   "DEN":  "2.36–2.60 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Mundeck 混合储层饱和度",
+                                                  "formula":  "Sw = (0.79 * Rw / (Rt * phi ** 1.88)) ** (1 / 2.04)",
+                                                  "params":  {
+                                                                 "a":  0.79,
+                                                                 "m":  1.88,
+                                                                 "n":  2.04
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.09
+                                                                },
+                                                  "condition":  "喀麦隆近海砂灰互层储层",
+                                                  "source":  "喀麦隆近海测井评价报告"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "杜阿拉盆地",
+                       "name_en":  "Douala Basin",
+                       "notes":  "西非近海，白垩‑新近系砂岩、灰岩，陆架‑深水过渡，油气均有发现",
+                       "depressions":  [
+                                           {
+                                               "name":  "杜阿拉凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Mundeck",
+                                              "aliases":  [
+                                                              "蒙戴克组",
+                                                              "Mundeck Fm"
+                                                          ],
+                                              "litho_main":  "滨岸砂岩、生物碎屑灰岩互层",
+                                              "porosity_range":  [
+                                                                     0.12,
+                                                                     0.25
+                                                                 ],
+                                              "perm_range":  [
+                                                                 10,
+                                                                 520
+                                                             ],
+                                              "gwc":  "断块、砂体控制",
+                                              "cutoff":  {
+                                                             "por":  0.09,
+                                                             "sw":  0.64,
+                                                             "vsh":  0.32
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "中阻",
+                                                                   "DEN":  "2.36–2.60 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Mundeck 混合储层饱和度",
+                                                  "formula":  "Sw = (0.79 * Rw / (Rt * phi ** 1.88)) ** (1 / 2.04)",
+                                                  "params":  {
+                                                                 "a":  0.79,
+                                                                 "m":  1.88,
+                                                                 "n":  2.04
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.09
+                                                                },
+                                                  "condition":  "喀麦隆近海砂灰互层储层",
+                                                  "source":  "喀麦隆近海测井评价报告"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "喀麦隆"
+}

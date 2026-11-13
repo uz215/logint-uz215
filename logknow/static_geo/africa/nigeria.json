@@ -1,31 +1,210 @@
-﻿[
-    {
-        "country": "尼日利亚",
-        "basin": "尼日尔三角洲盆地",
-        "sag": "近海凹陷",
-        "block": "Bonga 区块",
-        "oilfield": "Bonga 油田",
-        "structure": "同沉积滚动背斜",
-        "well": "BON-01",
-        "formation": "Agbada",
-        "strata_meta": {
-            "sub_layer": "新近系三角洲砂岩",
-            "lithology": ["纯净石英砂岩", "泥岩夹层", "页岩盖层"],
-            "log_response": {
-                "reservoir": {"GR": "18–52", "RT": "11–70", "DEN": "2.33–2.47", "CNL": "13–23", "DT": "75–89"},
-                "non_reservoir": {"GR": "80–130", "RT": "1–3.3", "DEN": "2.54–2.64", "CNL": "24–34", "DT": "92–107"}
-            },
-            "hydrocarbon_type": "原油、伴生气"
-        },
-        "method_name": "尼日尔三角洲 Agbada 解释法",
-        "method_meta": {
-            "applicable_condition": "新近系三角洲前缘、分流河道砂体",
-            "input_curves": ["GR", "RT", "DEN", "CNL", "AC"],
-            "formula": "泥质砂岩 Archie，砂体相变校正",
-            "threshold": {"sw_max": 0.57},
-            "limitation": "砂体尖灭快，薄砂层识别困难",
-            "reference_case": "Bonga、Erha"
-        },
-        "gwc": {"Agbada": "每个砂体单元油水界面独立"}
-    }
-]
+﻿{
+    "basins":  [
+                   {
+                       "depressions":  [
+
+                                       ],
+                       "formations":  [
+
+                                      ],
+                       "structures":  [
+
+                                      ],
+                       "oilfields":  [
+
+                                     ],
+                       "name":  "尼日尔三角洲",
+                       "wells":  [
+
+                                 ],
+                       "blocks":  [
+
+                                  ],
+                       "interp_methods":  [
+
+                                          ]
+                   },
+                   {
+                       "name":  "尼日尔三角洲盆地",
+                       "name_en":  "Niger Delta Basin",
+                       "notes":  "大型三角洲，碎屑岩为主，砂泥互层密集，大量构造‑岩性圈闭，气油伴生，水层矿化度变化大",
+                       "depressions":  [
+                                           {
+                                               "name":  "三角洲主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Agbada",
+                                              "aliases":  [
+                                                              "阿巴达组",
+                                                              "Agbada Fm"
+                                                          ],
+                                              "litho_main":  "滨岸、三角洲前缘细‑中砂岩，与泥岩频繁互层",
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 18,
+                                                                 720
+                                                             ],
+                                              "gwc":  "砂体、断块各自独立",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.62,
+                                                             "vsh":  0.4
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马",
+                                                                   "RT":  "油层中阻，气层高阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "气层挖掘效应",
+                                                                   "DT":  "70–90 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Agbada 泥质砂岩饱和度",
+                                                  "formula":  "Sw = (0.81 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.01)",
+                                                  "params":  {
+                                                                 "a":  0.81,
+                                                                 "m":  1.84,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.4
+                                                                },
+                                                  "condition":  "尼日尔三角洲常规砂泥互层；高泥质段切换 Waxman‑Smits",
+                                                  "source":  "尼日利亚石油岩石物理规范，第24届测井年会三角洲专题"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "尼日尔三角洲盆地",
+                       "name_en":  "Niger Delta Basin",
+                       "notes":  "大型三角洲，碎屑岩为主，砂泥互层密集，大量构造‑岩性圈闭，气油伴生，水层矿化度变化大",
+                       "depressions":  [
+                                           {
+                                               "name":  "三角洲主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Agbada",
+                                              "aliases":  [
+                                                              "阿巴达组",
+                                                              "Agbada Fm"
+                                                          ],
+                                              "litho_main":  "滨岸、三角洲前缘细‑中砂岩，与泥岩频繁互层",
+                                              "porosity_range":  [
+                                                                     0.14,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 18,
+                                                                 720
+                                                             ],
+                                              "gwc":  "砂体、断块各自独立",
+                                              "cutoff":  {
+                                                             "por":  0.11,
+                                                             "sw":  0.62,
+                                                             "vsh":  0.4
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "中伽马",
+                                                                   "RT":  "油层中阻，气层高阻",
+                                                                   "DEN":  "2.34–2.56 g/cm³",
+                                                                   "CNL":  "气层挖掘效应",
+                                                                   "DT":  "70–90 μs/ft"
+                                                               }
+                                          },
+                                          {
+                                              "log_response":  {
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "GR":  "28–70 API",
+                                                                   "DT":  "72–90 μs/ft",
+                                                                   "RT":  "油层 4–35 Ω·m"
+                                                               },
+                                              "perm_range":  [
+                                                                 50,
+                                                                 1300
+                                                             ],
+                                              "porosity_range":  [
+                                                                     0.18,
+                                                                     0.3
+                                                                 ],
+                                              "cutoff":  {
+                                                             "vsh":  0.28,
+                                                             "por":  0.14,
+                                                             "sw":  0.56
+                                                         },
+                                              "gwc":  "砂体独立",
+                                              "name":  "Benin",
+                                              "aliases":  [
+                                                              "贝宁组"
+                                                          ],
+                                              "litho_main":  "古近系深水浊积砂岩，砂体叠置"
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Agbada 泥质砂岩饱和度",
+                                                  "formula":  "Sw = (0.81 * Rw / (Rt * phi ** 1.84)) ** (1 / 2.01)",
+                                                  "params":  {
+                                                                 "a":  0.81,
+                                                                 "m":  1.84,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.4
+                                                                },
+                                                  "condition":  "尼日尔三角洲常规砂泥互层；高泥质段切换 Waxman‑Smits",
+                                                  "source":  "尼日利亚石油岩石物理规范，第24届测井年会三角洲专题"
+                                              },
+                                              {
+                                                  "condition":  "高压深水，Rt 与 Rw 需压力温度校正",
+                                                  "source":  "尼日尔三角洲深水测井评价",
+                                                  "formula":  "Sw=(a*Rw/(Rt*phi**m))**(1/n)",
+                                                  "params":  {
+                                                                 "m":  1.84,
+                                                                 "a":  0.8,
+                                                                 "n":  1.98
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.14
+                                                                },
+                                                  "method_name":  "Benin 深水浊积砂岩 Archie"
+                                              }
+                                          ]
+                   }
+               ],
+    "continent":  "africa",
+    "country":  "尼日利亚"
+}

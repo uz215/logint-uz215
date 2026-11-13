@@ -1,0 +1,51 @@
+{
+  "hierarchy": {
+    "country": "Brazil",
+    "basin": "桑托斯盆地",
+    "sag": "中央隆起带",
+    "structure": "CuraCao构造",
+    "field": "ARAM油田",
+    "well": "1-SPS-108"
+  },
+  "categories": [
+    "basic_data",
+    "stratigraphy",
+    "lithology",
+    "testing",
+    "log_interpretation",
+    "gas_show",
+    "oil_gas_show",
+    "engineering",
+    "core_descriptions"
+  ],
+  "summary": "D:\\360\\src\\data\\kb\\well_knowledge\\1-SPS-108_knowledge_summary.md",
+  "hierarchy_original": {
+    "country": "Brazil",
+    "basin": "Santos Basin",
+    "sag": "Central Uplift",
+    "structure": "Curaçao",
+    "field": "Aram"
+  },
+  "aliases": {
+    "well": [
+      "CuraCao-1",
+      "Curaçao-1",
+      "SPS-108"
+    ],
+    "structure": [
+      "Curacao",
+      "Curaçao",
+      "CuraCao"
+    ],
+    "field": [
+      "Aram",
+      "ARAM",
+      "Aram Block"
+    ],
+    "basin": [
+      "Santos",
+      "Santos Basin"
+    ]
+  },
+  "source_note": "层级由用户 2026-11-08 提供并订正：Brazil/桑托斯盆地/中央隆起带/CuraCao构造/ARAM油田/1-SPS-108（井又称 CuraCao-1、SPS-108）"
+}

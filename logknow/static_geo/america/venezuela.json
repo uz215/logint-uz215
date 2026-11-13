@@ -1,0 +1,146 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "裂谷‑前陆叠合，重质原油为主，第三系砂岩，高孔高渗，黏度大，电阻率偏低",
+    "basins":  [
+                   {
+                       "name":  "马拉开波盆地",
+                       "name_en":  "Maracaibo Basin",
+                       "notes":  "裂谷‑前陆叠合，重质原油为主，第三系砂岩，高孔高渗，黏度大，电阻率偏低",
+                       "depressions":  [
+                                           {
+                                               "name":  "马拉开波主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Miso",
+                                              "aliases":  [
+                                                              "米索组",
+                                                              "Miso Fm"
+                                                          ],
+                                              "litho_main":  "河流‑三角洲中粗砂岩，泥质夹层",
+                                              "porosity_range":  [
+                                                                     0.18,
+                                                                     0.32
+                                                                 ],
+                                              "perm_range":  [
+                                                                 80,
+                                                                 3600
+                                                             ],
+                                              "gwc":  "构造圈闭控制油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.14,
+                                                             "sw":  0.55,
+                                                             "vsh":  0.32
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "重油段偏低阻",
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "马拉开波重油砂岩饱和度",
+                                                  "formula":  "Sw = (0.82 * Rw / (Rt * phi ** 1.82)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.82,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.32
+                                                                },
+                                                  "condition":  "重油油藏，电阻率受原油黏度影响，需要黏度校正",
+                                                  "source":  "委内瑞拉马拉开波盆地岩石物理手册"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "马拉开波盆地",
+                       "name_en":  "Maracaibo Basin",
+                       "notes":  "裂谷‑前陆叠合，重质原油为主，第三系砂岩，高孔高渗，黏度大，电阻率偏低",
+                       "depressions":  [
+                                           {
+                                               "name":  "马拉开波主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Miso",
+                                              "aliases":  [
+                                                              "米索组",
+                                                              "Miso Fm"
+                                                          ],
+                                              "litho_main":  "河流‑三角洲中粗砂岩，泥质夹层",
+                                              "porosity_range":  [
+                                                                     0.18,
+                                                                     0.32
+                                                                 ],
+                                              "perm_range":  [
+                                                                 80,
+                                                                 3600
+                                                             ],
+                                              "gwc":  "构造圈闭控制油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.14,
+                                                             "sw":  0.55,
+                                                             "vsh":  0.32
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低‑中伽马",
+                                                                   "RT":  "重油段偏低阻",
+                                                                   "DEN":  "2.30–2.52 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "68–86 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "马拉开波重油砂岩饱和度",
+                                                  "formula":  "Sw = (0.82 * Rw / (Rt * phi ** 1.82)) ** (1 / 2.00)",
+                                                  "params":  {
+                                                                 "a":  0.82,
+                                                                 "m":  1.82,
+                                                                 "n":  2
+                                                             },
+                                                  "threshold":  {
+                                                                    "vsh_upper":  0.32
+                                                                },
+                                                  "condition":  "重油油藏，电阻率受原油黏度影响，需要黏度校正",
+                                                  "source":  "委内瑞拉马拉开波盆地岩石物理手册"
+                                              }
+                                          ]
+                   }
+               ]
+}

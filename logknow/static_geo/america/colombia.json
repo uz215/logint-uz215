@@ -1,0 +1,146 @@
+﻿{
+    "country":  null,
+    "country_en":  null,
+    "continent":  "america",
+    "notes":  "安第斯前陆盆地，古近系河流砂岩，断块圈闭，中轻质原油，地层水矿化度变化大",
+    "basins":  [
+                   {
+                       "name":  "亚诺斯盆地",
+                       "name_en":  "Llanos Basin",
+                       "notes":  "安第斯前陆盆地，古近系河流砂岩，断块圈闭，中轻质原油，地层水矿化度变化大",
+                       "depressions":  [
+                                           {
+                                               "name":  "亚诺斯主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Mirador",
+                                              "aliases":  [
+                                                              "米拉多组",
+                                                              "Mirador Fm"
+                                                          ],
+                                              "litho_main":  "河流相块状中细砂岩，分选良好",
+                                              "porosity_range":  [
+                                                                     0.15,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 35,
+                                                                 950
+                                                             ],
+                                              "gwc":  "断层遮挡，分块油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.12,
+                                                             "sw":  0.6,
+                                                             "vsh":  0.3
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "69–87 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Mirador 河流砂岩 Archie",
+                                                  "formula":  "Sw = (0.80 * Rw / (Rt * phi ** 1.83)) ** (1 / 2.01)",
+                                                  "params":  {
+                                                                 "a":  0.8,
+                                                                 "m":  1.83,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.12
+                                                                },
+                                                  "condition":  "哥伦比亚前陆常规砂岩，高泥质段切换 Waxman‑Smits",
+                                                  "source":  "哥伦比亚亚诺斯盆地测井解释规范"
+                                              }
+                                          ]
+                   },
+                   {
+                       "name":  "亚诺斯盆地",
+                       "name_en":  "Llanos Basin",
+                       "notes":  "安第斯前陆盆地，古近系河流砂岩，断块圈闭，中轻质原油，地层水矿化度变化大",
+                       "depressions":  [
+                                           {
+                                               "name":  "亚诺斯主凹陷",
+                                               "blocks":  [
+
+                                                          ],
+                                               "oilfields":  [
+
+                                                             ],
+                                               "structures":  [
+
+                                                              ],
+                                               "wells":  [
+
+                                                         ]
+                                           }
+                                       ],
+                       "formations":  [
+                                          {
+                                              "name":  "Mirador",
+                                              "aliases":  [
+                                                              "米拉多组",
+                                                              "Mirador Fm"
+                                                          ],
+                                              "litho_main":  "河流相块状中细砂岩，分选良好",
+                                              "porosity_range":  [
+                                                                     0.15,
+                                                                     0.28
+                                                                 ],
+                                              "perm_range":  [
+                                                                 35,
+                                                                 950
+                                                             ],
+                                              "gwc":  "断层遮挡，分块油水界面",
+                                              "cutoff":  {
+                                                             "por":  0.12,
+                                                             "sw":  0.6,
+                                                             "vsh":  0.3
+                                                         },
+                                              "log_response":  {
+                                                                   "GR":  "低伽马",
+                                                                   "RT":  "油层中阻",
+                                                                   "DEN":  "2.32–2.54 g/cm³",
+                                                                   "CNL":  "中等",
+                                                                   "DT":  "69–87 μs/ft"
+                                                               }
+                                          }
+                                      ],
+                       "interp_methods":  [
+                                              {
+                                                  "method_name":  "Mirador 河流砂岩 Archie",
+                                                  "formula":  "Sw = (0.80 * Rw / (Rt * phi ** 1.83)) ** (1 / 2.01)",
+                                                  "params":  {
+                                                                 "a":  0.8,
+                                                                 "m":  1.83,
+                                                                 "n":  2.01
+                                                             },
+                                                  "threshold":  {
+                                                                    "por_min":  0.12
+                                                                },
+                                                  "condition":  "哥伦比亚前陆常规砂岩，高泥质段切换 Waxman‑Smits",
+                                                  "source":  "哥伦比亚亚诺斯盆地测井解释规范"
+                                              }
+                                          ]
+                   }
+               ]
+}

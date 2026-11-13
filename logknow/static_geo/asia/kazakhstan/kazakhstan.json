@@ -1,0 +1,39 @@
+﻿{
+    "country":  "哈萨克斯坦",
+    "basin":  "滨里海盆地",
+    "sag":  "北里海凹陷",
+    "block":  "卡沙甘区块",
+    "oilfield":  "卡沙甘油田",
+    "structure":  "碳酸盐岩台地",
+    "well":  "Kashagan-1",
+    "formation":  "卡拉干达组",
+    "strata_meta":  {
+                        "lithology":  "碳酸盐岩、礁灰岩",
+                        "gamma_range":  [
+                                            15,
+                                            45
+                                        ],
+                        "resistivity_range":  [
+                                                  20,
+                                                  1200
+                                              ],
+                        "porosity_range":  [
+                                               0.04,
+                                               0.18
+                                           ],
+                        "permeability_range":  [
+                                                   0.1,
+                                                   250
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.15,
+                                                       0.65
+                                                   ]
+                    },
+    "method_name":  "碳酸盐岩双孔隙度解释法",
+    "method_meta":  {
+                        "threshold":  "GR\u003c45, Rt\u003e20",
+                        "formula":  "Phi_total = Phi_vug + Phi_matrix",
+                        "condition":  "适用于礁滩相碳酸盐岩，溶蚀孔洞发育层段"
+                    }
+}

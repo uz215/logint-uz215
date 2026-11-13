@@ -1,0 +1,39 @@
+﻿{
+    "country":  "科威特",
+    "basin":  "波斯湾盆地",
+    "sag":  "科威特中央凹陷",
+    "block":  "北部区块",
+    "oilfield":  "布尔干油田",
+    "structure":  "大型平缓背斜",
+    "well":  "Burgan-1",
+    "formation":  "Wara 组",
+    "strata_meta":  {
+                        "lithology":  "砂岩、泥岩互层",
+                        "gamma_range":  [
+                                            25,
+                                            85
+                                        ],
+                        "resistivity_range":  [
+                                                  2,
+                                                  70
+                                              ],
+                        "porosity_range":  [
+                                               0.14,
+                                               0.3
+                                           ],
+                        "permeability_range":  [
+                                                   15,
+                                                   1100
+                                               ],
+                        "water_saturation_range":  [
+                                                       0.2,
+                                                       0.68
+                                                   ]
+                    },
+    "method_name":  "中孔高渗砂岩 Archie",
+    "method_meta":  {
+                        "threshold":  "GR\u003c60",
+                        "formula":  "Sw = (a*Rw/(Rt*Phi^m))^(1/n)",
+                        "condition":  "白垩系 Wara 组砂岩油层"
+                    }
+}
