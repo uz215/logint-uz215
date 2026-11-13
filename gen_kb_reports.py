@@ -19,13 +19,15 @@ n_country = conn.execute(
 n_nocountry = total - n_country
 
 domains = [r[0] for r in conn.execute(
-    "SELECT category, COUNT(*) FROM doc GROUP BY category ORDER BY 2 DESC")]
+    "SELECT COALESCE(category,'') AS category, COUNT(*) FROM doc GROUP BY COALESCE(category,'') ORDER BY 2 DESC")]
 domain_counts = dict(conn.execute(
-    "SELECT category, COUNT(*) FROM doc GROUP BY category ORDER BY 2 DESC").fetchall())
+    "SELECT COALESCE(category,'') AS category, COUNT(*) FROM doc GROUP BY COALESCE(category,'') ORDER BY 2 DESC").fetchall())
 
 dmin = conn.execute(
-    "SELECT category, tech_type, tech_minor, COUNT(*) FROM doc "
-    "GROUP BY category, tech_type, tech_minor ORDER BY 1, 2, 4 DESC").fetchall()
+    "SELECT COALESCE(category,'') AS category, COALESCE(tech_type,'') AS tech_type, "
+    "COALESCE(tech_minor,'') AS tech_minor, COUNT(*) FROM doc "
+    "GROUP BY COALESCE(category,''), COALESCE(tech_type,''), COALESCE(tech_minor,'') "
+    "ORDER BY 1, 2, 4 DESC").fetchall()
 
 countries = conn.execute(
     "SELECT country, COUNT(*) n FROM doc WHERE country IS NOT NULL AND country!='' "
@@ -35,9 +37,9 @@ cum_total = sum(c['n'] for c in country_rows)
 max_c = max(c['n'] for c in country_rows)
 
 matrix = conn.execute(
-    "SELECT country, category, COUNT(*) FROM doc "
+    "SELECT country, COALESCE(category,'') AS category, COUNT(*) FROM doc "
     "WHERE country IS NOT NULL AND country!='' "
-    "GROUP BY country, category").fetchall()
+    "GROUP BY country, COALESCE(category,'')").fetchall()
 mx = {}
 for c, d, n in matrix:
     mx.setdefault(c, {})[d] = n
@@ -68,18 +70,23 @@ _CONTRACT_KW = ['合同', 'contract', '服务', '任务书', '技术要求', '�
                 'local content', '本地成分', '矿区使用费', '特别税', '税率', '地区政策']
 _c_like = " OR ".join(["title LIKE ?" for _ in _CONTRACT_KW])
 _contract_docs = conn.execute(
-    "SELECT title, category, tech_type FROM doc WHERE " + _c_like,
+    "SELECT title, COALESCE(category,'') AS category, COALESCE(tech_type,'') AS tech_type "
+     "FROM doc WHERE " + _c_like,
     ["%" + k + "%" for k in _CONTRACT_KW]).fetchall()
 
 # ---------- scope 轴（顶层：global / 国别）----------
-scopes = [r[0] for r in conn.execute("SELECT scope, COUNT(*) FROM doc GROUP BY scope ORDER BY 2 DESC")]
-scope_counts = dict(conn.execute("SELECT scope, COUNT(*) FROM doc GROUP BY scope ORDER BY 2 DESC").fetchall())
+scopes = [r[0] for r in conn.execute("SELECT COALESCE(scope,'') AS scope, COUNT(*) FROM doc "
+     "GROUP BY COALESCE(scope,'') ORDER BY 2 DESC")]
+scope_counts = dict(conn.execute("SELECT COALESCE(scope,'') AS scope, COUNT(*) FROM doc "
+     "GROUP BY COALESCE(scope,'') ORDER BY 2 DESC").fetchall())
 global_by_domain = dict(conn.execute(
-    "SELECT category, COUNT(*) FROM doc WHERE scope='global' GROUP BY category ORDER BY 2 DESC").fetchall())
+    "SELECT COALESCE(category,'') AS category, COUNT(*) FROM doc WHERE scope='global' "
+     "GROUP BY COALESCE(category,'') ORDER BY 2 DESC").fetchall())
 country_scope_rows = [{'c': c, 'n': n} for c, n in conn.execute(
     "SELECT country, COUNT(*) n FROM doc WHERE scope='国别' GROUP BY country ORDER BY n DESC").fetchall()]
 mx_sc = {}
-for c, d, n in conn.execute("SELECT country, category, COUNT(*) FROM doc WHERE scope='国别' GROUP BY country, category").fetchall():
+for c, d, n in conn.execute("SELECT country, COALESCE(category,'') AS category, COUNT(*) FROM doc "
+     "WHERE scope='国别' GROUP BY country, COALESCE(category,'')").fetchall():
     mx_sc.setdefault(c, {})[d] = n
 sc_stack = [{'c': csr['c'], 'segs': [{'d': d, 'n': mx_sc.get(csr['c'], {}).get(d, 0)} for d in domains], 'total': csr['n']}
             for csr in country_scope_rows]
@@ -581,6 +588,39 @@ doc_html = """<!DOCTYPE html>
   </ul>
   <h3>合规抽查基线（本次扫描）</h3>
   <ul>{compliance_brief}</ul>
+  <h2>七、logknow 入档流程与外文归一（K-SYS-004）</h2>
+  <div class="note" style="background:#eef3fb;border-color:#c9dcf3;color:#1f3f66;">
+    <b>入档正本 = logknow/bootstrap_knowledge.py</b>。同一个 data/kb/kb.db 里两套表互补：
+    <code>doc / chunk / doc_fts</code> 存文档全文（检索），<code>entity / fact</code> 存区域知识图谱
+    （国家→盆地→凹陷→区块→油气田→构造→井→地层→解释方法）。用户定案「文档全文 + 图谱双写」。
+  </div>
+  <h3>入档链路</h3>
+  <ul>
+    <li><b>bootstrap / check</b>：把 207 个 static_geo 洲/国 json 幂等灌入 entity/fact 图谱。</li>
+    <li><b>scanpath &lt;root&gt;</b>（2026-11-13 新增）：对指定路径扫描入档，突破原 <code>scan</code> 只认可移动盘的限制（G: 为固定盘）。</li>
+    <li><b>归档优先</b>：原件落 static_geo/docs/，按内容 sha256 指纹判重、可断点续跑；结构化抽取尽力而为，抽取为空不再丢弃原件。</li>
+  </ul>
+  <h3>外文 → 中文归一（不重复）</h3>
+  <ul>
+    <li>基线：现存 182 个 country 节点<b>全为中文</b>，故中文为国别正典；外文写法必须归一后入库。</li>
+    <li>region_normalize.yaml 补齐 G 盘 12 国英文别名 + 新增「泰国」条目 + 67 条术语（45 通用 + 22 地质年代/储层）。</li>
+    <li>region_normalizer 忽略大小写与空格/下划线/连字符差异；短语级替换把
+        <code>Cambro-Ordovician sandstone reservoir</code> → <code>寒武-奥陶系砂岩储层</code>。</li>
+    <li><b>双保险</b>：抽取后归一 + 入库前对 country 再归一；<code>strata_meta.foreign_alias</code> 保留原文可追溯。
+        canonical 一致 → INSERT OR REPLACE 合并而非新建，<b>不产生中英重复节点</b>。</li>
+    <li>专名（Hassi Messaoud 等）未收录时保留原文，靠 normalize_name 保证同一写法不重复；需归并时增补术语表即可。</li>
+  </ul>
+  <h3>合规衔接（K-SYS-003 v2）</h3>
+  <ul>
+    <li>显式敏感 / 纯行政路径跳过归档并记清单；测井类服务合同、地区财税政策<b>不误杀</b>。</li>
+    <li>正文 PII 只读抽查留待复核清单，不自动删改、不阻断归档。</li>
+  </ul>
+  <h3>临时环境验证（2026-11-13，未触碰主库与 G 盘）</h3>
+  <ul>
+    <li>5 样例 → 归档 4 / 敏感跳过 1 / 知识记录 3；country 2 个（乍得、阿尔及利亚，无拉丁字母节点）。</li>
+    <li>中英文同国、同地层、同方法各合并为<b>单一节点</b>；加入短语归一后 entity 9 → 7，消除 2 个重复节点。</li>
+    <li>重跑 skip_known=4、零新增，指纹判重幂等通过。</li>
+  </ul>
 </div>
 </body>
 </html>"""

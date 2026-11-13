@@ -3,14 +3,20 @@ country_mapping:
     aliases:
     - 孟加拉
     - 孟加拉人民共和国
+    - Bangladesh
   巴西:
     aliases: []
   乍得:
-    aliases: []
+    aliases:
+    - Chad
+    - Tchad
   尼日尔:
-    aliases: []
+    aliases:
+    - Niger
   阿尔及利亚:
-    aliases: []
+    aliases:
+    - Algeria
+    - Algerie
   利比亚:
     aliases: []
   埃及:
@@ -28,7 +34,8 @@ country_mapping:
   科威特:
     aliases: []
   伊拉克:
-    aliases: []
+    aliases:
+    - Iraq
   阿曼:
     aliases: []
   阿联酋:
@@ -45,7 +52,8 @@ country_mapping:
     - 印尼
     - Indonesia
   苏丹:
-    aliases: []
+    aliases:
+    - Sudan
   土库曼斯坦:
     aliases:
     - 土库曼
@@ -59,6 +67,8 @@ country_mapping:
   伊朗:
     aliases:
     - 波斯
+    - Iran
+    - Persia
   叙利亚:
     aliases: []
   也门:
@@ -179,7 +189,9 @@ country_mapping:
   苏里南:
     aliases: []
   南苏丹:
-    aliases: []
+    aliases:
+    - South Sudan
+    - SouthSudan
   保加利亚:
     aliases: []
   克罗地亚:
@@ -188,6 +200,82 @@ country_mapping:
     aliases: []
   塞尔维亚:
     aliases: []
+  泰国:
+    aliases:
+    - Thailand
+    - Siam
+term_mapping:
+  # 测井/地质通用术语 英→中：扫描外文资料时归一成中文入库
+  sandstone: 砂岩
+  shale: 泥岩
+  claystone: 黏土岩
+  siltstone: 粉砂岩
+  conglomerate: 砾岩
+  limestone: 石灰岩
+  dolomite: 白云岩
+  carbonate: 碳酸盐岩
+  anhydrite: 硬石膏
+  evaporite: 蒸发岩
+  salt: 盐岩
+  coal: 煤层
+  igneous: 火成岩
+  metamorphic: 变质岩
+  reservoir: 储层
+  source rock: 烃源岩
+  cap rock: 盖层
+  formation: 地层
+  basin: 盆地
+  sag: 凹陷
+  block: 区块
+  oilfield: 油气田
+  structure: 构造
+  gamma ray: 自然伽马
+  spontaneous potential: 自然电位
+  neutron porosity: 中子孔隙度
+  density: 密度
+  resistivity: 电阻率
+  sonic: 声波时差
+  caliper: 井径
+  porosity: 孔隙度
+  permeability: 渗透率
+  water saturation: 含水饱和度
+  saturation: 饱和度
+  shale volume: 泥质含量
+  vsh: 泥质含量
+  archie: 阿尔奇公式
+  simandoux: 西门度公式
+  larionov: 拉里奥诺夫公式
+  wylie: 威利公式
+  threshold: 阈值
+  cutoff: 截止值
+  formula: 公式
+  applicable condition: 适用条件
+  interpretation method: 解释方法
+
+  # 地质年代 / 储层：提升地层名整串归一覆盖（2026-11-13）
+  cambro-ordovician: 寒武-奥陶系
+  lower cretaceous: 下白垩统
+  upper cretaceous: 上白垩统
+  cretaceous: 白垩系
+  jurassic: 侏罗系
+  triassic: 三叠系
+  permian: 二叠系
+  carboniferous: 石炭系
+  devonian: 泥盆系
+  silurian: 志留系
+  ordovician: 奥陶系
+  cambrian: 寒武系
+  paleozoic: 古生界
+  mesozoic: 中生界
+  cenozoic: 新生界
+  miocene: 中新统
+  eocene: 始新统
+  paleocene: 古新统
+  sandstone reservoir: 砂岩储层
+  carbonate reservoir: 碳酸盐岩储层
+  shale gas: 页岩气
+  tight sandstone: 致密砂岩
+
 geo_hierarchy:
   order:
   - continent
