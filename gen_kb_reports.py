@@ -42,6 +42,32 @@ mx = {}
 for c, d, n in matrix:
     mx.setdefault(c, {})[d] = n
 
+# ---------- 收录范围与合规抽查（K-SYS-003，只读，不删改）----------
+# 个人敏感信息正则：仅扫 title+meta_json，列命中项供人工复核。
+import re as _re
+_SENS = {
+    '身份证号': _re.compile(r'(?<!\d)\d{17}[\dXx](?!\d)'),
+    '手机号':   _re.compile(r'(?<!\d)1[3-9]\d{9}(?!\d)'),
+    '电子邮箱': _re.compile(r'[\w.\-]+@[\w.\-]+\.\w+'),
+}
+_sens_hits = {k: [] for k in _SENS}
+for _t, _m in conn.execute("SELECT title, COALESCE(meta_json,'') FROM doc").fetchall():
+    _s = ((_t or '') + ' ' + (_m or ''))
+    for _k, _p in _SENS.items():
+        for _mm in _p.finditer(_s):
+            _val = _mm.group(0)
+            # 邮箱：DOI/题名 @ 误判（含 DOI 前缀 10. 或期刊域名）标注为疑似非隐私
+            _tag = ''
+            if _k == '电子邮箱' and (_re.match(r'^10\.\d{4,}', _val) or '@j.' in _val or '@10.' in _val):
+                _tag = '（DOI/题名@ 疑似误判）'
+            _sens_hits[_k].append(((_t or '')[:60], _val[:48], _tag))
+# 正向清单佐证：测井类服务合同 / 技术要求类文档（K-SYS-003 二.3 可入档）
+_CONTRACT_KW = ['合同', 'contract', '服务', '任务书', '技术要求', '工作范围', 'scope of work', '采集服务', '业主要求']
+_c_like = " OR ".join(["title LIKE ?" for _ in _CONTRACT_KW])
+_contract_docs = conn.execute(
+    "SELECT title, category, tech_type FROM doc WHERE " + _c_like,
+    ["%" + k + "%" for k in _CONTRACT_KW]).fetchall()
+
 # ---------- scope 轴（顶层：global / 国别）----------
 scopes = [r[0] for r in conn.execute("SELECT scope, COUNT(*) FROM doc GROUP BY scope ORDER BY 2 DESC")]
 scope_counts = dict(conn.execute("SELECT scope, COUNT(*) FROM doc GROUP BY scope ORDER BY 2 DESC").fetchall())
@@ -531,14 +557,112 @@ doc_html = """<!DOCTYPE html>
     <li><b>国别归一</b>：孟加拉→孟加拉国、阿拉伯联合酋长国等别名已归一；国别由 detect_country 自动推导，不影响领域分类。</li>
     <li><b>新增文档自动分类</b>：入库脚本（md/docx/pdf/pptx）统一调用 classify_knowledge，落库即带 领域/大类/小类/国别。</li>
   </ul>
+  <h2>六、收录范围与合规准则（K-SYS-003）</h2>
+  <div class="note" style="background:#eef7f0;border-color:#c8e6d0;color:#1f5c33;">
+    本库是<b>以测井专业知识为主的油气知识库</b>，收录<b>按内容实质判定，不按文件名/文种/字样一刀切</b>。
+    合规抽查为<b>只读</b>（不自动删改数据），命中项人工复核后处置。详见 <a href="收录合规报告.html">收录合规报告.html</a>。
+  </div>
+  <h3>可入档（正向）</h3>
+  <ul>
+    <li>测井专业技术（方法/仪器/采集/处理/解释/规范/专业软件）、油气地质、录井、跨专业通用知识。</li>
+    <li><b>测井类服务合同及技术附件</b>：研究的要求、采集服务的项目及要求、体现一定时期业主关注点与期望结果 —— 属需求侧/期望侧的专业史料，<b>可入档</b>，按内容实质归类（通用-项目管理或相应技术域），不因「合同」字样贬为行政杂项或排除。</li>
+  </ul>
+  <h3>排除 / 脱敏（负向）</h3>
+  <ul>
+    <li><b>个人隐私</b>：身份证号、私人手机/邮箱/住址、签字人身份、个人证件影像。</li>
+    <li><b>纯行政流程</b>：人事任免、考勤、内部通知流转、与专业无关的红头/会务。</li>
+    <li><b>纯商务敏感</b>：金额/报价/付款账户/税务/法律责任与争议、商业保密条款；<b>依法禁止</b>：国家秘密、涉密测绘等。</li>
+    <li>可分离者只入技术部分或脱敏后入；无法分离且以敏感内容为主体者整篇不入库。</li>
+  </ul>
+  <h3>合规抽查基线（本次扫描）</h3>
+  <ul>{compliance_brief}</ul>
 </div>
 </body>
 </html>"""
+compliance_brief = ''.join(
+    '<li><b>%s</b>：命中 %d 项%s</li>' % (
+        k, len(v),
+        '（均为 DOI/题名@ 误判，非个人隐私）' if k == '电子邮箱' and v and all(x[2] for x in v) else '')
+    for k, v in _sens_hits.items())
 doc_html = sub(doc_html, total=total, ncountry=n_country, nrest=n_nocountry, ndom=len(domains),
               intro=doc_intro, sections=''.join(doc_sections), png=png_b64,
               cumtotal=cum_total, ncountries=len(country_rows), maxc=max_c, matrix_top=matrix_top,
-              scope_section=scope_section)
+              scope_section=scope_section, compliance_brief=compliance_brief)
 with open(os.path.join(OUT, '分类说明文档.html'), 'w', encoding='utf-8') as f:
     f.write(doc_html)
 print('written 分类说明文档.html')
+
+# ============================================================
+# 5) 收录合规报告（K-SYS-003，只读抽查结果）
+# ============================================================
+def _esc(s):
+    return (str(s).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;'))
+
+sens_rows = []
+for k, hits in _sens_hits.items():
+    if not hits:
+        sens_rows.append('<tr><td><b>%s</b></td><td style="color:#1f5c33;">0</td><td>—</td></tr>' % k)
+    else:
+        sample = '；'.join('%s <span style="color:#888;">[%s]%s</span>' % (_esc(t), _esc(v), _esc(tag))
+                          for t, v, tag in hits[:15])
+        more = ' …（共 %d 项）' % len(hits) if len(hits) > 15 else ''
+        sens_rows.append('<tr><td><b>%s</b></td><td>%d</td><td style="font-size:12px;">%s%s</td></tr>'
+                         % (k, len(hits), sample, more))
+
+contract_rows = ''.join(
+    '<tr><td>%s</td><td>%s</td><td>%s</td></tr>' % (_esc(t), _esc(cat), _esc(tt))
+    for t, cat, tt in _contract_docs[:60]) or '<tr><td colspan="3" style="color:#888;">（无）</td></tr>'
+contract_more = ('<p style="font-size:12px;color:#888;">仅列前 60 篇，共 %d 篇。</p>' % len(_contract_docs)) if len(_contract_docs) > 60 else ''
+
+compliance_html = """<!doctype html><html lang="zh-CN"><head><meta charset="utf-8">
+<title>测井知识库 · 收录合规报告</title>
+<style>
+body{font-family:"Microsoft YaHei",Arial,sans-serif;background:#f5f7fb;color:#22304a;margin:0;padding:24px;}
+.wrap{max-width:1000px;margin:0 auto;background:#fff;border-radius:12px;padding:28px 34px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+h1{font-size:22px;margin:0 0 4px;} h2{font-size:17px;margin-top:26px;color:#1f2a44;border-left:4px solid #4c9aff;padding-left:10px;}
+.note{background:#eef7f0;border:1px solid #c8e6d0;padding:10px 14px;border-radius:8px;font-size:13px;color:#1f5c33;margin:10px 0;}
+table{border-collapse:collapse;background:#fff;width:100%;font-size:13px;margin:8px 0;box-shadow:0 1px 3px rgba(0,0,0,.06);}
+th,td{border:1px solid #e6eaf0;padding:6px 10px;text-align:left;vertical-align:top;}
+th{background:#1f2a44;color:#fff;} ul{font-size:14px;line-height:1.9;}
+.kpi{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0;}
+.kpi div{background:#fff;border:1px solid #e6eaf0;border-radius:10px;padding:12px 18px;min-width:130px;}
+.kpi b{font-size:22px;color:#4c9aff;display:block;} .kpi span{font-size:12px;color:#5b6678;}
+a{color:#4c9aff;}
+</style></head><body><div class="wrap">
+<h1>测井知识库 · 收录合规报告</h1>
+<div style="font-size:13px;color:#888;">依据 K-SYS-003 收录范围与合规准则 · 只读抽查，不删改任何数据</div>
+<div class="note">本库 = <b>以测井专业知识为主的油气知识库</b>。收录按内容实质判定；合规红线=个人隐私/纯行政流程/纯商务敏感/依法禁止内容。
+<b>测井类服务合同可入档</b>（研究要求、采集服务项目及要求、业主关注点与期望结果=需求侧专业史料）。</div>
+<div class="kpi">
+  <div><b>{TOTAL}</b><span>扫描文档数</span></div>
+  <div><b>{ID}</b><span>身份证号命中</span></div>
+  <div><b>{PHONE}</b><span>手机号命中</span></div>
+  <div><b>{EMAIL}</b><span>电子邮箱命中</span></div>
+  <div><b>{CONTRACT}</b><span>服务合同/技术要求类</span></div>
+</div>
+<h2>一、个人敏感信息扫描（doc.title + meta_json）</h2>
+<table><tr><th style="width:120px;">模式</th><th style="width:70px;">命中数</th><th>命中项（标题 [值] 标注，最多 15 项）</th></tr>
+{SENS_ROWS}</table>
+<p style="font-size:12px;color:#888;">电子邮箱命中多为文献 DOI / 题名中的 <code>@</code>（如 <code>10.1016@j.jappgeo…</code>）误判，非个人隐私；所有命中项均需人工复核后再按准则处置。抽查为只读，不自动删除。</p>
+<h2>二、可入档正向清单佐证：测井类服务合同 / 技术要求文档</h2>
+<p style="font-size:13px;color:#5b6678;">命中标题含 合同/服务/任务书/技术要求/工作范围/采集服务/业主要求 的文档，按 K-SYS-003 二.3 属可入档范围（按其技术内容归类）。</p>
+<table><tr><th>标题</th><th style="width:110px;">领域</th><th style="width:110px;">大类</th></tr>
+{CONTRACT_ROWS}</table>
+{CONTRACT_MORE}
+<h2>三、准则摘要</h2>
+<ul>
+  <li><b>准入从宽、隐私从严</b>：技术/需求类内容尽量收录；个人敏感信息一项命中即须脱敏或排除。</li>
+  <li><b>不按字样一刀切</b>：「合同/招标/协议/要求」不是排除理由；「研究报告」字样也不豁免隐私检查。</li>
+  <li><b>排除需有证据</b>：能指出具体敏感要素，不凭文件名猜测；可分离者只入技术部分。</li>
+  <li><b>合规操作以只读抽查为主</b>：不自动删改数据，命中项人工复核后处置。</li>
+</ul>
+<p style="font-size:13px;color:#888;">返回 <a href="分类说明文档.html">分类体系说明</a> · 知识条目正本 <code>knowledge/entries/K-SYS-003_收录范围与合规准则.md</code></p>
+</div></body></html>"""
+compliance_html = sub(compliance_html,
+                      TOTAL=total, ID=len(_sens_hits['身份证号']), PHONE=len(_sens_hits['手机号']),
+                      EMAIL=len(_sens_hits['电子邮箱']), CONTRACT=len(_contract_docs),
+                      SENS_ROWS=''.join(sens_rows), CONTRACT_ROWS=contract_rows, CONTRACT_MORE=contract_more)
+with open(os.path.join(OUT, '收录合规报告.html'), 'w', encoding='utf-8') as f:
+    f.write(compliance_html)
+print('written 收录合规报告.html')
 print('DONE. total=%d country=%d nocountry=%d domains=%s' % (total, n_country, n_nocountry, domains))
