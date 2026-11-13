@@ -1,9 +1,9 @@
 # ===== 数据/产物目录（不入库） =====
-# 数据/产物：默认不入库；知识库资产纳入 git（kb.db 走 Git LFS）
+# 数据/产物：默认不入库；知识库资产仅纳入文档类（topics/well_knowledge/manifest），
+# kb.db 本体不入库（R79 合规调整），见 data/kb/README.md
 data/*
 !data/kb/
 data/kb/*
-!data/kb/kb.db
 !data/kb/topics/
 !data/kb/topics/**
 !data/kb/kb_manifest.json
@@ -219,9 +219,13 @@ update_bootstrap.ps1
 node_modules/
 package.json
 package-lock.json
-# 知识库中间产物：重复副本/备份/测试库（正式库 data/kb/kb.db 走 LFS 入库）
+# 知识库中间产物：重复副本/备份/测试库；正式库 data/kb/kb.db 也不入库（R79 合规调整）
 data/kb/_dupes_*/
 data/kb/kb_test*.db
+data/kb/kb.db
+data/kb/kb.db.bak*
+data/kb/kb.db.bak_*
+data/kb/*.db-bak
 # 草稿与门禁戳
 .$log_flowchart.drawio.bkp
 _gate_pass.stamp

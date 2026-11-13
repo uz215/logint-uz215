@@ -1,11 +1,9 @@
-# 知识库 SQLite 数据库（logknow 线扩充后约 2.4GB）用 Git LFS 版本化。
-# GitHub LFS 单文件硬上限 2GiB，原库 2.37GB 直接推送被拒（422）；
-# 故先 gzip 压缩再入 LFS（实测 2.37GB → 476MB，18.7%），工作区仍是可直读的 SQLite 文件。
-# 依赖过滤器配置（每台机器一次，与 git lfs install 同批）：
-#   git config filter.gzip-lfs.clean  "gzip -n -c | git lfs clean -- %f"
-#   git config filter.gzip-lfs.smudge "git lfs smudge -- %f | gunzip"
-#   git config filter.gzip-lfs.required true
-data/kb/kb.db filter=gzip-lfs diff=lfs merge=lfs -text
-# 其他二进制（如模型）如纳入时按需加规则
+# 知识库 SQLite 数据库（kb.db，约 2.37GB）**不入库**（R79 合规调整）：
+#   理由——含大量外部语料与项目级知识，属数据资产而非源码；入库后即使压缩
+#   （gzip 后 476MB）仍在远端留下可长期取回的完整副本，不满足数据最小化要求。
+#   规则与恢复方式见 data/kb/README.md「知识库本地化」章节：
+#     本地保留 data/kb/kb.db（可直接用 SQLite 打开）；
+#     其他机器从备份介质恢复，或用 logknow/bootstrap.py 由语料重建。
+# 大二进制如确需版本化，按需加 filter=lfs 规则（勿用明文提交）
 # 知识图谱 SQLite（约12MB）用 Git LFS
 graph/graph.db filter=lfs diff=lfs merge=lfs -text
