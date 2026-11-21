@@ -45,7 +45,7 @@ from PyQt5.QtGui import QColor, QCursor, QFont, QKeySequence
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QVBoxLayout, QHBoxLayout,
-    QMenu, QAction, QDialog, QDialogButtonBox, QListWidget, QAbstractItemView,
+    QMenu, QAction, QListWidget, QListWidgetItem, QAbstractItemView,
     QTextEdit, QShortcut, QTabWidget, QSizePolicy, QToolButton,
     QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView,
 )
@@ -285,8 +285,8 @@ class ProjectBrowser:
         ]))
         ril.addWidget(self._vline())
         ril.addWidget(self._ribbon_group('项目级', [
-            ('添加井', '登记一口井到项目', self._menu_add_well),
-            ('批量添加', '从目录批量登记井', self._menu_add_wells_batch),
+            ('添加井', '登记一口井到项目', self._show_func_batch_add),
+            ('批量添加', '从资料根批量登记井', self._show_func_batch_add),
             ('批量快速', '对待解释井批量 QuickLook', lambda: self._run_batch('quicklook')),
             ('批量综合', '对待解释井批量综合解释', lambda: self._run_batch('comprehensive')),
         ]))
@@ -334,7 +334,7 @@ class ProjectBrowser:
         self.roots_var.bind_label(self.lbl_roots)
         self.lbl_roots.setMaximumWidth(260)
         fl.addWidget(self.lbl_roots)
-        fl.addWidget(self._mk_button(fl, '源根…', self._menu_manage_roots))
+        fl.addWidget(self._mk_button(fl, '源根管理', self._show_func_roots))
 
         fl.addStretch(1)
         self._member_var = _qc.Var('成员 0（已登记 0）')
@@ -407,8 +407,8 @@ class ProjectBrowser:
                 self.menu.addAction(act)
         self.menu_project = QMenu(self.win)
         for label, slot in (
-                ('添加井到项目…', self._menu_add_well),
-                ('批量添加井…', self._menu_add_wells_batch),
+                ('添加井到项目…', self._show_func_batch_add),
+                ('批量添加井…', self._show_func_batch_add),
                 (None, None),
                 ('批量快速解释图（待解释井）', lambda: self._run_batch('quicklook')),
                 ('批量综合解释（待解释井）', lambda: self._run_batch('comprehensive')),
@@ -418,7 +418,7 @@ class ProjectBrowser:
                 ('电成像处理（选中井）', self._menu_fmi),
                 (None, None),
                 ('项目根设置…', self._pick_root),
-                ('管理源根…', self._menu_manage_roots),
+                ('管理源根…', self._show_func_roots),
                 ('刷新', self.refresh)):
             if label is None:
                 self.menu_project.addSeparator()
@@ -471,6 +471,11 @@ class ProjectBrowser:
         self.func_stack.addWidget(self.catalog_page)
         self.conditional_page = self._build_conditional_page()    # index 2
         self.func_stack.addWidget(self.conditional_page)
+        # 【R88】候选源根管理 / 批量添加井：也收进功能页，主界面零弹窗
+        self.roots_page = self._build_roots_page()                # index 3
+        self.func_stack.addWidget(self.roots_page)
+        self.batch_page = self._build_batch_add_page()            # index 4
+        self.func_stack.addWidget(self.batch_page)
         fl2.addWidget(self.func_stack, 1)
         # 输入行：与「数据加载」共用扫描结果，下拉可选/可直接粘贴路径，无文件对话框
         self.func_input_row = QHBoxLayout()
@@ -993,6 +998,188 @@ class ProjectBrowser:
         vl.addWidget(self.cond_result, 1)
         return page
 
+    # ---------------- 【R88】候选源根管理：功能页化，不再弹对话框 ----------------
+
+    def _build_roots_page(self):
+        page = QWidget()
+        vl = QVBoxLayout(page)
+        vl.setContentsMargins(2, 2, 2, 2)
+        vl.addWidget(self._mk_label(
+            '候选原始资料根目录（用于按井名自动探测源目录）', bold=True))
+        self.roots_list = QListWidget(page)
+        self.roots_list.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+        vl.addWidget(self.roots_list, 2)
+        vl.addWidget(self._mk_label('已绑定的井（井名 → 源目录）', bold=True))
+        self.roots_bind_list = QListWidget(page)
+        self.roots_bind_list.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+        vl.addWidget(self.roots_bind_list, 1)
+        vl.addWidget(self._mk_label(
+            '添加：在下方输入行填/选目录路径 → 「添加为源根」；移除：列表选中 → 「移除选中源根」',
+            small=True, muted=True))
+        return page
+
+    def _roots_reload(self):
+        self.roots_list.clear()
+        for r in pcfg.source_roots(self.root_dir):
+            self.roots_list.addItem(r + ('' if os.path.isdir(r) else '　（不存在）'))
+        self.roots_bind_list.clear()
+        cfg = pcfg.load_config(self.root_dir)
+        for k, v in sorted((cfg.get('wells') or {}).items()):
+            self.roots_bind_list.addItem('%-24s → %s' % (k, v.get('source_dir', '')))
+
+    def _roots_add_input(self):
+        d = self.func_input_combo.currentText().strip()
+        if not d or not os.path.isdir(d):
+            self._log('请输入存在的目录绝对路径再添加')
+            return
+        if pcfg.add_source_root(self.root_dir, d):
+            self._log('已添加候选源根：%s' % d)
+        else:
+            self._log('添加候选源根失败：项目配置不可写')
+        self._show_func_roots()
+
+    def _roots_remove(self):
+        it = self.roots_list.currentItem()
+        if it is None:
+            self._log('请先在列表里选中一个源根')
+            return
+        r = it.text().replace('　（不存在）', '').strip()
+        if pcfg.remove_source_root(self.root_dir, r):
+            self._log('已移除候选源根：%s' % r)
+        else:
+            self._log('移除候选源根失败')
+        self._show_func_roots()
+
+    def _show_func_roots(self):
+        self.func_title.setText('候选源根管理')
+        self.func_stack.setCurrentIndex(3)
+        self._func_key = 'roots'
+        self._func_input_kind = 'roots'
+        self._fill_func_input('roots')
+        self._rebuild_func_actions([
+            ('添加为源根', self._roots_add_input),
+            ('移除选中源根', self._roots_remove),
+            ('刷新', self._show_func_roots),
+        ])
+        self._roots_reload()
+        self.right_nb.setCurrentIndex(1)
+
+    # ---------------- 【R88】添加井 / 批量添加井：功能页化，不再弹对话框 ----------------
+
+    def _build_batch_add_page(self):
+        page = QWidget()
+        vl = QVBoxLayout(page)
+        vl.setContentsMargins(2, 2, 2, 2)
+        self.batch_path_lab = self._mk_label(
+            '（未扫描 —— 在下方输入行填资料根路径，点「扫描候选井」）', small=True, muted=True)
+        vl.addWidget(self.batch_path_lab)
+        vl.addWidget(self._mk_label(
+            '候选井（勾选要加入项目的；井名 = LAS 记录井名，单井时可在下方改名）',
+            small=True, muted=True))
+        self.batch_list = QListWidget(page)
+        self.batch_list.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+        vl.addWidget(self.batch_list, 1)
+        row = QHBoxLayout()
+        row.addWidget(self._mk_label('井名（单井）', small=True, muted=True))
+        self.batch_name_edit = QLineEdit()
+        self.batch_name_edit.setVisible(False)
+        row.addWidget(self.batch_name_edit, 1)
+        vl.addLayout(row)
+        self._batch_cands: list[dict] = []
+        self._batch_cands_path = ''
+        return page
+
+    def _batch_scan(self):
+        path = self.func_input_combo.currentText().strip()
+        if not path or not os.path.isdir(path):
+            self._log('请先在输入行填写存在的资料根目录路径')
+            return
+        cands = pcfg.discover_wells_in_dir(path)
+        if not cands:
+            self._log('在 %s 里没有发现 LAS 文件（含 LAS 的子目录 / 目录本身才算一口井）' % path)
+            return
+        used = set()
+        for c in cands:
+            las_wn = pm.las_well_name(c.get('las_path', '')) or ''
+            name = las_wn or c['name']
+            if name in used:
+                name = c['name']
+            used.add(name)
+            c['well_name'] = name
+            c['las_well_name'] = las_wn
+        self._batch_cands = cands
+        self._batch_cands_path = path
+        self.batch_list.clear()
+        for i, c in enumerate(cands):
+            tail = '' if c['well_name'] == c['name'] \
+                else '   (LAS 井名 %s)' % c['las_well_name']
+            it = QListWidgetItem('%-22s %3d 个文件%s' % (c['well_name'], c['files'], tail))
+            it.setFlags(it.flags() | Qt.ItemIsUserCheckable)
+            it.setCheckState(Qt.Checked)
+            it.setData(Qt.UserRole, i)
+            self.batch_list.addItem(it)
+        self.batch_path_lab.setText('资料根：%s ｜ 发现 %d 口井' % (path, len(cands)))
+        self.batch_name_edit.setText(cands[0]['well_name'] if len(cands) == 1 else '')
+        self.batch_name_edit.setVisible(len(cands) == 1)
+        self._log('发现 %d 口井（资料根 %s）——勾选后点「添加勾选井到项目」' % (len(cands), path))
+
+    def _batch_apply(self):
+        if not self._batch_cands:
+            self._log('请先点「扫描候选井」')
+            return
+        picks: list[tuple[str, str]] = []
+        if len(self._batch_cands) == 1:
+            n = self.batch_name_edit.text().strip() or self._batch_cands[0]['well_name']
+            picks.append((n, self._batch_cands[0]['dir']))
+        else:
+            for i in range(self.batch_list.count()):
+                it = self.batch_list.item(i)
+                if it.checkState() == Qt.Checked:
+                    c = self._batch_cands[int(it.data(Qt.UserRole))]
+                    picks.append((c['well_name'], c['dir']))
+        if not picks:
+            self._log('请至少勾选一口井')
+            return
+        added, failed = [], []
+        for name, src in picks:
+            if pcfg.add_well_to_project(self.root_dir, name, src):
+                added.append(name)
+            else:
+                failed.append(name)
+        if added:
+            self._log('已添加 %d 口井到项目：%s' % (len(added), '；'.join(added)))
+        if failed:
+            self._log('添加失败（源目录不存在）：%s' % '；'.join(failed))
+        self._batch_cands = []
+        self._batch_cands_path = ''
+        self.batch_list.clear()
+        self.batch_name_edit.setVisible(False)
+        self.batch_path_lab.setText('（已添加 %d 口井 —— 可继续扫描下一个资料根）' % len(added))
+        self.refresh()
+        if added:
+            self._select_well(added[0])
+
+    def _show_func_batch_add(self):
+        self.func_title.setText('添加井到项目（支持批量）')
+        self.func_stack.setCurrentIndex(4)
+        self._func_key = 'batch_add'
+        self._func_input_kind = 'batch_add'
+        self._fill_func_input('batch_add')
+        self._rebuild_func_actions([
+            ('扫描候选井', self._batch_scan),
+            ('添加勾选井到项目', self._batch_apply),
+            ('清空列表', self._batch_clear),
+        ])
+        self.right_nb.setCurrentIndex(1)
+
+    def _batch_clear(self):
+        self._batch_cands = []
+        self._batch_cands_path = ''
+        self.batch_list.clear()
+        self.batch_name_edit.setVisible(False)
+        self.batch_path_lab.setText('（未扫描 —— 在下方输入行填资料根路径，点「扫描候选井」）')
+
+
     def _cond_refresh_options(self, w):
         all_ds = list(w.datasets) + list(w.source_datasets)
         fams = sorted({v.family for d in all_ds for v in d.variables if v.family})
@@ -1076,8 +1263,24 @@ class ProjectBrowser:
         self._fill_func_input(input_kind)
         self.right_nb.setCurrentIndex(1)
 
+    def _rebuild_func_actions(self, actions: list[tuple[str, object]]):
+        """清空并重建功能页动作按钮（供各功能页复用）。"""
+        while self.func_actions.count():
+            item = self.func_actions.takeAt(0)
+            wd = item.widget()
+            if wd is not None:
+                wd.deleteLater()
+        for label, slot in actions:
+            b = self._mk_button(None, label, slot)
+            b.setMaximumWidth(150)
+            self.func_actions.addWidget(b)
+        self.func_actions.addStretch(1)
+
     def _fill_func_input(self, kind: str):
-        """输入行选项来自「数据加载」的扫描结果，避免任何弹窗。"""
+        """输入行选项来自「数据加载」的扫描结果，避免任何弹窗。
+
+        【R88】roots / batch_add 两类不依赖选中井：候选 = 候选源根本身。
+        """
         row = getattr(self, 'func_input_row', None)
         if row is None:
             return
@@ -1093,8 +1296,20 @@ class ProjectBrowser:
         cb = self.func_input_combo
         cb.blockSignals(True)
         cb.clear()
+        choices: list[str] = []
         current = ''
-        if w:
+        lab, apply_text = '输入路径（下拉来自数据加载扫描，也可直接粘贴）', '应用输入'
+        if kind == 'roots':
+            choices = list(pcfg.source_roots(self.root_dir))
+            if self.root_dir not in choices:
+                choices.insert(0, self.root_dir)
+            lab, apply_text = '源根目录路径（下拉 = 已登记源根，也可直接粘贴）', '添加为源根'
+        elif kind == 'batch_add':
+            choices = [r for r in pcfg.source_roots(self.root_dir) if os.path.isdir(r)]
+            if self.root_dir not in choices:
+                choices.insert(0, self.root_dir)
+            lab, apply_text = '资料根路径（含 LAS 的子目录 = 一口井，也可直接粘贴）', '扫描候选井'
+        elif w:
             out = self._well_out_dir(w)
             found = dop.discover_inputs(w.source_dir or '', out)
             opt_key = kind
@@ -1108,10 +1323,10 @@ class ProjectBrowser:
                                         if os.path.isdir(os.path.join(sr, d))]
                     current = w.source_dir or ''
                 else:
-                    # 导入面板的候选 = 源目录扫描到的全部资料（按当前类型优先）
+                    # 导入面板的候选 = 井自有扫描 + 候选源根里的同类资料（【R88】）
                     choices = list(found.get(opt_key, []))
                     if not choices:
-                        choices = [p for v in found.values() for p in v]
+                        choices = self._scan_roots_for_kind(opt_key)
                     current = pcfg.well_options(self.root_dir, w.name).get(opt_key, '')
             else:
                 choices = list(found.get(kind, []))
@@ -1120,21 +1335,59 @@ class ProjectBrowser:
                     if auto and auto not in choices:
                         choices.insert(0, auto)
                 current = pcfg.well_options(self.root_dir, w.name).get(opt_key, '')
-            for p in choices:
-                cb.addItem(p)
-            if current and current not in choices:
-                cb.insertItem(0, current)
-            cb.setEditText(current)
-            self.func_input_lab.setText(
-                '输入路径（下拉来自数据加载扫描，也可直接粘贴）')
-            self.func_input_apply.setText('应用输入')
+        for p in choices:
+            cb.addItem(p)
+        if current and current not in choices:
+            cb.insertItem(0, current)
+        cb.setEditText(current)
+        self.func_input_lab.setText(lab)
+        self.func_input_apply.setText(apply_text)
         cb.blockSignals(False)
 
+    def _scan_roots_for_kind(self, kind: str, limit: int = 200) -> list[str]:
+        """【R88】在候选源根里扫描同类资料文件（有界深度/数量，只读）。
+
+        导入面板的候选不再局限于井自有目录 —— 未关联源目录的井也能
+        直接从候选源根里挑外部文件导入。
+        """
+        exts = {'las': ('.las', '.las2'),
+                'gas': ('.csv', '.txt', '.dat', '.xls', '.xlsx', '.las'),
+                'nmr': ('.csv', '.xlsx', '.xls', '.dlis'),
+                'fmi': ('.png', '.jpg', '.jpeg', '.bmp', '.tif', '.tiff', '.csv', '.las'),
+                'config': ('.json',)}.get(kind)
+        out: list[str] = []
+        if not exts:
+            return out
+        for sr in pcfg.source_roots(self.root_dir):
+            if not os.path.isdir(sr):
+                continue
+            for base, dirs, files in os.walk(sr):
+                if base[len(sr):].count(os.sep) >= 4:
+                    dirs[:] = []
+                dirs[:] = [d for d in dirs if not d.startswith('.') and not d.startswith('_')]
+                for fn in files:
+                    if fn.lower().endswith(exts):
+                        out.append(os.path.join(base, fn))
+                        if len(out) >= limit:
+                            return out
+        return out
+
     def _apply_func_input(self):
-        """把输入行的内容写入井级资料指定（或直接复制导入），全程无对话框。"""
+        """输入行的统一入口：按当前功能页路由（全程无对话框）。
+
+        【R88】导入面板的文件类型 = **导入并指定**：先把外部文件复制到
+        井的原始资料目录（没有则自动建立并登记），再把井级指定指向
+        复制后的文件 —— 此前只写配置不复制，外部文件根本进不了项目。
+        """
         kind = getattr(self, '_func_input_kind', '')
         val = self.func_input_combo.currentText().strip()
         if not kind:
+            return
+        if kind == 'roots':
+            self._roots_add_input()
+            return
+        if kind == 'batch_add':
+            self._batch_scan()
             return
         w = self._selected_well()
         if not w:
@@ -1154,6 +1407,30 @@ class ProjectBrowser:
                 self._log('关联源目录失败：项目配置不可写')
             self._show_func_import()
             return
+        if kind == 'import':
+            if not val or not os.path.isfile(val):
+                self._log('请输入存在的文件绝对路径再导入')
+                return
+            dest = w.source_dir or os.path.join(self.root_dir, 'sources', w.name)
+            if not w.source_dir:
+                if not pcfg.bind_well(self.root_dir, w.name, dest):
+                    self._log('导入失败：无法为井 %s 建立源目录登记' % w.name)
+                    return
+                self._log('已为井 %s 自动建立源目录：%s' % (w.name, dest))
+            r = dop.import_files([val], dest)
+            if r.get('copied'):
+                copied = r['copied'][0]
+                pcfg.set_well_option(self.root_dir, w.name, opt_key, copied)
+                self._log('已导入并指定 %s：%s → %s'
+                          % (pcfg.WELL_OPTION_LABELS.get(opt_key, opt_key),
+                             os.path.basename(val), dest))
+                self.refresh()
+            for s in r.get('skipped') or []:
+                self._log('跳过：%s' % s)
+            if not r.get('ok') and r.get('error'):
+                self._log('导入失败：%s' % r['error'])
+            self._show_func_import()
+            return
         if pcfg.set_well_option(self.root_dir, w.name, opt_key, val):
             self._log('已指定 %s：%s' % (pcfg.WELL_OPTION_LABELS.get(opt_key, opt_key),
                                        val or '（清除，回到自动探测）'))
@@ -1161,24 +1438,43 @@ class ProjectBrowser:
             key = getattr(self, '_func_key', '')
             if key in pjob.JOB_TYPES:
                 self._show_func_job(key)
-            elif kind == 'import':
-                self._show_func_import()
         else:
             self._log('输入应用失败：项目配置不可写')
 
     def _copy_func_input(self):
-        """把输入行里的外部文件复制到当前井的原始资料目录（无文件对话框）。"""
+        """把输入行里的外部文件复制到当前井的原始资料目录（无文件对话框）。
+
+        【R88】井未关联源目录时自动建立 ``<项目根>/sources/<井名>`` 并登记；
+        路径先校验，导入后按导入面板当前所选类型写入井级指定。
+        """
         w = self._selected_well()
         val = self.func_input_combo.currentText().strip()
         if not w or not val:
             self._log('请先选中井并在输入行填写文件路径')
             return
-        r = dop.import_files([val], w.source_dir or '')
-        if r.get('ok'):
-            self._log('已导入：%s → %s' % (val, w.source_dir))
+        if not os.path.isfile(val):
+            self._log('输入的路径不是存在的文件：%s' % val)
+            return
+        dest = w.source_dir or os.path.join(self.root_dir, 'sources', w.name)
+        if not w.source_dir:
+            if not pcfg.bind_well(self.root_dir, w.name, dest):
+                self._log('导入失败：无法为井 %s 建立源目录登记' % w.name)
+                return
+            self._log('已为井 %s 自动建立源目录：%s' % (w.name, dest))
+        r = dop.import_files([val], dest)
+        if r.get('copied'):
+            self._log('已导入 %d 个文件：%s → %s'
+                      % (len(r['copied']),
+                         '、'.join(os.path.basename(p) for p in r['copied']), dest))
+            kind = getattr(self, '_func_input_kind', '')
+            opt_key = self.func_input_type.currentData() if kind == 'import' else None
+            if opt_key and opt_key in pcfg.WELL_OPTIONS:
+                pcfg.set_well_option(self.root_dir, w.name, opt_key, r['copied'][0])
             self.refresh()
-        else:
-            self._log('导入失败：%s' % (r.get('error') or '；'.join(r.get('skipped') or [])))
+        for s in r.get('skipped') or []:
+            self._log('跳过：%s' % s)
+        if not r.get('ok') and r.get('error'):
+            self._log('导入失败：%s' % r['error'])
         self._show_func_import()
 
     def _func_head(self, w) -> str:
@@ -1741,59 +2037,6 @@ class ProjectBrowser:
             self._job_running = False
             self._start_next_batch()
 
-    def _menu_add_root(self):
-        d = _qg.select_dir(title='添加候选原始资料根目录', parent=self.win)
-        if not d:
-            return
-        if pcfg.add_source_root(self.root_dir, d):
-            self._log('已添加候选源根：%s' % d)
-            self.refresh()
-        else:
-            self._log('添加候选源根失败')
-
-    def _menu_manage_roots(self):
-        """管理候选源根（增删 + 显示已绑定关系）。"""
-        dlg = QDialog(self.win)
-        dlg.setWindowTitle('项目配置 — 候选源根与井绑定')
-        dlg.resize(680, 480)
-        vl = QVBoxLayout(dlg)
-        vl.addWidget(self._mk_label('候选原始资料根目录（用于按井名自动探测源目录）', bold=True))
-        lst = QListWidget()
-        vl.addWidget(lst, 1)
-        cfg = pcfg.load_config(self.root_dir)
-        for r in cfg.get('source_roots', []):
-            lst.addItem(str(r))
-
-        vl.addWidget(self._mk_label('已绑定的井（井名 → 源目录）', bold=True))
-        lst2 = QListWidget()
-        vl.addWidget(lst2, 1)
-        for k, v in sorted((cfg.get('wells') or {}).items()):
-            lst2.addItem('%-24s → %s' % (k, v.get('source_dir', '')))
-
-        bl = QHBoxLayout()
-        b_add = self._mk_button(dlg, '添加…', lambda: self._root_add(lst))
-        b_rm = self._mk_button(dlg, '移除选中', lambda: self._root_remove(lst))
-        b_apply = self._mk_button(dlg, '应用并刷新', lambda: (dlg.accept(), self.refresh()))
-        bl.addWidget(b_add)
-        bl.addWidget(b_rm)
-        bl.addStretch(1)
-        bl.addWidget(b_apply)
-        vl.addLayout(bl)
-        dlg.exec_()
-
-    def _root_add(self, lst):
-        d = _qg.select_dir(title='添加候选原始资料根目录', parent=self.win)
-        if d:
-            pcfg.add_source_root(self.root_dir, d)
-            lst.addItem(d)
-
-    def _root_remove(self, lst):
-        cur = lst.currentItem()
-        if cur is None:
-            return
-        pcfg.remove_source_root(self.root_dir, cur.text())
-        lst.takeItem(lst.row(cur))
-
     def _ask_yes_no(self, title: str, message: str) -> bool:
         return _qg.yes_no(title, message, self.win)
 
@@ -1831,160 +2074,7 @@ class ProjectBrowser:
         """
         self._show_func_conditional()
 
-    # ---------------- 项目成员管理（把井添加到项目） ----------------
-
-    def _default_src_dir(self) -> str:
-        """默认打开的目录：已登记的第一个源目录，或候选源根的第一个。"""
-        try:
-            reg = pcfg.registered_wells(self.root_dir)
-            for v in reg.values():
-                d = str(v.get('source_dir') or '')
-                if d and os.path.isdir(d):
-                    return d
-            roots = pcfg.source_roots(self.root_dir)
-            for r in roots:
-                if os.path.isdir(r):
-                    return r
-        except Exception:
-            pass
-        return os.path.abspath(self.root_dir)
-
-    def _ask_add_wells(self, path: str, title: str = '添加井到项目'):
-        """弹出"添加到项目"对话框。
-
-        返回 ``[(井名, 源目录), ...]``；用户取消或无可添加项返回 ``None``。
-
-        井名即**产物落盘目录名**（logInt 用 ``output/<LAS井名>/``），也是
-        项目内标识。因此这里优先用 **LAS 里记录的井名**（读不到才用目录名），
-        登记名与产物目录名天然一致，闭环不需要靠事后归集来救。
-        """
-        cands = pcfg.discover_wells_in_dir(path)
-        if not cands:
-            _qg.warn('添加井到项目',
-                     '在所选目录里没有发现 LAS 文件：\n%s\n\n'
-                     '请选择一口井的资料目录，或一个包含多口井的资料根目录。' % path,
-                     self.win)
-            return None
-
-        used = set()
-        for c in cands:
-            las_wn = pm.las_well_name(c.get('las_path', '')) or ''
-            name = las_wn or c['name']
-            if name in used:
-                name = c['name']
-            used.add(name)
-            c['well_name'] = name
-            c['las_well_name'] = las_wn
-
-        result: dict = {}
-        dlg = QDialog(self.win)
-        dlg.setWindowTitle(title)
-        dlg.resize(600, 500)
-        vl = QVBoxLayout(dlg)
-        vl.addWidget(self._mk_label('原始资料目录', small=True, muted=True))
-        p_lab = self._mk_label(path)
-        p_lab.setWordWrap(True)
-        vl.addWidget(p_lab)
-
-        name_edit = None
-        lb = None
-        if len(cands) == 1:
-            c = cands[0]
-            vl.addWidget(self._mk_label('井名（= 项目内标识，也是产物落盘目录名）',
-                                        small=True, muted=True))
-            name_edit = QLineEdit(c['well_name'])
-            vl.addWidget(name_edit)
-            hint = '发现 %d 个文件（主 LAS：%s）' % (c['files'], c.get('las', ''))
-            if c['las_well_name'] and c['las_well_name'] != c['name']:
-                hint += '\nLAS 记录井名：%s  →  产物将落在 output/%s/' % (
-                    c['las_well_name'], c['well_name'])
-            h = self._mk_label(hint, small=True, muted=True)
-            h.setWordWrap(True)
-            vl.addWidget(h)
-        else:
-            vl.addWidget(self._mk_label('发现 %d 口井，勾选要加入项目的井' % len(cands),
-                                        small=True, muted=True))
-            lb = QListWidget()
-            lb.setSelectionMode(QAbstractItemView.ExtendedSelection)
-            for c in cands:
-                tail = '' if c['well_name'] == c['name'] \
-                    else '   (LAS 井名 %s)' % c['las_well_name']
-                lb.addItem('%-22s %3d 个文件%s' % (c['well_name'], c['files'], tail))
-            for i in range(lb.count()):
-                lb.item(i).setSelected(True)
-            vl.addWidget(lb, 1)
-            vl.addWidget(self._mk_label('井名取自 LAS 记录（与产物目录同名）；'
-                                        '如需改名，添加后再单独调整',
-                                        small=True, muted=True))
-
-        def _ok():
-            if lb is not None:
-                rows = [lb.row(it) for it in lb.selectedItems()]
-                picks = [(cands[i]['well_name'], cands[i]['dir']) for i in rows]
-            else:
-                n = name_edit.text().strip() if name_edit else ''
-                picks = [(n, cands[0]['dir'])] if n else []
-            if not picks:
-                _qg.warn('添加井到项目', '请至少选择一口井。', dlg)
-                return
-            result['picks'] = picks
-            dlg.accept()
-
-        bl = QHBoxLayout()
-        bl.addStretch(1)
-        bl.addWidget(self._mk_button(dlg, '取消', dlg.reject))
-        bl.addWidget(self._mk_button(dlg, '添加到项目', _ok))
-        vl.addLayout(bl)
-        dlg.exec_()
-        return result.get('picks')
-
-    def _menu_add_well(self):
-        """把井添加到项目：选资料目录 → 确认井名 → 登记。"""
-        path = _qg.select_dir(
-            title='选择井的原始资料目录（含 LAS / 地质设计 / 甲方格式）',
-            initialdir=self._default_src_dir(), parent=self.win)
-        if not path:
-            return
-        picks = self._ask_add_wells(path, title='添加井到项目')
-        if not picks:
-            return
-        added, failed = [], []
-        for name, src in picks:
-            if pcfg.add_well_to_project(self.root_dir, name, src):
-                added.append(name)
-            else:
-                failed.append(name)
-        if added:
-            self._log('已添加 %d 口井到项目：%s' % (len(added), '；'.join(added)))
-        if failed:
-            self._log('添加失败（源目录不存在）：%s' % '；'.join(failed))
-        self.refresh()
-        if added:
-            self._select_well(added[0])
-
-    def _menu_add_wells_batch(self):
-        """批量添加：选一个资料根，把里面多口井一次性加进项目。"""
-        path = _qg.select_dir(
-            title='选择包含多口井的资料根目录',
-            initialdir=self._default_src_dir(), parent=self.win)
-        if not path:
-            return
-        picks = self._ask_add_wells(path, title='批量添加井到项目')
-        if not picks:
-            return
-        added, failed = [], []
-        for name, src in picks:
-            if pcfg.add_well_to_project(self.root_dir, name, src):
-                added.append(name)
-            else:
-                failed.append(name)
-        if added:
-            self._log('已批量添加 %d 口井到项目：%s' % (len(added), '；'.join(added)))
-        if failed:
-            self._log('添加失败（源目录不存在）：%s' % '；'.join(failed))
-        self.refresh()
-        if added:
-            self._select_well(added[0])
+    # 项目成员管理（添加井/批量添加井）已功能页化：_show_func_batch_add（R88）
 
     def _ask_text(self, title: str, prompt: str, default: str = '') -> str | None:
         """单行输入对话框。取消返回 None。"""
