@@ -16,6 +16,12 @@
 """
 from __future__ import annotations
 
+# 【R84】Qt 加载前预导入 PyMuPDF，规避 onnxruntime C 扩展与 Qt DLL 的加载冲突。
+# 工作台内文档/知识库功能（well_docs/masterlog/well_knowledge 等）会 import fitz，
+# 若在 Qt 之后加载其 onnxruntime 依赖会 access violation（详见 logsys/fitz_safe.py）。
+from logsys.fitz_safe import preload as _fitz_preload  # noqa: E402
+_fitz_preload()
+
 _APP = None
 
 # 常用字体（与 tkinter 版保持一致）

@@ -6,6 +6,12 @@
 import sys
 import importlib.util
 
+# 【R84】进程最早处预导入 PyMuPDF：pymupdf 新版 import 时会加载 onnxruntime
+# C 扩展，若晚于 Qt/matplotlib 加载会 access violation（详见 logsys/fitz_safe）。
+# 必须在任何 Qt / matplotlib 导入之前调用，一次即可全局生效。
+from logsys.fitz_safe import preload as _fitz_preload  # noqa: E402
+_fitz_preload()
+
 def check_dependency(module_name, install_command=None):
     """
     检查依赖是否已安装
@@ -3383,8 +3389,10 @@ def _is_dry_reservoir_point(phi_val, vsh_val, gr_val, lithology, min_porosity):
 #   deny  —— 否决条件，命中即排除该结论。
 # 规则按顺序匹配，第一个通过的生效（GAS 排在 OIL 前：RT>50 时 GAS 的 core
 # 优先命中，30<RT≤50 时 GAS 不通过自然落入 OIL）。
-# 依据用户图版：气层{Sw<0.5, POR>10%, RT>50}；油层{Sw<0.5, POR>10%, RT>30}；
-#              水层{Sw>0.5, POR>10%, RT<20}；干层为低孔储层（POR 6-10%）。
+# 依据用户图版：气层{Sw<0.5, POR>10%, RT>50}；油层{Sw<0.5, POR>10%, RT>30}。
+# 【2026-10-31 用户定案】水层＝高 Sw（≥0.65），**不要求 RT 低**（高阻水层同样
+# 判水）；干层＝低孔储层（POR 6-10%）且非水（Sw<0.65），RT 不是判据。
+# 旧表水层的 RT<20 与 POR>=0.10 门槛系初始图版残留，与定案冲突，R84 修正。
 INTERPRETATION_RULES = [
     # 【2026-10-20 用户定案 3-SPS-111D】碳酸盐岩储层"这个地方标准"：
     # 孔隙度超过 6% 的储层都应解释成油气层（盐岩/硬石膏是优质盖层，
@@ -3403,15 +3411,19 @@ INTERPRETATION_RULES = [
         'core': [('RT', '>', 30.0, 2.0), ('RT', '>', 35.0, 1.0)],
         'deny': [('Sw', '>', 0.65), ('POR', '<', 0.06)],
     },
+    # 【R84 修正·2026-10-31 定案】水层＝高 Sw，不看 RT（高阻水层同样判水）。
+    # 旧 must(Sw>=0.5, POR>=0.10) + core(RT<20/25) 会让高阻水层(如 RT100)
+    # core 零命中→落 None，低孔高 Sw 水层被 DRY 抢走。改为 Sw/POR 单一口径。
     {
         'key': 'WATER', 'core_min': 1,
-        'must': [('Sw', '>=', 0.5), ('POR', '>=', 0.10)],
-        'core': [('RT', '<', 20.0, 2.0), ('RT', '<', 25.0, 1.0)],
+        'must': [('Sw', '>=', 0.65), ('POR', '>=', 0.06)],
+        'core': [('Sw', '>=', 0.65, 2.0)],
         'deny': [],
     },
+    # 干层＝低孔储层且非水（Sw<0.65）；RT 不是判据。
     {
         'key': 'DRY', 'core_min': 1,
-        'must': [('POR', '>=', 0.06), ('POR', '<', 0.10)],
+        'must': [('POR', '>=', 0.06), ('POR', '<', 0.10), ('Sw', '<', 0.65)],
         'core': [('Sw', '>=', 0.5, 1.0), ('Sw', '<', 0.5, 0.5)],
         'deny': [],
     },
@@ -13350,7 +13362,13 @@ LITHOLOGY_RULES = [
             {'all': [('DEN', '>=', '@DEN_shale_light?2.35')]},
             # 【R34 deny 原则】碳质泥岩富有机质→RT 高于普通泥岩；RT 无
             # 支持的'低密度高声波'是坏井眼响应（XIMENIA-5：RT 3.3 < 9.1）
-            {'all': [('RT', '<', '@RT_carb_min?5')]},
+            # 【R84 修正】单条 RT 一票否决会误杀真实碳质泥岩：BET-1 实测
+            # carb_7466（GR137/DEN2.37/CNL34/DT107，8 项 core 全中）RT=6.0
+            # 与正常泥岩 RT 完全相同，RT 单曲线无法区分。改为需密度旁证：
+            # 只有 RT 低**且密度不明显低于本井泥岩基线**才否决（坏井眼响应），
+            # 密度确已降低的低 RT 点保留碳质泥岩判定（判据不反复/不依赖单条）。
+            {'all': [('RT', '<', '@RT_carb_min?5'),
+                     ('DEN', '>=', '@DEN_shale_light?2.35')]},
         ],
     },
     # ---------- 石灰岩：ρ 高、Δt 极低、CNL 极低、Pe 高、GR 极低 ----------

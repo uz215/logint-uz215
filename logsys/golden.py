@@ -16,6 +16,15 @@ import json
 import os
 import sys
 
+# 【R84 修复 segfault】fitz(PyMuPDF) 必须在 matplotlib/PyQt5 之前导入：
+# 本机 pymupdf 新版在 import 时会 `pymupdf.layout.activate()` 无条件加载
+# onnxruntime 的 C 扩展(_pybind_state)；若 Qt/Matplotlib 的 DLL 已先驻留，
+# 该加载触发 access violation（exit 139，golden 渲染完后 fingerprint 阶段崩溃）。
+# 本模块只需 fitz.open/get_pixmap，不用 layout 的 ONNX 布局分析。
+# 统一走 fitz_safe.preload()（幂等，GUI 主入口也已调用）；切勿移回延迟导入。
+from logsys.fitz_safe import preload as _fitz_preload  # noqa: E402
+_fitz_preload()
+
 BASE = r'D:\360\src'
 GOLD_DIR = os.path.join(BASE, 'tests', 'golden')
 GOLD_JSON = os.path.join(GOLD_DIR, 'qlpt_golden.json')
@@ -47,8 +56,8 @@ def render(out_dir: str, kind: str = 'qlpt') -> str:
 
 
 def fingerprint(pdf_path: str) -> dict:
-    import fitz
     import numpy as np
+    import fitz  # 顶部 preload() 已加载，此处仅绑定本地名（命中 sys.modules 缓存）
     doc = fitz.open(pdf_path)
     page = doc[0]
     text = page.get_text()

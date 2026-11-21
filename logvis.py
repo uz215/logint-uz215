@@ -7,6 +7,12 @@
 # 4. 添加PE曲线刻度
 # =============================================================================
 
+# 【R84】必须最先预导入 PyMuPDF：pymupdf 新版 import 时会加载 onnxruntime C
+# 扩展，若晚于本文件下方的 Qt/matplotlib 导入会 access violation（详见
+# logsys/fitz_safe.py）。放在所有第三方 import 之前，一次锁定加载时机。
+from logsys.fitz_safe import preload as _fitz_preload  # noqa: E402
+_fitz_preload()
+
 import os
 import sys
 import json
