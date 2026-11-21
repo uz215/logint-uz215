@@ -93,6 +93,101 @@ def _write_json(path: str, payload: dict):
         json.dump(payload, f, ensure_ascii=False, indent=2, default=str)
 
 
+# ----------------------------------------------------------------- 产物并入曲线集
+# 【R89】所有专用处理作业的输出都并入 <井>_processed.csv，成为**处理井的
+# 曲线变量**：与测井曲线同权、挂在输入 LAS/DLIS 数据集下、可拖入 logvis
+# 作图。产物 CSV 本身仍保留作为原始记录，但变量来源 = 曲线集。
+
+
+def _resample_to_grid(src_depth, src_vals, grid, qualitative: bool):
+    """把产物列对齐到曲线集深度网格：数值线性插值，定性最近邻（不外推）。"""
+    import numpy as np
+    import pandas as pd
+    x = np.asarray(pd.to_numeric(pd.Series(src_depth), errors='coerce'), dtype=float)
+    ok = np.isfinite(x)
+    x = x[ok]
+    if qualitative:
+        vals = [list(src_vals)[i] for i in np.where(ok)[0]]
+        out = []
+        for g in np.asarray(grid, dtype=float):
+            if x.size == 0:
+                out.append('')
+                continue
+            i = int(np.abs(x - g).argmin())
+            out.append(vals[i] if abs(x[i] - g) <= 1e-3 else '')
+        return out
+    y = np.asarray(pd.to_numeric(pd.Series(list(src_vals))[ok] if hasattr(src_vals, '__len__') else src_vals,
+                                  errors='coerce'), dtype=float)
+    out = np.full(len(grid), np.nan)
+    if x.size >= 2:
+        g = np.asarray(grid, dtype=float)
+        m = (g >= x.min()) & (g <= x.max())
+        out[m] = np.interp(g[m], x, y)
+    return out
+
+
+def _merge_into_processed(well: str, out_dir: str, df, mapping: dict = None,
+                          qualitative_cols: tuple = ()) -> str:
+    """把作业产物 DataFrame 按 DEPTH 对齐并入 ``<井>_processed.csv``。
+
+    mapping: {产物列名 → 变量库 key}；未列出的产物列丢弃（原始 CSV 里仍留档）。
+    产物深度列（DEPTH/MD/Depth/depth）统一为 DEPTH。
+    - 曲线集已存在：同名列先删旧再写入（重跑作业覆盖旧结果），数值列插值、
+      定性列最近邻对齐到**曲线集的深度网格**；
+    - 不存在：以产物深度为骨架新建（即首个作业先建立处理井曲线集）。
+    返回 processed.csv 路径。
+    """
+    import pandas as pd
+    proc = os.path.join(out_dir, '%s_processed.csv' % well)
+    mapping = dict(mapping or {})
+    dcol = next((c for c in ('DEPTH', 'MD', 'Depth', 'depth') if c in df.columns), '')
+    if not dcol:
+        raise ValueError('产物缺少深度列（DEPTH/MD）：%s' % list(df.columns))
+    depth = pd.to_numeric(df[dcol], errors='coerce')
+    cols: dict[str, object] = {}
+    for src, dst in mapping.items():
+        if src in df.columns:
+            cols[dst] = df[src]
+    if not mapping:
+        # 产物列名即变量 key（如气测 GAS_ITP/GAS_ANOM/GAS_ANOM_RATIO）：
+        # 保留全部非深度列
+        for c in df.columns:
+            if c != dcol:
+                cols[str(c).strip()] = df[c]
+    if not cols:
+        raise ValueError('产物无可用映射列：%s → %s' % (list(df.columns), mapping))
+
+    if os.path.isfile(proc):
+        base = pd.read_csv(proc, encoding='utf-8-sig')
+        base.columns = [str(c).strip() for c in base.columns]
+        bdep = next((c for c in ('DEPTH', 'MD', 'Depth', 'depth') if c in base.columns), '')
+        if not bdep:
+            raise ValueError('曲线集缺深度列：%s' % list(base.columns))
+        if bdep != 'DEPTH':
+            base = base.rename(columns={bdep: 'DEPTH'})
+        grid = pd.to_numeric(base['DEPTH'], errors='coerce').to_numpy(dtype=float)
+        added = pd.DataFrame({'DEPTH': grid})
+        for dst, vals in cols.items():
+            qual = dst in qualitative_cols or (
+                hasattr(vals, 'dtype') and vals.dtype == object)
+            added[dst] = _resample_to_grid(depth, vals, grid, qualitative=bool(qual))
+        # 重跑覆盖：删掉旧的同名列再并入
+        for c in added.columns[1:]:
+            if c in base.columns:
+                base = base.drop(columns=[c])
+        merged = pd.concat([base.reset_index(drop=True),
+                            added.drop(columns=['DEPTH']).reset_index(drop=True)],
+                           axis=1)
+        merged = merged.sort_values('DEPTH').reset_index(drop=True)
+    else:
+        added = pd.DataFrame({'DEPTH': depth.to_numpy(dtype=float)})
+        for dst, vals in cols.items():
+            added[dst] = list(vals)
+        merged = added.sort_values('DEPTH').reset_index(drop=True)
+    merged.to_csv(proc, index=False, encoding='utf-8')
+    return proc
+
+
 # ----------------------------------------------------------------- 气测解释
 
 def run_gas(args):
@@ -135,15 +230,20 @@ def run_gas(args):
     if raw is not None and hasattr(raw, 'to_csv'):
         raw.to_csv(os.path.join(out, '%s_gas_raw.csv' % args.well),
                    index=False, encoding='utf-8')
+    # 【R89】产物并入处理井曲线集（GAS_ITP 为定性代码 → 最近邻对齐）
+    proc = _merge_into_processed(args.well, out, out_df,
+                                 qualitative_cols=('GAS_ITP',))
     summary = {
         'well': args.well, 'gas_file': gas, 'depth_source': depth_src,
         'points': len(out_df), 'used_gaspy': bool(r.get('used_gaspy')),
         'anomaly_points': int(pd.to_numeric(out_df['GAS_ANOM'], errors='coerce').fillna(0).sum()),
         'itp_counts': {str(k): int(v) for k, v in out_df['GAS_ITP'].value_counts().items()},
+        'merged_into': proc,
         'time': datetime.now().isoformat(timespec='seconds'),
     }
     _write_json(os.path.join(out, '%s_gas_result.json' % args.well), summary)
-    print('✔ 气测解释完成：%s（%d 点）' % (curves, len(out_df)), flush=True)
+    print('✔ 气测解释完成：%s（%d 点）\n  已并入曲线集：%s'
+          % (curves, len(out_df), proc), flush=True)
     return 0
 
 
@@ -199,16 +299,34 @@ def run_nmr(args):
             pass
     depth = res.get('depth')
     centers = res.get('t2_centers')
+    # 【R89】核磁一维派生量并入处理井曲线集（T2 谱二维数据仍由 latest.csv 供 logvis 读）
+    nmr_map = {'T2_GM': 'T2LM', 'T1': 'NMR_T1', 'D': 'NMR_D', 'Porosity': 'TCMR',
+               'Permeability_SDR': 'NMR_PERM_SDR',
+               'Permeability_Coates': 'NMR_PERM_COATES',
+               'Clay_Bound_Fluid': 'NMR_CBW',
+               'Capillary_Bound_Fluid': 'BVI', 'Free_Fluid': 'FFI',
+               '0.3-1ms': 'NMR_IV03_1', '1-10ms': 'NMR_IV1_10',
+               '10-33ms': 'NMR_IV10_33', '33-100ms': 'NMR_IV33_100',
+               '100-300ms': 'NMR_IV100_300', '300-1000ms': 'NMR_IV300_1000',
+               '1000-3000ms': 'NMR_IV1000_3000'}
+    proc = ''
+    try:
+        import pandas as pd
+        nmr_df = pd.read_csv(kept, encoding='utf-8-sig')
+        proc = _merge_into_processed(args.well, out, nmr_df, mapping=nmr_map)
+    except Exception as e:  # 并入失败不掩盖处理本身的成功
+        print('⚠ 核磁产物并入曲线集失败：%s: %s' % (type(e).__name__, e), flush=True)
     summary = {
         'well': args.well, 'input': src,
         'rows': int(len(depth)) if depth is not None else 0,
         't2_bins': int(len(centers)) if centers is not None else 0,
-        'csv': kept, 'source_name': orig,
+        'csv': kept, 'source_name': orig, 'merged_into': proc,
         'time': datetime.now().isoformat(timespec='seconds'),
     }
     _write_json(os.path.join(out, '%s_nmr_result.json' % args.well), summary)
-    print('✔ 核磁处理完成：%s（%d 点，%d 个 T2 bin）'
-          % (kept, summary['rows'], summary['t2_bins']), flush=True)
+    print('✔ 核磁处理完成：%s（%d 点，%d 个 T2 bin）%s'
+          % (kept, summary['rows'], summary['t2_bins'],
+             '\n  已并入曲线集：%s' % proc if proc else ''), flush=True)
     return 0
 
 
@@ -241,13 +359,30 @@ def run_fmi(args):
     if os.path.isfile(raw) and os.path.abspath(raw) != os.path.abspath(named):
         shutil.move(raw, named)
     imgs = sorted(glob.glob(os.path.join(out, 'visualization', '*.png')))
+    # 【R89】电成像逐深度结果并入处理井曲线集；图像路径的单行汇总不并入（无深度）
+    fmi_map = {'Porosity': 'FMI_POROSITY', 'Pore_Count': 'FMI_VUG',
+               'Fracture_Count': 'FMI_FRAC'}
+    proc = ''
+    try:
+        import pandas as pd
+        fmi_df = pd.read_csv(named, encoding='utf-8-sig')
+        if any(c in fmi_df.columns for c in fmi_map) and \
+                any(str(c).upper() in ('MD', 'DEPTH') for c in fmi_df.columns):
+            proc = _merge_into_processed(args.well, out, fmi_df, mapping=fmi_map)
+        else:
+            print('ℹ 电成像结果为整段汇总（无逐深度数据），不并入曲线集', flush=True)
+    except Exception as e:  # 并入失败不掩盖处理本身的成功
+        print('⚠ 电成像产物并入曲线集失败：%s: %s' % (type(e).__name__, e), flush=True)
     summary = {
         'well': args.well, 'input': src, 'result': r,
         'csv': named if os.path.isfile(named) else '',
-        'images': len(imgs), 'time': datetime.now().isoformat(timespec='seconds'),
+        'images': len(imgs), 'merged_into': proc,
+        'time': datetime.now().isoformat(timespec='seconds'),
     }
     _write_json(os.path.join(out, '%s_fmi_result.json' % args.well), summary)
-    print('✔ 电成像处理完成：%s（%d 张图）' % (named, len(imgs)), flush=True)
+    print('✔ 电成像处理完成：%s（%d 张图）%s'
+          % (named, len(imgs),
+             '\n  已并入曲线集：%s' % proc if proc else ''), flush=True)
     return 0
 
 

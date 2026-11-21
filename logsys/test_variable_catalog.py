@@ -34,7 +34,7 @@ def test_defaults():
     print('\n== 默认库结构 ==')
     cat = vc.get_catalog()
     check('15 个族', len(cat['groups']) == 15, len(cat['groups']))
-    check('77 个分支变量', len(cat['variables']) == 77, len(cat['variables']))
+    check('91 个分支变量（R89 增三作业产物变量）', len(cat['variables']) == 91, len(cat['variables']))
     check('3 个图例', len(cat['legends']) == 3, len(cat['legends']))
     check('9 条前缀规则', len(cat['prefix_rules']) == 9, len(cat['prefix_rules']))
     names = vc.all_group_names()

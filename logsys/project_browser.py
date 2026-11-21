@@ -138,6 +138,10 @@ class ProjectBrowser:
         self.refresh()
         self._bind_keys()
         self._poll_job_queue()
+        # 【R89】多项目支持：菜单栏 + 窗口标题带项目名 + 记录最近项目
+        self._build_menubar()
+        self._update_title()
+        self._recent_record(self.root_dir)
 
     # ---------------- 作业（QuickLook / 综合解释） ----------------
 
@@ -476,6 +480,9 @@ class ProjectBrowser:
         self.func_stack.addWidget(self.roots_page)
         self.batch_page = self._build_batch_add_page()            # index 4
         self.func_stack.addWidget(self.batch_page)
+        # 【R89】项目管理（新建 / 打开 / 保存 / 最近项目）
+        self.project_page = self._build_project_page()            # index 5
+        self.func_stack.addWidget(self.project_page)
         fl2.addWidget(self.func_stack, 1)
         # 输入行：与「数据加载」共用扫描结果，下拉可选/可直接粘贴路径，无文件对话框
         self.func_input_row = QHBoxLayout()
@@ -1179,6 +1186,177 @@ class ProjectBrowser:
         self.batch_name_edit.setVisible(False)
         self.batch_path_lab.setText('（未扫描 —— 在下方输入行填资料根路径，点「扫描候选井」）')
 
+    # ---------------- 【R89】项目管理：新建 / 打开 / 保存 / 最近项目 ----------------
+    # 支持多项目：项目根 = 一个独立目录（含 project.json），可随时新建、切换。
+
+    _RECENT_MAX = 10
+
+    @staticmethod
+    def _recent_file() -> str:
+        """最近项目清单（全局，跨项目共享）：~/.logint_projects.json。"""
+        return os.path.join(os.path.expanduser('~'), '.logint_projects.json')
+
+    def _recent_load(self) -> list[str]:
+        try:
+            with open(self._recent_file(), 'r', encoding='utf-8') as f:
+                items = json.load(f)
+            out = []
+            for p in items if isinstance(items, list) else []:
+                p = str(p).strip()
+                if p and os.path.isdir(p) and p not in out:
+                    out.append(p)
+            return out
+        except Exception:
+            return []
+
+    def _recent_record(self, root: str):
+        """登记最近项目（去重置顶，最多 10 条），并刷新菜单与输入行候选。"""
+        try:
+            items = [root] + [p for p in self._recent_load() if p != root]
+            with open(self._recent_file(), 'w', encoding='utf-8') as f:
+                json.dump(items[:self._RECENT_MAX], f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self._log('最近项目清单写入失败：%s' % e)
+        self._fill_recent_menu()
+
+    def _fill_recent_menu(self):
+        """把最近项目填进「文件 → 最近项目」子菜单。"""
+        menu = getattr(self, '_recent_menu', None)
+        if menu is None:
+            return
+        menu.clear()
+        items = self._recent_load()
+        if not items:
+            act = menu.addAction('（暂无 —— 打开项目后自动记录）')
+            act.setEnabled(False)
+            return
+        for p in items:
+            act = menu.addAction('%s  (%s)' % (os.path.basename(p) or p, p))
+            act.triggered.connect(lambda _c=False, d=p: self._apply_root(d))
+
+    def _build_project_page(self):
+        page = QWidget()
+        vl = QVBoxLayout(page)
+        vl.setContentsMargins(2, 2, 2, 2)
+        self.proj_cur_lab = self._mk_label('', bold=True)
+        vl.addWidget(self.proj_cur_lab)
+        vl.addWidget(self._mk_label('最近项目（双击切换；也可在下方输入行粘贴路径）',
+                                    small=True, muted=True))
+        self.project_list = QListWidget(page)
+        self.project_list.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+        self.project_list.itemDoubleClicked.connect(
+            lambda it: self._apply_root(it.data(Qt.UserRole)))
+        vl.addWidget(self.project_list, 1)
+        vl.addWidget(self._mk_label(
+            '新建：输入行填一个新目录路径 → 「创建新项目」（自动初始化 project.json）\n'
+            '打开：输入行填已有项目根路径 → 「打开项目」；「保存项目」写回 project.json',
+            small=True, muted=True))
+        return page
+
+    def _project_reload_list(self):
+        self.proj_cur_lab.setText('当前项目：%s' % self.root_dir)
+        self.project_list.clear()
+        for p in self._recent_load():
+            if os.path.abspath(p) == os.path.abspath(self.root_dir):
+                continue
+            it = QListWidgetItem('%s  —  %s' % (os.path.basename(p) or p, p))
+            it.setData(Qt.UserRole, p)
+            self.project_list.addItem(it)
+
+    def _project_create(self, path: str):
+        """新建项目：建目录 + 初始化 project.json，然后切换过去。"""
+        d = str(path or '').strip().strip('"').strip("'")
+        if not d:
+            self._log('请先在输入行填写新项目的目录绝对路径')
+            return
+        d = os.path.abspath(d)
+        if os.path.isfile(d):
+            self._log('路径已是文件，不能作为项目根：%s' % d)
+            return
+        try:
+            os.makedirs(d, exist_ok=True)
+        except Exception as e:
+            self._log('创建项目目录失败：%s' % e)
+            return
+        # project.json 由 save_config 统一创建
+        cfg = pcfg.load_config(d)
+        pcfg.save_config(d, cfg)
+        self._log('新项目已创建：%s' % d)
+        self._apply_root(d)
+
+    def _project_save(self):
+        """保存项目：把当前内存配置写回 project.json（平时改动即自动保存）。"""
+        cfg = pcfg.load_config(self.root_dir)
+        if cfg is None:
+            self._log('保存失败：当前项目配置不可读')
+            return
+        if pcfg.save_config(self.root_dir, cfg):
+            self._log('项目已保存：%s' % pcfg.config_path(self.root_dir))
+        else:
+            self._log('保存失败：无法写 %s' % pcfg.config_path(self.root_dir))
+
+    def _show_func_project(self, mode: str = 'open'):
+        self._project_mode = mode
+        self.func_title.setText('项目管理')
+        self.func_stack.setCurrentIndex(5)
+        self._func_key = 'project'
+        self._func_input_kind = 'project'
+        self._fill_func_input('project')
+        self._rebuild_func_actions([
+            ('创建新项目', lambda: self._project_create(
+                self.func_input_combo.currentText())),
+            ('打开项目', lambda: self._apply_root(
+                self.func_input_combo.currentText())),
+            ('保存项目', self._project_save),
+            ('刷新列表', self._show_func_project),
+        ])
+        self._project_reload_list()
+        self.right_nb.setCurrentIndex(1)
+
+    def _menu_new_project(self):
+        self._show_func_project('new')
+
+    def _menu_open_project(self):
+        self._show_func_project('open')
+
+    def _menu_save_project(self):
+        self._project_save()
+
+    def _build_menubar(self):
+        """【R89】菜单栏：文件 → 新建/打开/保存项目/最近项目/打开项目根/退出。"""
+        mb = self.win.menuBar()
+        mfile = mb.addMenu('文件(&F)')
+        act_new = QAction('新建项目…', self.win)
+        act_new.triggered.connect(self._menu_new_project)
+        mfile.addAction(act_new)
+        act_open = QAction('打开项目…', self.win)
+        act_open.triggered.connect(self._menu_open_project)
+        mfile.addAction(act_open)
+        act_save = QAction('保存项目', self.win)
+        act_save.triggered.connect(self._menu_save_project)
+        mfile.addAction(act_save)
+        self._recent_menu = mfile.addMenu('最近项目')
+        self._fill_recent_menu()
+        mfile.addSeparator()
+        act_dir = QAction('打开项目根目录', self.win)
+        act_dir.triggered.connect(self._menu_open_root_dir)
+        mfile.addAction(act_dir)
+        mfile.addSeparator()
+        act_quit = QAction('退出', self.win)
+        act_quit.triggered.connect(self._close)
+        mfile.addAction(act_quit)
+
+    def _menu_open_root_dir(self):
+        try:
+            os.startfile(self.root_dir)  # noqa: S606
+            self._log('已打开项目根：%s' % self.root_dir)
+        except Exception as e:
+            self._log('打开项目根失败：%s' % e)
+
+    def _update_title(self):
+        self.win.setWindowTitle('智能测井解释系统 —— 项目工作台　[%s]'
+                               % (os.path.basename(self.root_dir) or self.root_dir))
+
 
     def _cond_refresh_options(self, w):
         all_ds = list(w.datasets) + list(w.source_datasets)
@@ -1304,6 +1482,14 @@ class ProjectBrowser:
             if self.root_dir not in choices:
                 choices.insert(0, self.root_dir)
             lab, apply_text = '源根目录路径（下拉 = 已登记源根，也可直接粘贴）', '添加为源根'
+        elif kind == 'project':
+            recent = self._recent_load()
+            choices = [p for p in recent
+                       if os.path.abspath(p) != os.path.abspath(self.root_dir)]
+            if self.root_dir not in choices:
+                choices.insert(0, self.root_dir)
+            lab, apply_text = '项目根目录路径（下拉 = 最近项目，也可直接粘贴）', \
+                '创建新项目' if getattr(self, '_project_mode', '') == 'new' else '打开项目'
         elif kind == 'batch_add':
             choices = [r for r in pcfg.source_roots(self.root_dir) if os.path.isdir(r)]
             if self.root_dir not in choices:
@@ -1388,6 +1574,12 @@ class ProjectBrowser:
             return
         if kind == 'batch_add':
             self._batch_scan()
+            return
+        if kind == 'project':
+            if getattr(self, '_project_mode', '') == 'new':
+                self._project_create(val)
+            else:
+                self._apply_root(val)
             return
         w = self._selected_well()
         if not w:
@@ -1561,12 +1753,6 @@ class ProjectBrowser:
                     '  · 可修改道组合、比例、图头与界面；\n'
                     '  · 再次打开自动载入上次保存的布局继续修改。\n\n'
                     '不跑解释作业：有产物读产物，无产物读原始 LAS / 源数据。')
-        if key == 'root':
-            return (head + '项目根设置：在下方输入框粘贴项目根目录绝对路径\n'
-                    '（每子目录 = 一口井，即 output/ 这类目录），点「切换项目根」。\n\n'
-                    '当前项目根：%s\n\n'
-                    '不弹目录选择框 —— 路径输入、切换、刷新都在本界面完成。'
-                    % self.root_dir)
         return head
 
     def _show_func_load(self):
@@ -2230,31 +2416,25 @@ class ProjectBrowser:
         return None
 
     def _apply_root(self, path: str):
-        """【R87】界面内切换项目根（不弹目录对话框）。"""
+        """【R87】界面内切换项目根（不弹目录对话框）；【R89】记录最近项目。"""
         d = str(path or '').strip().strip('"').strip("'")
         if not d or not os.path.isdir(d):
             self._log('项目根不存在：%s' % d)
             return
         self.root_dir = os.path.abspath(d)
         self.refresh()
+        self._update_title()
+        self._recent_record(self.root_dir)
         self._log('项目根已切换：%s' % self.root_dir)
         self._show_func_root()
 
     def _show_func_root(self):
-        """项目根设置：路径输入框 + 切换按钮，全部在主界面内完成。"""
-        self._set_func('项目根设置', self._func_text('root'), [], key='root')
-        edit = QLineEdit(self.root_dir)
-        edit.setMinimumWidth(380)
-        edit.setPlaceholderText('粘贴项目根目录绝对路径')
-        self.func_actions.insertWidget(0, edit)
-        b = self._mk_button(None, '切换项目根', lambda: self._apply_root(edit.text()))
-        b.setMaximumWidth(120)
-        self.func_actions.insertWidget(1, b)
-        self.right_nb.setCurrentIndex(1)
+        """【R89】项目根设置并入项目管理功能页（新建/打开/保存/最近项目）。"""
+        self._show_func_project('open')
 
     def _pick_root(self):
         """【R87】「打开项目根」入口改为功能页输入，不再弹目录框。"""
-        self._show_func_root()
+        self._show_func_project('open')
 
     def _log(self, msg: str):
         """写输出区。与上一条相同则不重复写（避免连续刷新刷屏）。"""

@@ -735,13 +735,15 @@
     },
     {
       "key": "ITP",
-      "name": "气测图版指数",
+      "name": "气测图版结论",
       "group_id": "GAS",
       "unit": "",
-      "scale": "linear",
-      "legend_id": "",
-      "aliases": [],
-      "note": "解释产物"
+      "scale": "qualitative",
+      "legend_id": "INTERPRETATION",
+      "aliases": [
+        "GAS_ITP"
+      ],
+      "note": "解释产物：图版法定性结论（DRY/GAS/OIL…），调解释结论图例"
     },
     {
       "key": "TGAS",
@@ -762,7 +764,9 @@
       "unit": "v/v",
       "scale": "linear",
       "legend_id": "",
-      "aliases": [],
+      "aliases": [
+        "NMR_POR"
+      ],
       "note": "解释产物"
     },
     {
@@ -772,7 +776,9 @@
       "unit": "v/v",
       "scale": "linear",
       "legend_id": "",
-      "aliases": [],
+      "aliases": [
+        "NMR_FFI"
+      ],
       "note": "解释产物"
     },
     {
@@ -782,7 +788,9 @@
       "unit": "v/v",
       "scale": "linear",
       "legend_id": "",
-      "aliases": [],
+      "aliases": [
+        "NMR_BVI"
+      ],
       "note": "解释产物"
     },
     {
@@ -792,7 +800,9 @@
       "unit": "ms",
       "scale": "log",
       "legend_id": "",
-      "aliases": [],
+      "aliases": [
+        "T2_GM"
+      ],
       "note": "解释产物"
     },
     {
@@ -966,6 +976,148 @@
       "legend_id": "FLAG",
       "aliases": [],
       "note": ""
+    },
+    {
+      "key": "GAS_ANOM",
+      "name": "气测相对异常",
+      "group_id": "GAS",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "GAS_ANOM_RATIO",
+      "name": "气测相对异常比",
+      "group_id": "GAS",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_CBW",
+      "name": "粘土束缚水孔隙度",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "CBW"
+      ],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_T1",
+      "name": "T1 弛豫时间",
+      "group_id": "NMR",
+      "unit": "ms",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_D",
+      "name": "扩散系数",
+      "group_id": "NMR",
+      "unit": "um2/ms",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_PERM_SDR",
+      "name": "核磁渗透率(SDR)",
+      "group_id": "NMR",
+      "unit": "mD",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_PERM_COATES",
+      "name": "核磁渗透率(Coates)",
+      "group_id": "NMR",
+      "unit": "mD",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_IV03_1",
+      "name": "区间孔隙度 0.3-1ms",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_IV1_10",
+      "name": "区间孔隙度 1-10ms",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_IV10_33",
+      "name": "区间孔隙度 10-33ms",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_IV33_100",
+      "name": "区间孔隙度 33-100ms",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_IV100_300",
+      "name": "区间孔隙度 100-300ms",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_IV300_1000",
+      "name": "区间孔隙度 300-1000ms",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_IV1000_3000",
+      "name": "区间孔隙度 1000-3000ms",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
     }
   ],
   "legends": [
