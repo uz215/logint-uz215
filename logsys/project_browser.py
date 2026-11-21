@@ -1,13 +1,16 @@
 # -*- coding: utf-8 -*-
-"""项目浏览器 GUI：Project → Well → Dataset → Variable 四层树。
+"""项目工作台 GUI（唯一入口）：Project → Well → Dataset → Variable 四层树。
 
-借鉴 Techlog 2019.2 的 Project Browser 交互范式（官方帮助
-"Project browser" / "Techlog windows" / "Properties window"），
-在 logInt 的 tkinter 技术栈上落地：
+借鉴 Techlog 的窗口分区范式，R86 起整理为：
 
+  顶部功能区             —— 数据功能（加载/清洗/质检/导入/导出）、
+                             解释处理（快速/综合/气测/核磁/电成像/交互绘图）、项目级批量
   左侧 Project browser   —— 四层树 + 过滤 + 分组 + 搜索
-  右侧 Properties window —— 选中对象的属性（分页签式分区）
-  底部 Output window     —— 操作消息与错误（对应 Techlog Output window）
+  右侧 Properties/功能   —— 属性页（选中对象）+ 功能页（各功能独立面板与输入行）
+  底部 Output window     —— 作业日志、数据操作结果与错误
+
+所有处理作业的输入都在「功能」页内完成（下拉来自数据加载扫描，或直接粘贴路径），
+不再弹文件对话框；气测/核磁/电成像走独立子进程 CLI，见 logsys/process_cli.py。
 
 Techlog 语义对齐：
   - 数据集图标区分类型（连续曲线集/层段表/成果LAS/图件/元信息）；
@@ -43,7 +46,7 @@ from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QVBoxLayout, QHBoxLayout,
     QMenu, QAction, QDialog, QDialogButtonBox, QListWidget, QAbstractItemView,
-    QTextEdit, QShortcut, QTabWidget, QSizePolicy,
+    QTextEdit, QShortcut, QTabWidget, QSizePolicy, QToolButton,
 )
 
 from logsys import qtgui as _qg
@@ -51,6 +54,7 @@ from logsys import qtcompat as _qc
 from logsys import project_config as pcfg
 from logsys import project_job as pjob
 from logsys import project_model as pm
+from logsys import data_ops as dop
 
 # 配色（与 logInt 现有界面一致：主色 #1a5c9e）
 C_BG = '#f5f6f8'
@@ -194,6 +198,39 @@ class ProjectBrowser:
             lab.setStyleSheet('color: %s; font-size: 8pt;' % C_MUTED)
         return lab
 
+    def _mk_tile(self, text, tip, slot):
+        """功能区按钮（Techlog ribbon 风格：短标签 + 悬浮说明）。"""
+        b = QPushButton(text)
+        b.setFixedSize(88, 32)
+        b.setToolTip(tip)
+        b.setStyleSheet(
+            'QPushButton { background: #eef3f9; border: 1px solid %s; '
+            'border-radius: 3px; color: %s; font-size: 9pt; }'
+            'QPushButton:hover { background: #dce9f7; }' % (C_LINE, C_ACCENT))
+        b.clicked.connect(slot)
+        if text == '交互绘图':
+            # 兼容 R85 冒烟/脚本对按钮的引用
+            self.btn_logview = b
+        return b
+
+    def _ribbon_group(self, title, tiles):
+        """一个功能分组：标题 + 一行按钮。"""
+        frame = QFrame()
+        frame.setStyleSheet('background: transparent;')
+        vl = QVBoxLayout(frame)
+        vl.setContentsMargins(0, 0, 0, 0)
+        vl.setSpacing(1)
+        cap = self._mk_label(title, bold=True, small=True)
+        cap.setStyleSheet('color: %s; font-size: 8pt; font-weight: bold;' % C_MUTED)
+        vl.addWidget(cap)
+        hl = QHBoxLayout()
+        hl.setContentsMargins(0, 0, 0, 0)
+        hl.setSpacing(3)
+        for text, tip, slot in tiles:
+            hl.addWidget(self._mk_tile(text, tip, slot))
+        vl.addLayout(hl)
+        return frame
+
     def _build_header(self):
         central = QWidget()
         self.win.setCentralWidget(central)
@@ -218,35 +255,38 @@ class ProjectBrowser:
         hl.addWidget(self._mk_button(hdr, '刷新', self.refresh))
         root.addWidget(hdr)
 
-        # 项目作业工具条
-        bar = QFrame()
-        bar.setStyleSheet('background: %s;' % C_PANEL)
-        bl = QHBoxLayout(bar)
-        bl.setContentsMargins(10, 4, 10, 4)
-        bl.addWidget(self._mk_label('项目作业', bold=True))
-        bl.addWidget(self._mk_button(bar, '添加井到项目…', self._menu_add_well))
-        bl.addWidget(self._mk_button(bar, '批量添加井…', self._menu_add_wells_batch))
-        bl.addWidget(self._vline())
-        # 【R85】绘图直达入口：选中井点一下就开交互绘图（独立模块，不跑解释作业）
-        self.btn_logview = self._mk_button(bar, '交互绘图（logvis）', self._menu_logview)
-        self.btn_logview.setToolTip('选中一口井后点击：打开交互绘图，拖曲线作图、改图头；'
-                                    '再次打开自动载入上次做好的图继续修改')
-        bl.addWidget(self.btn_logview)
-        bl.addWidget(self._vline())
-        bl.addWidget(self._mk_button(bar, '批量快速解释图（待解释井）',
-                                     lambda: self._run_batch('quicklook')))
-        bl.addWidget(self._mk_button(bar, '批量综合解释（待解释井）',
-                                     lambda: self._run_batch('comprehensive')))
-        bl.addWidget(self._vline())
-        bl.addWidget(self._mk_label('候选源根', small=True, muted=True))
-        self.roots_var = _qc.Var()
-        self.lbl_roots = self._mk_label('', small=True, muted=True)
-        self.roots_var.bind_label(self.lbl_roots)
-        bl.addWidget(self.lbl_roots)
-        bl.addWidget(self._mk_button(bar, '添加源根…', self._menu_add_root))
-        bl.addWidget(self._mk_button(bar, '管理源根…', self._menu_manage_roots))
-        bl.addStretch(1)
-        root.addWidget(bar)
+        # 【R86】Techlog 风格功能区：数据功能 / 解释处理 / 项目级批量
+        # 每一类功能只有一个入口，点按钮在右侧「功能」页展开对应面板。
+        rib = QFrame()
+        rib.setStyleSheet('background: %s; border-bottom: 1px solid %s;' % (C_PANEL, C_LINE))
+        ril = QHBoxLayout(rib)
+        ril.setContentsMargins(8, 2, 8, 4)
+        ril.setSpacing(8)
+        ril.addWidget(self._ribbon_group('数据功能', [
+            ('数据加载', '扫描该井全部可用数据（只读）', self._show_func_load),
+            ('数据清洗', '单位归一 + 缺测/非法值 + 深度整理', self._show_func_clean),
+            ('数据质检', '深度/曲线/值域检查并出报告', self._show_func_qc),
+            ('数据导入', '复制外部数据到井资料目录', self._show_func_import),
+            ('数据导出', '曲线集导出 CSV / XLSX / LAS', self._show_func_export),
+        ]))
+        ril.addWidget(self._vline())
+        ril.addWidget(self._ribbon_group('解释处理', [
+            ('快速解释', 'QuickLook 一键出图', lambda: self._show_func_job('quicklook')),
+            ('综合解释', '完整测井解释流程', lambda: self._show_func_job('comprehensive')),
+            ('气测解释', '图版法 ITP + 相对异常曲线', lambda: self._show_func_job('gas')),
+            ('核磁处理', 'T2 谱 / 孔隙度 / 渗透率', lambda: self._show_func_job('nmr')),
+            ('电成像处理', '孔隙 / 溶孔 / 裂缝识别', lambda: self._show_func_job('fmi')),
+            ('交互绘图', '独立 logvis：拖曲线、改图头', self._show_func_logview),
+        ]))
+        ril.addWidget(self._vline())
+        ril.addWidget(self._ribbon_group('项目级', [
+            ('添加井', '登记一口井到项目', self._menu_add_well),
+            ('批量添加', '从目录批量登记井', self._menu_add_wells_batch),
+            ('批量快速', '对待解释井批量 QuickLook', lambda: self._run_batch('quicklook')),
+            ('批量综合', '对待解释井批量综合解释', lambda: self._run_batch('comprehensive')),
+        ]))
+        ril.addStretch(1)
+        root.addWidget(rib)
 
         # 过滤条（实时生效 + 防抖）
         flt = QWidget()
@@ -281,6 +321,15 @@ class ProjectBrowser:
         self.chk_expand.stateChanged.connect(
             lambda s: (self.show_vars.set(s == Qt.Checked), self.refresh()))
         fl.addWidget(self.chk_expand)
+
+        fl.addWidget(self._vline())
+        fl.addWidget(self._mk_label('候选源根', small=True, muted=True))
+        self.roots_var = _qc.Var()
+        self.lbl_roots = self._mk_label('', small=True, muted=True)
+        self.roots_var.bind_label(self.lbl_roots)
+        self.lbl_roots.setMaximumWidth(260)
+        fl.addWidget(self.lbl_roots)
+        fl.addWidget(self._mk_button(fl, '源根…', self._menu_manage_roots))
 
         fl.addStretch(1)
         self._member_var = _qc.Var('成员 0（已登记 0）')
@@ -327,11 +376,13 @@ class ProjectBrowser:
         for label, slot in (
                 ('快速解释图（Quick Look）', self._menu_quicklook),
                 ('综合解释', self._menu_comprehensive),
+                ('气测解释', self._menu_gas),
+                ('核磁处理', self._menu_nmr),
+                ('电成像处理', self._menu_fmi),
                 ('交互绘图（logvis）…', self._menu_logview),
                 (None, None),
-                ('指定主 LAS…', self._menu_set_las),
-                ('指定气测文件…', self._menu_set_gas),
-                ('选择甲方出图格式…', self._menu_set_format),
+                ('数据加载 / 输入指定', self._show_func_load),
+                ('数据导入（界面内输入路径）', self._show_func_import),
                 ('清除资料指定', self._menu_clear_inputs),
                 (None, None),
                 ('打开该井解释', self._menu_open_well),
@@ -339,7 +390,7 @@ class ProjectBrowser:
                 ('打开源资料目录', self._menu_open_source),
                 ('复制路径', self._menu_copy_path),
                 (None, None),
-                ('关联原始资料目录…', self._menu_bind_source),
+                ('关联原始资料目录（界面内输入）', self._show_func_import),
                 ('重命名井…', self._menu_rename_well),
                 ('从项目移除', self._menu_remove_well),
                 ('按此条件选择变量…', self._menu_conditional)):
@@ -357,6 +408,10 @@ class ProjectBrowser:
                 ('批量快速解释图（待解释井）', lambda: self._run_batch('quicklook')),
                 ('批量综合解释（待解释井）', lambda: self._run_batch('comprehensive')),
                 (None, None),
+                ('气测解释（选中井）', self._menu_gas),
+                ('核磁处理（选中井）', self._menu_nmr),
+                ('电成像处理（选中井）', self._menu_fmi),
+                (None, None),
                 ('打开项目根…', self._pick_root),
                 ('管理源根…', self._menu_manage_roots),
                 ('刷新', self.refresh)):
@@ -367,24 +422,70 @@ class ProjectBrowser:
                 act.triggered.connect(slot)
                 self.menu_project.addAction(act)
 
-        # ---- 右：属性 ----
+        # ---- 右：属性 / 功能（Techlog Properties window + Process panel） ----
         right = QFrame()
         right.setFrameShape(QFrame.StyledPanel)
         rl = QVBoxLayout(right)
-        rl.setContentsMargins(6, 4, 6, 4)
+        rl.setContentsMargins(4, 3, 4, 3)
+        self.right_nb = QTabWidget()
+        rl.addWidget(self.right_nb, 1)
+
+        # 属性页（原 Properties window，保持原有六个分页）
+        prop_page = QWidget()
+        pl = QVBoxLayout(prop_page)
+        pl.setContentsMargins(4, 2, 4, 2)
         self.prop_title = self._mk_label('（未选择对象）', bold=True)
         self.prop_title.setStyleSheet('color: %s; font-weight: bold;' % C_ACCENT)
-        rl.addWidget(self.prop_title)
+        pl.addWidget(self.prop_title)
         self.prop_type = self._mk_label('', small=True, muted=True)
-        rl.addWidget(self.prop_type)
+        pl.addWidget(self.prop_type)
         self.nb = QTabWidget()
-        rl.addWidget(self.nb, 1)
+        pl.addWidget(self.nb, 1)
         self._tabs: dict = {}
         for key in ('概览', '井信息', '数据集', '变量', '资料', '原始'):
-            txt = _qc.TextCompat(right)
+            txt = _qc.TextCompat(prop_page)
             txt.setStyleSheet('font-family: Consolas; font-size: 9pt;')
             self.nb.addTab(txt, key)
             self._tabs[key] = txt
+        self.right_nb.addTab(prop_page, '属性')
+
+        # 功能页（每个功能区按钮各自一套说明 + 动作）
+        func_page = QWidget()
+        fl2 = QVBoxLayout(func_page)
+        fl2.setContentsMargins(4, 4, 4, 4)
+        self.func_title = self._mk_label('（未选择功能）', bold=True)
+        self.func_title.setStyleSheet('color: %s; font-weight: bold; font-size: 11pt;' % C_ACCENT)
+        fl2.addWidget(self.func_title)
+        self.func_text = _qc.TextCompat(func_page)
+        self.func_text.setReadOnly(True)
+        self.func_text.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+        fl2.addWidget(self.func_text, 1)
+        # 输入行：与「数据加载」共用扫描结果，下拉可选/可直接粘贴路径，无文件对话框
+        self.func_input_row = QHBoxLayout()
+        self.func_input_row.setContentsMargins(0, 2, 0, 2)
+        self.func_input_lab = self._mk_label('输入数据', small=True, muted=True)
+        self.func_input_type = QComboBox()
+        for k in pcfg.WELL_OPTIONS:
+            self.func_input_type.addItem(pcfg.WELL_OPTION_LABELS.get(k, k), k)
+        self.func_input_type.addItem('原始资料目录', 'source_dir')
+        self.func_input_type.setFixedWidth(120)
+        self.func_input_type.currentIndexChanged.connect(
+            lambda: self._fill_func_input(getattr(self, '_func_input_kind', '')))
+        self.func_input_combo = QComboBox()
+        self.func_input_combo.setEditable(True)
+        self.func_input_combo.setMinimumWidth(360)
+        self.func_input_apply = QPushButton('应用输入')
+        self.func_input_apply.clicked.connect(self._apply_func_input)
+        self.func_input_row.addWidget(self.func_input_lab)
+        self.func_input_row.addWidget(self.func_input_type)
+        self.func_input_row.addWidget(self.func_input_combo, 1)
+        self.func_input_row.addWidget(self.func_input_apply)
+        fl2.addLayout(self.func_input_row)
+        self.func_actions = QHBoxLayout()
+        self.func_actions.setContentsMargins(0, 2, 0, 0)
+        fl2.addLayout(self.func_actions)
+        self.right_nb.addTab(func_page, '功能')
+
         bl.addWidget(right, 2)
         self._root_layout.addWidget(body, 1)
 
@@ -440,6 +541,17 @@ class ProjectBrowser:
 
     def refresh(self):
         """重建树（过滤/分组实时生效）。"""
+        # 重建前记住选中井：界面内应用输入/作业完成后刷新不应丢掉当前井，
+        # 否则紧接着的「对选中井执行」会变成"请先选择一口井"。
+        prev_sel = self.tree.selection()
+        prev_well = ''
+        if prev_sel and prev_sel[0] in self._wells_by_iid:
+            prev_well = self._wells_by_iid[prev_sel[0]].name
+        elif prev_sel and prev_sel[0] in self._ds_by_iid:
+            for w in self.project.wells:
+                if any(ds is self._ds_by_iid[prev_sel[0]] for ds in w.datasets + w.source_datasets):
+                    prev_well = w.name
+                    break
         # 项目成员 = 已登记的井 ∪ 产物目录子目录。
         # source_map 传 None 时自动取全部成员，确保"刚添加进项目、尚无产物"
         # 的井也能拿到源目录（否则它永远进不了项目树）。
@@ -485,6 +597,12 @@ class ProjectBrowser:
             for w in wells:
                 self._insert_well(root_iid, w)
 
+        if prev_well:
+            for iid, w in self._wells_by_iid.items():
+                if w.name == prev_well:
+                    self.tree.selection_set(iid)
+                    break
+
         s = pm.summarize(self.project)
         self.stat_var.set('项目 %s ｜ 井 %d ｜ 数据集 %d ｜ 源 %d ｜ 变量 %d ｜ 层 %d ｜ 已关联源 %d ｜ 当前筛选 %d' % (
             s['project'], s['wells'], s['datasets'], s['source_datasets'],
@@ -508,6 +626,29 @@ class ProjectBrowser:
         self._log('刷新：%d 口井（筛选后 %d）｜ 数据集 %d ｜ 源 %d ｜ 变量 %d ｜ 层 %d ｜ 已关联源 %d' % (
             s['wells'], len(wells), s['datasets'], s['source_datasets'],
             s['variables'], s['layers'], s['ready']))
+        self._refresh_func_panel()
+
+    def _refresh_func_panel(self):
+        """刷新后同步功能面板（作业完成即可看到新产物计数）。"""
+        try:
+            if getattr(self, 'right_nb', None) is None or self.right_nb.currentIndex() != 1:
+                return
+            title = self.func_title.text()
+            table = {'数据加载': self._show_func_load, '数据清洗': self._show_func_clean,
+                     '数据质检': self._show_func_qc, '数据导入': self._show_func_import,
+                     '数据导出': self._show_func_export,
+                     '快速解释图': lambda: self._show_func_job('quicklook'),
+                     '综合解释': lambda: self._show_func_job('comprehensive'),
+                     '气测解释': lambda: self._show_func_job('gas'),
+                     '核磁处理': lambda: self._show_func_job('nmr'),
+                     '电成像处理': lambda: self._show_func_job('fmi'),
+                     '交互绘图': self._show_func_logview}
+            for prefix, slot in table.items():
+                if title.startswith(prefix):
+                    slot()
+                    return
+        except Exception:
+            pass
 
     def _insert_well(self, parent: str, w: pm.Well):
         icon = STATUS_ICON.get(w.status, '○')
@@ -553,11 +694,335 @@ class ProjectBrowser:
 
     # ---------------- 属性面板 ----------------
 
+    # ---------------- 功能面板（R86：数据功能 / 解释处理各归一处） ----------------
+
+    def _well_out_dir(self, w) -> str:
+        return os.path.join(self.root_dir, w.name) if w else ''
+
+    def _processed_csv(self, w) -> str:
+        if not w:
+            return ''
+        p = os.path.join(self._well_out_dir(w), '%s_processed.csv' % w.name)
+        return p if os.path.isfile(p) else ''
+
+    def _set_func(self, title: str, text: str, actions: list[tuple[str, object]],
+                  key: str = '', input_kind: str = ''):
+        """切换右侧「功能」页内容并重建动作按钮/输入行。"""
+        self.func_title.setText(title)
+        self.func_text.configure(state='normal')
+        self.func_text.delete('1.0', 'end')
+        self.func_text.insert('1.0', text or '')
+        self.func_text.configure(state='disabled')
+        while self.func_actions.count():
+            item = self.func_actions.takeAt(0)
+            wd = item.widget()
+            if wd is not None:
+                wd.deleteLater()
+        for label, slot in actions:
+            b = self._mk_button(None, label, slot)
+            b.setMaximumWidth(150)
+            self.func_actions.addWidget(b)
+        self.func_actions.addStretch(1)
+        self._func_key = key
+        self._func_input_kind = input_kind
+        self._fill_func_input(input_kind)
+        self.right_nb.setCurrentIndex(1)
+
+    def _fill_func_input(self, kind: str):
+        """输入行选项来自「数据加载」的扫描结果，避免任何弹窗。"""
+        row = getattr(self, 'func_input_row', None)
+        if row is None:
+            return
+        for i in range(row.count()):
+            item = row.itemAt(i)
+            wd = item.widget()
+            if wd is not None:
+                wd.setVisible(bool(kind))
+        if not kind:
+            return
+        self.func_input_type.setVisible(kind == 'import')
+        w = self._selected_well()
+        cb = self.func_input_combo
+        cb.blockSignals(True)
+        cb.clear()
+        current = ''
+        if w:
+            out = self._well_out_dir(w)
+            found = dop.discover_inputs(w.source_dir or '', out)
+            opt_key = kind
+            if kind == 'import':
+                opt_key = self.func_input_type.currentData() or 'las'
+                if opt_key == 'source_dir':
+                    choices = []
+                    for sr in pcfg.source_roots(self.root_dir):
+                        if os.path.isdir(sr):
+                            choices += [os.path.join(sr, d) for d in sorted(os.listdir(sr))
+                                        if os.path.isdir(os.path.join(sr, d))]
+                    current = w.source_dir or ''
+                else:
+                    # 导入面板的候选 = 源目录扫描到的全部资料（按当前类型优先）
+                    choices = list(found.get(opt_key, []))
+                    if not choices:
+                        choices = [p for v in found.values() for p in v]
+                    current = pcfg.well_options(self.root_dir, w.name).get(opt_key, '')
+            else:
+                choices = list(found.get(kind, []))
+                if kind == 'las':
+                    auto = pjob.find_main_las(w.source_dir or '')
+                    if auto and auto not in choices:
+                        choices.insert(0, auto)
+                current = pcfg.well_options(self.root_dir, w.name).get(opt_key, '')
+            for p in choices:
+                cb.addItem(p)
+            if current and current not in choices:
+                cb.insertItem(0, current)
+            cb.setEditText(current)
+            self.func_input_lab.setText(
+                '输入路径（下拉来自数据加载扫描，也可直接粘贴）')
+            self.func_input_apply.setText('应用输入')
+        cb.blockSignals(False)
+
+    def _apply_func_input(self):
+        """把输入行的内容写入井级资料指定（或直接复制导入），全程无对话框。"""
+        kind = getattr(self, '_func_input_kind', '')
+        val = self.func_input_combo.currentText().strip()
+        if not kind:
+            return
+        w = self._selected_well()
+        if not w:
+            self._log('请先选中一口井')
+            return
+        opt_key = kind
+        if kind == 'import':
+            opt_key = self.func_input_type.currentData() or 'las'
+        if opt_key == 'source_dir':
+            if not val or not os.path.isdir(val):
+                self._log('请输入存在的原始资料目录绝对路径')
+                return
+            if pcfg.bind_well(self.root_dir, w.name, val):
+                self._log('已关联源目录：%s → %s' % (w.name, val))
+                self.refresh()
+            else:
+                self._log('关联源目录失败：项目配置不可写')
+            self._show_func_import()
+            return
+        if pcfg.set_well_option(self.root_dir, w.name, opt_key, val):
+            self._log('已指定 %s：%s' % (pcfg.WELL_OPTION_LABELS.get(opt_key, opt_key),
+                                       val or '（清除，回到自动探测）'))
+            self.refresh()
+            key = getattr(self, '_func_key', '')
+            if key in pjob.JOB_TYPES:
+                self._show_func_job(key)
+            elif kind == 'import':
+                self._show_func_import()
+        else:
+            self._log('输入应用失败：项目配置不可写')
+
+    def _copy_func_input(self):
+        """把输入行里的外部文件复制到当前井的原始资料目录（无文件对话框）。"""
+        w = self._selected_well()
+        val = self.func_input_combo.currentText().strip()
+        if not w or not val:
+            self._log('请先选中井并在输入行填写文件路径')
+            return
+        r = dop.import_files([val], w.source_dir or '')
+        if r.get('ok'):
+            self._log('已导入：%s → %s' % (val, w.source_dir))
+            self.refresh()
+        else:
+            self._log('导入失败：%s' % (r.get('error') or '；'.join(r.get('skipped') or [])))
+        self._show_func_import()
+
+    def _func_head(self, w) -> str:
+        if not w:
+            return '未选中井 —— 请先在左侧项目树选择一口井。\n'
+        return ('井：%s\n源目录：%s\n产物目录：%s\n\n'
+                % (w.name, w.source_dir or '（未关联）', self._well_out_dir(w)))
+
+    def _func_text(self, key: str) -> str:
+        w = self._selected_well()
+        head = self._func_head(w)
+        if not w:
+            return head
+        out = self._well_out_dir(w)
+        if key == 'load':
+            return head + dop.load_summary(w.name, w.source_dir, out)
+        if key == 'clean':
+            csv = self._processed_csv(w)
+            lines = [head + '数据清洗：单位归一、缺测/非法值清理、深度去重排序。',
+                     '输入曲线集：%s' % (csv or '（未找到 <井名>_processed.csv）')]
+            for name in ('%s_cleaned.csv' % w.name, '%s_data_clean_report.json' % w.name):
+                p = os.path.join(out, name)
+                lines.append('%s：%s' % (name, '已存在' if os.path.isfile(p) else '尚未生成'))
+            return '\n'.join(lines)
+        if key == 'qc':
+            csv = self._processed_csv(w)
+            p = os.path.join(out, '%s_qc_report.json' % w.name)
+            lines = [head + '数据质检：深度列、采样间隔、关键曲线、值域、缺测统计。',
+                     '输入曲线集：%s' % (csv or '（未找到 <井名>_processed.csv）'),
+                     '质检报告：%s' % (p if os.path.isfile(p) else '尚未生成')]
+            if os.path.isfile(p):
+                try:
+                    with open(p, 'r', encoding='utf-8') as f:
+                        r = json.load(f)
+                    lines.append('等级：%s ｜ 错误 %s ｜ 警告 %s ｜ 记录 %s 行'
+                                 % (r.get('level'), r.get('errors'), r.get('warnings'), r.get('rows')))
+                    for c in (r.get('checks') or [])[:8]:
+                        lines.append('  [%s] %s：%s' % (c.get('level'), c.get('item'), c.get('detail')))
+                except Exception:
+                    pass
+            return '\n'.join(lines)
+        if key == 'import':
+            opts = pcfg.well_options(self.root_dir, w.name)
+            lines = [head + '数据导入：把外部数据复制到井的原始资料目录（源文件不动）。']
+            for k in pcfg.WELL_OPTIONS:
+                lines.append('  %-10s：%s' % (pcfg.WELL_OPTION_LABELS.get(k, k),
+                                             opts.get(k) or '（未指定，自动探测）'))
+            return '\n'.join(lines)
+        if key == 'export':
+            csv = self._processed_csv(w)
+            cols = dop.columns_of(csv)
+            lines = [head + '数据导出：把解释曲线集导出为 CSV / XLSX / LAS（不覆盖源文件）。',
+                     '源曲线集：%s' % (csv or '（未找到）'),
+                     '列数：%d ｜ 前 24 列：%s' % (len(cols), ', '.join(cols[:24]))]
+            return '\n'.join(lines)
+        if key in ('quicklook', 'comprehensive', 'gas', 'nmr', 'fmi'):
+            opts = pcfg.well_options(self.root_dir, w.name)
+            desc = {
+                'quicklook': '快速解释图（QuickLook）：一键出草图与主要解释曲线。',
+                'comprehensive': '综合解释：完整测井解释流程（岩性/流体/层段/图件）。',
+                'gas': '气测解释：图版法 ITP + 同井相对异常 → 对齐主深度的曲线变量。',
+                'nmr': '核磁处理：T2 谱、T1、扩散系数、孔隙度与渗透率。',
+                'fmi': '电成像处理：微电阻率图像的孔隙、溶孔与裂缝识别。',
+            }[key]
+            input_key = {'gas': 'gas', 'nmr': 'nmr', 'fmi': 'fmi'}.get(key)
+            lines = [head + desc,
+                     '执行方式：独立子进程，产物自动归入 output/%s/' % w.name]
+            if input_key:
+                lines.append('指定输入：%s' % (opts.get(input_key) or '（未指定 → 自动探测源目录）'))
+            else:
+                lines.append('主 LAS：%s' % (opts.get('las') or '（自动探测源目录）'))
+            patterns = {'gas': ('*gas_curves.csv', '*gas_result.json'),
+                        'nmr': ('*_nmr_results_*.csv', '*_nmr_result.json', '*.png'),
+                        'fmi': ('*_fmi_results.csv', '*_fmi_result.json', '*.png')}.get(key, ())
+            import glob
+            for pat in patterns:
+                hits = sorted(glob.glob(os.path.join(out, pat)))
+                lines.append('产物 %-22s：%d 个%s' % (
+                    pat, len(hits), ('（最新：%s）' % os.path.basename(hits[-1])) if hits else ''))
+            return '\n'.join(lines)
+        if key == 'logview':
+            return (head + '交互绘图（logvis）是**独立模块**：\n'
+                    '  · 把任意一维曲线 / 二维波形 / 核磁谱 / 成像拖入作图；\n'
+                    '  · 可修改道组合、比例、图头与界面；\n'
+                    '  · 再次打开自动载入上次保存的布局继续修改。\n\n'
+                    '不跑解释作业：有产物读产物，无产物读原始 LAS / 源数据。')
+        return head
+
+    def _show_func_load(self):
+        w = self._selected_well()
+        self._set_func('数据加载', self._func_text('load'), [
+            ('重新扫描', self.refresh),
+            ('气测解释', lambda: self._show_func_job('gas')),
+            ('核磁处理', lambda: self._show_func_job('nmr')),
+            ('电成像处理', lambda: self._show_func_job('fmi')),
+            ('交互绘图', self._show_func_logview),
+        ], key='load')
+
+    def _show_func_clean(self):
+        self._set_func('数据清洗', self._func_text('clean'), [
+            ('执行清洗', self._func_clean_run),
+            ('打开产物目录', self._menu_open_dir),
+        ])
+
+    def _show_func_qc(self):
+        self._set_func('数据质检', self._func_text('qc'), [
+            ('执行质检', self._func_qc_run),
+            ('重新扫描', self.refresh),
+        ])
+
+    def _show_func_import(self):
+        self._set_func('数据导入', self._func_text('import'), [
+            ('复制文件到井目录', self._copy_func_input),
+            ('刷新扫描', self._show_func_import),
+        ], key='import', input_kind='import')
+
+    def _show_func_export(self):
+        self._set_func('数据导出', self._func_text('export'), [
+            ('导出 CSV', lambda: self._func_export_run('csv')),
+            ('导出 XLSX', lambda: self._func_export_run('xlsx')),
+            ('导出 LAS', lambda: self._func_export_run('las')),
+        ])
+
+    def _show_func_job(self, job_type: str):
+        label = pjob.JOB_TYPES.get(job_type, (job_type, ''))[0]
+        actions = [('对选中井执行', lambda: self._run_job(job_type))]
+        if job_type in ('quicklook', 'comprehensive'):
+            actions.append(('批量执行（待解释井）', lambda: self._run_batch(job_type)))
+        actions.append(('重新扫描输入', lambda: self._show_func_job(job_type)))
+        input_kind = {'quicklook': 'las', 'comprehensive': 'las',
+                      'gas': 'gas', 'nmr': 'nmr', 'fmi': 'fmi'}.get(job_type, '')
+        self._set_func(label, self._func_text(job_type), actions,
+                       key=job_type, input_kind=input_kind)
+
+    def _show_func_logview(self):
+        self._set_func('交互绘图（logvis）', self._func_text('logview'), [
+            ('打开交互绘图', self._menu_logview),
+        ])
+
+    def _func_clean_run(self):
+        w = self._selected_well()
+        if not w or not self._processed_csv(w):
+            self._log('数据清洗需要该井的解释曲线集（先跑快速解释或综合解释）')
+            return
+        r = dop.clean_csv(self._processed_csv(w), self._well_out_dir(w), w.name)
+        if r.get('ok'):
+            self._log('数据清洗完成：%s（%s → %s 行）'
+                      % (r['data'], r.get('rows_in'), r.get('rows_out')))
+            self.refresh()
+        else:
+            self._log('数据清洗失败：%s' % r.get('error'))
+        self._show_func_clean()
+
+    def _func_qc_run(self):
+        w = self._selected_well()
+        if not w or not self._processed_csv(w):
+            self._log('数据质检需要该井的解释曲线集')
+            return
+        r = dop.qc_csv(self._processed_csv(w), self._well_out_dir(w), w.name)
+        if r.get('ok'):
+            d = r['detail']
+            self._log('数据质检完成：%s（%s，错误 %s / 警告 %s）'
+                      % (r['report'], d.get('level'), d.get('errors'), d.get('warnings')))
+        else:
+            self._log('数据质检失败：%s' % r.get('error'))
+        self._show_func_qc()
+
+    def _func_export_run(self, fmt: str):
+        w = self._selected_well()
+        if not w or not self._processed_csv(w):
+            self._log('数据导出需要该井的解释曲线集')
+            return
+        r = dop.export_curves(self._processed_csv(w), self._well_out_dir(w), w.name, fmt)
+        if r.get('ok'):
+            self._log('已导出 %s：%s（%d 列 / %d 行）'
+                      % (fmt.upper(), r['file'], len(r['columns']), r['rows']))
+            self.refresh()
+        else:
+            self._log('导出失败：%s' % r.get('error'))
+        self._show_func_export()
+
+    # ---------------- 属性面板 ----------------
+
     def _on_select(self, _evt=None):
         sel = self.tree.selection()
         if not sel:
             return
         iid = sel[0]
+        try:
+            self.right_nb.setCurrentIndex(0)
+        except Exception:
+            pass
         if iid in self._wells_by_iid:
             self._show_well(self._wells_by_iid[iid])
         elif iid in self._ds_by_iid:
@@ -590,7 +1055,7 @@ class ProjectBrowser:
         if w.source_dir:
             lines.append('原始资料    : %s' % w.source_dir)
         else:
-            lines.append('原始资料    : （未关联 —— 右键「关联原始资料目录…」）')
+            lines.append('原始资料    : （未关联 —— 「数据导入」面板输入源目录）')
         lines += [
             '数据集数量  : %d（产物） + %d（源）' % (len(w.datasets), len(w.source_datasets)),
             '变量总数    : %d' % sum(len(d.variables) for d in w.datasets + w.source_datasets),
@@ -651,7 +1116,7 @@ class ProjectBrowser:
         ins = self._well_inputs(w)
         ilines = [
             '原始资料目录: %s' % (w.source_dir or
-                                   '（未关联 —— 右键「关联原始资料目录…」）'),
+                                   '（未关联 —— 「数据导入」面板输入源目录）'),
             '',
             '作业实际使用的文件（手工指定优先于自动探测）:',
         ]
@@ -724,6 +1189,16 @@ class ProjectBrowser:
         """项目内作业：对选中井跑综合解释。"""
         self._run_job('comprehensive')
 
+    # R86：三个专用处理作业（气测 / 核磁 / 电成像）
+    def _menu_gas(self):
+        self._run_job('gas')
+
+    def _menu_nmr(self):
+        self._run_job('nmr')
+
+    def _menu_fmi(self):
+        self._run_job('fmi')
+
     def _menu_logview(self):
         """【R85】交互绘图直达入口——选中井点按钮/双击/右键，均走这里。
 
@@ -746,7 +1221,7 @@ class ProjectBrowser:
         out_dir = find_output_dir(self.root_dir, w.name)
         las_file = opts.get('las', '')
         if not out_dir and not las_file and not source_dir:
-            self._log('该井既无产物也无原始资料：请先右键「关联原始资料目录…」')
+            self._log('该井既无产物也无原始资料：请先「数据导入」面板输入源目录')
             return
         try:
             win = open_logview(self.win, w.name, out_dir=out_dir, source_dir=source_dir,
@@ -765,13 +1240,15 @@ class ProjectBrowser:
         if not w:
             self._log('请先选择一口井')
             return
-        if not w.has_source:
-            self._log('井 %s 未关联原始资料目录 —— 请右键「关联原始资料目录…」后再执行作业'
-                      % w.name)
-            return
         label = pjob.JOB_TYPES.get(job_type, (job_type, ''))[0]
         # 井级资料指定（手工指定优先于自动探测）
         opts = pcfg.well_options(self.root_dir, w.name)
+        special = job_type in pjob.SPECIAL_JOBS
+        if not w.has_source and not (special and opts.get(
+                {'gas': 'gas', 'nmr': 'nmr', 'fmi': 'fmi'}.get(job_type, ''))):
+            self._log('井 %s 未关联原始资料目录 —— 请「数据导入」面板输入源目录后再执行作业'
+                      % w.name)
+            return
         runner = pjob.JobRunner(on_log=self._on_job_log, on_done=self._on_job_done)
         self._job_runner = runner
         self._job_running = True
@@ -779,75 +1256,15 @@ class ProjectBrowser:
                           las_file=opts.get('las', ''),
                           gas_file=opts.get('gas', ''),
                           config_file=opts.get('config', ''),
-                          well_name=w.name)
+                          well_name=w.name,
+                          nmr_file=opts.get('nmr', ''),
+                          fmi_file=opts.get('fmi', ''))
         if not ok:
             self._job_running = False
             return
         self._log('── %s：%s ──' % (label, w.name))
 
-    # ---------------- 井级资料指定（原启动界面能力下沉） ----------------
-
-    def _pick_input_file(self, title: str, well_name: str,
-                         patterns: list[tuple[str, str]]) -> str:
-        """弹出文件选择框，返回选中的路径（取消返回 ''）。"""
-        initial = self.root_dir
-        try:
-            w = self._selected_well()
-            if w and w.source_dir and os.path.isdir(w.source_dir):
-                initial = w.source_dir
-        except Exception:
-            pass
-        ftypes = [('所有文件', '*.*')] + patterns
-        return _qg.open_file(title=title, initialdir=initial,
-                             filetypes=ftypes, parent=self.win)
-
-    def _set_input(self, key: str, value: str, label: str):
-        """写入井级资料指定并刷新。"""
-        w = self._selected_well()
-        if not w:
-            self._log('请先选择一口井')
-            return
-        if pcfg.set_well_option(self.root_dir, w.name, key, value):
-            self._log('已指定 %s：%s' % (label, value or '（清除）'))
-            self.refresh()
-        else:
-            self._log('指定失败：无法写入项目配置 %s' % pcfg.config_path(self.root_dir))
-
-    def _menu_set_las(self):
-        """手工指定主 LAS（防止自动探测选错文件）。"""
-        w = self._selected_well()
-        if not w:
-            self._log('请先选择一口井')
-            return
-        f = self._pick_input_file(
-            '选择 %s 的主测井 LAS' % w.name, w.name,
-            [('LAS 文件', '*.las'), ('LAS/LAS2', '*.las2')])
-        if f:
-            self._set_input('las', f, '主 LAS')
-
-    def _menu_set_gas(self):
-        """手工指定气测文件。"""
-        w = self._selected_well()
-        if not w:
-            self._log('请先选择一口井')
-            return
-        f = self._pick_input_file(
-            '选择 %s 的气测数据文件' % w.name, w.name,
-            [('Excel', '*.xls *.xlsx'), ('CSV', '*.csv'), ('文本', '*.txt')])
-        if f:
-            self._set_input('gas', f, '气测文件')
-
-    def _menu_set_format(self):
-        """手工指定甲方出图格式。"""
-        w = self._selected_well()
-        if not w:
-            self._log('请先选择一口井')
-            return
-        f = self._pick_input_file(
-            '选择 %s 的甲方出图格式（quicklook / 综合图）' % w.name, w.name,
-            [('JSON', '*.json'), ('全部文件', '*.*')])
-        if f:
-            self._set_input('config', f, '甲方出图格式')
+    # ---------------- 井级资料指定（统一在界面内输入行完成，无文件对话框） ----------------
 
     def _menu_clear_inputs(self):
         """清除井级资料指定（回到自动探测）。"""
@@ -886,23 +1303,6 @@ class ProjectBrowser:
             src = '自动探测' if cfg else ''
         out['config'] = (cfg, src)
         return out
-
-    def _menu_bind_source(self):
-        """把井的原始资料目录显式绑定并持久化到项目配置。"""
-        w = self._selected_well()
-        if not w:
-            self._log('请先选择一口井')
-            return
-        d = _qg.select_dir(
-            title='选择 %s 的原始资料目录（含 LAS / 地质资料 / 甲方格式）' % w.name,
-            initialdir=w.source_dir or self.root_dir, parent=self.win)
-        if not d:
-            return
-        if pcfg.bind_well(self.root_dir, w.name, d):
-            self._log('已关联源目录：%s → %s' % (w.name, d))
-            self.refresh()
-        else:
-            self._log('关联失败：无法写入项目配置 %s' % pcfg.config_path(self.root_dir))
 
     def _menu_open_source(self):
         w = self._selected_well()
@@ -956,7 +1356,9 @@ class ProjectBrowser:
                             las_file=opts.get('las', ''),
                             gas_file=opts.get('gas', ''),
                             config_file=opts.get('config', ''),
-                            well_name=w.name):
+                            well_name=w.name,
+                            nmr_file=opts.get('nmr', ''),
+                            fmi_file=opts.get('fmi', '')):
             self._job_running = False
             self._start_next_batch()
 

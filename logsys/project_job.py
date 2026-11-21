@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""项目内作业执行器：在项目里对某口井跑 QuickLook / 综合解释。
+"""项目内作业执行器：QuickLook / 综合解释 + 气测 / 核磁 / 电成像（R86）。
 
 为什么用**子进程**而不是同进程调用
 ----------------------------------
@@ -7,7 +7,7 @@ logInt 的解释流程是重量级的（读 LAS → QC → 岩性 → 沉积相 
 单井常需数分钟。它同时会改写全局状态（``_PLOT_MODE``、``config['output_dir']``、
 matplotlib 全局 rcParams），若在同一进程里跑，会污染 GUI 进程并可能崩溃。
 
-因此本模块用**独立子进程**跑 logInt：
+因此本模块用**独立子进程**跑处理脚本（logInt 或 `logsys/process_cli.py`）：
   - GUI 线程不被阻塞（后台线程 + 队列回传日志）；
   - 解释流程的全局状态与 GUI 完全隔离；
   - 崩溃/异常不影响浏览器窗口；
@@ -48,7 +48,14 @@ import threading
 JOB_TYPES = {
     'quicklook': ('快速解释图（Quick Look）', '--quicklook'),
     'comprehensive': ('综合解释', ''),
+    # R86：专用处理作业，统一走 logsys/process_cli.py 的无界面包装
+    'gas': ('气测解释', 'gas'),
+    'nmr': ('核磁处理', 'nmr'),
+    'fmi': ('电成像处理', 'fmi'),
 }
+
+#: 专用处理作业（与 logInt 的两条解释流程区分）
+SPECIAL_JOBS = ('gas', 'nmr', 'fmi')
 
 
 def repo_root() -> str:
@@ -74,7 +81,9 @@ def python_exe() -> str:
 
 
 def build_command(job_type: str, source_dir: str, las_file: str = '',
-                  gas_file: str = '', config_file: str = '') -> list[str]:
+                  gas_file: str = '', config_file: str = '',
+                  nmr_file: str = '', fmi_file: str = '', depth_file: str = '',
+                  well_name: str = '', project_root: str = '') -> list[str]:
     """构造作业命令行。
 
     - ``quicklook``：``python logInt.py --quicklook <井资料目录> [--quicklook-config X]``
@@ -102,6 +111,23 @@ def build_command(job_type: str, source_dir: str, las_file: str = '',
         cmd = [py, logint, str(las_file)]
         if gas_file:
             cmd += ['--gas', str(gas_file)]
+        return cmd
+
+    if job_type in SPECIAL_JOBS:
+        cli = os.path.join(repo_root(), 'logsys', 'process_cli.py')
+        if not os.path.isfile(cli):
+            raise FileNotFoundError('未找到专用处理 CLI：%s' % cli)
+        if not well_name or not project_root:
+            raise ValueError('专用处理作业需要井名与项目根')
+        cmd = [py, cli, job_type, '--well', str(well_name),
+               '--project-root', str(project_root)]
+        if source_dir:
+            cmd += ['--source-dir', str(source_dir)]
+        inputs = {'gas': gas_file, 'nmr': nmr_file, 'fmi': fmi_file}[job_type]
+        if inputs:
+            cmd += ['--input', str(inputs)]
+        if job_type == 'gas' and depth_file:
+            cmd += ['--depth-from', str(depth_file)]
         return cmd
 
     raise ValueError('未知作业类型: %s' % job_type)
@@ -323,7 +349,8 @@ class JobRunner:
     # ------------------------------------------------------------------ 执行
     def start(self, job_type: str, source_dir: str, project_root: str,
               las_file: str = '', gas_file: str = '', config_file: str = '',
-              well_name: str = '') -> bool:
+              well_name: str = '', nmr_file: str = '', fmi_file: str = '',
+              depth_file: str = '') -> bool:
         """启动作业。返回 False 表示启动失败（原因经 on_log 反馈）。
 
         ``well_name`` 是**项目内登记的井名**，产物归集时用它作为目标目录
@@ -338,9 +365,17 @@ class JobRunner:
             config_file = find_client_format(source_dir)
         if job_type == 'comprehensive' and not las_file:
             las_file = find_main_las(source_dir)
+        if job_type == 'gas' and not depth_file:
+            # 气测图版结果要对齐主测井深度网格；产物优先（同一口井已出图），否则用 LAS
+            prod = os.path.join(project_root, well_name,
+                                '%s_processed.csv' % well_name) if well_name else ''
+            depth_file = prod if prod and os.path.isfile(prod) else find_main_las(source_dir)
 
         try:
-            cmd = build_command(job_type, source_dir, las_file, gas_file, config_file)
+            cmd = build_command(job_type, source_dir, las_file, gas_file, config_file,
+                                nmr_file=nmr_file, fmi_file=fmi_file,
+                                depth_file=depth_file, well_name=well_name,
+                                project_root=project_root)
         except Exception as e:
             self._emit('作业启动失败：%s' % e)
             self._finish(1, '')

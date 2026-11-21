@@ -181,6 +181,26 @@ def test_job_command():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+def test_special_job_commands():
+    """R86：气测 / 核磁 / 电成像都走无界面 CLI，输入与井名显式传入。"""
+    print('\n== 专用处理作业命令行构造 ==')
+    for job, flag in (('gas', 'gas'), ('nmr', 'nmr'), ('fmi', 'fmi')):
+        cmd = pjob.build_command(
+            job, r'D:\proj\BET-1', gas_file=r'D:\g.csv', nmr_file=r'D:\n.csv',
+            fmi_file=r'D:\f.png', well_name='BET-1', project_root=r'D:\out')
+        check('%s 走 process_cli.py' % job,
+              any(p.endswith(os.path.join('logsys', 'process_cli.py')) for p in cmd), cmd)
+        check('%s 带井名与项目根' % job,
+              'BET-1' in cmd and r'D:\out' in cmd, cmd)
+        check('%s 带显式输入' % job, '--input' in cmd, cmd)
+        check('%s 不弹 logInt GUI 分支' % job, '--quicklook' not in cmd, cmd)
+    try:
+        pjob.build_command('gas', r'D:\proj\BET-1')
+        check('专用作业缺井名应报错', False)
+    except ValueError:
+        check('专用作业缺井名应报错', True)
+
+
 def test_job_discovery():
     print('\n== 主 LAS / 甲方格式发现 ==')
     tmp = tempfile.mkdtemp(prefix='projjob_')
@@ -233,15 +253,19 @@ def test_well_options():
         las = os.path.join(src, 'BET-1_MAIN.las')
         gas = os.path.join(src, 'gas.xlsx')
         fmt = os.path.join(src, 'BET-1_qlpt.json')
-        for p in (las, gas, fmt):
+        nmr = os.path.join(src, 'nmr.csv')
+        fmi = os.path.join(src, 'fmi.png')
+        for p in (las, gas, fmt, nmr, fmi):
             _write(p, 'x' * 20)
 
         check('指定主 LAS 成功', pcfg.set_well_option(root, 'BET-1', 'las', las))
         check('指定气测成功', pcfg.set_well_option(root, 'BET-1', 'gas', gas))
         check('指定出图格式成功', pcfg.set_well_option(root, 'BET-1', 'config', fmt))
+        check('指定核磁成功', pcfg.set_well_option(root, 'BET-1', 'nmr', nmr))
+        check('指定电成像成功', pcfg.set_well_option(root, 'BET-1', 'fmi', fmi))
 
         opts = pcfg.well_options(root, 'BET-1')
-        check('三项都已持久化', set(opts) == {'las', 'gas', 'config'}, opts)
+        check('五项都已持久化', set(opts) == set(pcfg.WELL_OPTIONS), opts)
         check('路径已绝对化', os.path.isabs(opts.get('las', '')), opts)
         check('值正确', opts.get('gas', '').endswith('gas.xlsx'), opts)
 
@@ -552,6 +576,7 @@ def main():
     test_detect()
     test_resolve_priority()
     test_job_command()
+    test_special_job_commands()
     test_job_discovery()
     test_well_options()
     test_path_hygiene()
