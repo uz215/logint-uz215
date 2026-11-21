@@ -122,8 +122,25 @@ def _runs_interpretation_in_process() -> bool:
     return False
 
 
-# 执行依赖检查
-has_core_deps = print_dependency_status(wait=_runs_interpretation_in_process())
+# 【R90】启动静默直出界面：项目工作台（GUI）模式下不再打印任何启动信息，
+# 控制台保持安静，执行信息一律进界面输出区。仅在两种情况打印依赖检查：
+#   1) 主进程要跑解释流程（--quicklook / 直传 LAS）——横幅本身也是执行信息；
+#   2) 核心依赖缺失——无论什么模式都要给出可操作的安装提示（GUI 模式不阻塞）。
+def _core_deps_missing() -> bool:
+    """静默检查核心依赖是否缺失（不打印任何信息）。"""
+    for _name in ('numpy', 'pandas', 'matplotlib', 'lasio'):
+        _ok, _ = check_dependency(_name)
+        if not _ok:
+            return True
+    return False
+
+if _runs_interpretation_in_process():
+    has_core_deps = print_dependency_status(wait=True)
+elif _core_deps_missing():
+    has_core_deps = print_dependency_status(wait=False)
+else:
+    # GUI 启动 + 依赖齐全：一个字都不打印，直接出界面
+    has_core_deps = True
 
 # =============================================================================
 # 错误处理工具模块
@@ -324,12 +341,14 @@ def setup_logging():
     console_handler.setFormatter(console_formatter)
     logger.addHandler(console_handler)
     
-    # 记录启动信息
-    logger.info("="*60)
-    logger.info("  测井资料处理系统 - 日志系统启动")
-    logger.info("="*60)
-    logger.info(f"日志文件: {log_file.absolute()}")
-    logger.info(f"Python版本: {sys.version}")
+    # 【R90】启动横幅只写文件日志；GUI（项目工作台）启动时控制台保持安静，
+    # 只有主进程跑解释流程的 CLI 通道才在控制台打横幅。
+    if _runs_interpretation_in_process():
+        logger.info("="*60)
+        logger.info("  测井资料处理系统 - 日志系统启动")
+        logger.info("="*60)
+        logger.info(f"日志文件: {log_file.absolute()}")
+        logger.info(f"Python版本: {sys.version}")
     
     return logger
 

@@ -100,6 +100,73 @@ NO_SOURCE_MARK = ' ⚠'
 STATUS_TAG = {'ok': '#1d7a3e', 'warn': '#b8860b', 'error': '#b00020', 'muted': '#8a8f98'}
 
 
+class _StreamToLog:
+    """【R90】Python 级 stdout/stderr → 界面输出区。
+
+    项目工作台是唯一界面：主进程内一切执行信息（print、logging 控制台流、
+    库警告）都改道这里，经作业队列交给 GUI 线程写入 Output window，
+    控制台不再出现执行信息。任意线程可安全调用 write()。
+    """
+
+    #: 测试/冒烟需要看控制台时置 True（把内容同时镜像回原控制台流）
+    mirror_console = False
+
+    def __init__(self, browser: 'ProjectBrowser', stream=None):
+        self._browser = browser
+        self._stream = stream          # 原流，仅用于 flush 透传 / 恢复 / 镜像
+        self._buf = ''
+        self._guard = False
+
+    def write(self, text):
+        if not text:
+            return 0
+        if self._guard:
+            # 输出区自身触发打印（理论上不该发生）时直接丢弃，防递归
+            return len(text)
+        self._buf += text
+        lines = self._split_lines()   # 完整行弹出，不完整行留在缓冲区
+        if self._stream is not None and _StreamToLog.mirror_console:
+            try:
+                self._stream.write(text)
+            except Exception:
+                pass
+        for ln in lines:
+            ln = ln.strip()
+            if ln:
+                self._browser.post_log(ln)
+        return len(text)
+
+    def _split_lines(self):
+        """弹出缓冲区里的完整行，返回行列表；不完整行留在缓冲区。"""
+        out = []
+        while '\n' in self._buf:
+            ln, self._buf = self._buf.split('\n', 1)
+            out.append(ln)
+        return out
+
+    def flush(self):
+        try:
+            if self._stream is not None:
+                self._stream.flush()
+        except Exception:
+            pass
+
+    def isatty(self):
+        return False
+
+    # 供 print 的 file= 参数与个别库探测兼容的最小属性集
+    @property
+    def encoding(self):
+        return getattr(self._stream, 'encoding', 'utf-8')
+
+    @property
+    def name(self):
+        return '<gui-output>'
+
+    def fileno(self):
+        raise IOError('GUI 输出流没有底层文件描述符')
+
+
 class ProjectBrowser:
     """项目浏览器主窗口。
 
@@ -135,6 +202,12 @@ class ProjectBrowser:
         self._build_header()
         self._build_body()
         self._build_output()
+        # 【R90】启动静默直出界面：主进程 stdout/stderr/logging 全部改道
+        # 界面输出区，执行信息不再出现在控制台。必须在 refresh 之前装，
+        # 这样刷新等动作产生的 print 也能进输出区。
+        self._stdout_orig = sys.stdout
+        self._stderr_orig = sys.stderr
+        self._install_output_redirect()
         self.refresh()
         self._bind_keys()
         self._poll_job_queue()
@@ -148,6 +221,38 @@ class ProjectBrowser:
     def _on_job_log(self, msg: str):
         """来自作业线程的日志 → 排队（GUI 线程统一消费，线程安全）。"""
         self._job_queue.put(('log', msg))
+
+    def post_log(self, msg: str):
+        """【R90】任意线程把一行执行信息送进输出区（stdout 重定向入口）。"""
+        self._job_queue.put(('log', msg))
+
+    def _install_output_redirect(self):
+        """接管主进程 stdout/stderr 与 logging 控制台流 → 界面输出区。"""
+        self._out_stream = _StreamToLog(self, self._stdout_orig)
+        self._err_stream = _StreamToLog(self, self._stderr_orig)
+        sys.stdout = self._out_stream
+        sys.stderr = self._err_stream
+        # logging 的控制台 handler 在本模块导入前就已绑定真 stdout 对象，
+        # 这里一并改道，logger.info 等也进输出区（文件日志不受影响）。
+        try:
+            import logging
+            for h in logging.getLogger().handlers:
+                if isinstance(h, logging.StreamHandler) \
+                        and not isinstance(h, logging.FileHandler):
+                    h.stream = self._out_stream
+        except Exception:
+            pass
+
+    def restore_streams(self):
+        """恢复原 stdout/stderr（GUI 退出后控制台恢复正常，错误可见）。"""
+        try:
+            if self._out_stream is not None and self._out_stream._buf:
+                self._out_stream._browser.post_log(self._out_stream._buf.strip())
+                self._out_stream._buf = ''
+        except Exception:
+            pass
+        sys.stdout = self._stdout_orig
+        sys.stderr = self._stderr_orig
 
     def _on_job_done(self, code: int, label: str):
         self._job_queue.put(('done', (code, label)))
@@ -521,7 +626,7 @@ class ProjectBrowser:
         cap = self._mk_label('输出', bold=True)
         ol.addWidget(cap)
         self.out_txt = _qc.TextCompat(out)
-        self.out_txt.setMaximumHeight(90)
+        self.out_txt.setMaximumHeight(160)   # 【R90】执行信息都在这里，调大便于查看
         self.out_txt.setStyleSheet('font-family: Consolas; font-size: 9pt;')
         ol.addWidget(self.out_txt)
         self._root_layout.addWidget(out)
@@ -2496,7 +2601,11 @@ def launch(root: str = '', source_root: str = '', on_open_well=None) -> int:
     if not root:
         return 1
     browser = ProjectBrowser(root, source_root, on_open_well)
-    browser.run()
+    try:
+        browser.run()
+    finally:
+        # 【R90】GUI 退出后把 stdout/stderr 还给控制台，异常信息仍可见
+        browser.restore_streams()
     return 0
 
 
