@@ -30,130 +30,31 @@ import re
 from dataclasses import dataclass, field, asdict
 from typing import Any
 
+from logsys import variable_catalog as vc
+
 # --------------------------------------------------------------------------
-# 曲线族定义：Techlog 的 "family" 在本系统对应标准曲线族/解释族。
-# family 决定显示方式（对数/线性/岩性填充）与插值策略。
+# 【R87】曲线族 / 分支变量 / 图例 / 绘图方式的唯一事实来源 =
+#        ``logsys/variable_catalog.json``（主界面「变量库」可增删改）。
+#
+# 本模块不再内置第二套族表：classify_variable() 直接委托变量库。
+#   · ``family``     = 分支变量显示名（历史字段，保证属性面板、条件选择、
+#                      默认道挑选 TRACK_FAMILY_HINTS 的既有语义不变）
+#   · ``group``      = 族名（深度族 / 电阻率族 / 岩性族 / 解释结论族…）
+#   · ``draw_mode``  = 绘图方式（linear / log / qualitative / spectrum / image）
+#   · ``legend_id``  = 应调用的图例（岩性族、解释结论族各有专属图例）
+#
+# 下方 ALL_FAMILIES / INTERNAL_COLUMNS / UNIT_HINTS 仅为**加载时兼容快照**，
+# 供调试与旧脚本读取；修改族名、单位、图例请走主界面「变量库」，
+# 直接改这里不会生效。
 # --------------------------------------------------------------------------
 
-#: 岩石物理标准曲线族：family -> (显示名, 单位, 线性/对数)
-ROCK_PHYSICS_FAMILIES: dict[str, tuple[str, str, str]] = {
-    'MD':   ('测量深度', 'm', 'linear'),
-    'GR':   ('自然伽马', 'API', 'linear'),
-    'DEN':  ('密度', 'g/cm3', 'linear'),
-    'CNL':  ('中子', 'v/v', 'linear'),
-    'DT':   ('声波时差', 'us/ft', 'linear'),
-    'RT':   ('电阻率', 'ohm.m', 'log'),
-    'CAL':  ('井径', 'in', 'linear'),
-    'PE':   ('光电效应', 'b/e', 'linear'),
-    'SP':   ('自然电位', 'mV', 'linear'),
-    'LLD':  ('深电阻率', 'ohm.m', 'log'),
-    'LLS':  ('浅电阻率', 'ohm.m', 'log'),
-    'MSFL': ('微电阻率', 'ohm.m', 'log'),
-    'PERM': ('渗透率', 'mD', 'log'),
-    'TVD':  ('真垂深', 'm', 'linear'),
-    'AZIM': ('方位角', 'deg', 'linear'),
-    'DEVI': ('井斜', 'deg', 'linear'),
-}
-
-#: 派生/解释族：由计算与解释产生，非原始测量曲线
-DERIVED_FAMILIES: dict[str, tuple[str, str, str]] = {
-    'POR':     ('孔隙度', 'v/v', 'linear'),
-    'SW':      ('含水饱和度', 'v/v', 'linear'),
-    'So':      ('含油饱和度', 'v/v', 'linear'),
-    'Sg':      ('含气饱和度', 'v/v', 'linear'),
-    'PHI':     ('有效孔隙度', 'v/v', 'linear'),
-    'VSH':     ('泥质含量', 'v/v', 'linear'),
-    'VClay':   ('粘土含量', 'v/v', 'linear'),
-    'VQuartz': ('石英含量', 'v/v', 'linear'),
-    'VCalcite': ('方解石含量', 'v/v', 'linear'),
-    'VDolomite': ('白云石含量', 'v/v', 'linear'),
-    'RTI':     ('侵入带电阻率', 'ohm.m', 'log'),
-    'NDI':     ('侵入带电导率', 'mS/m', 'linear'),
-    'GSI':     ('岩性指数', '', 'linear'),
-    'CGI':     ('几何因子', '', 'linear'),
-}
-
-#: 解释族：定性/结论类变量，对应 Techlog 的 "qualitative log" / "flag curve"
-INTERPRETATION_FAMILIES: dict[str, tuple[str, str, str]] = {
-    'LITHOLOGY':      ('岩性', '', 'qualitative'),
-    'LITH_MC_CONF':   ('岩性置信度', '', 'qualitative'),
-    'INTERPRETATION': ('解释结论', '', 'qualitative'),
-    'FACIES':         ('沉积相', '', 'qualitative'),
-    'LAYER_ID':       ('层号', '', 'flag'),
-    'LAYER_LABEL':    ('层名', '', 'flag'),
-    'IS_CASING':      ('套管井段', '', 'flag'),
-    'VALID_CURVES_COUNT': ('有效曲线数', '', 'flag'),
-}
-
-# 【R85】解释产物统一作为曲线变量（用户定案）：
-# 用户要求"解释的产物输出归并到曲线变量，和测井曲线一样，不输出成 csv，
-# 是不同的变量数值或岩性代码"。解释结果本就逐点写在 processed.csv 里，
-# 关键是把它们登记为有语义的族，使其进入交互绘图曲线目录、可拖入作图：
-#   · 矿物含量（VOL_*）→ 逐点数值曲线，族"矿物含量"，单位 v/v
-#   · 岩性定名（LITHOLOGY*/CORE_LITH/FACIES）→ 离散代码道 qualitative
-#   · 解释结论/层号 → qualitative / flag
-# 这里登记的是**逐点解释变量**（与层段汇总表 csv 相对）；层表汇总不再
-# 作为绘图数据源，绘图一律用这些逐点变量（与测井曲线口径一致）。
-MINERAL_FAMILIES: dict[str, tuple[str, str, str]] = {
-    'VOL_CALCITE':  ('方解石含量', 'v/v', 'linear'),
-    'VOL_DOLOM':    ('白云石含量', 'v/v', 'linear'),
-    'VOL_ANHY':     ('硬石膏含量', 'v/v', 'linear'),
-    'VOL_HALITE':   ('盐岩含量', 'v/v', 'linear'),
-    'VOL_ILLITE':   ('伊利石含量', 'v/v', 'linear'),
-    'VOL_QUARTZ':   ('石英含量', 'v/v', 'linear'),
-    'VOL_CLAY':     ('粘土含量', 'v/v', 'linear'),
-}
-
-#: 逐点解释产物（岩性定名、解释结论等离散代码变量）
-POINT_INTERPRETATION_FAMILIES: dict[str, tuple[str, str, str]] = {
-    'LITHOLOGY_MC': ('岩性定名(蒙特卡洛)', '', 'qualitative'),
-    'CORE_LITH':    ('岩心录井岩性', '', 'qualitative'),
-    'CORE_ZONE_LITH': ('岩心分层岩性', '', 'qualitative'),
-    'LITHO_QE':     ('岩性(QE)', '', 'qualitative'),
-    'LITHO_QE1':    ('岩性(QE1)', '', 'qualitative'),
-    'NPOR':         ('中子孔隙度(解释)', 'v/v', 'linear'),
-}
-
-#: 矿物/解释变量的前缀规则（未精确登记的列按前缀归类）
-#: 前缀 -> (族显示名, 单位, scale, 是否定性)
-INTERPRETATION_PREFIX_RULES: list[tuple[str, str, str, str, bool]] = [
-    ('VOL_',      '矿物含量', 'v/v', 'linear', False),
-    ('LITHOLOGY', '岩性解释', '',   'qualitative', True),
-    ('LITH_',     '岩性解释', '',   'qualitative', True),
-    ('CORE_LITH', '岩心岩性', '',   'qualitative', True),
-    ('INTERPRET', '解释结论', '',   'qualitative', True),
-]
-
-#: 井段/工具族
-TOOL_FAMILIES: dict[str, tuple[str, str, str]] = {
-    'BS':      ('钻头尺寸', 'in', 'linear'),
-    'CALS':    ('井径（计算）', 'in', 'linear'),
-    'DRHO':    ('密度校正', 'g/cm3', 'linear'),
-    'TENS':    ('张力', 'lbf', 'linear'),
-    'SPED':    ('井底温度', 'degC', 'linear'),
-    'MTEM':    ('测量温度', 'degC', 'linear'),
-}
-
-#: 内部质量标记列（不作为用户变量展示）
-INTERNAL_COLUMNS = {
-    '_POROSITY_VALID', 'SPRING_QC', 'VSH_PREV', 'VSH_GR_CAL',
-    'INTERPRETATION_SCORE', 'DISTANCE', 'HIT_RATE', 'DIRECTION_SCORE',
-    'BETTER_COUNT', 'PHI_DISP', 'SW_DISP', 'RHOB_corrected', 'MSFL_corrected',
-}
-
-#: 全部族表（查找优先级：岩石物理 > 派生 > 解释 > 矿物/逐点解释 > 工具）
 ALL_FAMILIES: dict[str, tuple[str, str, str]] = {
-    **ROCK_PHYSICS_FAMILIES, **DERIVED_FAMILIES,
-    **INTERPRETATION_FAMILIES, **MINERAL_FAMILIES,
-    **POINT_INTERPRETATION_FAMILIES, **TOOL_FAMILIES,
+    v['key']: (v['name'], v['unit'], v['scale']) for v in vc.variables()
 }
-
-#: 常见单位别名（用于从 LAS 头或 processed.csv 推断单位）
-UNIT_HINTS: dict[str, str] = {
-    'GR': 'API', 'DEN': 'g/cm3', 'CNL': 'v/v', 'DT': 'us/ft',
-    'RT': 'ohm.m', 'CAL': 'in', 'PE': 'b/e', 'SP': 'mV',
-    'POR': 'v/v', 'SW': 'v/v', 'VSH': 'v/v',
+INTERNAL_COLUMNS: set[str] = {
+    str(x).upper() for x in vc.get_catalog().get('internal_columns', [])
 }
+UNIT_HINTS: dict[str, str] = dict(vc.get_catalog().get('unit_hints', {}))
 
 #: 数据集类型 → Techlog 数据集图标语义
 DATASET_TYPES = {
@@ -162,7 +63,7 @@ DATASET_TYPES = {
     'point':    ('点数据集', 'point'),
     'log':      ('解释成果 LAS', 'log'),
     'table':    ('层段表', 'table'),
-    'source':   ('原始测井 LAS', 'source'),
+    'source':   ('原始测井 LAS / DLIS', 'source'),
     'meta':     ('井元信息', 'meta'),
     'image':    ('图件', 'image'),
     'report':   ('报告', 'report'),
@@ -195,61 +96,75 @@ def _norm(name: str) -> str:
 
 
 def classify_variable(col: str) -> dict[str, Any]:
-    """判定单个变量（曲线列）的族、单位与 Techlog 三色状态。
+    """判定单个变量的**族、分支、单位、刻度、绘图方式**与三色状态。
 
-    Techlog 规则（官方帮助 Project browser / Common actions）：
-      黑色 = 既有 family 又有 unit
-      灰色 = 缺 family 或缺 unit 之一
-      红色 = 两者皆缺
+    【R87】唯一事实来源是 ``variable_catalog.json``（主界面「变量库」可编辑）。
+    返回字段分两组：
+
+    * 历史字段：``family`` / ``family_name`` = 分支变量显示名（如 GR →
+      "自然伽马"），``unit`` / ``scale`` / ``kind`` / ``color`` / ``complete``；
+      保持属性面板、条件选择、logvis 默认道挑选的既有语义不变。
+    * 新增字段：``group`` / ``group_id`` = 族名与族 id（深度族、电阻率族、
+      岩性族、解释结论族…），``draw_mode`` = 绘图方式，
+      ``legend_id`` = 岩性/解释结论族应调用的图例。
+
+    Techlog 三色规则：黑 = 族+单位齐备；灰 = 缺其一；红 = 两者皆缺。
     """
-    key = _norm(col)
-    if key in INTERNAL_COLUMNS:
-        return {'name': col, 'key': key, 'family': None, 'family_name': None,
-                'unit': None, 'scale': None, 'kind': 'internal', 'color': 'muted',
-                'complete': False}
+    info = vc.classify(col)
+    # 统一用原始列名回填 name（变量库内部用的是归一化 key）
+    info['name'] = str(col)
+    return info
 
-    fam = ALL_FAMILIES.get(key)
-    if fam:
-        display, unit, scale = fam
-        color = 'ok' if unit else 'warn'
-        return {'name': col, 'key': key, 'family': display, 'family_name': display,
-                'unit': unit, 'scale': scale, 'kind': 'curve',
-                'color': color, 'complete': bool(unit)}
 
-    # 【R85】前缀兜底：解释产物（VOL_* 矿物、LITHO* 岩性定名等）按前缀归类，
-    # 使全部解释输出都成为有语义的曲线变量（不因未精确登记而落"未分类"）。
-    for prefix, display, unit, scale, qualitative in INTERPRETATION_PREFIX_RULES:
-        if key.startswith(prefix):
-            return {'name': col, 'key': key, 'family': display, 'family_name': display,
-                    'unit': unit, 'scale': scale,
-                    'kind': 'qualitative' if qualitative else 'curve',
-                    'color': 'ok' if unit else 'warn', 'complete': bool(unit)}
+def group_variables(variables: list[Variable]) -> list[tuple[str, list[Variable]]]:
+    """【R87】按族分组：Techlog「族 → 分支变量」两级视图。
 
-    # 未登记的列：按命名规则推断单位，仍无族 → 红色
-    unit = UNIT_HINTS.get(key)
-    if unit:
-        return {'name': col, 'key': key, 'family': None, 'family_name': None,
-                'unit': unit, 'scale': 'linear', 'kind': 'unknown',
-                'color': 'warn', 'complete': False}
-    return {'name': col, 'key': key, 'family': None, 'family_name': None,
-            'unit': None, 'scale': None, 'kind': 'unknown',
-            'color': 'error', 'complete': False}
+    返回 ``[(族名, [变量, ...]), ...]``。族顺序取自变量库 ``order``，
+    「未分类」恒排最后；组内按变量名排序。供项目树与属性面板使用。
+    """
+    order = {g['id']: g.get('order', 99) for g in vc.groups()}
+    buckets: dict[str, list[Variable]] = {}
+    gids: dict[str, str] = {}
+    for v in variables:
+        gname = v.group or v.family or '未分类'
+        buckets.setdefault(gname, []).append(v)
+        gids.setdefault(gname, v.group_id or 'UNCLASSIFIED')
+
+    def _sort_key(name: str):
+        return (name == '未分类', order.get(gids.get(name, ''), 99), name)
+
+    return [(name, sorted(buckets[name], key=lambda x: (x.name or '').lower()))
+            for name in sorted(buckets, key=_sort_key)]
 
 
 @dataclass
 class Variable:
-    """变量（曲线列）。"""
+    """变量（曲线列）。【R87】新增族语义与归属信息。"""
     name: str
-    family: str | None = None
+    family: str | None = None        # 分支变量显示名（历史字段）
     unit: str | None = None
     scale: str | None = None
     kind: str = 'curve'
     color: str = 'error'
     description: str = ''
     source: str = ''
+    # ---- R87：族语义 ----
+    group: str = ''                  # 族名（深度族 / 电阻率族 / 岩性族…）
+    group_id: str = ''
+    draw_mode: str = ''              # linear / log / qualitative / spectrum / image
+    legend_id: str = ''              # 岩性族、解释结论族 → 对应图例
+    origin: str = 'measured'         # measured（输入曲线） / interpretation（解释产物）
+    source_file: str = ''            # 【R87】变量归属的输入 LAS / DLIS 绝对路径
+
+    @property
+    def complete(self) -> bool:
+        """族与单位齐备（Techlog 语义）。"""
+        return bool(self.family) and bool(self.unit) and self.kind != 'internal'
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        d = asdict(self)
+        d['complete'] = self.complete
+        return d
 
 
 @dataclass
@@ -357,7 +272,8 @@ _DATASET_RULES = [
 #: 【2026-11-11】源数据集让"项目里的井"不只有产物、还能看到输入资料，
 #: 与 Techlog 的 Well → Dataset 语义对齐（井下挂原始与成果两类数据集）。
 _SOURCE_RULES = [
-    ('*.las',                  '原始测井 LAS', 'source'),
+    # 【R87】LAS / DLIS 由 _scan_source_datasets 用 listdir 大小写不敏感枚举，
+    # 每个文件单独成一个数据集（解释产物变量归并到"输入的那个 las/dlis"下）。
     ('*_qlpt.json',            '甲方出图格式', 'meta'),
     ('quicklook_config.json',  '甲方出图格式', 'meta'),
     ('*masterlog*.pdf',        '录井图',       'report'),
@@ -379,10 +295,46 @@ def _latest(paths: list[str]) -> str:
 
 
 def _scan_source_datasets(source_dir: str) -> list[Dataset]:
-    """扫描原始资料目录，产出源数据集列表。"""
+    """扫描原始资料目录，产出源数据集列表。
+
+    【R87】LAS / DLIS 每个文件单独成一个 dataset（大小写不敏感枚举），
+    这样解释产物变量可以明确归属到「输入的那个 las 或 dlis」节点下。
+    DLIS 是二进制，通道由 logvis 自行读取；这里只建容器，不解析文本。
+    """
     out: list[Dataset] = []
     if not source_dir or not os.path.isdir(source_dir):
         return out
+    try:
+        entries = sorted(os.listdir(source_dir))
+    except Exception:
+        entries = []
+    seen: set[str] = set()
+    for fn in entries:
+        ext = os.path.splitext(fn)[1].lower()
+        if ext not in ('.las', '.dlis'):
+            continue
+        p = os.path.join(source_dir, fn)
+        if not os.path.isfile(p) or os.path.normcase(p) in seen:
+            continue
+        seen.add(os.path.normcase(p))
+        try:
+            st = os.stat(p)
+        except Exception:
+            continue
+        is_las = ext == '.las'
+        ds = Dataset(name='原始测井 LAS' if is_las else '原始测井 DLIS',
+                     path=p, dtype='source',
+                     icon=DATASET_TYPES.get('source', ('数据', 'curve'))[1],
+                     size=st.st_size, mtime=st.st_mtime)
+        if is_las:
+            ds.variables = _scan_variables_from_las(p, 'measured', p)
+            ds.n_cols = len(ds.variables)
+            lo, hi = _depth_range_from_las(p)
+            ds.depth_min, ds.depth_max = lo, hi
+        else:
+            ds.note = 'DLIS 二进制（通道由 logvis 读取）；解释产物变量归并到本数据集下'
+        out.append(ds)
+    # 其余源文件类型（甲方格式 / 录井图 / 试油表）沿用规则表
     for pattern, ds_name, dtype in _SOURCE_RULES:
         try:
             hits = sorted(glob.glob(os.path.join(source_dir, pattern)))
@@ -395,15 +347,9 @@ def _scan_source_datasets(source_dir: str) -> list[Dataset]:
             st = os.stat(p)
         except Exception:
             continue
-        ds = Dataset(name=ds_name, path=p, dtype=dtype,
-                     icon=DATASET_TYPES.get(dtype, ('数据', 'curve'))[1],
-                     size=st.st_size, mtime=st.st_mtime)
-        if dtype == 'source':
-            ds.variables = _scan_variables_from_las(p)
-            ds.n_cols = len(ds.variables)
-            lo, hi = _depth_range_from_las(p)
-            ds.depth_min, ds.depth_max = lo, hi
-        out.append(ds)
+        out.append(Dataset(name=ds_name, path=p, dtype=dtype,
+                           icon=DATASET_TYPES.get(dtype, ('数据', 'curve'))[1],
+                           size=st.st_size, mtime=st.st_mtime))
     return out
 
 
@@ -553,22 +499,36 @@ def _read_csv_header(path: str, max_rows: int = 200) -> tuple[list[str], int]:
         return [], 0
 
 
-def _scan_variables_from_csv(path: str) -> list[Variable]:
-    """从 processed.csv 表头生成变量列表，并标出解释/质量列。"""
+def variable_from_info(info: dict, source: str = '', origin: str = 'measured',
+                       source_file: str = '') -> Variable:
+    """【R87】把 classify_variable 的结果转成 Variable（含族语义与归属）。"""
+    return Variable(
+        name=info.get('name') or info.get('key') or '',
+        family=info.get('family'), unit=info.get('unit'), scale=info.get('scale'),
+        kind=info.get('kind', 'curve'), color=info.get('color', 'error'),
+        description=info.get('description', ''), source=source,
+        group=info.get('group') or '未分类', group_id=info.get('group_id') or '',
+        draw_mode=info.get('draw_mode') or 'linear',
+        legend_id=info.get('legend_id') or '',
+        origin=origin, source_file=source_file)
+
+
+def _scan_variables_from_csv(path: str, origin: str = 'interpretation',
+                             source_file: str = '') -> list[Variable]:
+    """从 processed.csv 表头生成变量列表（解释产物 = 曲线变量）。"""
     header, nrows = _read_csv_header(path)
     out: list[Variable] = []
     for col in header:
         if not col:
             continue
         info = classify_variable(col)
-        out.append(Variable(name=info['name'], family=info['family'],
-                            unit=info['unit'], scale=info['scale'],
-                            kind=info['kind'], color=info['color'],
-                            source=os.path.basename(path)))
+        out.append(variable_from_info(info, source=os.path.basename(path),
+                                     origin=origin, source_file=source_file))
     return out
 
 
-def _scan_variables_from_las(path: str) -> list[Variable]:
+def _scan_variables_from_las(path: str, origin: str = 'measured',
+                             source_file: str = '') -> list[Variable]:
     """从成果 LAS 读取曲线与单位（不引入 lasio 依赖，失败则跳过）。"""
     out: list[Variable] = []
     try:
@@ -599,13 +559,13 @@ def _scan_variables_from_las(path: str) -> list[Variable]:
                 if not nm or nm.startswith('~'):
                     continue
                 info = classify_variable(nm)
+                # LAS 头里带的单位优先补充（变量库未登记单位时）
                 if not info['unit'] and unit and unit not in ('?', ''):
                     info['unit'] = unit
                     info['color'] = 'ok' if info['family'] else 'warn'
                     info['complete'] = bool(info['family'])
-                out.append(Variable(name=nm, family=info['family'], unit=info['unit'],
-                                    scale=info['scale'], kind=info['kind'],
-                                    color=info['color'], source=os.path.basename(path)))
+                out.append(variable_from_info(info, source=os.path.basename(path),
+                                             origin=origin, source_file=source_file))
     except Exception:
         pass
     return out
@@ -741,13 +701,40 @@ def scan_well(well_dir: str, source_dir: str = '') -> Well:
                         w.fluid_dist = lay['rules'].get('dist', {})
         w.datasets.append(ds)
 
-    # 源数据集（原始 LAS / 甲方格式 / 录井图 …）
+    # 源数据集（原始 LAS / DLIS / 甲方格式 / 录井图 …）
     w.source_datasets = _scan_source_datasets(source_dir)
     if w.source_datasets:
         for ds in w.source_datasets:
             if ds.dtype == 'source' and ds.depth_min is not None:
                 w.depth_min = ds.depth_min if w.depth_min is None else min(w.depth_min, ds.depth_min)
                 w.depth_max = ds.depth_max if w.depth_max is None else max(w.depth_max, ds.depth_max)
+
+    # 【R87】变量归属：解释产物曲线变量挂到「输入的那个 LAS / DLIS」下。
+    # 用户定案：「变量存在输入的那个 las 或 dlis 下面」。因此不在产物侧
+    # 另立一套"解释曲线集变量"重复出现；产物文件只保留路径与说明。
+    # 无源资料时兜底：变量仍留在解释曲线集里，不丢数据。
+    input_ds = next((d for d in w.source_datasets
+                     if d.dtype == 'source' and d.path.lower().endswith('.las')), None)
+    if input_ds is None:
+        input_ds = next((d for d in w.source_datasets if d.dtype == 'source'), None)
+    if input_ds is not None:
+        curve_ds = next((d for d in w.datasets if d.dtype == 'curve'), None)
+        if curve_ds is not None and curve_ds.variables:
+            existing = {_norm(v.name) for v in input_ds.variables}
+            moved = 0
+            for v in curve_ds.variables:
+                k = _norm(v.name)
+                if k in existing:      # 输入曲线里已有同名变量 → 保留输入那条
+                    continue
+                v.origin = 'interpretation'
+                v.source_file = input_ds.path
+                input_ds.variables.append(v)
+                existing.add(k)
+                moved += 1
+            input_ds.n_cols = len(input_ds.variables)
+            curve_ds.variables = []
+            curve_ds.note = ('%d 个解释产物曲线变量已归并到输入数据集「%s」下'
+                             % (moved, input_ds.name))
 
     # 状态判定
     # 【2026-11-11 修正】拆成两个正交维度：
@@ -889,17 +876,23 @@ def group_wells(wells: list[Well], key: str = 'status') -> dict[str, list[Well]]
 
 
 def conditional_select(project: Project, family: str = '', unit: str = '',
-                       kind: str = '') -> dict:
-    """条件选择（Techlog Conditional selection）：按族/单位/类型挑变量。
+                       kind: str = '', group: str = '') -> dict:
+    """条件选择（Techlog Conditional selection）：按族/分支/单位/类型挑变量。
+
+    【R87】``group`` 按族名筛选（深度族/电阻率族/岩性族/解释结论族…）；
+    ``family`` 仍按分支变量显示名筛选（历史语义）。
 
     返回 {'<井名>': {'<数据集名>': [变量名, ...]}}
     """
     res: dict[str, dict[str, list[str]]] = {}
     for w in project.wells:
-        for d in w.datasets:
+        # 【R87】解释产物变量已归并到输入 LAS/DLIS 数据集下，故源数据集也参与
+        for d in list(w.datasets) + list(w.source_datasets):
             picked = []
             for v in d.variables:
                 if kind and v.kind != kind:
+                    continue
+                if group and (v.group or '') != group:
                     continue
                 if family and (v.family or '') != family:
                     continue

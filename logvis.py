@@ -48,6 +48,7 @@ from PyQt5.QtWidgets import (
 )
 from logsys import qtgui as _qg
 from logsys import project_model as pm
+from logsys import variable_catalog as vc
 
 # 【2026-10-20 RASHIDPUR_13】解除 Pillow 防炸图像素上限（默认 1.79 亿）。
 # 本模块只打开**本地自生成**的 PNG（深井 quick look 长图可超 4 亿像素，
@@ -9689,10 +9690,11 @@ _QUAL_COLOR = '#7a5aa8'
 
 @dataclass
 class CurveItem:
-    """目录里的一条曲线。"""
+    """目录里的一条曲线（【R87】族语义来自变量库）。"""
     column: str
     label: str = ''
-    family: str = ''          # 族（显示名）
+    family: str = ''          # 【R87】族名（深度族/电阻率族/岩性族/解释结论族…）
+    branch: str = ''          # 【R87】分支变量显示名（如 GR → 自然伽马）
     unit: str = ''
     scale: str = 'linear'     # linear | log | qualitative
     kind: str = 'curve'       # curve | qualitative | nmr | waveform | image
@@ -9704,6 +9706,10 @@ class CurveItem:
     vmin: float | None = None
     vmax: float | None = None
     note: str = ''
+    # ---- R87：族 / 绘图方式 / 图例 ----
+    group_id: str = ''
+    draw_mode: str = 'linear'
+    legend_id: str = ''
 
     @property
     def display(self) -> str:
@@ -9749,9 +9755,14 @@ def build_catalog(well_data) -> list[CurveItem]:
         kind = info.get('kind', 'unknown')
         if kind == 'internal':
             continue
-        family = info.get('family') or ''
+        # 【R87】族语义来自变量库：目录按「族」分组，绘制按 draw_mode 分派，
+        # 岩性族 / 解释结论族带 legend_id，绘图时调用对应图例。
+        group = info.get('group') or '未分类'
+        branch = info.get('family') or name
         unit = info.get('unit') or ''
         scale = info.get('scale') or 'linear'
+        draw_mode = info.get('draw_mode') or 'linear'
+        legend_id = info.get('legend_id') or ''
         status = info.get('color', 'error')
         if status == 'muted':
             continue
@@ -9765,25 +9776,32 @@ def build_catalog(well_data) -> list[CurveItem]:
         items.append(CurveItem(
             column=name,
             label=name,
-            family=family,
+            family=group,
+            branch=branch,
             unit=unit,
             scale=scale,
-            kind='qualitative' if scale == 'qualitative' else 'curve',
-            color=_color_for(family, scale, status),
+            kind='qualitative' if scale in ('qualitative', 'flag') else 'curve',
+            color=info.get('group_color') or _color_for(branch, scale, status),
             status=status,
             source='曲线集',
             vmin=vmin, vmax=vmax,
+            group_id=info.get('group_id') or '',
+            draw_mode=draw_mode, legend_id=legend_id,
         ))
-    # 【R82】二维数组作为独立条目（族名 = 数据种类）
+    # 【R82】二维数组作为独立条目；【R87】族名取自变量库，与一维曲线同口径
     for key, arr in (getattr(well_data, 'arrays', {}) or {}).items():
         if not getattr(arr, 'valid', False):
             continue
-        fam = '核磁二维谱' if arr.kind == 'nmr' else ('声波波形' if arr.kind == 'waveform' else '二维成像')
+        gid = {'nmr': 'NMR', 'waveform': 'POR', 'image': 'FMI'}.get(arr.kind, 'FMI')
+        g = vc.group(gid) or {}
+        fam = g.get('name') or '二维数据族'
         items.append(CurveItem(
             column=key, label=arr.label or key, family=fam,
+            branch=arr.label or key,
             unit=arr.axis_label, scale='matrix', kind=arr.kind,
             is_array=True, array_key=key,
-            color=_QUAL_COLOR, status='ok', source=arr.source,
+            color=g.get('color') or _QUAL_COLOR, status='ok', source=arr.source,
+            group_id=gid, draw_mode=g.get('draw_mode') or 'matrix',
             note=arr.note))
     return items
 
@@ -9827,12 +9845,25 @@ def suggest_curve_color(items: list[CurveItem], column: str) -> str:
 
 
 def suggest_scale(items: list[CurveItem], column: str) -> str:
-    """新加入曲线的刻度方式：电阻率族用对数，定性(岩性/结论)用代码道，其余线性。"""
+    """【R87】新加入曲线的绘图方式由变量库的族 ``draw_mode`` 分派。
+
+    * 岩性族 / 解释结论族（qualitative、flag）→ 离散代码道，调用对应图例；
+    * 电阻率族（log、单位含 ohm）→ 对数刻度；
+    * 其余数值族 → 线性刻度。
+    未登记的曲线退回按列名/单位推断（变量库里改族即刻生效）。
+    """
     it = find_curve(items, column)
-    if it:
-        if it.scale == 'qualitative':
+    if it is None:
+        info = pm.classify_variable(column)
+        if info.get('draw_mode') in ('qualitative', 'flag'):
             return 'qualitative'
-        return 'log' if (it.scale == 'log' or 'ohm' in (it.unit or '').lower()) else 'lin'
+        return 'log' if (info.get('scale') == 'log'
+                         or 'ohm' in (info.get('unit') or '').lower()) else 'lin'
+    mode = it.draw_mode or ''
+    if mode in ('qualitative', 'flag') or it.scale in ('qualitative', 'flag'):
+        return 'qualitative'
+    if mode == 'log' or it.scale == 'log' or 'ohm' in (it.unit or '').lower():
+        return 'log'
     return 'lin'
 
 
@@ -10421,30 +10452,41 @@ class TrackCanvas(FigureCanvasQTAgg):
         return out
 
     def _draw_qualitative_series(self, ax, series, depth, curve: CurveSpec):
-        """【R85】把定性变量（岩性定名/解释结论/离散代码）画成深度色块道。
+        """【R85/R87】把定性变量（岩性定名/解释结论/离散代码）画成深度色块道。
 
-        与静态图的岩性/解释道同一视觉约定：已知流体/岩性类别取专门色表，
-        其余类别按稳定哈希取色（同名类别全井一致），空值留白。
-        多个定性曲线同轴叠放时用 curve 的 x 位置分区，避免互相覆盖。
+        【R87】颜色与中文标签来自变量库里该族绑定的**图例**：
+        岩性族 → 岩性图例，解释结论族 → 解释结论图例，层段族 → 标志图例。
+        图例代码可在主界面「变量库」里增删改。未命中图例的类别按稳定哈希
+        取色（同名类别全井一致），空值留白；道内直接绘制本道实际用到的
+        类别图例，类似 Techlog 的定性道图例。
         """
+        from matplotlib.patches import Patch
         mask = depth_window_slice(depth, self.top, self.bottom)
         dd = np.asarray(depth)[mask]
         raw = series.iloc[mask].astype(str).str.strip() if hasattr(series, 'iloc') else series
         vals = raw.to_numpy() if hasattr(raw, 'to_numpy') else np.asarray(raw)
         if dd.size == 0:
             return
+        legend_id = getattr(curve, 'legend_id', '') or vc.legend_for(curve.column)
+        codes = vc.legend_codes(legend_id) if legend_id else {}
         fluid = _fluid_colors()
+        fluid_labels = _fluid_labels()
         lith_palette = ['#c0392b', '#d35400', '#f39c12', '#27ae60', '#16a085',
                         '#2980b9', '#8e44ad', '#7f8c8d', '#795548', '#607d8b']
 
-        def _color(v: str) -> str:
+        def _color_label(v: str):
+            """→ (颜色, 中文标签, 是否参与图例)。"""
             up = v.upper()
-            if up and up not in ('NAN', 'NONE', '') and up in fluid:
-                return fluid[up]
             if not up or up in ('NAN', 'NONE'):
-                return '#ffffff'
+                return '#ffffff', '', False
+            for k in (up, v, v.strip()):
+                if k in codes:
+                    label, color = codes[k]
+                    return color, label, True
+            if up in fluid:
+                return fluid[up], fluid_labels.get(up, v), True
             h = sum(ord(ch) for ch in v)
-            return lith_palette[h % len(lith_palette)]
+            return lith_palette[h % len(lith_palette)], v, True
 
         # 游程合并：相邻同类画成一个矩形
         cur, z0 = None, None
@@ -10457,11 +10499,21 @@ class TrackCanvas(FigureCanvasQTAgg):
                 cur, z0 = v, float(dd[i])
         if cur is not None:
             runs.append((z0, float(dd[-1]), cur))
+        used: dict[str, str] = {}
         for z0, z1, v in runs:
-            ax.fill_betweenx([z0, z1], 0.0, 1.0, color=_color(v),
-                             alpha=0.85, linewidth=0)
+            c, lab, valid = _color_label(v)
+            ax.fill_betweenx([z0, z1], 0.0, 1.0, color=c, alpha=0.85, linewidth=0)
+            if valid and lab:
+                used.setdefault(lab, c)
         ax.set_xlim(0, 1)
         ax.set_xticks([])
+        # 【R87】调用相应图例：只列出本道实际出现的类别
+        if used:
+            handles = [Patch(facecolor=c, edgecolor='none', label=lab)
+                       for lab, c in sorted(used.items())]
+            ax.legend(handles=handles, loc='upper right', fontsize=6,
+                      framealpha=0.8, handlelength=1.0, handleheight=0.7,
+                      borderpad=0.3, labelspacing=0.25)
 
     def _draw_curve_track(self, ax, t: TrackSpec, px_h: int):
         df = self.well_data.df

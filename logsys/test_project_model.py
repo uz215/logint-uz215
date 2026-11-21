@@ -221,6 +221,73 @@ def test_source_datasets():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ---------------------------------------------------------------- R87 变量归属
+
+def test_variable_attribution():
+    """【R87】解释产物曲线变量归并到「输入的那个 LAS / DLIS」数据集节点下。"""
+    print('\n== R87 变量归属（输入 LAS / DLIS） ==')
+    tmp = tempfile.mkdtemp(prefix='projm_attr_')
+    try:
+        root = os.path.join(tmp, 'output')
+        os.makedirs(os.path.join(root, 'W1'))
+        src = os.path.join(tmp, 'src', 'W1')
+        os.makedirs(src)
+        with open(os.path.join(src, 'W1.las'), 'w', encoding='utf-8') as f:
+            f.write('~Version Information\nVERS. 2.0 : x\n'
+                    '~Well Information\nSTRT.M : 1000.0\nSTOP.M : 1010.0\n'
+                    'WELL. W1 : Well\n~Curve Information\n'
+                    'DEPT.M : Depth\nGR.API : Gamma Ray\n~ASCII\n1000.0 50.0\n')
+        with open(os.path.join(root, 'W1', 'W1_processed.csv'), 'w', encoding='utf-8') as f:
+            f.write('MD,GR,RT,LITHOLOGY,INTERPRETATION,VOL_CALCITE\n'
+                    '1000.0,50.0,20.0,sandstone,OIL,0.3\n')
+        w = pm.scan_well(os.path.join(root, 'W1'), src)
+        src_ds = [d for d in w.source_datasets if d.dtype == 'source']
+        check('识别到输入 LAS 数据集', len(src_ds) == 1, [d.name for d in src_ds])
+        if src_ds:
+            ds = src_ds[0]
+            names = [v.name for v in ds.variables]
+            check('解释产物变量挂在输入 LAS 下',
+                  all(x in names for x in ('LITHOLOGY', 'INTERPRETATION',
+                                           'VOL_CALCITE', 'RT')), names)
+            check('输入曲线仍在该数据集下', 'GR' in names, names)
+            curve = next((d for d in w.datasets if d.dtype == 'curve'), None)
+            check('产物曲线集不再重复列变量',
+                  curve is not None and not curve.variables,
+                  len(curve.variables) if curve else None)
+            check('产物曲线集写明归并去向',
+                  curve is not None and '归并' in (curve.note or ''), curve.note if curve else '')
+            lith = next((v for v in ds.variables if v.name == 'LITHOLOGY'), None)
+            check('岩性变量是解释产物且带族/图例',
+                  lith is not None and lith.origin == 'interpretation'
+                  and lith.group == '岩性族' and lith.legend_id == 'LITHOLOGY'
+                  and lith.draw_mode == 'qualitative', lith)
+            check('解释变量 source_file 指向输入 LAS',
+                  lith is not None and lith.source_file == ds.path)
+            gr = next((v for v in ds.variables if v.name == 'GR'), None)
+            check('输入变量 origin=measured', gr is not None and gr.origin == 'measured')
+            sel = pm.conditional_select(pm.Project('p', root, [w]), group='岩性族')
+            check('按族条件选择命中', bool(sel.get('W1')), sel)
+
+        # DLIS 场景：二进制输入也作为变量归属容器
+        os.makedirs(os.path.join(root, 'W2'))
+        src2 = os.path.join(tmp, 'src', 'W2')
+        os.makedirs(src2)
+        with open(os.path.join(src2, 'W2.dlis'), 'wb') as f:
+            f.write(b'\x00\x01DLIS-BINARY\x00\xff')
+        with open(os.path.join(root, 'W2', 'W2_processed.csv'), 'w', encoding='utf-8') as f:
+            f.write('MD,GR,INTERPRETATION\n1000.0,50.0,GAS\n')
+        w2 = pm.scan_well(os.path.join(root, 'W2'), src2)
+        dlis = [d for d in w2.source_datasets if d.dtype == 'source']
+        check('识别到输入 DLIS 数据集', len(dlis) == 1, [d.name for d in dlis])
+        if dlis:
+            check('DLIS 数据集名为原始测井 DLIS', dlis[0].name == '原始测井 DLIS')
+            check('解释产物变量挂在 DLIS 下',
+                  'INTERPRETATION' in [v.name for v in dlis[0].variables],
+                  [v.name for v in dlis[0].variables])
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
 # ---------------------------------------------------------------- 过滤/分组/选择
 
 def test_filter_group_select():
@@ -356,6 +423,7 @@ def main():
     test_scan()
     test_status_with_source()
     test_source_datasets()
+    test_variable_attribution()
     test_filter_group_select()
     test_summary()
     test_robustness()

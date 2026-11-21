@@ -1,0 +1,1236 @@
+{
+  "version": "R87.1",
+  "groups": [
+    {
+      "id": "DEPTH",
+      "name": "深度族",
+      "draw_mode": "linear",
+      "unit_default": "m",
+      "legend_id": "",
+      "color": "#37474f",
+      "order": 1,
+      "note": "MD / TVD / TVDSS 等深度基准"
+    },
+    {
+      "id": "RAD",
+      "name": "放射性族",
+      "draw_mode": "linear",
+      "unit_default": "API",
+      "legend_id": "",
+      "color": "#4c9a4c",
+      "order": 2,
+      "note": "自然伽马、光电效应等放射性曲线"
+    },
+    {
+      "id": "RES",
+      "name": "电阻率族",
+      "draw_mode": "log",
+      "unit_default": "ohm.m",
+      "legend_id": "",
+      "color": "#b03030",
+      "order": 3,
+      "note": "深/中/浅电阻率，默认对数刻度"
+    },
+    {
+      "id": "POR",
+      "name": "孔隙度/物性族",
+      "draw_mode": "linear",
+      "unit_default": "v/v",
+      "legend_id": "",
+      "color": "#2f6f9f",
+      "order": 4,
+      "note": "中子、密度、声波、孔隙度及其校正"
+    },
+    {
+      "id": "SAT",
+      "name": "饱和度族",
+      "draw_mode": "linear",
+      "unit_default": "v/v",
+      "legend_id": "",
+      "color": "#1a9850",
+      "order": 5,
+      "note": "含水/含油/含气饱和度"
+    },
+    {
+      "id": "MIN",
+      "name": "矿物/组分族",
+      "draw_mode": "linear",
+      "unit_default": "v/v",
+      "legend_id": "",
+      "color": "#795548",
+      "order": 6,
+      "note": "逐点矿物含量 VOL_*、泥质/粘土含量"
+    },
+    {
+      "id": "LITH",
+      "name": "岩性族",
+      "draw_mode": "qualitative",
+      "unit_default": "",
+      "legend_id": "LITHOLOGY",
+      "color": "#8e44ad",
+      "order": 7,
+      "note": "岩性定名与岩心录井，离散代码道 → 岩性图例"
+    },
+    {
+      "id": "INTERP",
+      "name": "解释结论族",
+      "draw_mode": "qualitative",
+      "unit_default": "",
+      "legend_id": "INTERPRETATION",
+      "color": "#d35400",
+      "order": 8,
+      "note": "流体/储层解释结论，离散代码道 → 解释结论图例"
+    },
+    {
+      "id": "GAS",
+      "name": "气测族",
+      "draw_mode": "linear",
+      "unit_default": "ppm",
+      "legend_id": "",
+      "color": "#e67e22",
+      "order": 9,
+      "note": "C1–C5、图版法 ITP、相对异常曲线"
+    },
+    {
+      "id": "NMR",
+      "name": "核磁族",
+      "draw_mode": "spectrum",
+      "unit_default": "",
+      "legend_id": "",
+      "color": "#16a085",
+      "order": 10,
+      "note": "T2 谱、孔隙度组分、渗透率"
+    },
+    {
+      "id": "FMI",
+      "name": "电成像族",
+      "draw_mode": "image",
+      "unit_default": "",
+      "legend_id": "",
+      "color": "#7f8c8d",
+      "order": 11,
+      "note": "微电阻率成像孔隙/溶孔/裂缝"
+    },
+    {
+      "id": "CAL",
+      "name": "井径/井斜族",
+      "draw_mode": "linear",
+      "unit_default": "in",
+      "legend_id": "",
+      "color": "#606060",
+      "order": 12,
+      "note": "井径、钻头尺寸、井斜与方位"
+    },
+    {
+      "id": "TOOL",
+      "name": "工具/质量族",
+      "draw_mode": "linear",
+      "unit_default": "",
+      "legend_id": "",
+      "color": "#9e9e9e",
+      "order": 13,
+      "note": "自然电位、张力、温度、质量标记"
+    },
+    {
+      "id": "LAYER",
+      "name": "层段/标志族",
+      "draw_mode": "flag",
+      "unit_default": "",
+      "legend_id": "FLAG",
+      "color": "#607d8b",
+      "order": 14,
+      "note": "层号、层名、套管井段等标志道"
+    },
+    {
+      "id": "UNCLASSIFIED",
+      "name": "未分类",
+      "draw_mode": "linear",
+      "unit_default": "",
+      "legend_id": "",
+      "color": "#b0bec5",
+      "order": 99,
+      "note": "尚未登记的曲线"
+    }
+  ],
+  "variables": [
+    {
+      "key": "MD",
+      "name": "测量深度",
+      "group_id": "DEPTH",
+      "unit": "m",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "主深度基准"
+    },
+    {
+      "key": "TVD",
+      "name": "真垂深",
+      "group_id": "DEPTH",
+      "unit": "m",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "DEPTH",
+      "name": "深度",
+      "group_id": "DEPTH",
+      "unit": "m",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "DEPT"
+      ],
+      "note": ""
+    },
+    {
+      "key": "GR",
+      "name": "自然伽马",
+      "group_id": "RAD",
+      "unit": "API",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "GR_API",
+        "GAMMA"
+      ],
+      "note": ""
+    },
+    {
+      "key": "PE",
+      "name": "光电效应",
+      "group_id": "RAD",
+      "unit": "b/e",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "PEF"
+      ],
+      "note": ""
+    },
+    {
+      "key": "RT",
+      "name": "电阻率",
+      "group_id": "RES",
+      "unit": "ohm.m",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "LLD",
+      "name": "深电阻率",
+      "group_id": "RES",
+      "unit": "ohm.m",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [
+        "RD",
+        "RDEP"
+      ],
+      "note": ""
+    },
+    {
+      "key": "LLS",
+      "name": "浅电阻率",
+      "group_id": "RES",
+      "unit": "ohm.m",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [
+        "RS",
+        "RSHAL"
+      ],
+      "note": ""
+    },
+    {
+      "key": "MSFL",
+      "name": "微电阻率",
+      "group_id": "RES",
+      "unit": "ohm.m",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [
+        "RXO"
+      ],
+      "note": ""
+    },
+    {
+      "key": "RTI",
+      "name": "侵入带电阻率",
+      "group_id": "RES",
+      "unit": "ohm.m",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "NDI",
+      "name": "侵入带电导率",
+      "group_id": "RES",
+      "unit": "mS/m",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "DEN",
+      "name": "密度",
+      "group_id": "POR",
+      "unit": "g/cm3",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "RHOB",
+        "RHOZ"
+      ],
+      "note": ""
+    },
+    {
+      "key": "CNL",
+      "name": "中子",
+      "group_id": "POR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "NPHI",
+        "CNL"
+      ],
+      "note": ""
+    },
+    {
+      "key": "DT",
+      "name": "声波时差",
+      "group_id": "POR",
+      "unit": "us/ft",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "DTC",
+        "DTCO"
+      ],
+      "note": ""
+    },
+    {
+      "key": "POR",
+      "name": "孔隙度",
+      "group_id": "POR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "PHIT"
+      ],
+      "note": ""
+    },
+    {
+      "key": "PHI",
+      "name": "有效孔隙度",
+      "group_id": "POR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "PHIE"
+      ],
+      "note": ""
+    },
+    {
+      "key": "NPOR",
+      "name": "中子孔隙度(解释)",
+      "group_id": "POR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "DRHO",
+      "name": "密度校正",
+      "group_id": "POR",
+      "unit": "g/cm3",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "PERM",
+      "name": "渗透率",
+      "group_id": "POR",
+      "unit": "mD",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [
+        "K"
+      ],
+      "note": ""
+    },
+    {
+      "key": "SW",
+      "name": "含水饱和度",
+      "group_id": "SAT",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "SWB"
+      ],
+      "note": ""
+    },
+    {
+      "key": "SO",
+      "name": "含油饱和度",
+      "group_id": "SAT",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "SXO"
+      ],
+      "note": ""
+    },
+    {
+      "key": "SG",
+      "name": "含气饱和度",
+      "group_id": "SAT",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "VSH",
+      "name": "泥质含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VCLAY",
+      "name": "粘土含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VQUARTZ",
+      "name": "石英含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VCALCITE",
+      "name": "方解石含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VDOLOMITE",
+      "name": "白云石含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "GSI",
+      "name": "岩性指数",
+      "group_id": "MIN",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "CGI",
+      "name": "几何因子",
+      "group_id": "MIN",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "VOL_CALCITE",
+      "name": "方解石含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VOL_DOLOM",
+      "name": "白云石含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VOL_ANHY",
+      "name": "硬石膏含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VOL_HALITE",
+      "name": "盐岩含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VOL_ILLITE",
+      "name": "伊利石含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VOL_QUARTZ",
+      "name": "石英含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "VOL_CLAY",
+      "name": "粘土含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "LITHOLOGY",
+      "name": "岩性",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY",
+      "aliases": [
+        "LITH"
+      ],
+      "note": "解释产物"
+    },
+    {
+      "key": "LITHOLOGY_MC",
+      "name": "岩性定名(蒙特卡洛)",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "CORE_LITH",
+      "name": "岩心录井岩性",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "CORE_ZONE_LITH",
+      "name": "岩心分层岩性",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "LITHO_QE",
+      "name": "岩性(QE)",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "LITHO_QE1",
+      "name": "岩性(QE1)",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "FACIES",
+      "name": "沉积相",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "LITH_MC_CONF",
+      "name": "岩性置信度",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "数值覆盖族默认"
+    },
+    {
+      "key": "INTERPRETATION",
+      "name": "解释结论",
+      "group_id": "INTERP",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "INTERPRETATION",
+      "aliases": [
+        "FLUID_FINAL",
+        "FLUID_IDENTIFICATION",
+        "PLATE_FLUID"
+      ],
+      "note": "解释产物"
+    },
+    {
+      "key": "FLUID_FINAL",
+      "name": "最终流体结论",
+      "group_id": "INTERP",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "INTERPRETATION",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "PLATE_FLUID",
+      "name": "图版流体结论",
+      "group_id": "INTERP",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "INTERPRETATION",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "C1",
+      "name": "甲烷",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "C2",
+      "name": "乙烷",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "C3",
+      "name": "丙烷",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "IC4",
+      "name": "异丁烷",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "NC4",
+      "name": "正丁烷",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "IC5",
+      "name": "异戊烷",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "NC5",
+      "name": "正戊烷",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "ITP",
+      "name": "气测图版指数",
+      "group_id": "GAS",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "TGAS",
+      "name": "全烃",
+      "group_id": "GAS",
+      "unit": "ppm",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "TOTAL_GAS"
+      ],
+      "note": ""
+    },
+    {
+      "key": "TCMR",
+      "name": "核磁总孔隙度",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "FFI",
+      "name": "自由流体孔隙度",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "BVI",
+      "name": "束缚流体孔隙度",
+      "group_id": "NMR",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "T2LM",
+      "name": "T2 几何均值",
+      "group_id": "NMR",
+      "unit": "ms",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "NMR_PERM",
+      "name": "核磁渗透率",
+      "group_id": "NMR",
+      "unit": "mD",
+      "scale": "log",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "FMI_POROSITY",
+      "name": "成像孔隙度",
+      "group_id": "FMI",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "FMI_VUG",
+      "name": "溶孔密度",
+      "group_id": "FMI",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "FMI_FRAC",
+      "name": "裂缝密度",
+      "group_id": "FMI",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "CAL",
+      "name": "井径",
+      "group_id": "CAL",
+      "unit": "in",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [
+        "CALI"
+      ],
+      "note": ""
+    },
+    {
+      "key": "CALS",
+      "name": "井径（计算）",
+      "group_id": "CAL",
+      "unit": "in",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "BS",
+      "name": "钻头尺寸",
+      "group_id": "CAL",
+      "unit": "in",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "AZIM",
+      "name": "方位角",
+      "group_id": "CAL",
+      "unit": "deg",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "DEVI",
+      "name": "井斜",
+      "group_id": "CAL",
+      "unit": "deg",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "SP",
+      "name": "自然电位",
+      "group_id": "TOOL",
+      "unit": "mV",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "TENS",
+      "name": "张力",
+      "group_id": "TOOL",
+      "unit": "lbf",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "SPED",
+      "name": "井底温度",
+      "group_id": "TOOL",
+      "unit": "degC",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "MTEM",
+      "name": "测量温度",
+      "group_id": "TOOL",
+      "unit": "degC",
+      "scale": "linear",
+      "legend_id": "",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "LAYER_ID",
+      "name": "层号",
+      "group_id": "LAYER",
+      "unit": "",
+      "scale": "flag",
+      "legend_id": "FLAG",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "LAYER_LABEL",
+      "name": "层名",
+      "group_id": "LAYER",
+      "unit": "",
+      "scale": "flag",
+      "legend_id": "FLAG",
+      "aliases": [],
+      "note": "解释产物"
+    },
+    {
+      "key": "IS_CASING",
+      "name": "套管井段",
+      "group_id": "LAYER",
+      "unit": "",
+      "scale": "flag",
+      "legend_id": "FLAG",
+      "aliases": [],
+      "note": ""
+    },
+    {
+      "key": "VALID_CURVES_COUNT",
+      "name": "有效曲线数",
+      "group_id": "LAYER",
+      "unit": "",
+      "scale": "flag",
+      "legend_id": "FLAG",
+      "aliases": [],
+      "note": ""
+    }
+  ],
+  "legends": [
+    {
+      "id": "LITHOLOGY",
+      "name": "岩性图例",
+      "note": "岩性族定性道使用",
+      "codes": [
+        [
+          "SANDSTONE|砂岩|SS|SAND",
+          "砂岩",
+          "#f4d03f"
+        ],
+        [
+          "SILTSTONE|粉砂岩|粉砂",
+          "粉砂岩",
+          "#d2b4de"
+        ],
+        [
+          "SHALE|泥岩|SH|MUDSTONE",
+          "泥岩",
+          "#7f8c8d"
+        ],
+        [
+          "CARBONACEOUS_SHALE|碳质泥岩|炭质泥岩",
+          "碳质泥岩",
+          "#4d5656"
+        ],
+        [
+          "CLAY|粘土|黏土",
+          "粘土",
+          "#a04000"
+        ],
+        [
+          "LIMESTONE|灰岩|石灰岩|LS|LIME",
+          "灰岩",
+          "#85c1e9"
+        ],
+        [
+          "DOLOMITE|白云岩|DOL",
+          "白云岩",
+          "#af7ac5"
+        ],
+        [
+          "MARL|泥灰岩",
+          "泥灰岩",
+          "#a3e4d7"
+        ],
+        [
+          "ANHYDRITE|硬石膏|ANHY",
+          "硬石膏",
+          "#f5b7b1"
+        ],
+        [
+          "HALITE|盐岩|岩盐|SALT",
+          "盐岩",
+          "#fdfefe"
+        ],
+        [
+          "GYPSUM|石膏",
+          "石膏",
+          "#fadbd8"
+        ],
+        [
+          "CONGLOMERATE|砾岩",
+          "砾岩",
+          "#e59866"
+        ],
+        [
+          "COAL|煤|煤层",
+          "煤层",
+          "#212f3d"
+        ],
+        [
+          "IGNEOUS|火成岩|岩浆岩",
+          "火成岩",
+          "#c0392b"
+        ],
+        [
+          "OTHER|其它|其他|UNKNOWN",
+          "其它",
+          "#eceff1"
+        ]
+      ]
+    },
+    {
+      "id": "INTERPRETATION",
+      "name": "解释结论图例",
+      "note": "解释结论族定性道使用",
+      "codes": [
+        [
+          "OIL|油层|OIL_LAYER",
+          "油层",
+          "#1a9850"
+        ],
+        [
+          "GAS|气层|GAS_LAYER",
+          "气层",
+          "#d73027"
+        ],
+        [
+          "WATER|水层|WATER_LAYER",
+          "水层",
+          "#00a8f8"
+        ],
+        [
+          "OIL_POSSIBLE|弱油|油水过渡|含油可能",
+          "弱油/油水过渡",
+          "#a6d96a"
+        ],
+        [
+          "GAS_POSSIBLE|含气可能|弱气",
+          "含气可能",
+          "#fc8d59"
+        ],
+        [
+          "OIL_WATER|油水同层|油水层",
+          "油水同层",
+          "#66c2a5"
+        ],
+        [
+          "GAS_WATER|气水同层|气水层",
+          "气水同层",
+          "#fdae61"
+        ],
+        [
+          "DRY|干层|致密层|致密|TIGHT",
+          "干层/致密层",
+          "#bdbdbd"
+        ],
+        [
+          "OTHER|非储层|其它|其他|UNKNOWN",
+          "非储层",
+          "#eceff1"
+        ]
+      ]
+    },
+    {
+      "id": "FLAG",
+      "name": "标志图例",
+      "note": "层段/标志族使用",
+      "codes": [
+        [
+          "CASING|套管|套管井段",
+          "套管井段",
+          "#607d8b"
+        ],
+        [
+          "LAYER|层|层界",
+          "层界",
+          "#8d6e63"
+        ],
+        [
+          "GOOD|有效|合格",
+          "有效",
+          "#2e7d32"
+        ],
+        [
+          "BAD|无效|不合格",
+          "无效",
+          "#c62828"
+        ]
+      ]
+    }
+  ],
+  "prefix_rules": [
+    {
+      "prefix": "VOL_",
+      "name": "矿物含量",
+      "group_id": "MIN",
+      "unit": "v/v",
+      "scale": "linear",
+      "legend_id": ""
+    },
+    {
+      "prefix": "LITHOLOGY",
+      "name": "岩性解释",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY"
+    },
+    {
+      "prefix": "LITH_",
+      "name": "岩性解释",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY"
+    },
+    {
+      "prefix": "CORE_LITH",
+      "name": "岩心岩性",
+      "group_id": "LITH",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "LITHOLOGY"
+    },
+    {
+      "prefix": "INTERPRET",
+      "name": "解释结论",
+      "group_id": "INTERP",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "INTERPRETATION"
+    },
+    {
+      "prefix": "FLUID_",
+      "name": "解释结论",
+      "group_id": "INTERP",
+      "unit": "",
+      "scale": "qualitative",
+      "legend_id": "INTERPRETATION"
+    },
+    {
+      "prefix": "FMI_",
+      "name": "电成像解释",
+      "group_id": "FMI",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": ""
+    },
+    {
+      "prefix": "T2_",
+      "name": "核磁 T2 谱",
+      "group_id": "NMR",
+      "unit": "ms",
+      "scale": "linear",
+      "legend_id": ""
+    },
+    {
+      "prefix": "GAS_",
+      "name": "气测解释",
+      "group_id": "GAS",
+      "unit": "",
+      "scale": "linear",
+      "legend_id": ""
+    }
+  ],
+  "internal_columns": [
+    "_POROSITY_VALID",
+    "SPRING_QC",
+    "VSH_PREV",
+    "VSH_GR_CAL",
+    "INTERPRETATION_SCORE",
+    "DISTANCE",
+    "HIT_RATE",
+    "DIRECTION_SCORE",
+    "BETTER_COUNT",
+    "PHI_DISP",
+    "SW_DISP",
+    "RHOB_corrected",
+    "MSFL_corrected"
+  ],
+  "unit_hints": {
+    "GR": "API",
+    "DEN": "g/cm3",
+    "CNL": "v/v",
+    "DT": "us/ft",
+    "RT": "ohm.m",
+    "CAL": "in",
+    "PE": "b/e",
+    "SP": "mV",
+    "POR": "v/v",
+    "SW": "v/v",
+    "VSH": "v/v"
+  }
+}

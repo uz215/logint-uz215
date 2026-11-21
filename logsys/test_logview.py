@@ -206,8 +206,10 @@ def test_catalog():
         names = [i.column for i in items]
         check('深度列不入目录', 'MD' not in names, names)
         check('内部列不入目录', '_POROSITY_VALID' not in names, names)
+        # 【R87】曲线目录按「族」分组：family=族名，branch=分支变量显示名
         check('GR 在目录中且族正确',
-              any(i.column == 'GR' and i.family == '自然伽马' for i in items), names)
+              any(i.column == 'GR' and i.family == '放射性族'
+                  and i.branch == '自然伽马' for i in items), names)
         check('RT 在目录中且单位为 ohm.m',
               any(i.column == 'RT' and i.unit == 'ohm.m' for i in items), names)
         check('定性列（岩性）标记为定性',
@@ -335,7 +337,10 @@ def test_2d_catalog_fold():
     check('二维条目 source=解释曲线集', arr_items[0].source == '解释曲线集')
     check('一维曲线仍在', any(i.column == 'GR' for i in items))
     groups = dict(lv.catalog_groups(items))
-    check('二维条目单列分组', '核磁二维谱' in groups)
+    # 【R87】二维数组条目也归入变量库的族（核磁族），绘图方式 = spectrum
+    check('二维条目归入核磁族', '核磁族' in groups, list(groups))
+    check('二维条目绘图方式=spectrum', arr_items[0].draw_mode == 'spectrum',
+          arr_items[0].draw_mode)
 
 
 def test_2d_trackspec_roundtrip():

@@ -47,6 +47,7 @@ from PyQt5.QtWidgets import (
     QLineEdit, QComboBox, QCheckBox, QVBoxLayout, QHBoxLayout,
     QMenu, QAction, QDialog, QDialogButtonBox, QListWidget, QAbstractItemView,
     QTextEdit, QShortcut, QTabWidget, QSizePolicy, QToolButton,
+    QStackedWidget, QTableWidget, QTableWidgetItem, QHeaderView,
 )
 
 from logsys import qtgui as _qg
@@ -55,6 +56,7 @@ from logsys import project_config as pcfg
 from logsys import project_job as pjob
 from logsys import project_model as pm
 from logsys import data_ops as dop
+from logsys import variable_catalog as vc
 
 # 配色（与 logInt 现有界面一致：主色 #1a5c9e）
 C_BG = '#f5f6f8'
@@ -251,7 +253,7 @@ class ProjectBrowser:
         self.lbl_path = self._mk_label('', small=True, muted=True)
         self.path_var.bind_label(self.lbl_path)
         hl.addWidget(self.lbl_path, 1)
-        hl.addWidget(self._mk_button(hdr, '打开项目根…', self._pick_root))
+        hl.addWidget(self._mk_button(hdr, '项目根设置…', self._pick_root))
         hl.addWidget(self._mk_button(hdr, '刷新', self.refresh))
         root.addWidget(hdr)
 
@@ -268,6 +270,9 @@ class ProjectBrowser:
             ('数据质检', '深度/曲线/值域检查并出报告', self._show_func_qc),
             ('数据导入', '复制外部数据到井资料目录', self._show_func_import),
             ('数据导出', '曲线集导出 CSV / XLSX / LAS', self._show_func_export),
+            # 【R87】变量字典库：族/分支/单位/绘图方式/图例的唯一编辑入口
+            ('变量库', '族 → 分支变量 → 图例：族名、单位、绘图方式增删改',
+             self._show_func_catalog),
         ]))
         ril.addWidget(self._vline())
         ril.addWidget(self._ribbon_group('解释处理', [
@@ -412,7 +417,7 @@ class ProjectBrowser:
                 ('核磁处理（选中井）', self._menu_nmr),
                 ('电成像处理（选中井）', self._menu_fmi),
                 (None, None),
-                ('打开项目根…', self._pick_root),
+                ('项目根设置…', self._pick_root),
                 ('管理源根…', self._menu_manage_roots),
                 ('刷新', self.refresh)):
             if label is None:
@@ -459,7 +464,14 @@ class ProjectBrowser:
         self.func_text = _qc.TextCompat(func_page)
         self.func_text.setReadOnly(True)
         self.func_text.setStyleSheet('font-family: Consolas; font-size: 9pt;')
-        fl2.addWidget(self.func_text, 1)
+        # 【R87】功能页两页：普通功能说明 / 变量字典库编辑器（表格增删改）
+        self.func_stack = QStackedWidget()
+        self.func_stack.addWidget(self.func_text)                 # index 0
+        self.catalog_page = self._build_catalog_page()            # index 1
+        self.func_stack.addWidget(self.catalog_page)
+        self.conditional_page = self._build_conditional_page()    # index 2
+        self.func_stack.addWidget(self.conditional_page)
+        fl2.addWidget(self.func_stack, 1)
         # 输入行：与「数据加载」共用扫描结果，下拉可选/可直接粘贴路径，无文件对话框
         self.func_input_row = QHBoxLayout()
         self.func_input_row.setContentsMargins(0, 2, 0, 2)
@@ -642,6 +654,9 @@ class ProjectBrowser:
                      '气测解释': lambda: self._show_func_job('gas'),
                      '核磁处理': lambda: self._show_func_job('nmr'),
                      '电成像处理': lambda: self._show_func_job('fmi'),
+                     '变量字典库': self._show_func_catalog,
+                     '条件选择变量': self._show_func_conditional,
+                     '项目根设置': self._show_func_root,
                      '交互绘图': self._show_func_logview}
             for prefix, slot in table.items():
                 if title.startswith(prefix):
@@ -686,10 +701,25 @@ class ProjectBrowser:
         self._ds_by_iid[iid] = ds
         if self.show_vars.get():
             self.tree.item(iid, open=True)
-            for v in ds.variables:
-                self.tree.insert(iid, 'end', text='  %s' % v.name,
-                                 values=(v.family or '（无族）', v.unit or '（无单位）'),
-                                 tags=(v.color,))
+            # 【R87】Techlog 式「族 → 分支变量」两级：变量挂在输入 LAS/DLIS 数据集下
+            for gname, vs in pm.group_variables(ds.variables):
+                mode = (vs[0].draw_mode if vs else '') or 'linear'
+                legend = (vs[0].legend_id if vs else '') or ''
+                detail = '%d 变量 ｜ %s' % (len(vs), mode)
+                if legend:
+                    detail += ' ｜ 图例 %s' % legend
+                giid = self.tree.insert(iid, 'end',
+                                        text='▣ %s（%d）' % (gname, len(vs)),
+                                        values=('族', detail),
+                                        tags=('dataset',), open=True)
+                for v in vs:
+                    origin = '解释' if v.origin == 'interpretation' else '输入'
+                    self.tree.insert(giid, 'end', text='  %s' % v.name,
+                                     values=(v.family or '（无分支）',
+                                             '%s ｜ %s ｜ %s' % (
+                                                 v.unit or '（无单位）', origin,
+                                                 v.draw_mode or 'linear')),
+                                     tags=(v.color,))
         return iid
 
     # ---------------- 属性面板 ----------------
@@ -705,10 +735,328 @@ class ProjectBrowser:
         p = os.path.join(self._well_out_dir(w), '%s_processed.csv' % w.name)
         return p if os.path.isfile(p) else ''
 
+    # ---------------- 【R87】变量字典库编辑器（界面内增删改，无弹窗） ----------------
+
+    _CAT_HEADERS = {
+        'groups': (['族 id', '族名', '绘图方式', '默认单位', '图例', '族色', '顺序', '说明'],
+                   '族决定绘图方式：定性族（岩性/解释结论）会调用对应图例；族名、单位可直接改。'),
+        'variables': (['曲线名', '分支显示名', '所属族', '单位', '刻度', '图例',
+                       '别名(逗号分隔)', '说明'],
+                      '解释产物都是曲线变量；改「所属族」即改变其分组与绘图方式。'),
+        'legend_codes': (['图例 id', '代码(可含 | 别名)', '中文标签', '颜色'],
+                         '岩性族 / 解释结论族绘制时按「代码 → 标签 + 颜色」调用图例。'),
+        'prefix_rules': (['前缀', '分支显示名', '所属族', '单位', '刻度', '图例'],
+                         '未精确登记的曲线按前缀归族（长前缀优先）。'),
+    }
+
+    def _build_catalog_page(self):
+        """变量库编辑器：一张可编辑表格 + 表类型下拉（四张逻辑表共用）。"""
+        page = QWidget()
+        vl = QVBoxLayout(page)
+        vl.setContentsMargins(2, 2, 2, 2)
+        top = QHBoxLayout()
+        top.addWidget(self._mk_label('变量字典库', bold=True))
+        top.addWidget(self._mk_label('表：', small=True, muted=True))
+        self.cat_kind = QComboBox()
+        for key, label in (('groups', '族'), ('variables', '分支变量'),
+                           ('legend_codes', '图例代码'), ('prefix_rules', '前缀规则')):
+            self.cat_kind.addItem(label, key)
+        self.cat_kind.setFixedWidth(130)
+        self.cat_kind.currentIndexChanged.connect(lambda *_: self._cat_reload())
+        top.addWidget(self.cat_kind)
+        top.addStretch(1)
+        self.cat_hint = self._mk_label('', small=True, muted=True)
+        top.addWidget(self.cat_hint)
+        vl.addLayout(top)
+        self.cat_table = QTableWidget()
+        self.cat_table.setAlternatingRowColors(True)
+        self.cat_table.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.cat_table.setStyleSheet('font-size: 9pt;')
+        self.cat_table.horizontalHeader().setStretchLastSection(True)
+        vl.addWidget(self.cat_table, 1)
+        return page
+
+    def _cat_options(self):
+        cat = vc.as_dict()
+        return {
+            'legend': [('（无）', '')] + [
+                ('%s · %s' % (lg.get('id'), lg.get('name', '')), lg.get('id'))
+                for lg in cat.get('legends', [])],
+            'group': [('（未分类）', 'UNCLASSIFIED')] + [
+                ('%s · %s' % (g.get('id'), g.get('name', '')), g.get('id'))
+                for g in cat.get('groups', [])],
+            'mode': [(m, m) for m in vc.DRAW_MODES],
+            'scale': [(s, s) for s in vc.SCALES],
+        }
+
+    def _cat_combo(self, options, current):
+        cb = QComboBox()
+        for label, value in options:
+            cb.addItem(str(label), value)
+        idx = cb.findData(current)
+        if idx >= 0:
+            cb.setCurrentIndex(idx)
+        elif current:
+            cb.insertItem(0, str(current), current)
+            cb.setCurrentIndex(0)
+        return cb
+
+    def _cat_combo_cols(self, kind):
+        opts = self._cat_options()
+        if kind == 'groups':
+            return {2: opts['mode'], 4: opts['legend']}
+        if kind == 'variables':
+            return {2: opts['group'], 4: opts['scale'], 5: opts['legend']}
+        if kind == 'legend_codes':
+            return {0: [(lg['id'], lg['id']) for lg in vc.legends()]}
+        return {2: opts['group'], 4: opts['scale'], 5: opts['legend']}
+
+    def _cat_reload(self):
+        kind = self.cat_kind.currentData() or 'groups'
+        headers, hint = self._CAT_HEADERS[kind]
+        cat = vc.as_dict()
+        rows: list[list[str]] = []
+        if kind == 'groups':
+            for g in cat.get('groups', []):
+                rows.append([g.get('id', ''), g.get('name', ''), g.get('draw_mode', ''),
+                             g.get('unit_default', ''), g.get('legend_id', ''),
+                             g.get('color', ''), str(g.get('order', '')), g.get('note', '')])
+        elif kind == 'variables':
+            for v in cat.get('variables', []):
+                rows.append([v.get('key', ''), v.get('name', ''), v.get('group_id', ''),
+                             v.get('unit', ''), v.get('scale', ''), v.get('legend_id', ''),
+                             ','.join(v.get('aliases') or []), v.get('note', '')])
+        elif kind == 'legend_codes':
+            for lg in cat.get('legends', []):
+                for c in lg.get('codes') or []:
+                    rows.append([lg.get('id', ''), c[0] if len(c) > 0 else '',
+                                 c[1] if len(c) > 1 else '',
+                                 c[2] if len(c) > 2 else ''])
+        else:
+            for r in cat.get('prefix_rules', []):
+                rows.append([r.get('prefix', ''), r.get('name', ''), r.get('group_id', ''),
+                             r.get('unit', ''), r.get('scale', ''), r.get('legend_id', '')])
+        cols = self._cat_combo_cols(kind)
+        self.cat_table.blockSignals(True)
+        self.cat_table.setColumnCount(len(headers))
+        self.cat_table.setHorizontalHeaderLabels(headers)
+        self.cat_table.setRowCount(len(rows))
+        for r, row in enumerate(rows):
+            for c, val in enumerate(row):
+                if c in cols:
+                    self.cat_table.setCellWidget(r, c, self._cat_combo(cols[c], str(val)))
+                else:
+                    self.cat_table.setItem(r, c, QTableWidgetItem(str(val)))
+        self.cat_table.resizeColumnsToContents()
+        self.cat_table.horizontalHeader().setStretchLastSection(True)
+        self.cat_table.blockSignals(False)
+        self.cat_hint.setText(hint)
+
+    def _cat_cell(self, r, c) -> str:
+        w = self.cat_table.cellWidget(r, c)
+        if isinstance(w, QComboBox):
+            return str(w.currentData() or '')
+        it = self.cat_table.item(r, c)
+        return it.text().strip() if it else ''
+
+    def _cat_row(self, r) -> list[str]:
+        return [self._cat_cell(r, c) for c in range(self.cat_table.columnCount())]
+
+    def _cat_add_row(self):
+        r = self.cat_table.rowCount()
+        self.cat_table.insertRow(r)
+        cols = self._cat_combo_cols(self.cat_kind.currentData() or 'groups')
+        for c in range(self.cat_table.columnCount()):
+            if c in cols:
+                self.cat_table.setCellWidget(r, c, self._cat_combo(cols[c], ''))
+            else:
+                self.cat_table.setItem(r, c, QTableWidgetItem(''))
+        self._log('已新增一行 —— 填好后点「保存到变量库」')
+
+    def _cat_del_row(self):
+        rows = sorted({i.row() for i in self.cat_table.selectedIndexes()}, reverse=True)
+        for r in rows:
+            self.cat_table.removeRow(r)
+        self._log('已删除 %d 行（点「保存到变量库」后生效）' % len(rows))
+
+    def _cat_save(self):
+        """把当前表格整表写回变量库（含新增/删除/改名），随后刷新项目树。"""
+        kind = self.cat_kind.currentData() or 'groups'
+        cat = vc.as_dict()
+        rows = [self._cat_row(r) for r in range(self.cat_table.rowCount())]
+        if kind == 'groups':
+            keys = ('id', 'name', 'draw_mode', 'unit_default', 'legend_id',
+                    'color', 'order', 'note')
+            cat['groups'] = [dict(zip(keys, row)) for row in rows
+                             if row and row[0] and row[1]]
+            for g in cat['groups']:
+                try:
+                    g['order'] = int(g['order'] or 99)
+                except (ValueError, TypeError):
+                    g['order'] = 99
+        elif kind == 'variables':
+            cat['variables'] = []
+            for row in rows:
+                if not row or not row[0]:
+                    continue
+                cat['variables'].append({
+                    'key': row[0].upper(), 'name': row[1] or row[0],
+                    'group_id': row[2] or 'UNCLASSIFIED', 'unit': row[3],
+                    'scale': row[4] or 'linear', 'legend_id': row[5],
+                    'aliases': [a.strip() for a in row[6].replace('，', ',').split(',')
+                                if a.strip()],
+                    'note': row[7] if len(row) > 7 else ''})
+        elif kind == 'legend_codes':
+            old = {lg['id']: lg for lg in cat.get('legends', [])}
+            buckets = {}
+            for row in rows:
+                if len(row) < 4 or not row[0] or not row[1]:
+                    continue
+                d = buckets.setdefault(row[0], {
+                    'id': row[0], 'name': old.get(row[0], {}).get('name', row[0]),
+                    'note': old.get(row[0], {}).get('note', ''), 'codes': []})
+                d['codes'].append([row[1], row[2] or row[1], row[3] or '#b0bec5'])
+            cat['legends'] = list(buckets.values())
+            for lid, lg in old.items():        # 空图例也保留，避免误删整个图例
+                if lid not in buckets:
+                    cat['legends'].append(dict(lg, codes=[]))
+        else:
+            keys = ('prefix', 'name', 'group_id', 'unit', 'scale', 'legend_id')
+            cat['prefix_rules'] = [dict(zip(keys, row)) for row in rows
+                                  if row and row[0]]
+            for r in cat['prefix_rules']:
+                r['prefix'] = r['prefix'].upper()
+            cat['prefix_rules'].sort(key=lambda r: -len(r['prefix']))
+        if vc.import_dict(cat):
+            self._log('变量库已保存：%s（%d 行）→ %s' % (
+                self.cat_kind.currentText(), len(rows), vc.CATALOG_PATH))
+            self.refresh()
+            self._cat_reload()
+        else:
+            self._log('变量库保存失败：数据结构无效')
+
+    def _cat_reset(self):
+        vc.reset_defaults()
+        self._log('变量库已恢复出厂默认（15 族 / 77 变量 / 3 图例）')
+        self.refresh()
+        self._cat_reload()
+
+    def _show_func_catalog(self):
+        """【R87】变量字典库：族 → 分支变量 → 图例 的唯一编辑入口。"""
+        self.func_title.setText('变量字典库')
+        self.func_stack.setCurrentIndex(1)
+        self._func_key = 'catalog'
+        self._func_input_kind = ''
+        self._fill_func_input('')
+        while self.func_actions.count():
+            item = self.func_actions.takeAt(0)
+            wd = item.widget()
+            if wd is not None:
+                wd.deleteLater()
+        for label, slot in (('保存到变量库', self._cat_save),
+                            ('新增行', self._cat_add_row),
+                            ('删除选中行', self._cat_del_row),
+                            ('恢复默认', self._cat_reset),
+                            ('刷新表', self._cat_reload)):
+            b = self._mk_button(None, label, slot)
+            b.setMaximumWidth(120)
+            self.func_actions.addWidget(b)
+        self.func_actions.addStretch(1)
+        self._cat_reload()
+        self.right_nb.setCurrentIndex(1)
+
+    # ---------------- 【R87】条件选择：改为功能页，界面内完成，不弹窗 ----------------
+
+    def _build_conditional_page(self):
+        page = QWidget()
+        vl = QVBoxLayout(page)
+        vl.setContentsMargins(2, 2, 2, 2)
+        vl.addWidget(self._mk_label(
+            '条件选择变量（Techlog Conditional selection）｜留空 = 不过滤', bold=True))
+        form = QHBoxLayout()
+        specs = []
+        for attr, width in (('cond_group', 140), ('cond_family', 140),
+                            ('cond_unit', 110), ('cond_kind', 100)):
+            cb = QComboBox()
+            cb.setEditable(True)
+            cb.setFixedWidth(width)
+            setattr(self, attr, cb)
+            specs.append(cb)
+        for label, cb in zip(('族', '分支', '单位', '类型'), specs):
+            form.addWidget(self._mk_label(label, small=True, muted=True))
+            form.addWidget(cb)
+        form.addStretch(1)
+        vl.addLayout(form)
+        self.cond_result = _qc.TextCompat(page)
+        self.cond_result.setReadOnly(True)
+        self.cond_result.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+        vl.addWidget(self.cond_result, 1)
+        return page
+
+    def _cond_refresh_options(self, w):
+        all_ds = list(w.datasets) + list(w.source_datasets)
+        fams = sorted({v.family for d in all_ds for v in d.variables if v.family})
+        units = sorted({v.unit for d in all_ds for v in d.variables if v.unit})
+        kinds = sorted({v.kind for d in all_ds for v in d.variables})
+        for cb, vals in ((self.cond_group, vc.all_group_names()),
+                         (self.cond_family, fams), (self.cond_unit, units),
+                         (self.cond_kind, kinds)):
+            cur = cb.currentText()
+            cb.blockSignals(True)
+            cb.clear()
+            cb.addItem('')
+            cb.addItems([str(x) for x in vals])
+            if cur:
+                cb.setEditText(cur)
+            cb.blockSignals(False)
+
+    def _cond_run(self):
+        w = self._selected_well()
+        if not w:
+            self._log('请先选中一口井')
+            return
+        sel = pm.conditional_select(
+            pm.Project(self.project.name, self.project.path, [w]),
+            group=self.cond_group.currentText().strip(),
+            family=self.cond_family.currentText().strip(),
+            unit=self.cond_unit.currentText().strip(),
+            kind=self.cond_kind.currentText().strip())
+        lines = []
+        for well, dss in sel.items():
+            for dn, vs in dss.items():
+                lines.append('%s / %s\n' % (well, dn))
+                for v in vs:
+                    lines.append('    %s\n' % v)
+                lines.append('\n')
+        self.cond_result.clear()
+        self.cond_result.insert('1.0', ''.join(lines) or '（无匹配变量）')
+
+    def _show_func_conditional(self):
+        w = self._selected_well()
+        self.func_title.setText('条件选择变量')
+        self.func_stack.setCurrentIndex(2)
+        self._func_key = 'conditional'
+        self._func_input_kind = ''
+        self._fill_func_input('')
+        while self.func_actions.count():
+            item = self.func_actions.takeAt(0)
+            wd = item.widget()
+            if wd is not None:
+                wd.deleteLater()
+        for label, slot in (('执行选择', self._cond_run),
+                            ('清空结果', lambda: self.cond_result.clear())):
+            b = self._mk_button(None, label, slot)
+            b.setMaximumWidth(120)
+            self.func_actions.addWidget(b)
+        self.func_actions.addStretch(1)
+        self._cond_refresh_options(w or pm.Well(''))
+        self.right_nb.setCurrentIndex(1)
+
     def _set_func(self, title: str, text: str, actions: list[tuple[str, object]],
                   key: str = '', input_kind: str = ''):
         """切换右侧「功能」页内容并重建动作按钮/输入行。"""
         self.func_title.setText(title)
+        self.func_stack.setCurrentIndex(0)
         self.func_text.configure(state='normal')
         self.func_text.delete('1.0', 'end')
         self.func_text.insert('1.0', text or '')
@@ -917,6 +1265,12 @@ class ProjectBrowser:
                     '  · 可修改道组合、比例、图头与界面；\n'
                     '  · 再次打开自动载入上次保存的布局继续修改。\n\n'
                     '不跑解释作业：有产物读产物，无产物读原始 LAS / 源数据。')
+        if key == 'root':
+            return (head + '项目根设置：在下方输入框粘贴项目根目录绝对路径\n'
+                    '（每子目录 = 一口井，即 output/ 这类目录），点「切换项目根」。\n\n'
+                    '当前项目根：%s\n\n'
+                    '不弹目录选择框 —— 路径输入、切换、刷新都在本界面完成。'
+                    % self.root_dir)
         return head
 
     def _show_func_load(self):
@@ -1085,6 +1439,8 @@ class ProjectBrowser:
             rows.append('    路径   : %s' % ds.path)
             rows.append('    大小   : %s' % _human_size(ds.size))
             rows.append('    变量   : %d' % len(ds.variables))
+            if ds.note:
+                rows.append('    说明   : %s' % ds.note)
             if ds.depth_min is not None:
                 rows.append('    深度   : %.2f - %.2f m' % (ds.depth_min, ds.depth_max or 0))
             rows.append('')
@@ -1093,21 +1449,35 @@ class ProjectBrowser:
             rows.append('    路径   : %s' % ds.path)
             rows.append('    大小   : %s' % _human_size(ds.size))
             rows.append('    变量   : %d' % len(ds.variables))
+            if ds.note:
+                rows.append('    说明   : %s' % ds.note)
             if ds.depth_min is not None:
                 rows.append('    深度   : %.2f - %.2f m' % (ds.depth_min, ds.depth_max or 0))
             rows.append('')
         self._set_tab('数据集', '\n'.join(rows) or '（无）')
 
-        # 变量
+        # 变量（【R87】按族 → 分支变量展示；解释产物归并到输入 LAS/DLIS 下）
         vrows = []
         for ds in w.source_datasets + w.datasets:
             if not ds.variables:
                 continue
-            vrows.append('── %s ──' % ds.name)
-            for v in ds.variables:
-                mark = {'ok': '●', 'warn': '●', 'error': '●', 'muted': '·'}.get(v.color, '·')
-                vrows.append('  %s %-18s %-12s %s' % (
-                    mark, v.name, v.family or '（无族）', v.unit or '（无单位）'))
+            tag = '［输入数据集］' if ds.dtype == 'source' else ''
+            vrows.append('── %s %s ──' % (ds.name, tag))
+            if ds.note:
+                vrows.append('  %s' % ds.note)
+            for gname, vs in pm.group_variables(ds.variables):
+                mode = (vs[0].draw_mode if vs else '') or 'linear'
+                legend = (vs[0].legend_id if vs else '') or ''
+                head = '  ▣ %s（%d） %s' % (gname, len(vs), mode)
+                if legend:
+                    head += ' → 图例 %s' % legend
+                vrows.append(head)
+                for v in vs:
+                    mark = {'ok': '●', 'warn': '●', 'error': '●', 'muted': '·'}.get(v.color, '·')
+                    origin = '解释' if v.origin == 'interpretation' else '输入'
+                    vrows.append('    %s %-18s %-16s %-10s %s' % (
+                        mark, v.name, v.family or '（无分支）',
+                        v.unit or '—', origin))
             vrows.append('')
         self._set_tab('变量', '\n'.join(vrows) or '（无变量）')
 
@@ -1149,10 +1519,19 @@ class ProjectBrowser:
         lines.append('完整    : %s' % ('是' if ds.complete else '否（存在缺族/缺单位的变量）'))
         self._set_tab('概览', '\n'.join(lines))
         vrows = []
-        for v in ds.variables:
-            mark = {'ok': '●', 'warn': '●', 'error': '●', 'muted': '·'}.get(v.color, '·')
-            vrows.append('%s %-20s %-14s %-10s %s' % (
-                mark, v.name, v.family or '（无族）', v.unit or '（无单位）', v.scale or ''))
+        for gname, vs in pm.group_variables(ds.variables):
+            mode = (vs[0].draw_mode if vs else '') or 'linear'
+            legend = (vs[0].legend_id if vs else '') or ''
+            head = '▣ %s（%d） %s' % (gname, len(vs), mode)
+            if legend:
+                head += ' → 图例 %s' % legend
+            vrows.append(head)
+            for v in vs:
+                mark = {'ok': '●', 'warn': '●', 'error': '●', 'muted': '·'}.get(v.color, '·')
+                origin = '解释' if v.origin == 'interpretation' else '输入'
+                vrows.append('  %s %-20s %-14s %-10s %-12s %s' % (
+                    mark, v.name, v.family or '（无分支）', v.unit or '（无单位）',
+                    v.scale or '', origin))
         self._set_tab('变量', '\n'.join(vrows) or '（无变量）')
         self._set_tab('数据集', '本数据集属性\n\n' + '\n'.join(lines))
         self._set_tab('井信息', '（数据集视图）')
@@ -1445,60 +1824,12 @@ class ProjectBrowser:
         self._log('已复制路径：%s' % p)
 
     def _menu_conditional(self):
-        """条件选择（Techlog Conditional selection）。"""
-        w = self._selected_well()
-        if not w:
-            self._log('请先选择一口井')
-            return
-        dlg = QDialog(self.win)
-        dlg.setWindowTitle('条件选择变量 — %s' % w.name)
-        dlg.resize(620, 460)
-        vl = QVBoxLayout(dlg)
-        vl.addWidget(self._mk_label('按族 / 单位 / 类型筛选变量（留空 = 不过滤）', bold=True))
+        """条件选择（Techlog Conditional selection）。
 
-        fams = sorted({v.family for d in w.datasets for v in d.variables if v.family})
-        units = sorted({v.unit for d in w.datasets for v in d.variables if v.unit})
-        kinds = sorted({v.kind for d in w.datasets for v in d.variables})
-        combos = {}
-        for label, vals in (('族', fams), ('单位', units), ('类型', kinds)):
-            row = QHBoxLayout()
-            row.addWidget(self._mk_label(label))
-            cb = QComboBox()
-            cb.setEditable(True)
-            cb.addItems([''] + list(vals))
-            cb.setFixedWidth(300)
-            row.addWidget(cb)
-            row.addStretch(1)
-            vl.addLayout(row)
-            combos[label] = cb
-
-        res = _qc.TextCompat(dlg)
-        vl.addWidget(res, 1)
-
-        def _run():
-            sel = pm.conditional_select(pm.Project(self.project.name, self.project.path, [w]),
-                                        family=combos['族'].currentText().strip(),
-                                        unit=combos['单位'].currentText().strip(),
-                                        kind=combos['类型'].currentText().strip())
-            res.clear()
-            if not sel:
-                res.insert('1.0', '（无匹配变量）')
-                return
-            lines = []
-            for well, dss in sel.items():
-                for dn, vs in dss.items():
-                    lines.append('%s / %s\n' % (well, dn))
-                    for v in vs:
-                        lines.append('    %s\n' % v)
-                    lines.append('\n')
-            res.insert('1.0', ''.join(lines))
-
-        bl = QHBoxLayout()
-        bl.addWidget(self._mk_button(dlg, '执行选择', _run))
-        bl.addStretch(1)
-        bl.addWidget(self._mk_button(dlg, '关闭', dlg.accept))
-        vl.addLayout(bl)
-        dlg.exec_()
+        【R87】改为右侧「功能」页内完成（按族 / 分支 / 单位 / 类型筛选），
+        不再弹出对话框 —— 主界面是唯一界面。
+        """
+        self._show_func_conditional()
 
     # ---------------- 项目成员管理（把井添加到项目） ----------------
 
@@ -1808,12 +2139,32 @@ class ProjectBrowser:
             cur = self.tree.parent(cur)
         return None
 
+    def _apply_root(self, path: str):
+        """【R87】界面内切换项目根（不弹目录对话框）。"""
+        d = str(path or '').strip().strip('"').strip("'")
+        if not d or not os.path.isdir(d):
+            self._log('项目根不存在：%s' % d)
+            return
+        self.root_dir = os.path.abspath(d)
+        self.refresh()
+        self._log('项目根已切换：%s' % self.root_dir)
+        self._show_func_root()
+
+    def _show_func_root(self):
+        """项目根设置：路径输入框 + 切换按钮，全部在主界面内完成。"""
+        self._set_func('项目根设置', self._func_text('root'), [], key='root')
+        edit = QLineEdit(self.root_dir)
+        edit.setMinimumWidth(380)
+        edit.setPlaceholderText('粘贴项目根目录绝对路径')
+        self.func_actions.insertWidget(0, edit)
+        b = self._mk_button(None, '切换项目根', lambda: self._apply_root(edit.text()))
+        b.setMaximumWidth(120)
+        self.func_actions.insertWidget(1, b)
+        self.right_nb.setCurrentIndex(1)
+
     def _pick_root(self):
-        d = _qg.select_dir(title='选择项目根目录（每子目录 = 一口井）',
-                           initialdir=self.root_dir, parent=self.win)
-        if d:
-            self.root_dir = d
-            self.refresh()
+        """【R87】「打开项目根」入口改为功能页输入，不再弹目录框。"""
+        self._show_func_root()
 
     def _log(self, msg: str):
         """写输出区。与上一条相同则不重复写（避免连续刷新刷屏）。"""
