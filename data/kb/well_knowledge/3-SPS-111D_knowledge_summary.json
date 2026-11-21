@@ -1,0 +1,598 @@
+{
+  "well": "3-SPS-111D",
+  "well_dir": "D:\\360\\Bangladesh\\3-SPS-111D",
+  "bin_m": 50.0,
+  "sources": [],
+  "depth_note": "录井/XRD/XRF 为录井深度，本摘要按大致井段统计，不强制与测井深度对齐；SWC 为测井深度。用于 logInt 检索时按井段/岩性/数值范围引用。",
+  "lithology_zones": [],
+  "xrd_bins": [],
+  "xrf_bins": [],
+  "swc_core": [],
+  "drill_core": [],
+  "mudlog": {
+    "found": false,
+    "note": "井目录未发现标准 masterlog/录井图；岩性段以 lithall/SWC/XRD 近似。"
+  },
+  "usage": [
+    "3-SPS-111D XRD 方解石/白云石 数值范围",
+    "3-SPS-111D 录井岩性段",
+    "3-SPS-111D 井壁取芯岩性",
+    "巴西 Aram 碳酸盐岩 酸解 CO2"
+  ],
+  "hierarchy": {
+    "country": "未填写",
+    "basin": "未填写",
+    "sag": "未填写",
+    "structure": "未填写",
+    "field": "ARAM",
+    "well": "3-SPS-111D"
+  },
+  "basic_data": {
+    "country": "未填写",
+    "field": "ARAM",
+    "well": "3-SPS-111D",
+    "company": "PETROBRAS",
+    "coordinates": {
+      "latitude": "25Â° 38' 39.488\" S",
+      "longitude": "44Â° 36' 2.154\" W"
+    },
+    "bit_size": "8.5",
+    "bit_program": "8.5",
+    "casing_record": "",
+    "mud_type": "FPBNA Oleofinico com Salmoura de Cloreto de calcio",
+    "mud_density": "12.30000019073",
+    "mud_viscosity": "142",
+    "fluid_loss": "2.400000095367",
+    "borehole_record": "",
+    "spud_date": "",
+    "td_date": "",
+    "well_type": "",
+    "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。"
+  },
+  "stratigraphy": {
+    "formation_tops": [],
+    "target_formation": "",
+    "formation_names": [],
+    "note": "地层顶来自井数据 Fm/Formation 表或地质设计；逐条岩性知识带 formation；无地层顶时标“未提供”。"
+  },
+  "testing": {
+    "intervals": [],
+    "files": [],
+    "contacts": [
+      {
+        "type": "OWC",
+        "depth": 6678.5,
+        "source": "log_interpretation(candidate)",
+        "confidence": "low"
+      }
+    ],
+    "owc": {
+      "type": "OWC",
+      "depth": 6678.5,
+      "source": "log_interpretation(candidate)",
+      "confidence": "low"
+    },
+    "gwc": null
+  },
+  "log_interpretation": {
+    "layers": 37,
+    "lithology": {
+      "limestone": 33,
+      "dolomite": 2,
+      "halite": 1,
+      "anhydrite": 1
+    },
+    "interpretation": {
+      "DRY": 21,
+      "OIL": 12,
+      "NonReservoir": 2,
+      "WATER": 2
+    },
+    "fluid_intervals": [
+      {
+        "top": 6487.8,
+        "base": 6489.9,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6522.0,
+        "base": 6526.6,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6528.9,
+        "base": 6530.3,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6536.0,
+        "base": 6537.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6607.0,
+        "base": 6628.3,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6628.4,
+        "base": 6629.2,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6631.1,
+        "base": 6636.6,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6638.2,
+        "base": 6642.4,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6644.1,
+        "base": 6645.1,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6648.7,
+        "base": 6649.4,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6649.5,
+        "base": 6654.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6659.7,
+        "base": 6661.6,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6667.5,
+        "base": 6668.1,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6668.2,
+        "base": 6674.7,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6674.8,
+        "base": 6677.2,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6679.2,
+        "base": 6679.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6679.8,
+        "base": 6695.8,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6695.9,
+        "base": 6697.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6697.2,
+        "base": 6703.4,
+        "lith": "limestone",
+        "interp": "WATER"
+      },
+      {
+        "top": 6703.5,
+        "base": 6713.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6713.2,
+        "base": 6714.2,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6714.3,
+        "base": 6717.5,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6717.6,
+        "base": 6721.0,
+        "lith": "limestone",
+        "interp": "OIL"
+      },
+      {
+        "top": 6721.1,
+        "base": 6722.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6734.1,
+        "base": 6735.7,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6739.4,
+        "base": 6740.9,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6743.7,
+        "base": 6746.0,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6754.6,
+        "base": 6759.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6764.6,
+        "base": 6767.2,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6770.8,
+        "base": 6771.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6774.8,
+        "base": 6775.9,
+        "lith": "dolomite",
+        "interp": "DRY"
+      },
+      {
+        "top": 6778.2,
+        "base": 6779.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6782.3,
+        "base": 6785.6,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6787.4,
+        "base": 6791.8,
+        "lith": "limestone",
+        "interp": "DRY"
+      },
+      {
+        "top": 6800.4,
+        "base": 6802.1,
+        "lith": "limestone",
+        "interp": "DRY"
+      }
+    ]
+  },
+  "gas_show": [],
+  "oil_gas_show": [],
+  "engineering": [],
+  "categories": {
+    "basic_data": {
+      "country": "未填写",
+      "field": "ARAM",
+      "well": "3-SPS-111D",
+      "company": "PETROBRAS",
+      "coordinates": {
+        "latitude": "25Â° 38' 39.488\" S",
+        "longitude": "44Â° 36' 2.154\" W"
+      },
+      "bit_size": "8.5",
+      "bit_program": "8.5",
+      "casing_record": "",
+      "mud_type": "FPBNA Oleofinico com Salmoura de Cloreto de calcio",
+      "mud_density": "12.30000019073",
+      "mud_viscosity": "142",
+      "fluid_loss": "2.400000095367",
+      "borehole_record": "",
+      "spud_date": "",
+      "td_date": "",
+      "well_type": "",
+      "note": "坐标/井别/钻头程序/套管程序/日期等归基础数据；空值表示井信息未提供。"
+    },
+    "stratigraphy": {
+      "formation_tops": [],
+      "target_formation": "",
+      "formation_names": [],
+      "note": "地层顶来自井数据 Fm/Formation 表或地质设计；逐条岩性知识带 formation；无地层顶时标“未提供”。"
+    },
+    "lithology": {
+      "zones": [],
+      "xrd_bins": [],
+      "xrf_bins": [],
+      "swc_core": [],
+      "drill_core": []
+    },
+    "testing": {
+      "intervals": [],
+      "files": [],
+      "contacts": [
+        {
+          "type": "OWC",
+          "depth": 6678.5,
+          "source": "log_interpretation(candidate)",
+          "confidence": "low"
+        }
+      ],
+      "owc": {
+        "type": "OWC",
+        "depth": 6678.5,
+        "source": "log_interpretation(candidate)",
+        "confidence": "low"
+      },
+      "gwc": null
+    },
+    "log_interpretation": {
+      "layers": 37,
+      "lithology": {
+        "limestone": 33,
+        "dolomite": 2,
+        "halite": 1,
+        "anhydrite": 1
+      },
+      "interpretation": {
+        "DRY": 21,
+        "OIL": 12,
+        "NonReservoir": 2,
+        "WATER": 2
+      },
+      "fluid_intervals": [
+        {
+          "top": 6487.8,
+          "base": 6489.9,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6522.0,
+          "base": 6526.6,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6528.9,
+          "base": 6530.3,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6536.0,
+          "base": 6537.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6607.0,
+          "base": 6628.3,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6628.4,
+          "base": 6629.2,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6631.1,
+          "base": 6636.6,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6638.2,
+          "base": 6642.4,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6644.1,
+          "base": 6645.1,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6648.7,
+          "base": 6649.4,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6649.5,
+          "base": 6654.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6659.7,
+          "base": 6661.6,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6667.5,
+          "base": 6668.1,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6668.2,
+          "base": 6674.7,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6674.8,
+          "base": 6677.2,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6679.2,
+          "base": 6679.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6679.8,
+          "base": 6695.8,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6695.9,
+          "base": 6697.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6697.2,
+          "base": 6703.4,
+          "lith": "limestone",
+          "interp": "WATER"
+        },
+        {
+          "top": 6703.5,
+          "base": 6713.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6713.2,
+          "base": 6714.2,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6714.3,
+          "base": 6717.5,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6717.6,
+          "base": 6721.0,
+          "lith": "limestone",
+          "interp": "OIL"
+        },
+        {
+          "top": 6721.1,
+          "base": 6722.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6734.1,
+          "base": 6735.7,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6739.4,
+          "base": 6740.9,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6743.7,
+          "base": 6746.0,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6754.6,
+          "base": 6759.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6764.6,
+          "base": 6767.2,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6770.8,
+          "base": 6771.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6774.8,
+          "base": 6775.9,
+          "lith": "dolomite",
+          "interp": "DRY"
+        },
+        {
+          "top": 6778.2,
+          "base": 6779.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6782.3,
+          "base": 6785.6,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6787.4,
+          "base": 6791.8,
+          "lith": "limestone",
+          "interp": "DRY"
+        },
+        {
+          "top": 6800.4,
+          "base": 6802.1,
+          "lith": "limestone",
+          "interp": "DRY"
+        }
+      ]
+    },
+    "gas_show": [],
+    "oil_gas_show": [],
+    "engineering": [],
+    "core_descriptions": []
+  },
+  "hierarchy_evidence": [],
+  "geo_scan_contacts": [],
+  "error": "未找到井目录标定表（SWC/XRD/XRF/Coredata）；将用设计/录井图/井信息生成知识",
+  "core_descriptions": []
+}
