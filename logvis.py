@@ -14,6 +14,7 @@ from logsys.fitz_safe import preload as _fitz_preload  # noqa: E402
 _fitz_preload()
 
 import os
+import re
 import sys
 import json
 import logging
@@ -10911,6 +10912,29 @@ dragEnterEvent/dropEvent 接收后按 Qt 像素坐标反查目标道并加入该
 
 LAYOUT_FILE_SUFFIX = 'logvis.json'
 
+# 【R91】交互绘图**模板库**：可复用的道布局模板（templates/logvis/<名>.json）。
+# 与井级保存布局（<井>logvis.json，跟随单井）不同——模板是跨井共享的版式，
+# 换一口井打开同一模板，曲线名相同即自动成图。随仓库四同步。
+LOGVIS_TEMPLATE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                   'templates', 'logvis')
+
+_CURVE_MIME = 'application/x-logvis-curve'
+
+
+def logvis_template_path(name: str) -> str:
+    """模板名 → 文件路径（过滤文件名非法字符；空名返回空串）。"""
+    safe = ''.join(c for c in (name or '').strip() if c not in '\\/:*?"<>|').strip()
+    return os.path.join(LOGVIS_TEMPLATE_DIR, f'{safe}.json') if safe else ''
+
+
+def list_logvis_templates() -> list[str]:
+    """列出模板库里的全部模板名（按名称排序；目录不存在返回空）。"""
+    try:
+        return sorted(f[:-5] for f in os.listdir(LOGVIS_TEMPLATE_DIR)
+                      if f.endswith('.json'))
+    except OSError:
+        return []
+
 
 def _load_template(kind: str):
     """读图版模板（合并后同文件，直接调用）。"""
@@ -11065,6 +11089,26 @@ class LogViewWindow(QMainWindow):
         rows = QVBoxLayout(parent)
         rows.setContentsMargins(0, 0, 0, 0)
         rows.setSpacing(2)
+
+        # 【R91】模板行：新建 / 打开 / 保存 / 另存为 —— 模板名全部走输入框（零弹窗）
+        row0 = QHBoxLayout()
+        rows.addLayout(row0)
+        row0.addWidget(QLabel('模板：'))
+        self.cmb_template = QComboBox()
+        self.cmb_template.setEditable(True)
+        self.cmb_template.setFixedWidth(160)
+        self._refresh_template_combo()
+        row0.addWidget(self.cmb_template)
+        for text, slot in (('打开模板', self.open_template),
+                           ('新建模板', self.new_template),
+                           ('保存模板', self.save_template),
+                           ('另存为模板', self.save_template_as)):
+            b = QPushButton(text)
+            b.clicked.connect(slot)
+            row0.addWidget(b)
+        tip_t = QLabel('（下拉=已有模板；改框内文字即新名）')
+        tip_t.setStyleSheet('color: #666;')
+        row0.addWidget(tip_t, 1)
 
         row1 = QHBoxLayout()
         rows.addLayout(row1)
@@ -11285,6 +11329,12 @@ class LogViewWindow(QMainWindow):
         for it in self.catalog:
             if it.column == column:
                 return it
+        # 【R91】项目树拖入的折叠列（T2_DIST[3] 等宽表 bin 列）→ 命中对应二维条目
+        m = re.match(r'^(.+)\[\d+\]$', column)
+        if m:
+            for it in self.catalog:
+                if it.is_array and it.array_key == m.group(1):
+                    return it
         return None
 
     def _current_track_id(self) -> str:
@@ -11301,6 +11351,10 @@ class LogViewWindow(QMainWindow):
     def _on_drop(self, column: str, track_id: str):
         """画布 dropEvent 回调：把拖入的曲线加入落点所在道。"""
         item = self._curve_item_by_column(column)
+        if item is None:
+            # 【R91】目录未收录的列（如项目树拖入、库中被 muted 过滤）按变量库
+            # 语义现场构造条目，保证"拖进来就能成图"，不静默丢弃。
+            item = _ad_hoc_curve_item(column)
         if item is None:
             return
         tid = track_id or self._current_track_id()
@@ -11527,6 +11581,115 @@ class LogViewWindow(QMainWindow):
             return ''
         return os.path.join(self.out_dir, f'{self.well_name}{LAYOUT_FILE_SUFFIX}')
 
+    # ------------------------------------------------------------------
+    # 【R91】模板库：新建 / 打开 / 保存 / 另存为（跨井可复用的道布局）
+    # ------------------------------------------------------------------
+    def _refresh_template_combo(self, keep: str = ''):
+        """模板下拉刷新为库里现有模板；keep 优先选中。"""
+        self.cmb_template.blockSignals(True)
+        self.cmb_template.clear()
+        self.cmb_template.addItems(list_logvis_templates())
+        if keep:
+            self.cmb_template.setCurrentText(keep)
+        self.cmb_template.blockSignals(False)
+
+    def _template_name(self) -> str:
+        return (self.cmb_template.currentText() or '').strip()
+
+    def new_template(self):
+        """新建空白模板：清成单条空道，拖入曲线开始布局。"""
+        self.canvas.set_tracks([])
+        tid = 'CUSTOM_1'
+        self.canvas.add_track(tid, name='道 1', width=1.0, kind='curve')
+        self.tracks = self.canvas.tracks
+        self._refresh_track_tree()
+        self.cmb_template.setCurrentText('')
+        self._update_status('已新建空白模板：拖入曲线 / 双击目录曲线开始布局，'
+                            '在「模板」框输入名字后保存')
+
+    def open_template(self):
+        """载入「模板」框选中的模板（无弹窗，名字取输入框）。"""
+        name = self._template_name()
+        if not name:
+            self._update_status('请先在「模板」下拉选择或输入模板名')
+            return False
+        path = logvis_template_path(name)
+        if not path or not os.path.exists(path):
+            self._update_status(f'模板不存在：{name}（下拉里是已有模板）')
+            return False
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            tracks = tracks_from_dicts(data.get('tracks'))
+        except Exception as e:
+            self._update_status(f'模板载入失败：{e}')
+            return False
+        if not tracks:
+            self._update_status(f'模板「{name}」没有道定义')
+            return False
+        self.tracks = tracks
+        self.canvas.set_tracks(tracks)
+        self._refresh_track_tree()
+        self._update_status(f'已载入模板「{name}」（{len(tracks)} 道）——'
+                            '曲线名与当前井数据匹配的道会自动成图')
+        return True
+
+    def _save_template_to(self, name: str) -> bool:
+        """把当前道布局写入模板库（覆盖式）。"""
+        name = (name or '').strip()
+        if not name:
+            self._update_status('请先在「模板」框输入模板名再保存')
+            return False
+        if not self.tracks or not any(t.curves for t in self.tracks):
+            self._update_status('当前图没有任何曲线，先拖入曲线再保存模板')
+            return False
+        path = logvis_template_path(name)
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump({'name': name, 'kind': self.kind,
+                           'tracks': [t.to_dict() for t in self.tracks]},
+                          f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self._update_status(f'模板保存失败：{e}')
+            return False
+        self._refresh_template_combo(keep=name)
+        self._update_status(f'模板已保存：{name}（{len(self.tracks)} 道，'
+                            '任意井打开交互绘图后可从下拉载入）')
+        return True
+
+    def save_template(self, name: str = '') -> bool:
+        """保存模板：写入指定名字（空 = 「模板」框当前名字，已有则覆盖）。"""
+        return self._save_template_to(name or self._template_name())
+
+    def save_template_as(self):
+        """另存为模板：必须是一个**新**名字（已存在则提示用保存覆盖）。"""
+        name = self._template_name()
+        if not name:
+            self._update_status('请在「模板」框输入新模板名再另存')
+            return
+        if os.path.exists(logvis_template_path(name)):
+            self._update_status(f'模板「{name}」已存在——直接点「保存模板」覆盖，'
+                                '另存请换一个名字')
+            return
+        self._save_template_to(name)
+
+    def export_to(self, path: str) -> bool:
+        """保存图形到指定路径（供主界面功能页「保存图形」直接落盘，无对话框）。"""
+        try:
+            ok = self.canvas.export(path)
+        except Exception as e:
+            self._update_status(f'导出失败：{e}')
+            return False
+        if ok:
+            self._update_status(f'已保存图形：{path}')
+        return ok
+
+    def add_column(self, column: str, track_id: str = '') -> bool:
+        """外部拖入 / 双击入口：把列加入指定道（空 = 当前道），按族自动选绘图方式。"""
+        self._on_drop(column, track_id)
+        return True
+
     def _save_layout(self):
         path = self._layout_path()
         if not path:
@@ -11570,6 +11733,33 @@ class LogViewWindow(QMainWindow):
 def _any_col(cols: list[str], names: list[str]) -> bool:
     upper = {str(c).upper() for c in cols}
     return any(n.upper() in upper for n in names)
+
+
+def _ad_hoc_curve_item(column: str) -> CurveItem | None:
+    """【R91】目录未收录的列 → 按变量库语义现场构造目录条目。
+
+    项目树 / 外部拖入的列名不保证已进目录（如被 muted 过滤的辅助列），
+    这里按 classify 结果兜底构造，保证拖入即按族自动成图；内部列返回 None。
+    """
+    if not column:
+        return None
+    info = pm.classify_variable(str(column))
+    if info.get('kind') == 'internal' or info.get('color') == 'muted':
+        return None
+    # 深度轴不是曲线（与 build_catalog 跳过 MD 同口径）
+    if info.get('group_id') == 'DEPTH' or str(column).upper() in ('MD', 'DEPTH'):
+        return None
+    scale = info.get('scale') or 'linear'
+    return CurveItem(
+        column=str(column), label=str(column),
+        family=info.get('group') or '未分类',
+        branch=info.get('family') or str(column),
+        unit=info.get('unit') or '',
+        scale=scale,
+        kind='qualitative' if scale in ('qualitative', 'flag') else 'curve',
+        draw_mode=info.get('draw_mode') or 'linear',
+        legend_id=info.get('legend_id') or '',
+        status='ok', source='项目树')
 
 
 def _reload_info(path: str):

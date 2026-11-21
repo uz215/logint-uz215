@@ -40,8 +40,8 @@ import subprocess
 import sys
 import threading
 
-from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QColor, QCursor, QFont, QKeySequence
+from PyQt5.QtCore import Qt, QTimer, QMimeData
+from PyQt5.QtGui import QColor, QCursor, QFont, QKeySequence, QDrag
 from PyQt5.QtWidgets import (
     QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
     QLineEdit, QComboBox, QCheckBox, QVBoxLayout, QHBoxLayout,
@@ -165,6 +165,36 @@ class _StreamToLog:
 
     def fileno(self):
         raise IOError('GUI 输出流没有底层文件描述符')
+
+
+#: 【R91】曲线节点在树项里的 UserRole 槽位（存列名，供拖拽 / 双击取用）
+TREE_COLUMN_ROLE = Qt.UserRole + 200
+
+
+class _ProjectTree(_qc.TreeViewCompat):
+    """项目树：支持把「曲线」节点以 logvis 协议拖进交互绘图窗口（R91）。
+
+    只有挂了 TREE_COLUMN_ROLE（列名）的节点可拖；mime 载荷与
+    logvis._CurveTreeWidget / TrackCanvas 的约定完全一致
+    （``application/x-logvis-curve`` = 列名 utf-8），因此拖进
+    交互绘图画布即自动按族成图（数值曲线 / 岩性色块道 / 二维谱）。
+    """
+
+    def __init__(self, *a, **kw):
+        super().__init__(*a, **kw)
+        self.setDragEnabled(True)
+        self.setDefaultDropAction(Qt.CopyAction)
+
+    def startDrag(self, supportedActions):
+        item = self.currentItem()
+        col = item.data(0, TREE_COLUMN_ROLE) if item else None
+        if not col:
+            return
+        md = QMimeData()
+        md.setData('application/x-logvis-curve', str(col).encode('utf-8'))
+        drag = QDrag(self)
+        drag.setMimeData(md)
+        drag.exec(Qt.CopyAction)
 
 
 class ProjectBrowser:
@@ -390,7 +420,7 @@ class ProjectBrowser:
             ('气测解释', '图版法 ITP + 相对异常曲线', lambda: self._show_func_job('gas')),
             ('核磁处理', 'T2 谱 / 孔隙度 / 渗透率', lambda: self._show_func_job('nmr')),
             ('电成像处理', '孔隙 / 溶孔 / 裂缝识别', lambda: self._show_func_job('fmi')),
-            ('交互绘图', '独立 logvis：拖曲线、改图头', self._show_func_logview),
+            ('交互绘图', '独立功能区：拖曲线、模板、保存图形', self._show_func_logview),
         ]))
         ril.addWidget(self._vline())
         ril.addWidget(self._ribbon_group('项目级', [
@@ -479,8 +509,8 @@ class ProjectBrowser:
         ll.addWidget(cap)
         tag_colors = dict(COLOR_MAP)
         tag_colors.update(STATUS_TAG)
-        self.tree = _qc.TreeViewCompat(left, columns=('type', 'detail'),
-                                       tag_colors=tag_colors)
+        self.tree = _ProjectTree(left, columns=('type', 'detail'),
+                                 tag_colors=tag_colors)
         self.tree.setAlternatingRowColors(False)
         ll.addWidget(self.tree, 1)
         bl.addWidget(left, 3)
@@ -639,7 +669,7 @@ class ProjectBrowser:
         self.tree.bind('<Double-1>', self._on_tree_double)
 
     def _on_tree_double(self, _evt=None):
-        """双击处理：命中井节点则打开该井交互绘图，双击数据集则展开/属性。"""
+        """双击处理：井节点 = 打开该井交互绘图；曲线节点 = 加入绘图当前道（R91）。"""
         sel = self.tree.selection()
         if not sel:
             return
@@ -647,6 +677,34 @@ class ProjectBrowser:
         w = self._wells_by_iid.get(iid)
         if w is not None:
             self._menu_logview()
+            return
+        # 【R91】双击「曲线」节点 → 加入该井交互绘图窗口当前道（窗口没开则先开）
+        col = self._tree_column(iid)
+        if col:
+            w2 = self._well_of_curve_node(iid)
+            if w2 is None:
+                return
+            win = self._ensure_logview_window(w2)
+            if win is not None:
+                win.add_column(col)
+                self._log(f'已把「{col}」加入 {w2.name} 的交互绘图当前道')
+
+    def _tree_column(self, iid: str) -> str:
+        """树节点存的曲线列名（TREE_COLUMN_ROLE；非曲线节点返回空）。"""
+        it = self.tree.qt_item(iid)
+        return str(it.data(0, TREE_COLUMN_ROLE) or '') if it is not None else ''
+
+    def _well_of_curve_node(self, iid: str) -> pm.Well | None:
+        """曲线节点 → 所属井（沿父链回溯，分组树同样适用）。"""
+        cur = iid
+        for _ in range(6):
+            cur = self.tree.parent(cur)
+            if not cur:
+                return None
+            w = self._wells_by_iid.get(cur)
+            if w is not None:
+                return w
+        return None
 
     def focus_search(self):
         try:
@@ -803,7 +861,35 @@ class ProjectBrowser:
             self._insert_dataset(iid, ds, source=True)
         for ds in w.datasets:
             self._insert_dataset(iid, ds)
+        # 【R91】井下的「曲线」汇总节点（下拉符）：展开列出该井全部曲线变量，
+        # 拖进交互绘图画布即自动按族成图（数值曲线 / 岩性色块道 / 二维谱）。
+        self._insert_curve_basket(iid, w)
         return iid
+
+    def _insert_curve_basket(self, well_iid: str, w: pm.Well):
+        """井下挂「曲线（N）」汇总节点：全部变量扁平列出、可拖拽（R91）。"""
+        vars_all: dict[str, pm.Variable] = {}
+        for ds in list(w.source_datasets) + list(w.datasets):
+            for v in ds.variables:
+                vars_all.setdefault(v.name, v)
+        if not vars_all:
+            return
+        ciid = self.tree.insert(well_iid, 'end',
+                                text='▤ 曲线（%d）' % len(vars_all),
+                                values=('拖入交互绘图', '展开后拖曲线到绘图区即自动成图'),
+                                tags=('dataset',),
+                                open=bool(self.show_vars.get()))
+        for name, v in sorted(vars_all.items()):
+            origin = '解释' if v.origin == 'interpretation' else '输入'
+            sub = '%s ｜ %s ｜ %s' % (v.unit or '（无单位）', v.draw_mode or 'linear', origin)
+            tag_iid = self.tree.insert(ciid, 'end',
+                                       text='  %s' % name,
+                                       values=(v.family or name, sub),
+                                       tags=(v.color,))
+            it = self.tree.qt_item(tag_iid)
+            if it is not None:
+                it.setData(0, TREE_COLUMN_ROLE, name)
+        return ciid
 
     def _insert_dataset(self, parent: str, ds: pm.Dataset, source: bool = False):
         icon = ICON_MAP.get(ds.icon, '▤')
@@ -1600,6 +1686,14 @@ class ProjectBrowser:
             if self.root_dir not in choices:
                 choices.insert(0, self.root_dir)
             lab, apply_text = '资料根路径（含 LAS 的子目录 = 一口井，也可直接粘贴）', '扫描候选井'
+        elif kind == 'logview':
+            # 【R91】交互绘图页：候选 = 模板库已有模板，输入框 = 模板名（可输入新名）
+            try:
+                from logvis import list_logvis_templates as _lv_tpls
+                choices = _lv_tpls()
+            except Exception:
+                choices = []
+            lab, apply_text = '模板名（下拉 = 已有模板，也可输入新名）', '打开模板'
         elif w:
             out = self._well_out_dir(w)
             found = dop.discover_inputs(w.source_dir or '', out)
@@ -1685,6 +1779,10 @@ class ProjectBrowser:
                 self._project_create(val)
             else:
                 self._apply_root(val)
+            return
+        if kind == 'logview':
+            # 【R91】交互绘图页：输入行 = 模板名 →「应用输入」= 打开模板
+            self._func_lv_open()
             return
         w = self._selected_well()
         if not w:
@@ -1853,11 +1951,15 @@ class ProjectBrowser:
                     pat, len(hits), ('（最新：%s）' % os.path.basename(hits[-1])) if hits else ''))
             return '\n'.join(lines)
         if key == 'logview':
-            return (head + '交互绘图（logvis）是**独立模块**：\n'
-                    '  · 把任意一维曲线 / 二维波形 / 核磁谱 / 成像拖入作图；\n'
-                    '  · 可修改道组合、比例、图头与界面；\n'
-                    '  · 再次打开自动载入上次保存的布局继续修改。\n\n'
-                    '不跑解释作业：有产物读产物，无产物读原始 LAS / 源数据。')
+            n_tpl = len(_lv_templates_safe())
+            return (head + '交互绘图（logvis）是**独立功能区**（R91）：\n'
+                    '  · 项目树井下「曲线」节点展开全部曲线，拖进绘图区即自动按族成图\n'
+                    '    （数值曲线 → 线性/对数道；岩性/解释结论 → 色块道；核磁谱/波形/成像 → 二维道）；\n'
+                    '  · 模板：新建空白版式 → 拖曲线布局 → 保存/另存为模板（templates/logvis/），\n'
+                    '    换井打开同一模板即可复用（模板 %d 个）；\n'
+                    '  · 保存图形：PNG/PDF 直接落到井产物目录；\n'
+                    '  · 再次打开自动载入该井上次保存的布局继续修改。\n'
+                    % n_tpl)
         return head
 
     def _show_func_load(self):
@@ -1907,9 +2009,68 @@ class ProjectBrowser:
                        key=job_type, input_kind=input_kind)
 
     def _show_func_logview(self):
+        """【R91】交互绘图独立功能区：模板四动作 + 保存图形，全部作用于选中井。"""
         self._set_func('交互绘图（logvis）', self._func_text('logview'), [
             ('打开交互绘图', self._menu_logview),
-        ])
+            ('新建模板', self._func_lv_new),
+            ('打开模板', self._func_lv_open),
+            ('保存模板', self._func_lv_save),
+            ('另存为模板', self._func_lv_save_as),
+            ('保存图形 PNG', lambda: self._func_lv_export('png')),
+            ('保存图形 PDF', lambda: self._func_lv_export('pdf')),
+        ], input_kind='logview')
+
+    # ---------------- 【R91】交互绘图功能页动作 ----------------
+
+    def _func_lv_input_name(self) -> str:
+        return self.func_input_combo.currentText().strip()
+
+    def _func_lv_new(self):
+        """新建空白模板：开（或前置）选中井的绘图窗口并清空布局。"""
+        win = self._func_lv_window()
+        if win is not None:
+            win.new_template()
+
+    def _func_lv_open(self):
+        win = self._func_lv_window()
+        if win is not None:
+            win.open_template()
+
+    def _func_lv_save(self):
+        win = self._func_lv_window()
+        if win is not None:
+            win.save_template(self._func_lv_input_name())
+            self._log('模板状态见绘图窗口状态栏 / 主界面输出区')
+
+    def _func_lv_save_as(self):
+        win = self._func_lv_window()
+        if win is not None:
+            win.save_template_as()
+        self._fill_func_input('logview')
+
+    def _func_lv_export(self, fmt: str):
+        """保存图形：直接落到井产物目录（无对话框）。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选中一口井')
+            return
+        win = self._func_lv_window()
+        if win is None:
+            return
+        out_dir = find_lv_out_dir(self.root_dir, w.name)
+        os.makedirs(out_dir, exist_ok=True)
+        path = os.path.join(out_dir, '%s_logvis.%s' % (w.name, fmt))
+        if win.export_to(path):
+            self._log(f'已保存图形：{path}')
+
+    def _func_lv_window(self):
+        """选中井的绘图窗口（没开则开）；失败已写输出区。"""
+        w = self._selected_well()
+        if not w:
+            self._log('请先选中一口井（交互绘图的模板 / 图形动作作用于选中井）')
+            return None
+        return self._ensure_logview_window(w)
+
 
     def _func_clean_run(self):
         w = self._selected_well()
@@ -2177,26 +2338,45 @@ class ProjectBrowser:
         if not w:
             self._log('请先选中一口井，再点交互绘图')
             return
+        win = self._ensure_logview_window(w)
+        if win is not None:
+            self._log(f'交互绘图已就绪：{w.name}（可将树里「曲线」节点拖入绘图区）')
+
+    def _ensure_logview_window(self, w: pm.Well):
+        """【R91】取该井的交互绘图窗口：已开则前置，没开则打开。
+
+        返回 LogViewWindow 或 None（打开失败/无资料时已写输出区说明）。
+        """
+        for win in self._open_logview_windows:
+            try:
+                if win.isVisible() and win.well_name == w.name:
+                    win.raise_()
+                    win.activateWindow()
+                    return win
+            except Exception:
+                pass
         try:
             from logvis import open_logview, find_output_dir
         except Exception as e:
             self._log(f'交互绘图模块不可用：{e}')
-            return
+            return None
         opts = pcfg.well_options(self.root_dir, w.name)
         source_dir = w.source_dir or pcfg.resolve_source_dir(self.root_dir, w.name)
         out_dir = find_output_dir(self.root_dir, w.name)
         las_file = opts.get('las', '')
         if not out_dir and not las_file and not source_dir:
             self._log('该井既无产物也无原始资料：请先「数据导入」面板输入源目录')
-            return
+            return None
         try:
             win = open_logview(self.win, w.name, out_dir=out_dir, source_dir=source_dir,
                                las_file=las_file)
             self._open_logview_windows.append(win)
             src = '解释产物' if out_dir else ('原始 LAS' if las_file else '源资料(二维)')
             self._log(f'已打开交互绘图：{w.name}（数据源：{src}）')
+            return win
         except Exception as e:
             self._log(f'交互绘图打开失败：{e}')
+            return None
 
     def _run_job(self, job_type: str):
         if self._job_running:
@@ -2583,6 +2763,27 @@ def default_root() -> str:
     """默认项目根 = 仓库下的 output/（logInt 的产物落盘位置）。"""
     return os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         'output')
+
+
+def _lv_templates_safe() -> list[str]:
+    """模板库清单（logvis 不可用时返回空，不阻断界面）。"""
+    try:
+        from logvis import list_logvis_templates
+        return list_logvis_templates()
+    except Exception:
+        return []
+
+
+def find_lv_out_dir(project_root: str, well_name: str) -> str:
+    """井产物目录（logvis 不可用时回退 <项目根>/<井名>）。"""
+    try:
+        from logvis import find_output_dir
+        d = find_output_dir(project_root, well_name)
+        if d:
+            return d
+    except Exception:
+        pass
+    return os.path.join(project_root, well_name)
 
 
 def launch(root: str = '', source_root: str = '', on_open_well=None) -> int:

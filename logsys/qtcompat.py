@@ -124,6 +124,10 @@ class TreeViewCompat(QTreeWidget):
         # yscrollcommand/xscrollcommand/cursor 等：QTreeWidget 自带滚动条
         return None
 
+    def qt_item(self, iid):
+        """【R91】iid → 底层 QTreeWidgetItem（供 setData 等原生操作）。"""
+        return self._items.get(iid)
+
     def _col_index(self, col) -> int:
         if col in ('#0', 0):
             return 0
