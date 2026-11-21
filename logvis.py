@@ -24,13 +24,23 @@ import datetime
 import shutil
 import tempfile
 
-# 【R81 合并交互绘图】交互画布/窗口所需 import
+# 【R81 合并交互绘图 / R83 切换 PyQt5】交互画布/窗口所需 import
 from dataclasses import dataclass, field, asdict
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
 import matplotlib                      # canvas 用 matplotlib.lines.Line2D 画道头色标
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+try:                                    # matplotlib 3.10+ 推荐 qtagg（同时支持 PyQt5/PyQt6）
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+except Exception:                       # 老版本仍提供 qt5agg
+    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+from PyQt5.QtCore import Qt, QMimeData
+from PyQt5.QtGui import QDrag, QFont
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QFrame, QSplitter,
+    QTreeWidget, QTreeWidgetItem, QTabWidget, QComboBox, QLineEdit,
+    QPushButton, QLabel, QScrollArea, QVBoxLayout, QHBoxLayout,
+    QAbstractItemView, QSizePolicy,
+)
+from logsys import qtgui as _qg
 from logsys import project_model as pm
 
 # 【2026-10-20 RASHIDPUR_13】解除 Pillow 防炸图像素上限（默认 1.79 亿）。
@@ -10401,27 +10411,31 @@ def _fluid_labels() -> dict:
     return dict(FLUID_LABEL_CN)
 
 
-class TrackCanvas(FigureCanvasTkAgg):
-    """多道交互测井图画布。"""
+class TrackCanvas(FigureCanvasQTAgg):
+    """多道交互测井图画布（PyQt5 / FigureCanvasQTAgg）。
 
-    def __init__(self, master=None, **kwargs):
-        # matplotlib 3.11 起 FigureCanvasTk 不再是 tk.Canvas 子类，
-        # 真控件在 self._tkcanvas（组合式）；老版本是 self 本身。
+    【R83】由 tkinter 迁移到 PyQt5：
+      - FigureCanvasQTAgg 本身即 QWidget，无单独的 tkcanvas 子控件；
+      - ``self.widget`` 保留为画布自身，兼容窗口/测试里的既有引用；
+      - 曲线拖入用 Qt 原生 DnD（dragEnterEvent/dropEvent），落点用 Qt 坐标；
+      - matplotlib 的 mpl_connect 事件与后端无关，绘制逻辑全部不动。
+    """
+
+    def __init__(self, parent=None, **kwargs):
         width = kwargs.pop('width', None)
         height = kwargs.pop('height', None)
         self.figure = Figure(facecolor='white')
-        super().__init__(self.figure, master=master, **kwargs)
-        self.widget = getattr(self, '_tkcanvas', None) or getattr(self, 'tkcanvas', None) or self
+        super().__init__(self.figure)
+        if parent is not None:
+            self.setParent(parent)
+        self.widget = self                   # Qt 下画布自身就是控件
         self._array_axes: dict = {}          # 【R82】二维道 → (ArrayData, axis)
-        # 打标记：拖放时用 winfo_containing 找到落点控件后反查本画布
-        try:
-            self.widget._logvis_canvas = self
-        except Exception:
-            pass
         if width:
-            self.widget.configure(width=int(width))
+            self.setMinimumWidth(int(width))
         if height:
-            self.widget.configure(height=int(height))
+            self.setMinimumHeight(int(height))
+        self.setMouseTracking(True)
+        self.setAcceptDrops(True)            # 允许曲线拖入
         self.well_data = None
         self.tracks: list[TrackSpec] = []
         self.axes: list = []
@@ -10440,16 +10454,42 @@ class TrackCanvas(FigureCanvasTkAgg):
         self.on_cursor = None       # (depth, values:dict)
         self.on_range = None        # (top, bottom)
         self.on_track_click = None  # (track_id, x_data) —— 供拖放落点判定
+        self.on_drop = None         # (column, track_id) —— Qt 拖放落点
 
-        try:
-            self.widget.setMouseTracking(True)
-        except Exception:
-            pass
         self.mpl_connect('scroll_event', self._on_scroll)
         self.mpl_connect('button_press_event', self._on_press)
         self.mpl_connect('motion_notify_event', self._on_motion)
         self.mpl_connect('button_release_event', self._on_release)
         self.mpl_connect('figure_leave_event', lambda e: self._clear_cursor())
+
+    # ------------------------------------------------------------------
+    # Qt 原生拖放：曲线目录 → 画布（R83）
+    # ------------------------------------------------------------------
+    def dragEnterEvent(self, event):
+        md = event.mimeData()
+        if md is not None and md.hasFormat('application/x-logvis-curve'):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event):
+        md = event.mimeData()
+        if md is not None and md.hasFormat('application/x-logvis-curve'):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event):
+        md = event.mimeData()
+        if md is None or not md.hasFormat('application/x-logvis-curve'):
+            event.ignore()
+            return
+        column = bytes(md.data('application/x-logvis-curve')).decode('utf-8')
+        pos = event.pos()               # QWidget 坐标（原点左上，像素）
+        track_id = self.track_at_pixel(pos.x(), pos.y()) or ''
+        if self.on_drop and column:
+            self.on_drop(column, track_id)
+        event.acceptProposedAction()
 
     # ------------------------------------------------------------------
     # 数据装载
@@ -11075,13 +11115,14 @@ class TrackCanvas(FigureCanvasTkAgg):
         """控件像素坐标 → 落在哪一道（拖放落点判定）。
 
         px,py 为画布控件内坐标（原点左上）。落空返回空串。
-        matplotlib 3.11 起 canvas 不再有公开 bbox，这里用控件像素尺寸换算。
+        【R83】Qt 下用 QWidget.width()/height() 换算（dpi 比例由 matplotlib
+        的 FigureCanvas 内部处理，这里取逻辑像素即可）。
         """
         if not self.axes:
             return ''
         try:
-            w = float(self.widget.winfo_width())
-            h = float(self.widget.winfo_height())
+            w = float(self.width())
+            h = float(self.height())
         except Exception:
             return ''
         if w <= 1 or h <= 1:
@@ -11124,17 +11165,13 @@ class TrackCanvas(FigureCanvasTkAgg):
       并且**后续的快速图 / 综合图出图也同步生效**（同一份井信息源）；
     - 版式可一键切到「快速图版式」或「综合图版式」，与静态出图同源解析。
 
-拖放实现说明：tkinter 无原生 DnD（Tk 未实现 drag&drop 协议），
-这里用**按下-移动-抬起**三段式自行实现：
-    ① 目录树 ButtonPress 记录候选曲线；
-    ② B1-Motion 超过阈值进入拖拽态（光标变手型）；
-    ③ ButtonRelease 时用 winfo_pointerxy + winfo_containing 判断落点，
-       落在画布上则按像素坐标反查目标道并加入该道。
+拖放实现说明（R83 PyQt5）：使用 Qt 原生 DnD —— 目录树项携带
+``application/x-logvis-curve`` mime（列名为载荷），画布的
+dragEnterEvent/dropEvent 接收后按 Qt 像素坐标反查目标道并加入该道。
 """
 
 
 
-DRAG_THRESHOLD = 6          # 超过该像素位移才判定为拖拽（避免误触）
 LAYOUT_FILE_SUFFIX = 'logvis.json'
 
 
@@ -11146,15 +11183,44 @@ def _load_template(kind: str):
         return None
 
 
-class LogViewWindow(tk.Toplevel):
-    """交互式测井图窗口。"""
+class _CurveTreeWidget(QTreeWidget):
+    """曲线目录树：支持把曲线项以 Qt 原生拖放协议拖到画布。
 
-    def __init__(self, master, well_name: str, out_dir: str = '',
+    每个曲线项在 Qt.UserRole 里存列名；分组项不存列名，故不可拖。
+    """
+
+    def startDrag(self, supportedActions):
+        item = self.currentItem()
+        if item is None:
+            return
+        column = item.data(0, Qt.UserRole)
+        if not column:
+            return
+        drag = QDrag(self)
+        md = QMimeData()
+        md.setData('application/x-logvis-curve', str(column).encode('utf-8'))
+        drag.setMimeData(md)
+        drag.exec_(supportedActions)
+
+
+class LogViewWindow(QMainWindow):
+    """交互式测井图窗口（PyQt5）。
+
+    【R83】由 tk.Toplevel 迁移到 QMainWindow。三栏布局：
+        左：曲线目录（按族分组）—— 拖拽源，曲线拖进绘图区即自动出图；
+        中：交互画布（多道共享深度轴）；
+        右：道与曲线 / 图头编辑 / 深度读值 三个页签。
+
+    图头改动立即写回 ``<井名>info.json`` → 画布图头条实时刷新，
+    并且后续的快速图 / 综合图出图也同步生效（同一份井信息源）。
+    """
+
+    def __init__(self, parent=None, well_name: str = '', out_dir: str = '',
                  source_dir: str = '', las_file: str = '', kind: str = 'qlpt'):
-        super().__init__(master)
-        self.title(f'交互绘图（logvis） —— {well_name}')
-        self.geometry('1580x920')
-        self.minsize(1180, 700)
+        super().__init__(parent)
+        self.setWindowTitle(f'交互绘图（logvis） —— {well_name}')
+        self.resize(1580, 920)
+        self.setMinimumSize(1180, 700)
 
         self.well_name = well_name
         self.out_dir = out_dir or ''
@@ -11162,11 +11228,9 @@ class LogViewWindow(tk.Toplevel):
         self.kind = kind
         self.tracks: list[TrackSpec] = []
         self.catalog: list[CurveItem] = []
-        self._drag_item = None
-        self._drag_origin = None
-        self._dragging = False
         self._selected_track = ''
         self._suspend_save = False
+        self._curve_item_map: dict = {}     # id(QTreeWidgetItem) -> CurveItem
 
         self.data = load_well_data(well_name, out_dir=out_dir,
                                       source_dir=source_dir, las_file=las_file)
@@ -11183,174 +11247,181 @@ class LogViewWindow(tk.Toplevel):
     # 界面骨架
     # ------------------------------------------------------------------
     def _build_ui(self):
-        self._style()
-        top = ttk.Frame(self, padding=(6, 4))
-        top.pack(side='top', fill='x')
+        central = QWidget(self)
+        self.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(6, 4, 6, 4)
+        root.setSpacing(4)
+
+        # 顶部工具条（两行）
+        top = QWidget()
+        root.addWidget(top)
         self._build_toolbar(top)
 
-        body = ttk.PanedWindow(self, orient='horizontal')
-        body.pack(side='top', fill='both', expand=True)
+        # 中部三栏
+        splitter = QSplitter(Qt.Horizontal)
+        root.addWidget(splitter, 1)
 
-        left = ttk.Frame(body, width=280)
-        body.add(left, weight=1)
+        left = QWidget()
         self._build_catalog_panel(left)
+        splitter.addWidget(left)
 
-        mid = ttk.Frame(body)
-        body.add(mid, weight=6)
+        mid = QWidget()
+        ml = QVBoxLayout(mid)
+        ml.setContentsMargins(0, 0, 0, 0)
         self.canvas = TrackCanvas(mid, width=900, height=760)
-        # matplotlib 3.11 起真控件是 canvas.widget（组合式），需自行 pack
-        self.canvas.widget.pack(fill='both', expand=True)
         self.canvas.on_cursor = self._on_cursor
         self.canvas.on_range = self._on_range
+        self.canvas.on_drop = self._on_drop
+        ml.addWidget(self.canvas)
+        splitter.addWidget(mid)
 
-        right = ttk.Frame(body, width=340)
-        body.add(right, weight=2)
+        right = QWidget()
         self._build_right_panel(right)
+        splitter.addWidget(right)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 6)
+        splitter.setStretchFactor(2, 2)
 
-        self.status = tk.StringVar(value='')
-        ttk.Label(self, textvariable=self.status, relief='sunken',
-                  anchor='w').pack(side='bottom', fill='x')
+        # 底部状态栏
+        self.status = QLabel('')
+        self.status.setFrameShape(QFrame.StyledPanel)
+        self.status.setMinimumHeight(22)
+        root.addWidget(self.status)
 
     def _style(self):
-        style = ttk.Style(self)
-        try:
-            style.theme_use('clam')
-        except Exception:
-            pass
-        style.configure('Small.TLabel', font=('Microsoft YaHei', 8))
+        f = QFont('Microsoft YaHei', 9)
+        QApplication.instance().setFont(f)
 
     def _build_toolbar(self, parent):
-        row1 = ttk.Frame(parent)
-        row1.pack(side='top', fill='x')
-        ttk.Label(row1, text='版式：').pack(side='left')
-        self.cmb_kind = ttk.Combobox(row1, values=('快速图版式', '综合图版式'),
-                                     state='readonly', width=14)
-        self.cmb_kind.set('快速图版式' if self.kind == 'qlpt' else '综合图版式')
-        self.cmb_kind.pack(side='left', padx=(0, 10))
-        self.cmb_kind.bind('<<ComboboxSelected>>', self._on_kind_changed)
+        rows = QVBoxLayout(parent)
+        rows.setContentsMargins(0, 0, 0, 0)
+        rows.setSpacing(2)
 
-        ttk.Button(row1, text='读取保存的布局', command=self._load_saved_layout
-                   ).pack(side='left', padx=2)
-        ttk.Button(row1, text='保存当前布局', command=self._save_layout
-                   ).pack(side='left', padx=2)
-        ttk.Separator(row1, orient='vertical').pack(side='left', fill='y', padx=8)
-        ttk.Button(row1, text='复位全井', command=self._reset_view).pack(side='left', padx=2)
-        ttk.Button(row1, text='导出 PNG', command=self._export_png).pack(side='left', padx=2)
-        ttk.Button(row1, text='导出 PDF', command=self._export_pdf).pack(side='left', padx=2)
+        row1 = QHBoxLayout()
+        rows.addLayout(row1)
+        row1.addWidget(QLabel('版式：'))
+        self.cmb_kind = QComboBox()
+        self.cmb_kind.addItems(['快速图版式', '综合图版式'])
+        self.cmb_kind.setCurrentIndex(0 if self.kind == 'qlpt' else 1)
+        self.cmb_kind.setFixedWidth(150)
+        self.cmb_kind.currentIndexChanged.connect(self._on_kind_changed)
+        row1.addWidget(self.cmb_kind)
+        for text, slot in (('读取保存的布局', self._load_saved_layout),
+                           ('保存当前布局', self._save_layout)):
+            b = QPushButton(text)
+            b.clicked.connect(slot)
+            row1.addWidget(b)
+        row1.addStretch(1)
+        for text, slot in (('复位全井', self._reset_view),
+                           ('导出 PNG', self._export_png),
+                           ('导出 PDF', self._export_pdf)):
+            b = QPushButton(text)
+            b.clicked.connect(slot)
+            row1.addWidget(b)
 
-        row2 = ttk.Frame(parent)
-        row2.pack(side='top', fill='x')
-        ttk.Label(row2, text='深度范围：').pack(side='left')
-        self.var_top = tk.StringVar(value='')
-        self.var_bottom = tk.StringVar(value='')
-        e1 = ttk.Entry(row2, textvariable=self.var_top, width=12)
-        e1.pack(side='left', padx=2)
-        e1.bind('<Return>', lambda e: self._apply_depth_range())
-        ttk.Label(row2, text='—').pack(side='left')
-        e2 = ttk.Entry(row2, textvariable=self.var_bottom, width=12)
-        e2.pack(side='left', padx=2)
-        e2.bind('<Return>', lambda e: self._apply_depth_range())
-        ttk.Button(row2, text='应用', command=self._apply_depth_range).pack(side='left', padx=2)
-        ttk.Label(row2, text='  提示：滚轮缩放 / 左键拖拽平移 / 右键框选放大 / 中键复位',
-                  style='Small.TLabel').pack(side='left', padx=10)
+        row2 = QHBoxLayout()
+        rows.addLayout(row2)
+        row2.addWidget(QLabel('深度范围：'))
+        self.var_top = QLineEdit()
+        self.var_bottom = QLineEdit()
+        self.var_top.setFixedWidth(90)
+        self.var_bottom.setFixedWidth(90)
+        self.var_top.returnPressed.connect(self._apply_depth_range)
+        self.var_bottom.returnPressed.connect(self._apply_depth_range)
+        row2.addWidget(self.var_top)
+        row2.addWidget(QLabel('—'))
+        row2.addWidget(self.var_bottom)
+        b_apply = QPushButton('应用')
+        b_apply.clicked.connect(self._apply_depth_range)
+        row2.addWidget(b_apply)
+        tip = QLabel('  提示：滚轮缩放 / 左键拖拽平移 / 右键框选放大 / 中键复位')
+        tip.setStyleSheet('color: #666;')
+        row2.addWidget(tip, 1)
 
     def _build_catalog_panel(self, parent):
-        ttk.Label(parent, text='曲线目录（拖到绘图区即出曲线）',
-                  font=('Microsoft YaHei', 9, 'bold')).pack(anchor='w', pady=(4, 2))
-        self.var_filter = tk.StringVar()
-        ent = ttk.Entry(parent, textvariable=self.var_filter)
-        ent.pack(fill='x', padx=2)
-        ent.bind('<KeyRelease>', lambda e: self._refresh_catalog())
+        lay = QVBoxLayout(parent)
+        lay.setContentsMargins(2, 4, 2, 4)
+        title = QLabel('曲线目录（拖到绘图区即出曲线）')
+        title.setStyleSheet('font-weight: bold;')
+        lay.addWidget(title)
+        self.var_filter = QLineEdit()
+        self.var_filter.setPlaceholderText('过滤曲线名 / 族 / 单位')
+        self.var_filter.textChanged.connect(self._refresh_catalog)
+        lay.addWidget(self.var_filter)
 
-        wrap = ttk.Frame(parent)
-        wrap.pack(fill='both', expand=True, padx=2, pady=2)
-        self.tree = ttk.Treeview(wrap, columns=('unit',), show='tree headings',
-                                 selectmode='browse')
-        self.tree.heading('#0', text='名称', anchor='w')
-        self.tree.column('#0', width=190, minwidth=120, stretch=True)
-        self.tree.heading('unit', text='单位', anchor='w')
-        self.tree.column('unit', width=70, minwidth=50, stretch=False)
-        vsb = ttk.Scrollbar(wrap, orient='vertical', command=self.tree.yview)
-        self.tree.configure(yscrollcommand=vsb.set)
-        self.tree.pack(side='left', fill='both', expand=True)
-        vsb.pack(side='right', fill='y')
+        self.tree = _CurveTreeWidget()
+        self.tree.setColumnCount(2)
+        self.tree.setHeaderLabels(['名称', '单位'])
+        self.tree.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tree.setDragEnabled(True)
+        self.tree.setDefaultDropAction(Qt.CopyAction)
+        self.tree.itemDoubleClicked.connect(self._on_tree_double)
+        lay.addWidget(self.tree, 1)
 
-        self.tree.bind('<ButtonPress-1>', self._on_tree_press)
-        self.tree.bind('<B1-Motion>', self._on_tree_motion)
-        self.tree.bind('<ButtonRelease-1>', self._on_tree_release)
-        self.tree.bind('<Double-1>', self._on_tree_double)
-
-        btns = ttk.Frame(parent)
-        btns.pack(fill='x', padx=2, pady=(0, 4))
-        ttk.Button(btns, text='加入当前道', command=self._add_selected_to_track
-                   ).pack(side='left', padx=2)
-        ttk.Button(btns, text='新建道并加入', command=self._add_selected_new_track
-                   ).pack(side='left', padx=2)
+        btns = QHBoxLayout()
+        b1 = QPushButton('加入当前道')
+        b1.clicked.connect(self._add_selected_to_track)
+        b2 = QPushButton('新建道并加入')
+        b2.clicked.connect(self._add_selected_new_track)
+        btns.addWidget(b1)
+        btns.addWidget(b2)
+        btns.addStretch(1)
+        lay.addLayout(btns)
 
     def _build_right_panel(self, parent):
-        self.nb = ttk.Notebook(parent)
-        self.nb.pack(fill='both', expand=True)
+        lay = QVBoxLayout(parent)
+        lay.setContentsMargins(0, 0, 0, 0)
+        self.nb = QTabWidget()
+        lay.addWidget(self.nb)
 
         # 页签1：道与曲线
-        tab_tracks = ttk.Frame(self.nb)
-        self.nb.add(tab_tracks, text='道与曲线')
-        self.tree_tracks = ttk.Treeview(tab_tracks, columns=('kind',),
-                                         show='tree headings', selectmode='browse')
-        self.tree_tracks.heading('#0', text='道 / 曲线', anchor='w')
-        self.tree_tracks.column('#0', width=190, stretch=True)
-        self.tree_tracks.heading('kind', text='类型', anchor='w')
-        self.tree_tracks.column('kind', width=70, stretch=False)
-        self.tree_tracks.pack(fill='both', expand=True)
-        self.tree_tracks.bind('<Double-1>', self._on_track_double)
+        tab_tracks = QWidget()
+        tl = QVBoxLayout(tab_tracks)
+        self.tree_tracks = QTreeWidget()
+        self.tree_tracks.setColumnCount(2)
+        self.tree_tracks.setHeaderLabels(['道 / 曲线', '类型'])
+        self.tree_tracks.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.tree_tracks.itemDoubleClicked.connect(self._on_track_double)
+        tl.addWidget(self.tree_tracks, 1)
+        row = QHBoxLayout()
+        for text, slot in (('删曲线', self._remove_selected_curve),
+                           ('删道', self._remove_selected_track),
+                           ('上移', lambda: self._move_track(-1)),
+                           ('下移', lambda: self._move_track(1))):
+            b = QPushButton(text)
+            b.clicked.connect(slot)
+            row.addWidget(b)
+        row.addStretch(1)
+        tl.addLayout(row)
+        self.nb.addTab(tab_tracks, '道与曲线')
 
-        row = ttk.Frame(tab_tracks)
-        row.pack(fill='x', pady=4)
-        ttk.Button(row, text='删曲线', command=self._remove_selected_curve
-                   ).pack(side='left', padx=2)
-        ttk.Button(row, text='删道', command=self._remove_selected_track
-                   ).pack(side='left', padx=2)
-        ttk.Button(row, text='上移', command=lambda: self._move_track(-1)
-                   ).pack(side='left', padx=2)
-        ttk.Button(row, text='下移', command=lambda: self._move_track(1)
-                   ).pack(side='left', padx=2)
-
-        # 页签2：图头
-        tab_header = ttk.Frame(self.nb)
-        self.nb.add(tab_header, text='图头')
-        self.header_canvas = tk.Canvas(tab_header, highlightthickness=0, borderwidth=0)
-        hsb = ttk.Scrollbar(tab_header, orient='horizontal', command=self.header_canvas.xview)
-        vsb = ttk.Scrollbar(tab_header, orient='vertical', command=self.header_canvas.yview)
-        self.header_frame = ttk.Frame(self.header_canvas)
-        self.header_window = self.header_canvas.create_window(
-            (0, 0), window=self.header_frame, anchor='nw')
-        self.header_frame.bind('<Configure>',
-                               lambda e: self.header_canvas.configure(scrollregion=self.header_canvas.bbox('all')))
-        self.header_canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        self.header_canvas.grid(row=0, column=0, sticky='nsew')
-        vsb.grid(row=0, column=1, sticky='ns')
-        hsb.grid(row=1, column=0, sticky='ew')
-        tab_header.rowconfigure(0, weight=1)
-        tab_header.columnconfigure(0, weight=1)
-        ttk.Label(tab_header, text='改动立即写回井信息 info.json，快速图/综合图同步生效',
-                  style='Small.TLabel').grid(row=2, column=0, columnspan=2, sticky='w', pady=2)
+        # 页签2：图头（滚动区）
+        self.header_area = QScrollArea()
+        self.header_area.setWidgetResizable(True)
+        self.header_frame = QWidget()
+        self.header_frame.setLayout(QVBoxLayout())
+        self.header_area.setWidget(self.header_frame)
+        note = QLabel('改动立即写回井信息 info.json，快速图/综合图同步生效')
+        note.setStyleSheet('color: #666;')
+        wrap = QWidget()
+        wl = QVBoxLayout(wrap)
+        wl.setContentsMargins(0, 0, 0, 0)
+        wl.addWidget(self.header_area, 1)
+        wl.addWidget(note)
+        self.nb.addTab(wrap, '图头')
 
         # 页签3：读值
-        tab_read = ttk.Frame(self.nb)
-        self.nb.add(tab_read, text='深度读值')
-        self.var_cursor = tk.StringVar(value='深度游标：--')
-        ttk.Label(tab_read, textvariable=self.var_cursor,
-                  font=('Microsoft YaHei', 10, 'bold')).pack(anchor='w', pady=(4, 2))
-        wrap = ttk.Frame(tab_read)
-        wrap.pack(fill='both', expand=True)
-        self.tree_read = ttk.Treeview(wrap, columns=('value',), show='tree headings')
-        self.tree_read.heading('#0', text='曲线', anchor='w')
-        self.tree_read.column('#0', width=150, stretch=True)
-        self.tree_read.heading('value', text='数值', anchor='w')
-        self.tree_read.column('value', width=110, stretch=False)
-        rsb = ttk.Scrollbar(wrap, orient='vertical', command=self.tree_read.yview)
-        self.tree_read.configure(yscrollcommand=rsb.set)
-        self.tree_read.pack(side='left', fill='both', expand=True)
-        rsb.pack(side='right', fill='y')
+        tab_read = QWidget()
+        rl = QVBoxLayout(tab_read)
+        self.var_cursor = QLabel('深度游标：--')
+        self.var_cursor.setStyleSheet('font-weight: bold;')
+        rl.addWidget(self.var_cursor)
+        self.tree_read = QTreeWidget()
+        self.tree_read.setColumnCount(2)
+        self.tree_read.setHeaderLabels(['曲线', '数值'])
+        rl.addWidget(self.tree_read, 1)
+        self.nb.addTab(tab_read, '深度读值')
 
     # ------------------------------------------------------------------
     # 道配置
@@ -11367,7 +11438,6 @@ class LogViewWindow(tk.Toplevel):
                                                   'M2R1', 'AF10'])),
             'has_gas': bool(_any_col(cols, ['TG', 'C1TG', 'GAS', 'TOTAL_GAS'])),
         }
-        # 列 → 族（供按族挑默认曲线，与工作台三色语义同源）
         fam_map = {it.column: it.family for it in self.catalog}
         if tpl:
             tracks = build_tracks(tpl, kind, flags, gas_track_width=1.0,
@@ -11380,19 +11450,23 @@ class LogViewWindow(tk.Toplevel):
         self._refresh_track_tree()
         self._refresh_canvas_header()
 
-    def _on_kind_changed(self, _evt=None):
-        kind = 'qlpt' if self.cmb_kind.get() == '快速图版式' else 'cmpt'
+    def _on_kind_changed(self, _idx=None):
+        kind = 'qlpt' if self.cmb_kind.currentText() == '快速图版式' else 'cmpt'
         self._load_tracks(kind)
         self._update_status()
 
     def _refresh_track_tree(self):
-        self.tree_tracks.delete(*self.tree_tracks.get_children())
+        self.tree_tracks.clear()
         for t in self.tracks:
-            iid = self.tree_tracks.insert('', 'end', text=t.name, values=(t.kind,))
+            ti = QTreeWidgetItem([t.name, t.kind])
+            ti.setData(0, Qt.UserRole, t.id)
+            ti.setFlags(ti.flags() | Qt.ItemIsEnabled)
             for c in t.curves:
-                self.tree_tracks.insert(iid, 'end', text=c.label or c.column,
-                                        values=(c.scale,))
-            self.tree_tracks.item(iid, open=True)
+                ci = QTreeWidgetItem([c.label or c.column, c.scale])
+                ci.setData(0, Qt.UserRole, c.column)
+                ti.addChild(ci)
+            ti.setExpanded(True)
+            self.tree_tracks.addTopLevelItem(ti)
 
     def _refresh_canvas_header(self):
         """图头条 = 井信息（井名/图题/深度范围）+ 当前深度窗口。"""
@@ -11412,9 +11486,10 @@ class LogViewWindow(tk.Toplevel):
     # ------------------------------------------------------------------
     def _refresh_catalog(self):
         self.catalog = build_catalog(self.data)
-        keyword = (self.var_filter.get() or '').strip().lower()
+        keyword = (self.var_filter.text() or '').strip().lower()
         groups = catalog_groups(self.catalog)
-        self.tree.delete(*self.tree.get_children())
+        self.tree.clear()
+        self._curve_item_map.clear()
         for gname, items in groups:
             shown = [i for i in items
                      if not keyword or keyword in i.column.lower()
@@ -11422,23 +11497,26 @@ class LogViewWindow(tk.Toplevel):
                      or keyword in i.display.lower()]
             if not shown:
                 continue
-            gid = self.tree.insert('', 'end', text=gname, open=True)
+            gi = QTreeWidgetItem([gname, ''])
+            gi.setFlags(gi.flags() & ~Qt.ItemIsDragEnabled)
             for it in shown:
-                self.tree.insert(gid, 'end', text=it.column, values=(it.unit,))
+                ci = QTreeWidgetItem([it.column, it.unit])
+                ci.setData(0, Qt.UserRole, it.column)
+                self._curve_item_map[id(ci)] = it
+                gi.addChild(ci)
+            gi.setExpanded(True)
+            self.tree.addTopLevelItem(gi)
 
     def _current_curve_item(self):
-        sel = self.tree.selection()
-        if not sel:
+        cur = self.tree.currentItem()
+        if cur is None:
             return None
-        iid = sel[0]
-        parent = self.tree.parent(iid)
-        if not parent:
-            return None
-        name = self.tree.item(iid, 'text')
-        for gname, items in catalog_groups(self.catalog):
-            for it in items:
-                if it.column == name:
-                    return it
+        return self._curve_item_map.get(id(cur))
+
+    def _curve_item_by_column(self, column: str):
+        for it in self.catalog:
+            if it.column == column:
+                return it
         return None
 
     def _current_track_id(self) -> str:
@@ -11450,93 +11528,41 @@ class LogViewWindow(tk.Toplevel):
         return self.tracks[0].id if self.tracks else ''
 
     # ------------------------------------------------------------------
-    # 拖放（纯 tkinter 三段式实现）
+    # 拖放（Qt 原生 DnD）：曲线目录 → 画布
     # ------------------------------------------------------------------
-    def _on_tree_press(self, evt):
-        self._drag_item = self.tree.identify_row(evt.y)
-        self._drag_origin = (evt.x, evt.y)
-        self._dragging = False
-
-    def _on_tree_motion(self, evt):
-        if not self._drag_item:
-            return
-        if not self._dragging and self._drag_origin:
-            dx = evt.x - self._drag_origin[0]
-            dy = evt.y - self._drag_origin[1]
-            if (dx * dx + dy * dy) ** 0.5 >= DRAG_THRESHOLD:
-                self._dragging = True
-                self.tree.configure(cursor='hand2')
-
-    def _on_tree_release(self, _evt):
-        if self._dragging:
-            self._drop_on_canvas()
-        self.tree.configure(cursor='')
-        self._drag_item = None
-        self._drag_origin = None
-        self._dragging = False
-
-    def _drop_on_canvas(self):
-        """抬起时判断落点：落在画布 → 加入目标道。"""
-        item = self._current_curve_item()
+    def _on_drop(self, column: str, track_id: str):
+        """画布 dropEvent 回调：把拖入的曲线加入落点所在道。"""
+        item = self._curve_item_by_column(column)
         if item is None:
             return
-        x, y = self.winfo_pointerxy()
-        widget = self.winfo_containing(x, y)
-        if widget is None:
+        tid = track_id or self._current_track_id()
+        if not tid:
             return
-        target = self._canvas_of(widget)
-        if target is None:
-            return
-        px = x - target.widget.winfo_rootx()
-        py = y - target.widget.winfo_rooty()
-        track_id = target.track_at_pixel(px, py) or self._current_track_id()
-        if not track_id:
-            return
-        self._add_curve_to_track(item, track_id)
+        self._add_curve_to_track(item, tid)
 
-    def _canvas_of(self, widget):
-        """从命中的控件反查画布实例。
-
-        matplotlib 3.11 起画布真控件是 tk.Canvas（打有 _logvis_canvas 标记），
-        不在 TrackCanvas 的控件父子链里，故先查标记再回溯父级。
-        """
-        w = widget
-        while w is not None:
-            found = getattr(w, '_logvis_canvas', None)
-            if isinstance(found, TrackCanvas):
-                return found
-            if isinstance(w, TrackCanvas):
-                return w
-            try:
-                w = w.master
-            except Exception:
-                break
-        return None
-
-    def _on_tree_double(self, _evt):
-        item = self._current_curve_item()
-        if item is not None:
-            self._add_curve_to_track(item, self._current_track_id())
+    def _on_tree_double(self, item=None, column=0):
+        ci = self._curve_item_map.get(id(item)) if item is not None else self._current_curve_item()
+        if ci is not None:
+            self._add_curve_to_track(ci, self._current_track_id())
 
     def _add_selected_to_track(self):
         item = self._current_curve_item()
         if item is None:
-            messagebox.showinfo('提示', '请先在左侧选中一条曲线', parent=self)
+            _qg.info('提示', '请先在左侧选中一条曲线', self)
             return
         self._add_curve_to_track(item, self._current_track_id())
 
     def _add_selected_new_track(self):
         item = self._current_curve_item()
         if item is None:
-            messagebox.showinfo('提示', '请先在左侧选中一条曲线', parent=self)
+            _qg.info('提示', '请先在左侧选中一条曲线', self)
             return
         tid = f'CUSTOM_{len(self.tracks) + 1}'
-        item0 = self._current_curve_item()
-        is2d = bool(item0 and getattr(item0, 'is_array', False))
-        self.canvas.add_track(tid, name=(item0.label if item0 and is2d else
+        is2d = bool(item and getattr(item, 'is_array', False))
+        self.canvas.add_track(tid, name=(item.label if item and is2d else
                                          f'自定义道 {len(self.tracks) + 1}'),
                               width=1.6 if is2d else 1.0,
-                              kind=(item0.kind if item0 and is2d else 'curve'))
+                              kind=(item.kind if item and is2d else 'curve'))
         self.tracks = self.canvas.tracks
         self._add_curve_to_track(item, tid)
         self._refresh_track_tree()
@@ -11566,40 +11592,35 @@ class LogViewWindow(tk.Toplevel):
     # 道与曲线增删
     # ------------------------------------------------------------------
     def _remove_selected_curve(self):
-        sel = self.tree_tracks.selection()
-        if not sel:
+        cur = self.tree_tracks.currentItem()
+        if cur is None:
             return
-        iid = sel[0]
-        parent = self.tree_tracks.parent(iid)
-        if not parent:
+        parent = cur.parent()
+        if parent is None:
             return
         track_id = self._track_id_by_tree_item(parent)
-        name = self.tree_tracks.item(iid, 'text')
+        name = cur.text(0)
         if track_id and self.canvas.remove_curve(track_id, name):
             self.tracks = self.canvas.tracks
             self._refresh_track_tree()
 
     def _remove_selected_track(self):
-        sel = self.tree_tracks.selection()
-        if not sel:
+        cur = self.tree_tracks.currentItem()
+        if cur is None:
             return
-        iid = sel[0]
-        if self.tree_tracks.parent(iid):
+        if cur.parent() is not None:
             self._remove_selected_curve()
             return
-        track_id = self._track_id_by_tree_item(iid)
+        track_id = self._track_id_by_tree_item(cur)
         if track_id and self.canvas.remove_track(track_id):
             self.tracks = self.canvas.tracks
             self._refresh_track_tree()
 
     def _move_track(self, delta: int):
-        sel = self.tree_tracks.selection()
-        if not sel:
+        cur = self.tree_tracks.currentItem()
+        if cur is None or cur.parent() is not None:
             return
-        iid = sel[0]
-        if self.tree_tracks.parent(iid):
-            return
-        track_id = self._track_id_by_tree_item(iid)
+        track_id = self._track_id_by_tree_item(cur)
         idx = next((i for i, t in enumerate(self.tracks) if t.id == track_id), -1)
         j = idx + delta
         if idx < 0 or j < 0 or j >= len(self.tracks):
@@ -11608,54 +11629,64 @@ class LogViewWindow(tk.Toplevel):
         self.canvas.set_tracks(self.tracks)
         self._refresh_track_tree()
 
-    def _on_track_double(self, _evt):
+    def _on_track_double(self, item=None, column=0):
         """双击道名 → 选为当前目标道（后续拖入的曲线进这道）。"""
-        sel = self.tree_tracks.selection()
-        if not sel:
+        cur = item if item is not None else self.tree_tracks.currentItem()
+        if cur is None or cur.parent() is not None:
             return
-        iid = sel[0]
-        parent = self.tree_tracks.parent(iid)
-        if parent:
-            return
-        self._selected_track = self._track_id_by_tree_item(iid)
+        self._selected_track = self._track_id_by_tree_item(cur)
 
-    def _track_id_by_tree_item(self, iid: str) -> str:
-        name = self.tree_tracks.item(iid, 'text')
-        for t in self.tracks:
-            if t.name == name or t.id == name:
-                return t.id
+    def _track_id_by_tree_item(self, item) -> str:
+        if item is None:
+            return ''
+        tid = item.data(0, Qt.UserRole)
+        if tid:
+            return str(tid)
+        parent = item.parent()
+        if parent is not None:
+            return str(parent.data(0, Qt.UserRole) or '')
         return ''
 
     # ------------------------------------------------------------------
     # 图头编辑
     # ------------------------------------------------------------------
+    def _clear_header_panel(self):
+        lay = self.header_frame.layout()
+        while lay.count():
+            it = lay.takeAt(0)
+            w = it.widget()
+            if w is not None:
+                w.deleteLater()
+
     def _refresh_header_panel(self):
-        for ch in self.header_frame.winfo_children():
-            ch.destroy()
+        self._clear_header_panel()
+        lay = self.header_frame.layout()
         fields = load_header_fields(self.data.info)
         if not fields:
-            ttk.Label(self.header_frame, text='（未找到井信息文件）').pack(anchor='w')
+            lay.addWidget(QLabel('（未找到井信息文件）'))
             return
         last_section = None
         for f in fields:
             if f.section != last_section:
                 last_section = f.section
-                ttk.Label(self.header_frame, text=f.section,
-                          font=('Microsoft YaHei', 9, 'bold'),
-                          foreground='#1f4e79').pack(anchor='w', pady=(6, 1))
-            row = ttk.Frame(self.header_frame)
-            row.pack(fill='x', pady=1)
-            ttk.Label(row, text=f.label, width=14, anchor='w').pack(side='left')
-            var = tk.StringVar(value=f.value)
-            ent = ttk.Entry(row, textvariable=var, width=22)
-            ent.pack(side='left', fill='x', expand=True)
-            ent.bind('<FocusOut>', lambda e, fld=f, v=var: self._on_header_edit(fld, v))
-            ent.bind('<Return>', lambda e, fld=f, v=var: self._on_header_edit(fld, v))
+                sec = QLabel(f.section)
+                sec.setStyleSheet('font-weight: bold; color: #1f4e79;')
+                lay.addWidget(sec)
+            row = QHBoxLayout()
+            lab = QLabel(f.label)
+            lab.setFixedWidth(110)
+            ed = QLineEdit(str(f.value))
+            ed.editingFinished.connect(
+                lambda ed=ed, fld=f: self._on_header_edit(fld, ed))
+            row.addWidget(lab)
+            row.addWidget(ed, 1)
+            lay.addLayout(row)
+        lay.addStretch(1)
 
-    def _on_header_edit(self, field: HeaderField, var: tk.StringVar):
+    def _on_header_edit(self, field: HeaderField, edit: QLineEdit):
         if self._suspend_save:
             return
-        value = var.get()
+        value = edit.text()
         if value == field.value:
             return
         field.value = value
@@ -11671,26 +11702,25 @@ class LogViewWindow(tk.Toplevel):
     # ------------------------------------------------------------------
     def _on_cursor(self, depth: float, values: dict):
         unit = self.data.depth_unit or 'm'
-        self.var_cursor.set(f'深度游标：{depth:.2f} {unit}')
-        self.tree_read.delete(*self.tree_read.get_children())
+        self.var_cursor.setText(f'深度游标：{depth:.2f} {unit}')
+        self.tree_read.clear()
         for k, v in sorted(values.items()):
             if k == '深度':
                 continue
-            self.tree_read.insert('', 'end', text=k,
-                                  values=(f'{v:.4g}' if isinstance(v, float) else str(v),))
+            it = QTreeWidgetItem([k, f'{v:.4g}' if isinstance(v, float) else str(v)])
+            self.tree_read.addTopLevelItem(it)
 
     def _on_range(self, top: float, bottom: float):
-        if hasattr(self, 'var_top'):
-            self.var_top.set(f'{top:.1f}')
-            self.var_bottom.set(f'{bottom:.1f}')
+        self.var_top.setText(f'{top:.1f}')
+        self.var_bottom.setText(f'{bottom:.1f}')
 
     def _update_status(self, msg: str = ''):
         if msg:
-            self.status.set(msg)
+            self.status.setText(msg)
             return
         n_curve = sum(len(t.curves) for t in self.tracks)
         rows = len(self.data.depth) if self.data.depth is not None else 0
-        self.status.set(
+        self.status.setText(
             f'井：{self.well_name}｜道 {len(self.tracks)} 条 / 曲线 {n_curve} 条｜'
             f'数据 {rows} 行｜曲线目录 {len(self.catalog)} 条｜'
             f'数据源 {self.data.origin or "无"}'
@@ -11701,8 +11731,8 @@ class LogViewWindow(tk.Toplevel):
     # ------------------------------------------------------------------
     def _apply_depth_range(self):
         try:
-            top = float(self.var_top.get())
-            bottom = float(self.var_bottom.get())
+            top = float(self.var_top.text())
+            bottom = float(self.var_bottom.text())
         except (TypeError, ValueError):
             return
         self.canvas.set_depth_range(top, bottom)
@@ -11713,18 +11743,14 @@ class LogViewWindow(tk.Toplevel):
         self._refresh_canvas_header()
 
     def _export_png(self):
-        path = filedialog.asksaveasfilename(
-            parent=self, title='导出 PNG',
-            defaultextension='.png',
-            initialfile=f'{self.well_name}_logvis.png')
+        path = _qg.save_file(title='导出 PNG', defaultextension='.png',
+                             initialfile=f'{self.well_name}_logvis.png', parent=self)
         if path and self.canvas.export(path):
             self._update_status(f'已导出：{path}')
 
     def _export_pdf(self):
-        path = filedialog.asksaveasfilename(
-            parent=self, title='导出 PDF',
-            defaultextension='.pdf',
-            initialfile=f'{self.well_name}_logvis.pdf')
+        path = _qg.save_file(title='导出 PDF', defaultextension='.pdf',
+                             initialfile=f'{self.well_name}_logvis.pdf', parent=self)
         if path and self.canvas.export(path):
             self._update_status(f'已导出：{path}')
 
@@ -11736,7 +11762,7 @@ class LogViewWindow(tk.Toplevel):
     def _save_layout(self):
         path = self._layout_path()
         if not path:
-            messagebox.showinfo('提示', '该井没有产物目录，无法保存布局', parent=self)
+            _qg.info('提示', '该井没有产物目录，无法保存布局', self)
             return
         data = {
             'well_name': self.well_name,
@@ -11748,18 +11774,18 @@ class LogViewWindow(tk.Toplevel):
                 json.dump(data, f, ensure_ascii=False, indent=2)
             self._update_status(f'布局已保存：{path}')
         except Exception as e:
-            messagebox.showerror('保存失败', str(e), parent=self)
+            _qg.error('保存失败', str(e), self)
 
     def _load_saved_layout(self):
         path = self._layout_path()
         if not path or not os.path.exists(path):
-            messagebox.showinfo('提示', '没有找到保存的布局', parent=self)
+            _qg.info('提示', '没有找到保存的布局', self)
             return
         try:
             with open(path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
         except Exception as e:
-            messagebox.showerror('读取失败', str(e), parent=self)
+            _qg.error('读取失败', str(e), self)
             return
         tracks = tracks_from_dicts(data.get('tracks'))
         if tracks:
@@ -11790,7 +11816,13 @@ def _reload_info(path: str):
 
 def open_logview(master, well_name: str, out_dir: str = '', source_dir: str = '',
                  las_file: str = '', kind: str = 'qlpt') -> LogViewWindow:
-    """从项目工作台调起交互绘图窗口。"""
+    """从项目工作台调起交互绘图窗口。
+
+    【R83】Qt 窗口需显式 show()（tkinter 的 Toplevel 创建即可见）。
+    """
     win = LogViewWindow(master, well_name, out_dir=out_dir, source_dir=source_dir,
                         las_file=las_file, kind=kind)
+    win.show()
+    win.raise_()
+    win.activateWindow()
     return win

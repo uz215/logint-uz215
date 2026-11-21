@@ -36,9 +36,18 @@ import queue
 import subprocess
 import sys
 import threading
-import tkinter as tk
-from tkinter import filedialog, messagebox, ttk
 
+from PyQt5.QtCore import Qt, QTimer
+from PyQt5.QtGui import QColor, QCursor, QFont, QKeySequence
+from PyQt5.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QFrame, QLabel, QPushButton,
+    QLineEdit, QComboBox, QCheckBox, QVBoxLayout, QHBoxLayout,
+    QMenu, QAction, QDialog, QDialogButtonBox, QListWidget, QAbstractItemView,
+    QTextEdit, QShortcut, QTabWidget, QSizePolicy,
+)
+
+from logsys import qtgui as _qg
+from logsys import qtcompat as _qc
 from logsys import project_config as pcfg
 from logsys import project_job as pjob
 from logsys import project_model as pm
@@ -100,18 +109,20 @@ class ProjectBrowser:
         self._wells_by_iid: dict[str, pm.Well] = {}
         self._ds_by_iid: dict[str, pm.Dataset] = {}
         self._root_iid = ''
-        self._filter_after = None
+        self._filter_timer = None
         self._job_queue: queue.Queue = queue.Queue()
         self._job_running = False
         self._job_runner: pjob.JobRunner | None = None
         self._batch_queue: list = []
         self._batch_job: str = ''
 
-        self.win = tk.Toplevel(parent) if parent else tk.Tk()
-        self.win.title('智能测井解释系统 —— 项目工作台')
-        self.win.geometry('1280x780')
-        self.win.configure(bg=C_BG)
-        self.win.minsize(1024, 620)
+        # Qt 要求先有 QApplication 才能创建任何 QWidget
+        _qg.get_app()
+        self.win = QMainWindow(parent)
+        self.win.setWindowTitle('智能测井解释系统 —— 项目工作台')
+        self.win.resize(1280, 780)
+        self.win.setMinimumSize(1024, 620)
+        self.win.setStyleSheet('QWidget { background: %s; color: %s; }' % (C_BG, C_TEXT))
 
         self._init_style()
         self._build_header()
@@ -148,241 +159,264 @@ class ProjectBrowser:
         except queue.Empty:
             pass
         try:
-            self.win.after(200, self._poll_job_queue)
+            QTimer.singleShot(200, self._poll_job_queue)
         except Exception:
             pass
 
     # ---------------- 界面骨架 ----------------
 
+    # ---------------- 界面骨架 ----------------
+
     def _init_style(self):
-        st = ttk.Style()
-        try:
-            st.theme_use('clam')
-        except Exception:
-            pass
-        st.configure('Treeview', font=F_MAIN, rowheight=22, background=C_PANEL,
-                     fieldbackground=C_PANEL, borderwidth=0)
-        st.configure('Treeview.Heading', font=F_BOLD, background='#e9ecf1',
-                     foreground=C_TEXT, relief='flat')
-        st.map('Treeview', background=[('selected', '#d6e4f5')],
-               foreground=[('selected', C_TEXT)])
-        st.configure('TNotebook', background=C_BG, borderwidth=0)
-        st.configure('TNotebook.Tab', font=F_MAIN, padding=(10, 4))
-        st.configure('TLabelframe', font=F_BOLD, background=C_BG)
-        st.configure('TFrame', background=C_BG)
+        # Qt 下用样式表统一配色（tkinter 的 ttk.Style 概念不再需要）
+        self.win.setStyleSheet("""
+            QTreeWidget { background: %s; border: 1px solid %s; }
+            QTreeWidget::item { height: 22px; }
+            QTreeWidget::item:selected { background: #d6e4f5; color: %s; }
+            QHeaderView::section { background: #e9ecf1; color: %s;
+                                  border: none; padding: 3px; }
+            QTabWidget::pane { border: 1px solid %s; background: %s; }
+            QPushButton { padding: 3px 8px; }
+            QLabel { background: transparent; }
+        """ % (C_PANEL, C_LINE, C_TEXT, C_TEXT, C_LINE, C_PANEL))
+
+    def _mk_button(self, parent, text, slot):
+        b = QPushButton(text)
+        b.clicked.connect(slot)
+        return b
+
+    def _mk_label(self, text, bold=False, small=False, muted=False, parent=None):
+        lab = QLabel(text)
+        if bold:
+            lab.setStyleSheet('font-weight: bold;')
+        if small or muted:
+            lab.setStyleSheet('color: %s; font-size: 8pt;' % C_MUTED)
+        return lab
 
     def _build_header(self):
-        hdr = tk.Frame(self.win, bg=C_PANEL)
-        hdr.pack(fill='x')
-        tk.Label(hdr, text='智能测井解释系统', font=F_TITLE, bg=C_PANEL,
-                 fg=C_ACCENT).pack(side='left', padx=(14, 6), pady=8)
-        tk.Label(hdr, text='项目工作台', font=F_BOLD, bg=C_PANEL,
-                 fg=C_TEXT).pack(side='left', pady=8)
-        self.path_var = tk.StringVar()
-        tk.Label(hdr, textvariable=self.path_var, font=F_SUB, bg=C_PANEL,
-                 fg=C_MUTED).pack(side='left', padx=10, pady=8)
+        central = QWidget()
+        self.win.setCentralWidget(central)
+        root = QVBoxLayout(central)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(2)
 
-        right = tk.Frame(hdr, bg=C_PANEL)
-        right.pack(side='right', padx=10)
-        ttk.Button(right, text='打开项目根…', command=self._pick_root).pack(side='left', padx=3)
-        ttk.Button(right, text='刷新', command=self.refresh).pack(side='left', padx=3)
+        # 顶栏
+        hdr = QFrame()
+        hdr.setStyleSheet('background: %s;' % C_PANEL)
+        hl = QHBoxLayout(hdr)
+        hl.setContentsMargins(10, 6, 10, 6)
+        title = QLabel('智能测井解释系统')
+        title.setStyleSheet('color: %s; font-size: 13pt; font-weight: bold;' % C_ACCENT)
+        hl.addWidget(title)
+        hl.addWidget(self._mk_label('项目工作台', bold=True))
+        self.path_var = _qc.Var()
+        self.lbl_path = self._mk_label('', small=True, muted=True)
+        self.path_var.bind_label(self.lbl_path)
+        hl.addWidget(self.lbl_path, 1)
+        hl.addWidget(self._mk_button(hdr, '打开项目根…', self._pick_root))
+        hl.addWidget(self._mk_button(hdr, '刷新', self.refresh))
+        root.addWidget(hdr)
 
-        # 项目级工具条（作业在项目里做：批量执行 / 源根管理）
-        bar = tk.Frame(self.win, bg=C_PANEL)
-        bar.pack(fill='x', padx=10, pady=(6, 0))
-        tk.Label(bar, text='项目作业', font=F_BOLD, bg=C_PANEL,
-                 fg=C_TEXT).pack(side='left', padx=(0, 8))
-        # 【2026-11-11】把井添加到项目 —— 项目成员是显式动作，
-        # 而非"目录里有什么"。新井进来后即可在项目里对它跑作业。
-        ttk.Button(bar, text='添加井到项目…',
-                   command=self._menu_add_well).pack(side='left', padx=3)
-        ttk.Button(bar, text='批量添加井…',
-                   command=self._menu_add_wells_batch).pack(side='left', padx=3)
-        ttk.Separator(bar, orient='vertical').pack(side='left', fill='y', padx=8)
-        ttk.Button(bar, text='批量快速解释图（待解释井）',
-                   command=lambda: self._run_batch('quicklook')).pack(side='left', padx=3)
-        ttk.Button(bar, text='批量综合解释（待解释井）',
-                   command=lambda: self._run_batch('comprehensive')).pack(side='left', padx=3)
-        ttk.Separator(bar, orient='vertical').pack(side='left', fill='y', padx=8)
-        tk.Label(bar, text='候选源根', font=F_SUB, bg=C_PANEL,
-                 fg=C_MUTED).pack(side='left')
-        self.roots_var = tk.StringVar()
-        tk.Label(bar, textvariable=self.roots_var, font=F_SUB, bg=C_PANEL,
-                 fg=C_MUTED).pack(side='left', padx=(4, 8))
-        ttk.Button(bar, text='添加源根…', command=self._menu_add_root).pack(side='left', padx=3)
-        ttk.Button(bar, text='管理源根…', command=self._menu_manage_roots).pack(side='left', padx=3)
+        # 项目作业工具条
+        bar = QFrame()
+        bar.setStyleSheet('background: %s;' % C_PANEL)
+        bl = QHBoxLayout(bar)
+        bl.setContentsMargins(10, 4, 10, 4)
+        bl.addWidget(self._mk_label('项目作业', bold=True))
+        bl.addWidget(self._mk_button(bar, '添加井到项目…', self._menu_add_well))
+        bl.addWidget(self._mk_button(bar, '批量添加井…', self._menu_add_wells_batch))
+        bl.addWidget(self._vline())
+        bl.addWidget(self._mk_button(bar, '批量快速解释图（待解释井）',
+                                     lambda: self._run_batch('quicklook')))
+        bl.addWidget(self._mk_button(bar, '批量综合解释（待解释井）',
+                                     lambda: self._run_batch('comprehensive')))
+        bl.addWidget(self._vline())
+        bl.addWidget(self._mk_label('候选源根', small=True, muted=True))
+        self.roots_var = _qc.Var()
+        self.lbl_roots = self._mk_label('', small=True, muted=True)
+        self.roots_var.bind_label(self.lbl_roots)
+        bl.addWidget(self.lbl_roots)
+        bl.addWidget(self._mk_button(bar, '添加源根…', self._menu_add_root))
+        bl.addWidget(self._mk_button(bar, '管理源根…', self._menu_manage_roots))
+        bl.addStretch(1)
+        root.addWidget(bar)
 
-        # 过滤条（Techlog: Filter tab，实时生效）
-        flt = tk.Frame(self.win, bg=C_BG)
-        flt.pack(fill='x', padx=10, pady=(8, 4))
-        tk.Label(flt, text='过滤', font=F_BOLD, bg=C_BG, fg=C_TEXT).pack(side='left')
-        self.search_var = tk.StringVar()
-        ent = tk.Entry(flt, textvariable=self.search_var, font=F_MAIN, width=26,
-                       relief='solid', bd=1)
-        ent.pack(side='left', padx=(6, 10))
-        # 实时过滤（Techlog: Apply filter dynamically），250ms 防抖避免逐字符全量重扫
-        self._filter_after = None
+        # 过滤条（实时生效 + 防抖）
+        flt = QWidget()
+        fl = QHBoxLayout(flt)
+        fl.setContentsMargins(10, 4, 10, 2)
+        fl.addWidget(self._mk_label('过滤', bold=True))
+        self.search_var = _qc.Var()
+        self.le_search = QLineEdit()
+        self.le_search.setFixedWidth(220)
+        self.le_search.textChanged.connect(lambda t: self.search_var.set(t))
         self.search_var.trace_add('write', lambda *a: self._schedule_filter())
+        fl.addWidget(self.le_search)
 
-        tk.Label(flt, text='状态', font=F_SUB, bg=C_BG, fg=C_MUTED).pack(side='left')
-        self.status_var = tk.StringVar(value='全部')
-        cb = ttk.Combobox(flt, textvariable=self.status_var, width=11, state='readonly',
-                          values=['全部'] + [v[0] for v in pm.WELL_STATUS.values()])
-        cb.pack(side='left', padx=(4, 10))
-        cb.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+        fl.addWidget(self._mk_label('状态', small=True, muted=True))
+        self.status_var = _qc.Var('全部')
+        self.cmb_status = QComboBox()
+        self.cmb_status.setFixedWidth(110)
+        self.cmb_status.addItems(['全部'] + [v[0] for v in pm.WELL_STATUS.values()])
+        self.cmb_status.currentTextChanged.connect(lambda t: (self.status_var.set(t), self.refresh()))
+        fl.addWidget(self.cmb_status)
 
-        tk.Label(flt, text='分组', font=F_SUB, bg=C_BG, fg=C_MUTED).pack(side='left')
-        self.group_var = tk.StringVar(value='不分组')
-        cb2 = ttk.Combobox(flt, textvariable=self.group_var, width=11, state='readonly',
-                           values=['不分组', '按状态', '按国别', '按区块'])
-        cb2.pack(side='left', padx=(4, 10))
-        cb2.bind('<<ComboboxSelected>>', lambda e: self.refresh())
+        fl.addWidget(self._mk_label('分组', small=True, muted=True))
+        self.group_var = _qc.Var('不分组')
+        self.cmb_group = QComboBox()
+        self.cmb_group.setFixedWidth(110)
+        self.cmb_group.addItems(['不分组', '按状态', '按国别', '按区块'])
+        self.cmb_group.currentTextChanged.connect(lambda t: (self.group_var.set(t), self.refresh()))
+        fl.addWidget(self.cmb_group)
 
-        self.show_vars = tk.BooleanVar(value=False)
-        ttk.Checkbutton(flt, text='展开全部变量', variable=self.show_vars,
-                        command=self.refresh).pack(side='left', padx=4)
+        self.show_vars = _qc.Var(False)
+        self.chk_expand = QCheckBox('展开全部变量')
+        self.chk_expand.stateChanged.connect(
+            lambda s: (self.show_vars.set(s == Qt.Checked), self.refresh()))
+        fl.addWidget(self.chk_expand)
 
-        self.stat_var = tk.StringVar()
-        tk.Label(flt, textvariable=self.stat_var, font=F_SUB, bg=C_BG,
-                 fg=C_MUTED).pack(side='right')
-        self._member_var = tk.StringVar(value='成员 0（已登记 0）')
-        tk.Label(flt, textvariable=self._member_var, font=F_SUB, bg=C_BG,
-                 fg=C_MUTED).pack(side='right', padx=(0, 12))
+        fl.addStretch(1)
+        self._member_var = _qc.Var('成员 0（已登记 0）')
+        self.lbl_member = self._mk_label('', small=True, muted=True)
+        self._member_var.bind_label(self.lbl_member)
+        fl.addWidget(self.lbl_member)
+        self.stat_var = _qc.Var()
+        self.lbl_stat = self._mk_label('', small=True, muted=True)
+        self.stat_var.bind_label(self.lbl_stat)
+        fl.addWidget(self.lbl_stat)
+        root.addWidget(flt)
+
+        # 主体区（树 + 属性）由 _build_body 追加到 root
+        self._root_layout = root
+
+    def _vline(self):
+        ln = QFrame()
+        ln.setFrameShape(QFrame.VLine)
+        ln.setFrameShadow(QFrame.Sunken)
+        return ln
 
     def _build_body(self):
-        body = tk.Frame(self.win, bg=C_BG)
-        body.pack(fill='both', expand=True, padx=10, pady=(0, 6))
+        body = QWidget()
+        bl = QHBoxLayout(body)
+        bl.setContentsMargins(10, 4, 10, 4)
 
-        # ---- 左：Project browser ----
-        left = tk.LabelFrame(body, text='项目浏览器', font=F_BOLD, bg=C_BG)
-        left.pack(side='left', fill='both', expand=True)
-        tree_wrap = tk.Frame(left, bg=C_PANEL)
-        tree_wrap.pack(fill='both', expand=True, padx=4, pady=4)
+        # ---- 左：项目浏览器 ----
+        left = QFrame()
+        left.setFrameShape(QFrame.StyledPanel)
+        ll = QVBoxLayout(left)
+        ll.setContentsMargins(4, 4, 4, 4)
+        cap = self._mk_label('项目浏览器', bold=True)
+        ll.addWidget(cap)
+        tag_colors = dict(COLOR_MAP)
+        tag_colors.update(STATUS_TAG)
+        self.tree = _qc.TreeViewCompat(left, columns=('type', 'detail'),
+                                       tag_colors=tag_colors)
+        self.tree.setAlternatingRowColors(False)
+        ll.addWidget(self.tree, 1)
+        bl.addWidget(left, 3)
 
-        self.tree = ttk.Treeview(tree_wrap, columns=('type', 'detail'),
-                                 show='tree headings', selectmode='browse')
-        self.tree.heading('#0', text='名称', anchor='w')
-        self.tree.heading('type', text='类型', anchor='w')
-        self.tree.heading('detail', text='摘要', anchor='w')
-        self.tree.column('#0', width=300, minwidth=160, stretch=True)
-        self.tree.column('type', width=110, minwidth=70, stretch=False)
-        self.tree.column('detail', width=320, minwidth=120, stretch=True)
+        # 右键菜单（作业入口挂在井节点上）
+        self.menu = QMenu(self.win)
+        for label, slot in (
+                ('快速解释图（Quick Look）', self._menu_quicklook),
+                ('综合解释', self._menu_comprehensive),
+                ('交互绘图（logvis）…', self._menu_logview),
+                (None, None),
+                ('指定主 LAS…', self._menu_set_las),
+                ('指定气测文件…', self._menu_set_gas),
+                ('选择甲方出图格式…', self._menu_set_format),
+                ('清除资料指定', self._menu_clear_inputs),
+                (None, None),
+                ('打开该井解释', self._menu_open_well),
+                ('打开产物目录', self._menu_open_dir),
+                ('打开源资料目录', self._menu_open_source),
+                ('复制路径', self._menu_copy_path),
+                (None, None),
+                ('关联原始资料目录…', self._menu_bind_source),
+                ('重命名井…', self._menu_rename_well),
+                ('从项目移除', self._menu_remove_well),
+                ('按此条件选择变量…', self._menu_conditional)):
+            if label is None:
+                self.menu.addSeparator()
+            else:
+                act = QAction(label, self.win)
+                act.triggered.connect(slot)
+                self.menu.addAction(act)
+        self.menu_project = QMenu(self.win)
+        for label, slot in (
+                ('添加井到项目…', self._menu_add_well),
+                ('批量添加井…', self._menu_add_wells_batch),
+                (None, None),
+                ('批量快速解释图（待解释井）', lambda: self._run_batch('quicklook')),
+                ('批量综合解释（待解释井）', lambda: self._run_batch('comprehensive')),
+                (None, None),
+                ('打开项目根…', self._pick_root),
+                ('管理源根…', self._menu_manage_roots),
+                ('刷新', self.refresh)):
+            if label is None:
+                self.menu_project.addSeparator()
+            else:
+                act = QAction(label, self.win)
+                act.triggered.connect(slot)
+                self.menu_project.addAction(act)
 
-        vsb = ttk.Scrollbar(tree_wrap, orient='vertical', command=self.tree.yview)
-        hsb = ttk.Scrollbar(tree_wrap, orient='horizontal', command=self.tree.xview)
-        self.tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-        self.tree.grid(row=0, column=0, sticky='nsew')
-        vsb.grid(row=0, column=1, sticky='ns')
-        hsb.grid(row=1, column=0, sticky='ew')
-        tree_wrap.grid_rowconfigure(0, weight=1)
-        tree_wrap.grid_columnconfigure(0, weight=1)
-
-        # 右键菜单
-        # 【2026-11-11 项目在前】作业入口挂在**井节点**上（而不是顶层任务）：
-        #   快速解释图 / 综合解释 —— 在项目里对这口井跑作业
-        # 【2026-11-11 界面整合】原启动界面的"手动校正测井数据 / 气测 / 出图格式"
-        #   随界面整合一并下沉到井级，不再需要先过一个对话框。
-        self.menu = tk.Menu(self.win, tearoff=0)
-        self.menu.add_command(label='快速解释图（Quick Look）', command=self._menu_quicklook)
-        self.menu.add_command(label='综合解释', command=self._menu_comprehensive)
-        # 【R80/R81 交互绘图】logvis：曲线拖入即绘图 / 图头实时改 / 曲线增减
-        self.menu.add_command(label='交互绘图（logvis）…', command=self._menu_logview)
-        self.menu.add_separator()
-        self.menu.add_command(label='指定主 LAS…', command=self._menu_set_las)
-        self.menu.add_command(label='指定气测文件…', command=self._menu_set_gas)
-        self.menu.add_command(label='选择甲方出图格式…', command=self._menu_set_format)
-        self.menu.add_command(label='清除资料指定', command=self._menu_clear_inputs)
-        self.menu.add_separator()
-        self.menu.add_command(label='打开该井解释', command=self._menu_open_well)
-        self.menu.add_command(label='打开产物目录', command=self._menu_open_dir)
-        self.menu.add_command(label='打开源资料目录', command=self._menu_open_source)
-        self.menu.add_command(label='复制路径', command=self._menu_copy_path)
-        self.menu.add_separator()
-        self.menu.add_command(label='关联原始资料目录…', command=self._menu_bind_source)
-        self.menu.add_command(label='重命名井…', command=self._menu_rename_well)
-        self.menu.add_command(label='从项目移除', command=self._menu_remove_well)
-        self.menu.add_command(label='按此条件选择变量…', command=self._menu_conditional)
-
-        # 项目根节点的右键菜单：项目成员管理入口
-        self.menu_project = tk.Menu(self.win, tearoff=0)
-        self.menu_project.add_command(label='添加井到项目…',
-                                      command=self._menu_add_well)
-        self.menu_project.add_command(label='批量添加井…',
-                                      command=self._menu_add_wells_batch)
-        self.menu_project.add_separator()
-        self.menu_project.add_command(label='批量快速解释图（待解释井）',
-                                      command=lambda: self._run_batch('quicklook'))
-        self.menu_project.add_command(label='批量综合解释（待解释井）',
-                                      command=lambda: self._run_batch('comprehensive'))
-        self.menu_project.add_separator()
-        self.menu_project.add_command(label='打开项目根…', command=self._pick_root)
-        self.menu_project.add_command(label='管理源根…', command=self._menu_manage_roots)
-        self.menu_project.add_command(label='刷新', command=self.refresh)
-        self.tree.bind('<Button-3>', self._popup_menu)
-
-        # ---- 右：Properties window ----
-        right = tk.LabelFrame(body, text='属性', font=F_BOLD, bg=C_BG)
-        right.pack(side='left', fill='both', expand=True, padx=(8, 0))
-
-        self.prop_title = tk.Label(right, text='（未选择对象）', font=F_BOLD,
-                                   bg=C_BG, fg=C_ACCENT, anchor='w')
-        self.prop_title.pack(fill='x', padx=10, pady=(8, 2))
-        self.prop_type = tk.Label(right, text='', font=F_SUB, bg=C_BG,
-                                   fg=C_MUTED, anchor='w')
-        self.prop_type.pack(fill='x', padx=10)
-
-        self.nb = ttk.Notebook(right)
-        self.nb.pack(fill='both', expand=True, padx=8, pady=6)
-        self._tabs: dict[str, tk.Text] = {}
+        # ---- 右：属性 ----
+        right = QFrame()
+        right.setFrameShape(QFrame.StyledPanel)
+        rl = QVBoxLayout(right)
+        rl.setContentsMargins(6, 4, 6, 4)
+        self.prop_title = self._mk_label('（未选择对象）', bold=True)
+        self.prop_title.setStyleSheet('color: %s; font-weight: bold;' % C_ACCENT)
+        rl.addWidget(self.prop_title)
+        self.prop_type = self._mk_label('', small=True, muted=True)
+        rl.addWidget(self.prop_type)
+        self.nb = QTabWidget()
+        rl.addWidget(self.nb, 1)
+        self._tabs: dict = {}
         for key in ('概览', '井信息', '数据集', '变量', '资料', '原始'):
-            f = tk.Frame(self.nb, bg=C_PANEL)
-            txt = tk.Text(f, font=F_MONO, wrap='none', bg=C_PANEL, fg=C_TEXT,
-                          relief='flat', borderwidth=0, padx=8, pady=6)
-            sb = ttk.Scrollbar(f, orient='vertical', command=txt.yview)
-            txt.configure(yscrollcommand=sb.set)
-            txt.pack(side='left', fill='both', expand=True)
-            sb.pack(side='right', fill='y')
-            self.nb.add(f, text=key)
+            txt = _qc.TextCompat(right)
+            txt.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+            self.nb.addTab(txt, key)
             self._tabs[key] = txt
-
-        self.tree.bind('<<TreeviewSelect>>', self._on_select)
-        self.tree.bind('<Double-1>', self._on_double_click)
+        bl.addWidget(right, 2)
+        self._root_layout.addWidget(body, 1)
 
     def _build_output(self):
-        out = tk.LabelFrame(self.win, text='输出', font=F_BOLD, bg=C_BG)
-        out.pack(fill='x', padx=10, pady=(0, 8))
-        self.out_txt = tk.Text(out, height=4, font=F_MONO, bg=C_PANEL, fg=C_TEXT,
-                               relief='solid', bd=1, state='disabled')
-        self.out_txt.pack(fill='x', padx=4, pady=4)
+        out = QFrame()
+        out.setFrameShape(QFrame.StyledPanel)
+        ol = QVBoxLayout(out)
+        ol.setContentsMargins(4, 4, 4, 4)
+        cap = self._mk_label('输出', bold=True)
+        ol.addWidget(cap)
+        self.out_txt = _qc.TextCompat(out)
+        self.out_txt.setMaximumHeight(90)
+        self.out_txt.setStyleSheet('font-family: Consolas; font-size: 9pt;')
+        ol.addWidget(self.out_txt)
+        self._root_layout.addWidget(out)
 
     def _bind_keys(self):
-        self.win.bind('<F5>', lambda e: self.refresh())
-        self.win.bind('<Escape>', lambda e: self.win.destroy())
-        self.win.bind('<Control-f>', lambda e: self.focus_search())
-        self.win.protocol('WM_DELETE_WINDOW', self._close)
+        QShortcut(QKeySequence('F5'), self.win, activated=self.refresh)
+        QShortcut(QKeySequence('Escape'), self.win, activated=self._close)
+        QShortcut(QKeySequence('Ctrl+F'), self.win, activated=self.focus_search)
 
     def focus_search(self):
-        for c in self.win.winfo_children():
-            pass
-        # 定位搜索框
         try:
-            self.win.focus_set()
+            self.le_search.setFocus()
+            self.le_search.selectAll()
         except Exception:
             pass
-
-    # ---------------- 数据装载 ----------------
 
     def _schedule_filter(self):
         """过滤防抖：连续输入只在停顿后触发一次重扫。"""
-        if self._filter_after is not None:
+        if self._filter_timer is not None:
             try:
-                self.win.after_cancel(self._filter_after)
+                self._filter_timer.stop()
             except Exception:
                 pass
-        self._filter_after = self.win.after(250, self._do_filter)
+        self._filter_timer = QTimer.singleShot(250, self._do_filter)
 
     def _do_filter(self):
-        self._filter_after = None
+        self._filter_timer = None
         self.refresh()
 
     def refresh(self):
@@ -752,8 +786,8 @@ class ProjectBrowser:
         except Exception:
             pass
         ftypes = [('所有文件', '*.*')] + patterns
-        return filedialog.askopenfilename(title=title, initialdir=initial,
-                                           filetypes=ftypes)
+        return _qg.open_file(title=title, initialdir=initial,
+                             filetypes=ftypes, parent=self.win)
 
     def _set_input(self, key: str, value: str, label: str):
         """写入井级资料指定并刷新。"""
@@ -847,9 +881,9 @@ class ProjectBrowser:
         if not w:
             self._log('请先选择一口井')
             return
-        d = filedialog.askdirectory(
+        d = _qg.select_dir(
             title='选择 %s 的原始资料目录（含 LAS / 地质资料 / 甲方格式）' % w.name,
-            initialdir=w.source_dir or self.root_dir)
+            initialdir=w.source_dir or self.root_dir, parent=self.win)
         if not d:
             return
         if pcfg.bind_well(self.root_dir, w.name, d):
@@ -915,7 +949,7 @@ class ProjectBrowser:
             self._start_next_batch()
 
     def _menu_add_root(self):
-        d = filedialog.askdirectory(title='添加候选原始资料根目录')
+        d = _qg.select_dir(title='添加候选原始资料根目录', parent=self.win)
         if not d:
             return
         if pcfg.add_source_root(self.root_dir, d):
@@ -926,69 +960,49 @@ class ProjectBrowser:
 
     def _menu_manage_roots(self):
         """管理候选源根（增删 + 显示已绑定关系）。"""
-        win = tk.Toplevel(self.win)
-        win.title('项目配置 — 候选源根与井绑定')
-        win.geometry('680x480')
-        win.configure(bg=C_BG)
-        tk.Label(win, text='候选原始资料根目录（用于按井名自动探测源目录）',
-                 font=F_BOLD, bg=C_BG).pack(anchor='w', padx=12, pady=(10, 4))
-        lst = tk.Listbox(win, font=F_MONO, height=8, bg=C_PANEL, relief='solid', bd=1)
-        lst.pack(fill='both', expand=True, padx=12)
-
+        dlg = QDialog(self.win)
+        dlg.setWindowTitle('项目配置 — 候选源根与井绑定')
+        dlg.resize(680, 480)
+        vl = QVBoxLayout(dlg)
+        vl.addWidget(self._mk_label('候选原始资料根目录（用于按井名自动探测源目录）', bold=True))
+        lst = QListWidget()
+        vl.addWidget(lst, 1)
         cfg = pcfg.load_config(self.root_dir)
         for r in cfg.get('source_roots', []):
-            lst.insert('end', r)
+            lst.addItem(str(r))
 
-        tk.Label(win, text='已绑定的井（井名 → 源目录）',
-                 font=F_BOLD, bg=C_BG).pack(anchor='w', padx=12, pady=(8, 4))
-        lst2 = tk.Listbox(win, font=F_MONO, height=8, bg=C_PANEL, relief='solid', bd=1)
-        lst2.pack(fill='both', expand=True, padx=12)
+        vl.addWidget(self._mk_label('已绑定的井（井名 → 源目录）', bold=True))
+        lst2 = QListWidget()
+        vl.addWidget(lst2, 1)
         for k, v in sorted((cfg.get('wells') or {}).items()):
-            lst2.insert('end', '%-24s → %s' % (k, v.get('source_dir', '')))
+            lst2.addItem('%-24s → %s' % (k, v.get('source_dir', '')))
 
-        b = tk.Frame(win, bg=C_BG)
-        b.pack(fill='x', padx=12, pady=10)
+        bl = QHBoxLayout()
+        b_add = self._mk_button(dlg, '添加…', lambda: self._root_add(lst))
+        b_rm = self._mk_button(dlg, '移除选中', lambda: self._root_remove(lst))
+        b_apply = self._mk_button(dlg, '应用并刷新', lambda: (dlg.accept(), self.refresh()))
+        bl.addWidget(b_add)
+        bl.addWidget(b_rm)
+        bl.addStretch(1)
+        bl.addWidget(b_apply)
+        vl.addLayout(bl)
+        dlg.exec_()
 
-        def _add():
-            d = filedialog.askdirectory(title='添加候选原始资料根目录')
-            if d:
-                pcfg.add_source_root(self.root_dir, d)
-                lst.insert('end', d)
+    def _root_add(self, lst):
+        d = _qg.select_dir(title='添加候选原始资料根目录', parent=self.win)
+        if d:
+            pcfg.add_source_root(self.root_dir, d)
+            lst.addItem(d)
 
-        def _remove():
-            sel = lst.curselection()
-            if not sel:
-                return
-            pcfg.remove_source_root(self.root_dir, lst.get(sel[0]))
-            lst.delete(sel[0])
-
-        ttk.Button(b, text='添加…', command=_add).pack(side='left', padx=3)
-        ttk.Button(b, text='移除选中', command=_remove).pack(side='left', padx=3)
-        ttk.Button(b, text='应用并刷新', command=lambda: (win.destroy(), self.refresh())
-                   ).pack(side='right', padx=3)
+    def _root_remove(self, lst):
+        cur = lst.currentItem()
+        if cur is None:
+            return
+        pcfg.remove_source_root(self.root_dir, cur.text())
+        lst.takeItem(lst.row(cur))
 
     def _ask_yes_no(self, title: str, message: str) -> bool:
-        win = tk.Toplevel(self.win)
-        win.title(title)
-        win.geometry('520x260')
-        win.configure(bg=C_BG)
-        tk.Label(win, text=title, font=F_BOLD, bg=C_BG, fg=C_ACCENT).pack(
-            anchor='w', padx=14, pady=(12, 4))
-        tk.Label(win, text=message, font=F_MAIN, bg=C_BG, justify='left').pack(
-            anchor='w', padx=14)
-        res = {'ok': False}
-
-        def _ok():
-            res['ok'] = True
-            win.destroy()
-
-        b = tk.Frame(win, bg=C_BG)
-        b.pack(fill='x', padx=14, pady=12)
-        ttk.Button(b, text='取消', command=win.destroy).pack(side='right', padx=4)
-        ttk.Button(b, text='开始', command=_ok).pack(side='right', padx=4)
-        win.grab_set()
-        self.win.wait_window(win)
-        return res['ok']
+        return _qg.yes_no(title, message, self.win)
 
     def _open_well(self, w: pm.Well):
         if self.on_open_well:
@@ -1013,8 +1027,7 @@ class ProjectBrowser:
     def _menu_copy_path(self):
         w = self._selected_well()
         p = w.path if w else self.root_dir
-        self.win.clipboard_clear()
-        self.win.clipboard_append(p)
+        QApplication.clipboard().setText(p)
         self._log('已复制路径：%s' % p)
 
     def _menu_conditional(self):
@@ -1023,49 +1036,55 @@ class ProjectBrowser:
         if not w:
             self._log('请先选择一口井')
             return
-        win = tk.Toplevel(self.win)
-        win.title('条件选择变量 — %s' % w.name)
-        win.geometry('620x460')
-        win.configure(bg=C_BG)
-        tk.Label(win, text='按族 / 单位 / 类型筛选变量（留空 = 不过滤）',
-                 font=F_BOLD, bg=C_BG).pack(anchor='w', padx=12, pady=(10, 6))
+        dlg = QDialog(self.win)
+        dlg.setWindowTitle('条件选择变量 — %s' % w.name)
+        dlg.resize(620, 460)
+        vl = QVBoxLayout(dlg)
+        vl.addWidget(self._mk_label('按族 / 单位 / 类型筛选变量（留空 = 不过滤）', bold=True))
 
         fams = sorted({v.family for d in w.datasets for v in d.variables if v.family})
         units = sorted({v.unit for d in w.datasets for v in d.variables if v.unit})
         kinds = sorted({v.kind for d in w.datasets for v in d.variables})
+        combos = {}
+        for label, vals in (('族', fams), ('单位', units), ('类型', kinds)):
+            row = QHBoxLayout()
+            row.addWidget(self._mk_label(label))
+            cb = QComboBox()
+            cb.setEditable(True)
+            cb.addItems([''] + list(vals))
+            cb.setFixedWidth(300)
+            row.addWidget(cb)
+            row.addStretch(1)
+            vl.addLayout(row)
+            combos[label] = cb
 
-        f_fam = tk.StringVar()
-        f_unit = tk.StringVar()
-        f_kind = tk.StringVar()
-        for label, var, vals in (('族', f_fam, fams), ('单位', f_unit, units), ('类型', f_kind, kinds)):
-            row = tk.Frame(win, bg=C_BG)
-            row.pack(fill='x', padx=12, pady=3)
-            tk.Label(row, text=label, font=F_MAIN, bg=C_BG, width=6, anchor='w').pack(side='left')
-            cb = ttk.Combobox(row, textvariable=var, values=[''] + list(vals),
-                              state='readonly', width=34)
-            cb.pack(side='left')
-
-        res = tk.Text(win, font=F_MONO, bg=C_PANEL, relief='solid', bd=1)
-        res.pack(fill='both', expand=True, padx=12, pady=8)
+        res = _qc.TextCompat(dlg)
+        vl.addWidget(res, 1)
 
         def _run():
             sel = pm.conditional_select(pm.Project(self.project.name, self.project.path, [w]),
-                                        family=f_fam.get(), unit=f_unit.get(), kind=f_kind.get())
-            res.delete('1.0', 'end')
+                                        family=combos['族'].currentText().strip(),
+                                        unit=combos['单位'].currentText().strip(),
+                                        kind=combos['类型'].currentText().strip())
+            res.clear()
             if not sel:
                 res.insert('1.0', '（无匹配变量）')
                 return
+            lines = []
             for well, dss in sel.items():
                 for dn, vs in dss.items():
-                    res.insert('end', '%s / %s\n' % (well, dn))
+                    lines.append('%s / %s\n' % (well, dn))
                     for v in vs:
-                        res.insert('end', '    %s\n' % v)
-                    res.insert('end', '\n')
+                        lines.append('    %s\n' % v)
+                    lines.append('\n')
+            res.insert('1.0', ''.join(lines))
 
-        b = tk.Frame(win, bg=C_BG)
-        b.pack(fill='x', padx=12, pady=(0, 10))
-        ttk.Button(b, text='执行选择', command=_run).pack(side='left')
-        ttk.Button(b, text='关闭', command=win.destroy).pack(side='right')
+        bl = QHBoxLayout()
+        bl.addWidget(self._mk_button(dlg, '执行选择', _run))
+        bl.addStretch(1)
+        bl.addWidget(self._mk_button(dlg, '关闭', dlg.accept))
+        vl.addLayout(bl)
+        dlg.exec_()
 
     # ---------------- 项目成员管理（把井添加到项目） ----------------
 
@@ -1096,92 +1115,89 @@ class ProjectBrowser:
         """
         cands = pcfg.discover_wells_in_dir(path)
         if not cands:
-            messagebox.showwarning(
-                '添加井到项目',
-                '在所选目录里没有发现 LAS 文件：\n%s\n\n'
-                '请选择一口井的资料目录，或一个包含多口井的资料根目录。' % path)
+            _qg.warn('添加井到项目',
+                     '在所选目录里没有发现 LAS 文件：\n%s\n\n'
+                     '请选择一口井的资料目录，或一个包含多口井的资料根目录。' % path,
+                     self.win)
             return None
 
-        # 井名：LAS 记录井名优先（与产物目录同名），否则用目录名
         used = set()
         for c in cands:
             las_wn = pm.las_well_name(c.get('las_path', '')) or ''
             name = las_wn or c['name']
-            if name in used:          # 井名撞车 → 回退目录名
+            if name in used:
                 name = c['name']
             used.add(name)
             c['well_name'] = name
             c['las_well_name'] = las_wn
 
         result: dict = {}
-        win = tk.Toplevel(self.win)
-        win.title(title)
-        win.transient(self.win)
-        win.geometry('600x500')
-        frm = tk.Frame(win, bg=C_PANEL)
-        frm.pack(fill='both', expand=True, padx=14, pady=12)
+        dlg = QDialog(self.win)
+        dlg.setWindowTitle(title)
+        dlg.resize(600, 500)
+        vl = QVBoxLayout(dlg)
+        vl.addWidget(self._mk_label('原始资料目录', small=True, muted=True))
+        p_lab = self._mk_label(path)
+        p_lab.setWordWrap(True)
+        vl.addWidget(p_lab)
 
-        tk.Label(frm, text='原始资料目录', font=F_SUB, bg=C_PANEL,
-                 fg=C_MUTED).pack(anchor='w')
-        tk.Label(frm, text=path, font=F_MAIN, bg=C_PANEL, fg=C_TEXT,
-                 wraplength=560, justify='left').pack(anchor='w', pady=(2, 10))
-
-        name_var = tk.StringVar(value=cands[0]['well_name'])
+        name_edit = None
         lb = None
         if len(cands) == 1:
             c = cands[0]
-            tk.Label(frm, text='井名（= 项目内标识，也是产物落盘目录名）',
-                     font=F_SUB, bg=C_PANEL, fg=C_MUTED).pack(anchor='w')
-            ent = ttk.Entry(frm, textvariable=name_var, font=F_MAIN)
-            ent.pack(fill='x', pady=(2, 8))
+            vl.addWidget(self._mk_label('井名（= 项目内标识，也是产物落盘目录名）',
+                                        small=True, muted=True))
+            name_edit = QLineEdit(c['well_name'])
+            vl.addWidget(name_edit)
             hint = '发现 %d 个文件（主 LAS：%s）' % (c['files'], c.get('las', ''))
             if c['las_well_name'] and c['las_well_name'] != c['name']:
                 hint += '\nLAS 记录井名：%s  →  产物将落在 output/%s/' % (
                     c['las_well_name'], c['well_name'])
-            tk.Label(frm, text=hint, font=F_SUB, bg=C_PANEL,
-                     fg=C_MUTED, justify='left').pack(anchor='w')
+            h = self._mk_label(hint, small=True, muted=True)
+            h.setWordWrap(True)
+            vl.addWidget(h)
         else:
-            tk.Label(frm, text='发现 %d 口井，勾选要加入项目的井' % len(cands),
-                     font=F_SUB, bg=C_PANEL, fg=C_MUTED).pack(anchor='w')
-            lb = tk.Listbox(frm, font=F_MAIN, bg=C_BG, fg=C_TEXT,
-                            relief='solid', bd=1, selectmode='extended')
-            lb.pack(fill='both', expand=True, pady=(4, 8))
+            vl.addWidget(self._mk_label('发现 %d 口井，勾选要加入项目的井' % len(cands),
+                                        small=True, muted=True))
+            lb = QListWidget()
+            lb.setSelectionMode(QAbstractItemView.ExtendedSelection)
             for c in cands:
                 tail = '' if c['well_name'] == c['name'] \
                     else '   (LAS 井名 %s)' % c['las_well_name']
-                lb.insert('end', '%-22s %3d 个文件%s' % (c['well_name'],
-                                                       c['files'], tail))
-            lb.selection_set(0, 'end')
-            tk.Label(frm, text='井名取自 LAS 记录（与产物目录同名）；'
-                                '如需改名，添加后再单独调整',
-                     font=F_SUB, bg=C_PANEL, fg=C_MUTED).pack(anchor='w')
+                lb.addItem('%-22s %3d 个文件%s' % (c['well_name'], c['files'], tail))
+            for i in range(lb.count()):
+                lb.item(i).setSelected(True)
+            vl.addWidget(lb, 1)
+            vl.addWidget(self._mk_label('井名取自 LAS 记录（与产物目录同名）；'
+                                        '如需改名，添加后再单独调整',
+                                        small=True, muted=True))
 
         def _ok():
             if lb is not None:
-                picks = [(cands[i]['well_name'], cands[i]['dir'])
-                         for i in lb.curselection()]
+                rows = [lb.row(it) for it in lb.selectedItems()]
+                picks = [(cands[i]['well_name'], cands[i]['dir']) for i in rows]
             else:
-                n = name_var.get().strip()
+                n = name_edit.text().strip() if name_edit else ''
                 picks = [(n, cands[0]['dir'])] if n else []
             if not picks:
-                messagebox.showwarning('添加井到项目', '请至少选择一口井。')
+                _qg.warn('添加井到项目', '请至少选择一口井。', dlg)
                 return
             result['picks'] = picks
-            win.destroy()
+            dlg.accept()
 
-        bar = tk.Frame(win, bg=C_PANEL)
-        bar.pack(fill='x', padx=14, pady=(0, 12))
-        ttk.Button(bar, text='添加到项目', command=_ok).pack(side='right', padx=4)
-        ttk.Button(bar, text='取消', command=win.destroy).pack(side='right', padx=4)
-        win.protocol('WM_DELETE_WINDOW', win.destroy)
-        self.win.wait_window(win)
+        bl = QHBoxLayout()
+        bl.addStretch(1)
+        bl.addWidget(self._mk_button(dlg, '取消', dlg.reject))
+        bl.addWidget(self._mk_button(dlg, '添加到项目', _ok))
+        vl.addLayout(bl)
+        dlg.exec_()
         return result.get('picks')
 
     def _menu_add_well(self):
         """把井添加到项目：选资料目录 → 确认井名 → 登记。"""
-        path = filedialog.askdirectory(
+        path = _qg.select_dir(
             title='选择井的原始资料目录（含 LAS / 地质设计 / 甲方格式）',
-            initialdir=self._default_src_dir())
+            initialdir=self._default_src_dir(), parent=self.win)
         if not path:
             return
         picks = self._ask_add_wells(path, title='添加井到项目')
@@ -1203,9 +1219,9 @@ class ProjectBrowser:
 
     def _menu_add_wells_batch(self):
         """批量添加：选一个资料根，把里面多口井一次性加进项目。"""
-        path = filedialog.askdirectory(
+        path = _qg.select_dir(
             title='选择包含多口井的资料根目录',
-            initialdir=self._default_src_dir())
+            initialdir=self._default_src_dir(), parent=self.win)
         if not path:
             return
         picks = self._ask_add_wells(path, title='批量添加井到项目')
@@ -1227,31 +1243,7 @@ class ProjectBrowser:
 
     def _ask_text(self, title: str, prompt: str, default: str = '') -> str | None:
         """单行输入对话框。取消返回 None。"""
-        result: dict = {}
-        win = tk.Toplevel(self.win)
-        win.title(title)
-        win.transient(self.win)
-        win.geometry('420x150')
-        frm = tk.Frame(win, bg=C_PANEL)
-        frm.pack(fill='both', expand=True, padx=14, pady=12)
-        tk.Label(frm, text=prompt, font=F_SUB, bg=C_PANEL, fg=C_MUTED,
-                 wraplength=380, justify='left').pack(anchor='w')
-        var = tk.StringVar(value=default)
-        ent = ttk.Entry(frm, textvariable=var, font=F_MAIN)
-        ent.pack(fill='x', pady=(8, 4))
-        ent.focus_set()
-
-        def _ok():
-            result['v'] = var.get().strip()
-            win.destroy()
-
-        bar = tk.Frame(win, bg=C_PANEL)
-        bar.pack(fill='x', padx=14, pady=(0, 10))
-        ttk.Button(bar, text='确定', command=_ok).pack(side='right', padx=4)
-        ttk.Button(bar, text='取消', command=win.destroy).pack(side='right', padx=4)
-        win.protocol('WM_DELETE_WINDOW', win.destroy)
-        self.win.wait_window(win)
-        return result.get('v')
+        return _qg.text_input(title, prompt, default, self.win)
 
     def _menu_rename_well(self):
         """重命名项目内的井。
@@ -1269,13 +1261,14 @@ class ProjectBrowser:
             return
         reg = pcfg.registered_wells(self.root_dir)
         if new in reg:
-            messagebox.showwarning('重命名井', '项目里已存在井「%s」。' % new)
+            _qg.warn('重命名井', '项目里已存在井「%s」。' % new, self.win)
             return
         old_dir = os.path.join(self.root_dir, w.name)
         new_dir = os.path.join(self.root_dir, new)
         if os.path.exists(new_dir):
-            messagebox.showwarning('重命名井',
-                                   '目标产物目录已存在：\n%s\n\n请先清理或改名。' % new_dir)
+            _qg.warn('重命名井',
+                                   '目标产物目录已存在：\n%s\n\n请先清理或改名。' % new_dir,
+                                   self.win)
             return
         # 1) 迁移产物目录
         moved = False
@@ -1299,28 +1292,7 @@ class ProjectBrowser:
 
     def _ask_yes_no_cancel(self, title: str, message: str) -> str:
         """三态确认框。返回 'yes' / 'no' / 'cancel'。"""
-        result: dict = {'v': 'cancel'}
-        win = tk.Toplevel(self.win)
-        win.title(title)
-        win.transient(self.win)
-        win.resizable(False, False)
-        frm = tk.Frame(win, bg=C_PANEL)
-        frm.pack(fill='both', expand=True, padx=14, pady=12)
-        tk.Label(frm, text=message, font=F_MAIN, bg=C_PANEL, fg=C_TEXT,
-                 wraplength=460, justify='left').pack(anchor='w')
-
-        def _set(v):
-            result['v'] = v
-            win.destroy()
-
-        bar = tk.Frame(win, bg=C_PANEL)
-        bar.pack(fill='x', padx=14, pady=(10, 10))
-        ttk.Button(bar, text='是', command=lambda: _set('yes')).pack(side='left', padx=4)
-        ttk.Button(bar, text='否', command=lambda: _set('no')).pack(side='left', padx=4)
-        ttk.Button(bar, text='取消', command=lambda: _set('cancel')).pack(side='right', padx=4)
-        win.protocol('WM_DELETE_WINDOW', win.destroy)
-        self.win.wait_window(win)
-        return result['v']
+        return _qg.yes_no_cancel(title, message, self.win)
 
     def _menu_remove_well(self):
         """把井从项目移除。
@@ -1387,7 +1359,7 @@ class ProjectBrowser:
                 self.tree.focus(iid)
                 self.tree.see(iid)
                 self._on_select()
-                self.win.update()
+                QApplication.processEvents()
                 return True
         return False
 
@@ -1398,10 +1370,7 @@ class ProjectBrowser:
         # 项目根节点 → 项目成员管理菜单；井 / 数据集 → 井级操作菜单
         menu = self.menu_project if sel and sel == getattr(self, '_root_iid', '') \
             else self.menu
-        try:
-            menu.tk_popup(evt.x_root, evt.y_root)
-        finally:
-            menu.grab_release()
+        menu.exec_(QCursor.pos())
 
     def _selected_well(self):
         sel = self.tree.selection()
@@ -1426,8 +1395,8 @@ class ProjectBrowser:
         return None
 
     def _pick_root(self):
-        d = filedialog.askdirectory(title='选择项目根目录（每子目录 = 一口井）',
-                                    initialdir=self.root_dir)
+        d = _qg.select_dir(title='选择项目根目录（每子目录 = 一口井）',
+                           initialdir=self.root_dir, parent=self.win)
         if d:
             self.root_dir = d
             self.refresh()
@@ -1448,12 +1417,16 @@ class ProjectBrowser:
 
     def _close(self):
         try:
-            self.win.destroy()
+            self.win.close()
         except Exception:
             pass
 
+    def show(self):
+        self.win.show()
+
     def run(self):
-        self.win.mainloop()
+        self.win.show()
+        return _qg.exec_app()
 
 
 def _human_size(n: int) -> str:
@@ -1483,11 +1456,8 @@ def launch(root: str = '', source_root: str = '', on_open_well=None) -> int:
         if os.path.isdir(_d):
             root = _d
         else:
-            r = tk.Tk()
-            r.withdraw()
-            root = filedialog.askdirectory(title='选择项目根目录（每子目录 = 一口井）',
-                                           initialdir=os.path.dirname(_d) or '.')
-            r.destroy()
+            root = _qg.select_dir(title='选择项目根目录（每子目录 = 一口井）',
+                                  initialdir=os.path.dirname(_d) or '.')
     if not root:
         return 1
     browser = ProjectBrowser(root, source_root, on_open_well)

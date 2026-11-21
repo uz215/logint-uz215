@@ -2,8 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm, Normalize
 import pandas as pd
-import tkinter as tk
-from tkinter import filedialog
+from logsys import qtgui as _qtgui  # R83 GUI: PyQt5 统一
 import os
 import datetime
 import json
@@ -277,11 +276,9 @@ class DataLoader:
         # 如果没有提供文件路径，通过文件浏览器选择
         if file_path is None:
             # 弹出文件选择对话框
-            root = tk.Tk()
-            root.withdraw()  # 隐藏主窗口
 
             # 打开文件选择对话框
-            file_path = filedialog.askopenfilename(
+            file_path = _qtgui.open_file(
                 title="选择NMR数据文件",
                 filetypes=[
                     ("Excel Files", "*.xlsx *.xls"),
@@ -944,11 +941,9 @@ def run_well_log_workflow():
             logger.info(f"从命令行获取文件路径: {file_path}")
         else:
             # 打开文件选择对话框
-            root = tk.Tk()
-            root.withdraw()  # 隐藏主窗口
             
             # 打开文件选择对话框
-            file_path = filedialog.askopenfilename(
+            file_path = _qtgui.open_file(
                 title="选择测录井数据文件或图像文件",
                 filetypes=[
                     ("图像文件", "*.jpg *.jpeg *.png *.bmp *.tiff *.tif"),

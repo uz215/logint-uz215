@@ -42,8 +42,7 @@ import sys
 import traceback
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics.pairwise import cosine_similarity
-import tkinter as tk
-from tkinter import filedialog, messagebox
+from logsys import qtgui as _qtgui  # R83 GUI: PyQt5 统一
 
 import os
 import lasio
@@ -2901,10 +2900,7 @@ class CompleteWorkflow:
 def main():
     """主函数"""
     try:
-        # 创建隐藏的tkinter窗口
-        root = tk.Tk()
-        root.withdraw()
-        root.title("气测解释系统")
+        # R83: PyQt5 文件对话框无需隐藏 root
         
         print("=" * 60)
         print("气测解释系统 - 文件选择")
@@ -2912,7 +2908,7 @@ def main():
         
         # 选择原始气测数据文件
         print("\n请选择原始气测数据文件...")
-        rawdata_path = filedialog.askopenfilename(
+        rawdata_path = _qtgui.open_file(
             title="选择原始气测数据文件",
             filetypes=[
                 ("所有支持的文件", "*.csv;*.xlsx;*.xls;*.las;*.dlis"),
@@ -2933,7 +2929,7 @@ def main():
         
         # 选择试油数据文件
         print("\n请选择试油结果数据文件...")
-        testdata_path = filedialog.askopenfilename(
+        testdata_path = _qtgui.open_file(
             title="选择试油结果数据文件",
             filetypes=[
                 ("所有支持的文件", "*.csv;*.xlsx;*.xls"),
@@ -2952,7 +2948,7 @@ def main():
         
         # 选择解释配置文件
         print("\n请选择解释配置文件...")
-        config_path = filedialog.askopenfilename(
+        config_path = _qtgui.open_file(
             title="选择解释配置文件",
             filetypes=[
                 ("JSON文件", "*.json"),
@@ -3021,7 +3017,7 @@ def main():
                     print(f"{i}. {suggestion}")
             
             # 显示完成消息
-            messagebox.showinfo(
+            _qtgui.info(
                 "完成",
                 f"工作流运行成功！\n\n"
                 f"井名: {results.get('well_name', 'Unknown')}\n"
@@ -3031,16 +3027,15 @@ def main():
             )
         else:
             logger.error("工作流运行失败")
-            messagebox.showerror("错误", "工作流运行失败，请查看日志了解详情。")
+            _qtgui.error("错误", "工作流运行失败，请查看日志了解详情。")
         
-        # 销毁tkinter窗口
-        root.destroy()
+        # R83: PyQt5 无需手动销毁窗口
         
     except Exception as e:
         logger.error(f"主函数执行失败: {e}")
         import traceback
         traceback.print_exc()
-        messagebox.showerror("错误", f"程序运行出错：\n{e}")
+        _qtgui.error("错误", f"程序运行出错：\n{e}")
 
 if __name__ == "__main__":
     main()

@@ -242,8 +242,7 @@ import os
 import copy
 from matplotlib.colors import LogNorm, Normalize
 import pandas as pd
-import tkinter as tk
-from tkinter import filedialog
+from logsys import qtgui as _qtgui  # R83 GUI: PyQt5 统一入口
 import os
 import datetime
 import json
@@ -2724,13 +2723,8 @@ class DataLoader:
             self.last_file_path = file_path
             return self.load_data(file_path)
         else:
-            # 打开文件选择对话框
-            root = tk.Tk()
-            root.attributes('-topmost', True)  # 确保对话框在最前面
-            root.withdraw()  # 隐藏主窗口
-            
-            # 打开文件选择对话框
-            file_path = filedialog.askopenfilename(
+            # 打开文件选择对话框（R83 PyQt5）
+            file_path = _qtgui.open_file(
                 title="选择测井数据文件",
                 filetypes=[
                     ("LAS文件", "*.las"),
@@ -2738,8 +2732,7 @@ class DataLoader:
                     ("Excel文件", "*.xlsx"),
                     ("CSV文件", "*.csv"),
                     ("所有文件", "*.*")
-                ]
-            )
+                ])
             
             if file_path:
                 self.last_file_path = file_path
@@ -2814,14 +2807,7 @@ class DataLoader:
             logger.warning("CLI 批处理模式跳过气测文件选择对话框（气测不参与本次解释）")
             return None
 
-        import tkinter as tk
-        from tkinter import filedialog
-
-        root = tk.Tk()
-        root.attributes('-topmost', True)
-        root.withdraw()
-
-        file_path = filedialog.askopenfilename(
+        file_path = _qtgui.open_file(
             title="选择气测数据文件（取消跳过）",
             filetypes=[
                 ("气测数据文件", "*.las;*.csv;*.xlsx;*.xls;*.txt;*.dat"),
@@ -2830,9 +2816,7 @@ class DataLoader:
                 ("CSV文件", "*.csv"),
                 ("文本文件", "*.txt;*.dat"),
                 ("所有文件", "*.*")
-            ]
-        )
-        root.destroy()
+            ])
         
         if not file_path:
             logger.info("未选择气测数据文件")
@@ -19658,8 +19642,6 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None, las_file=None
          quicklook_config.json → F:\\360\\src\\quicklook_config.json 默认参考格式）
       4. 知识摘要写入 logKnow 知识库
     """
-    import tkinter as tk
-    from tkinter import filedialog
     _arg_cfg = config_file
 
     print("\n" + "=" * 70)
@@ -19667,10 +19649,7 @@ def quicklook_well(well_dir=None, config_file=None, gas_file=None, las_file=None
     print("=" * 70)
 
     if not well_dir:
-        _root = tk.Tk()
-        _root.withdraw()
-        well_dir = filedialog.askdirectory(title="选择井文件夹 (quick look 快速解释)")
-        _root.destroy()
+        well_dir = _qtgui.select_dir(title="选择井文件夹 (quick look 快速解释)")
         if not well_dir:
             print("未选择文件夹，退出 quick look")
             return None
@@ -20018,67 +19997,95 @@ def select_startup_task():
     - well_dir: 选定井目录（用于提取基础数据：地质设计/录井图/格式/info）
     说明：只做功能选择与资料清单，不改变解释/知识/图谱/气测程序的既有能力。
     """
-    import tkinter as tk
-    from tkinter import ttk, filedialog
+    from PyQt5.QtWidgets import (
+        QDialog, QWidget, QLabel, QComboBox, QPushButton, QFrame,
+        QVBoxLayout, QHBoxLayout, QGridLayout, QTextEdit, QSizePolicy,
+    )
+    from PyQt5.QtCore import Qt
     from pathlib import Path as _P
     res = {}
     inv_cache = {}
-    win = tk.Tk()
-    win.title('logInt 智能测井解释 — 任务与数据选择（统一入口）')
-    win.geometry('760x620')
-    win.resizable(False, False)
-    tk.Label(win, text='智能测井解释系统', font=('Microsoft YaHei', 15, 'bold')).pack(anchor='w', padx=18, pady=(14, 2))
-    tk.Label(win, text='一个井目录放齐资料：LAS / 地质设计 / 录井图 / 气测 / 甲方格式 / info.json；程序按资料自动适配流程',
-             font=('Microsoft YaHei', 9), fg='#555555').pack(anchor='w', padx=18)
+    dlg = QDialog()
+    dlg.setWindowTitle('logInt 智能测井解释 — 任务与数据选择（统一入口）')
+    dlg.resize(760, 620)
+    vl = QVBoxLayout(dlg)
+
+    def _lbl(text, size=9, bold=False, color=None):
+        lab = QLabel(text)
+        st = 'font-size: %dpt;' % size
+        if bold:
+            st += 'font-weight: bold;'
+        if color:
+            st += 'color: %s;' % color
+        lab.setStyleSheet(st)
+        return lab
+
+    vl.addWidget(_lbl('智能测井解释系统', 15, True))
+    vl.addWidget(_lbl('一个井目录放齐资料：LAS / 地质设计 / 录井图 / 气测 / 甲方格式 / info.json；程序按资料自动适配流程',
+                      9, color='#555555'))
 
     # 任务
-    tk.Label(win, text='1. 选择任务', font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=18, pady=(14, 4))
+    vl.addWidget(_lbl('1. 选择任务', 11, True))
     _tasks = ['项目（多井项目树：井/数据集/变量；项目内可对井执行快速解释图与综合解释）',
               '单井综合解释（岩性/流体/层表/综合图/报告，室内工程师）']
-    _task_var = tk.StringVar(value=_tasks[0])
-    ttk.Combobox(win, textvariable=_task_var, state='readonly', values=_tasks, width=84).pack(anchor='w', padx=18)
-    _hint = tk.Label(win, text='', font=('Microsoft YaHei', 8), fg='#1a5c9e')
-    _hint.pack(anchor='w', padx=18, pady=(4, 0))
+    cmb_task = QComboBox()
+    cmb_task.addItems(_tasks)
+    vl.addWidget(cmb_task)
+    hint = _lbl('', 8, color='#1a5c9e')
+    vl.addWidget(hint)
 
-    # 井目录（用于提取基础数据）
-    tk.Label(win, text='2. 选择井目录（用于提取基础数据：地质设计/录井图/格式/info）', font=('Microsoft YaHei', 11, 'bold')).pack(anchor='w', padx=18, pady=(14, 4))
-    _dir_var = tk.StringVar(value='未选择')
-    tk.Label(win, textvariable=_dir_var, fg='#1a5c9e', font=('Microsoft YaHei', 9), width=98, anchor='w').pack(anchor='w', padx=18)
-    tk.Button(win, text='选择井目录...', command=lambda: _pick_dir(), width=18).pack(anchor='w', padx=18, pady=(4, 0))
+    # 井目录
+    vl.addWidget(_lbl('2. 选择井目录（用于提取基础数据：地质设计/录井图/格式/info）', 11, True))
+    dir_lbl = _lbl('未选择', 9, color='#1a5c9e')
+    vl.addWidget(dir_lbl)
+    btn_dir = QPushButton('选择井目录...')
+    btn_dir.setFixedWidth(150)
+    vl.addWidget(btn_dir)
 
-    # 数据选择（目录选定后填充）
-    _data_frame = tk.LabelFrame(win, text='3. 数据选择（可校正，防止找不到/找错）', font=('Microsoft YaHei', 11, 'bold'))
-    _data_frame.pack(anchor='w', fill='x', padx=18, pady=(10, 4))
-    tk.Label(_data_frame, text='测井数据 (LAS)：', width=16, anchor='w').grid(row=0, column=0, padx=4, pady=4, sticky='w')
-    _las_var = tk.StringVar(value='（请先选择井目录）')
-    _las_cb = ttk.Combobox(_data_frame, textvariable=_las_var, state='readonly', width=64)
-    _las_cb.grid(row=0, column=1, padx=4, pady=4)
-    tk.Button(_data_frame, text='浏览...', width=8, command=lambda: _browse_las()).grid(row=0, column=2, padx=4, pady=4)
-    tk.Label(_data_frame, text='气测数据：', width=16, anchor='w').grid(row=1, column=0, padx=4, pady=4, sticky='w')
-    _gas_var = tk.StringVar(value='（请先选择井目录）')
-    _gas_cb = ttk.Combobox(_data_frame, textvariable=_gas_var, state='readonly', width=64)
-    _gas_cb.grid(row=1, column=1, padx=4, pady=4)
-    tk.Button(_data_frame, text='浏览...', width=8, command=lambda: _browse_gas()).grid(row=1, column=2, padx=4, pady=4)
+    # 数据选择
+    data_box = QFrame()
+    data_box.setFrameShape(QFrame.StyledPanel)
+    gl = QGridLayout(data_box)
+    gl.addWidget(_lbl('测井数据 (LAS)：'), 0, 0)
+    cmb_las = QComboBox()
+    gl.addWidget(cmb_las, 0, 1)
+    btn_las = QPushButton('浏览...')
+    gl.addWidget(btn_las, 0, 2)
+    gl.addWidget(_lbl('气测数据：'), 1, 0)
+    cmb_gas = QComboBox()
+    gl.addWidget(cmb_gas, 1, 1)
+    btn_gas = QPushButton('浏览...')
+    gl.addWidget(btn_gas, 1, 2)
+    vl.addWidget(data_box)
 
-    # 井目录资料清单（基础数据）
-    tk.Label(win, text='井目录资料清单（地质设计/录井图/甲方格式/info.json）', font=('Microsoft YaHei', 10, 'bold')).pack(anchor='w', padx=18, pady=(8, 2))
-    _inv_txt = tk.Text(win, height=8, width=98, font=('Consolas', 9), state='disabled', relief='solid', bd=1)
-    _inv_txt.pack(anchor='w', padx=18, pady=(2, 2))
-    _note = tk.Label(win, text='未选/未找到的资料将在运行时自动跳过（不弹窗、不中断）。', font=('Microsoft YaHei', 8), fg='#777777')
-    _note.pack(anchor='w', padx=18)
+    # 资料清单
+    vl.addWidget(_lbl('井目录资料清单（地质设计/录井图/甲方格式/info.json）', 10, True))
+    inv_txt = QTextEdit()
+    inv_txt.setReadOnly(True)
+    inv_txt.setMinimumHeight(160)
+    vl.addWidget(inv_txt)
+    note = _lbl('未选/未找到的资料将在运行时自动跳过（不弹窗、不中断）。', 8, color='#777777')
+    vl.addWidget(note)
 
-    def _on_task_change(_evt=None):
-        """任务切换：项目模式不需要选井目录（井在项目里选）。"""
-        if _task_var.get().startswith('项目'):
-            _hint.configure(text='项目模式：进入项目树后，选中井 → 右键「快速解释图 / 综合解释」即可执行作业。')
-            _dir_var.set('（项目模式无需选择井目录）')
+    def _on_task_change(_idx=None):
+        if cmb_task.currentText().startswith('项目'):
+            hint.setText('项目模式：进入项目树后，选中井 → 右键「快速解释图 / 综合解释」即可执行作业。')
+            dir_lbl.setText('（项目模式无需选择井目录）')
         else:
-            _hint.configure(text='单井模式：直接对一口井跑综合解释流程。')
-            if _dir_var.get().startswith('（项目模式'):
-                _dir_var.set('未选择')
+            hint.setText('单井模式：直接对一口井跑综合解释流程。')
+            if dir_lbl.text().startswith('（项目模式'):
+                dir_lbl.setText('未选择')
 
-    _task_var.trace_add('write', _on_task_change)
+    cmb_task.currentIndexChanged.connect(_on_task_change)
     _on_task_change()
+
+    def _set_cmb(cmb, values, cur):
+        cmb.clear()
+        cmb.addItems([str(v) for v in values])
+        if cur:
+            idx = cmb.findText(str(cur))
+            if idx >= 0:
+                cmb.setCurrentIndex(idx)
 
     def _refresh_data(wd):
         wd = _P(str(wd))
@@ -20087,22 +20094,19 @@ def select_startup_task():
         inv_cache['las_main'] = str(main_las) if main_las else None
         if las_files:
             vals = [str(p) for p in las_files]
-            _las_cb['values'] = vals
-            _las_cb.set(str(main_las) if main_las else vals[0])
+            _set_cmb(cmb_las, vals, str(main_las) if main_las else vals[0])
         else:
-            _las_cb['values'] = []
-            _las_cb.set('（井目录未找到 LAS）')
+            _set_cmb(cmb_las, ['（井目录未找到 LAS）'], '')
         gas_files = sorted(p for p in wd.rglob('*') if p.is_file() and _is_gas_file(p))[:8]
         inv_cache['gas_all'] = [str(p) for p in gas_files]
         gvals = ['(不使用气测)'] + [str(p) for p in gas_files]
-        _gas_cb['values'] = gvals
-        _gas_cb.set(gvals[1] if len(gvals) > 1 else gvals[0])
+        _set_cmb(cmb_gas, gvals, gvals[1] if len(gvals) > 1 else gvals[0])
 
     def _pick_dir():
-        d = filedialog.askdirectory(title='选择井目录（该目录下放 LAS/地质设计/录井图/气测/格式/info.json）')
+        d = _qtgui.select_dir(title='选择井目录（该目录下放 LAS/地质设计/录井图/气测/格式/info.json）')
         if not d:
             return
-        _dir_var.set(d)
+        dir_lbl.setText(d)
         inv = well_package_inventory(d)
         res['inventory'] = inv
         _show_inv(inv)
@@ -20110,37 +20114,39 @@ def select_startup_task():
 
     def _browse_las():
         if not res.get('inventory'):
-            _note.configure(text='请先选择井目录。', fg='#b00')
+            note.setText('请先选择井目录。')
+            note.setStyleSheet('color: #b00;')
             return
-        f = filedialog.askopenfilename(title='选择测井 LAS 文件', filetypes=[('LAS 文件', '*.las'), ('全部', '*.*')])
-        if not f:
-            return
-        cur = list(_las_cb['values'])
-        if f not in cur:
-            cur = [f] + cur
-        _las_cb['values'] = cur
-        _las_cb.set(f)
+        f = _qtgui.open_file(title='选择测井 LAS 文件',
+                             filetypes=[('LAS 文件', '*.las'), ('全部', '*.*')])
+        if f:
+            cur = [cmb_las.itemText(i) for i in range(cmb_las.count())]
+            if f not in cur:
+                cur = [f] + cur
+            _set_cmb(cmb_las, cur, f)
 
     def _browse_gas():
         if not res.get('inventory'):
-            _note.configure(text='请先选择井目录。', fg='#b00')
+            note.setText('请先选择井目录。')
+            note.setStyleSheet('color: #b00;')
             return
-        f = filedialog.askopenfilename(title='选择气测数据文件', filetypes=[('气测/录井', '*.txt;*.csv;*.xls;*.xlsx;*.las'), ('全部', '*.*')])
-        if not f:
-            return
-        cur = list(_gas_cb['values'])
-        if f not in cur:
-            cur = [f] + [c for c in cur if c != '(不使用气测)']
-        _gas_cb['values'] = cur
-        _gas_cb.set(f)
+        f = _qtgui.open_file(title='选择气测数据文件',
+                             filetypes=[('气测/录井', '*.txt;*.csv;*.xls;*.xlsx;*.las'), ('全部', '*.*')])
+        if f:
+            cur = [cmb_gas.itemText(i) for i in range(cmb_gas.count())]
+            if f not in cur:
+                cur = [f] + [c for c in cur if c != '(不使用气测)']
+            _set_cmb(cmb_gas, cur, f)
 
     def _show_inv(inv):
         lines = []
+
         def _fmt(label, ok, val):
             if ok:
                 lines.append('  \u2713 %-10s %s' % (label, val))
             else:
                 lines.append('  - %-10s 未找到（运行时跳过）' % label)
+
         _fmt('地质设计', bool(inv.get('design')), '；'.join(Path(x).name for x in inv.get('design', [])[:3]))
         _fmt('录井图', bool(inv.get('masterlog')), Path(str(inv.get('masterlog'))).name if inv.get('masterlog') else '')
         _fmt('甲方格式', bool(inv.get('format')), Path(str(inv.get('format'))).name if inv.get('format') else '')
@@ -20164,41 +20170,48 @@ def select_startup_task():
             pass
         lines.append('')
         lines.append('  运行时会自动评估数据充分性、读取知识库/区域规则，并生成本次决策记录。')
-        _inv_txt.configure(state='normal')
-        _inv_txt.delete('1.0', 'end')
-        _inv_txt.insert('1.0', '\n'.join(lines))
-        _inv_txt.configure(state='disabled')
+        inv_txt.setPlainText('\n'.join(lines))
+
+    btn_dir.clicked.connect(_pick_dir)
+    btn_las.clicked.connect(_browse_las)
+    btn_gas.clicked.connect(_browse_gas)
 
     def _ok():
-        # 【2026-11-11】项目在前：项目任务无需选井目录（井在项目里选）
-        if _task_var.get().startswith('项目'):
+        if cmb_task.currentText().startswith('项目'):
             res.update({'task': 'project'})
-            win.destroy()
+            dlg.accept()
             return
         if not res.get('inventory'):
-            _note.configure(text='请先选择井目录。', fg='#b00')
+            note.setText('请先选择井目录。')
+            note.setStyleSheet('color: #b00;')
             return
-        task = 'comprehensive'
-        las_sel = _las_var.get()
+        las_sel = cmb_las.currentText()
         if not las_sel or las_sel.startswith('（'):
             las_sel = inv_cache.get('las_main')
-        gas_sel = _gas_var.get()
+        gas_sel = cmb_gas.currentText()
         if not gas_sel or gas_sel == '(不使用气测)':
             gas_sel = None
         if not las_sel:
-            _note.configure(text='需要 LAS：井目录未找到，请把 LAS 放进井目录或点“浏览...”指定。', fg='#b00')
+            note.setText('需要 LAS：井目录未找到，请把 LAS 放进井目录或点“浏览...”指定。')
+            note.setStyleSheet('color: #b00;')
             return
         inv = res['inventory']
-        res.update({'task': task, 'well_dir': inv.get('well_dir'),
-                    'las': las_sel, 'config': inv.get('format'),
-                    'gas': gas_sel})
-        win.destroy()
+        res.update({'task': 'comprehensive', 'well_dir': inv.get('well_dir'),
+                    'las': las_sel, 'config': inv.get('format'), 'gas': gas_sel})
+        dlg.accept()
 
-    _btns = tk.Frame(win)
-    _btns.pack(anchor='e', padx=18, pady=(6, 10))
-    tk.Button(_btns, text='取消', command=win.destroy, width=10).pack(side='left', padx=6)
-    tk.Button(_btns, text='确定并运行', command=_ok, width=14).pack(side='left')
-    win.mainloop()
+    bl = QHBoxLayout()
+    bl.addStretch(1)
+    btn_cancel = QPushButton('取消')
+    btn_cancel.clicked.connect(dlg.reject)
+    btn_ok = QPushButton('确定并运行')
+    btn_ok.clicked.connect(_ok)
+    bl.addWidget(btn_cancel)
+    bl.addWidget(btn_ok)
+    vl.addLayout(bl)
+
+    _qtgui.get_app()
+    dlg.exec_()
     return res if res.get('task') else None
 
 

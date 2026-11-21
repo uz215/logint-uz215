@@ -217,8 +217,7 @@ import matplotlib.pyplot as plt
 import os
 from matplotlib.colors import LogNorm, Normalize
 import pandas as pd
-import tkinter as tk
-from tkinter import filedialog
+from logsys import qtgui as _qtgui  # R83 GUI: PyQt5 统一
 import os
 import datetime
 import json
@@ -1907,12 +1906,9 @@ class DataLoader:
             print("  ★ 请在弹出的文件对话框中选择测井数据文件 ★")
             print("  ★ 如未看到对话框，请检查任务栏是否有窗口 ★")
             print("="*60 + "\n")
-            root = tk.Tk()
-            root.attributes('-topmost', True)  # 确保对话框在最前面
-            root.withdraw()  # 隐藏主窗口
             
             # 打开文件选择对话框
-            file_path = filedialog.askopenfilename(
+            file_path = _qtgui.open_file(
                 title="选择测井数据文件",
                 filetypes=[
                     ("LAS文件", "*.las"),
@@ -1923,8 +1919,7 @@ class DataLoader:
                 ]
             )
             
-            root.destroy()  # 销毁Tk根窗口，避免残留
-            
+                
             if file_path:
                 self.last_file_path = file_path
                 return self.load_data(file_path)
@@ -1942,14 +1937,8 @@ class DataLoader:
         Returns:
             pd.DataFrame or None: 气测数据，用户取消则返回None
         """
-        import tkinter as tk
-        from tkinter import filedialog
         
-        root = tk.Tk()
-        root.attributes('-topmost', True)
-        root.withdraw()
-        
-        file_path = filedialog.askopenfilename(
+        file_path = _qtgui.open_file(
             title="选择气测数据文件（取消跳过）",
             filetypes=[
                 ("气测数据文件", "*.las;*.csv;*.xlsx;*.xls"),
@@ -1959,7 +1948,6 @@ class DataLoader:
                 ("所有文件", "*.*")
             ]
         )
-        root.destroy()
         
         if not file_path:
             logger.info("未选择气测数据文件")
