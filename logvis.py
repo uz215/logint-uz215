@@ -24,6 +24,15 @@ import datetime
 import shutil
 import tempfile
 
+# 【R81 合并交互绘图】交互画布/窗口所需 import
+from dataclasses import dataclass, field, asdict
+import tkinter as tk
+from tkinter import filedialog, messagebox, ttk
+import matplotlib                      # canvas 用 matplotlib.lines.Line2D 画道头色标
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.figure import Figure
+from logsys import project_model as pm
+
 # 【2026-10-20 RASHIDPUR_13】解除 Pillow 防炸图像素上限（默认 1.79 亿）。
 # 本模块只打开**本地自生成**的 PNG（深井 quick look 长图可超 4 亿像素，
 # 如 RP-13 井深 4425m 正图 465,847,200 像素），不存在不可信来源；
@@ -4538,10 +4547,9 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             # 【2026-10-13 用户要求正图带油气水】RESULT 道由 0.20 加宽至 0.42。
             # 【2026-10-15 用户要求】电阻率道与综合图逻辑一致：传统道+阵列道分道
             # （两者都有→2道，只有其一→1道）；道宽1.4 与综合图相同（容纳刻度数字）。
-            # 【R80】道布局改由模板解析（logsys.logview.track_spec），
-            # 与交互画布（Log View）同一套解析，避免两套版式分叉。
+            # 【R80】道布局改由模板解析（内置道布局解析），
+            # 与交互画布（logvis）同一套解析，避免两套版式分叉。
             # 模板缺 track.layout 时回落到内置兜底（数值与原硬编码逐一对齐）。
-            from logsys.logview.track_spec import resolve_track_layout
             _flags = {'has_res_trad': bool(trad_res_cols),
                       'has_res_array': bool(array_res_cols),
                       'has_gas': bool(has_gas)}
@@ -4580,7 +4588,6 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             #   ②SW与孔隙度合并一道（Sw 左锚 + 孔隙度反刻度右锚），原第6道取消；
             #   ③气测道在合并道之后。
             # 【R80】同 quicklook：道布局由模板解析，与交互画布同源。
-            from logsys.logview.track_spec import resolve_track_layout
             _flags = {'has_res_trad': bool(trad_res_cols),
                       'has_res_array': bool(array_res_cols),
                       'has_gas': bool(has_gas)}
@@ -8998,3 +9005,2327 @@ def visualize_fluid(data, results, output_dir=None, gas_data=None,
         gas_data=gas_data, min_thickness=min_thickness,
         lith_colors=_lith_colors, lith_cn=_lith_cn,
         crossplots=_crossplots, figsize=_figsize, dpi=_dpi)
+
+
+# ============================================================================
+# 【R81 合并自 logsys/logview/track_spec.py】
+# ============================================================================
+
+"""道（track）与曲线（curve）的配置数据结构 + 布局解析。
+
+【R80 交互绘图（logvis）】
+本模块是**道布局的唯一解析入口**，同时供两类消费方使用：
+  1. 静态出图（logvis.py 的快速图 / 综合图）；
+  2. 交互画布（logvis 内的多道交互测井图）。
+两者共用同一套解析逻辑，杜绝"交互画布与甲方交付图版式分叉"。
+
+原则（沿用手册 §0.3「单一裁决/单一来源」）：
+- **模板是布局的唯一源头**：`templates/<kind>.json` 的 `track.layout`；
+- 代码里的 FALLBACK_LAYOUT 只是**模板缺失时的兜底**，数值逐一对齐
+  `logvis.py` 的两处硬编码（quicklook / composite），保证老模板出图像素级不变；
+- 解析结果带 `from_template` 标志，出图时打日志说明布局来源，
+  避免再出现"改了模板没反应还不知道为什么"。
+
+字段命名对齐 templates/*.json 现有风格（英文小写下划线）。
+"""
+
+
+# --------------------------------------------------------------------------
+# 道 ID → 显示条件。None 表示无条件显示；字符串键表示依赖该运行时标志。
+# --------------------------------------------------------------------------
+TRACK_CONDITIONS = {
+    'RES_TRAD':  'has_res_trad',
+    'RES_ARRAY': 'has_res_array',
+    'GAS':       'has_gas',
+}
+
+#: 硬编码兜底布局：与 logvis.py 中 quicklook / composite 两处构造逐一对齐。
+#: 仅当模板缺失 track.layout 时使用，保证老模板出图结果完全不变。
+#: 注意：quicklook 含 CALIB（标定道，2026-11-02 加入），不可遗漏。
+FALLBACK_LAYOUT: dict[str, list] = {
+    'qlpt': [
+        ('LITHO', 1.2),
+        ('RES_TRAD', 1.4),
+        ('RES_ARRAY', 1.4),
+        ('POR', 1.0),
+        ('DEPTH', 0.30),
+        ('SW', 0.6),
+        ('POR2', 0.6),
+        ('CALIB', 0.9),
+        ('GAS', 'gas'),
+        ('PROFILE', 1.0),
+        ('INTERP', 0.42),
+    ],
+    'cmpt': [
+        ('LITHO', 1.0),
+        ('RES_TRAD', 1.4),
+        ('RES_ARRAY', 1.4),
+        ('POR', 1.25),
+        ('DEPTH', 0.5),
+        ('SWPOR', 1.0),
+        ('GAS', 'gas'),
+        ('LITHO_FILL', 1.0),
+        ('FACIES', 1.0),
+        ('PROFILE', 1.0),
+        ('INTERP', 1.0),
+    ],
+}
+
+#: 道 ID → 中文道名（道头显示）
+TRACK_NAMES = {
+    'LITHO':      '岩性道',
+    'RES_TRAD':   '电阻率道(传统)',
+    'RES_ARRAY':  '电阻率道(阵列)',
+    'POR':        '孔隙度道',
+    'DEPTH':      '深度道',
+    'SW':         '含水饱和度道',
+    'SWPOR':      '含水饱和度道',
+    'POR2':       '孔隙度道(2)',
+    'CALIB':      '标定道',
+    'GAS':        '气测道',
+    'PROFILE':    '剖面道',
+    'LITHO_FILL': '岩性填充道',
+    'FACIES':     '沉积相道',
+    'INTERP':     '解释结论道',
+}
+
+#: 道 ID → 绘制类型与默认候选曲线。
+#: 只描述"道怎么画"，不描述"有哪些道、多宽"——后者由 resolve_track_layout 解析。
+TRACK_KINDS = {
+    'LITHO':      ('lithology',      []),
+    'RES_TRAD':   ('curve',          ['RT', 'LLD', 'MSFL']),
+    'RES_ARRAY':  ('curve',          ['AT10', 'AT20', 'AT30', 'AT60', 'AT90']),
+    'POR':        ('curve',          ['DEN', 'NPHI', 'AC']),
+    'DEPTH':      ('depth',          []),
+    'SW':         ('curve',          ['Sw']),
+    'SWPOR':      ('curve',          ['Sw']),
+    'POR2':       ('curve',          ['porosity']),
+    'CALIB':      ('curve',          []),
+    'GAS':        ('gas',            ['TG']),
+    'PROFILE':    ('profile',        []),
+    'LITHO_FILL': ('lithology',      []),
+    'FACIES':     ('facies',         []),
+    'INTERP':     ('interpretation', []),
+}
+
+#: 道 ID → 期望的曲线族（按族挑曲线是 Techlog 的做法：族优先于固定列名）。
+#: 固定列名候选为空时，用这里的族回退。
+TRACK_FAMILY_HINTS = {
+    'RES_TRAD':   ('深电阻率', '浅电阻率', '电阻率', '侵入带电阻率'),
+    'RES_ARRAY':  ('阵列电阻率',),
+    'POR':        ('孔隙度', '有效孔隙度'),
+    'POR2':       ('孔隙度', '有效孔隙度'),
+    'SW':         ('含水饱和度',),
+    'SWPOR':      ('含水饱和度', '孔隙度'),
+    'GAS':        ('总烃', '气测'),
+    'CALIB':      ('岩心', '取心'),
+}
+
+#: 道 ID → 列名子串候选（族也匹配不到时用；子串为不区分大小写包含匹配）
+TRACK_NAME_PATTERNS = {
+    'RES_ARRAY':  ('AT10', 'AT20', 'AT30', 'AT60', 'AT90', 'AF10', 'M2R'),
+    'GAS':        ('TG', 'GAS'),
+    'CALIB':      ('CORE', 'XRD', 'XRF', 'CALC'),
+}
+
+
+def _pick_by_family(track_id: str, columns, column_family: dict | None,
+                    limit: int = 3) -> list[str]:
+    """按族挑默认曲线（族名取自 project_model.classify_variable）。"""
+    if not column_family:
+        return []
+    hints = TRACK_FAMILY_HINTS.get(track_id) or ()
+    if not hints:
+        return []
+    by_family: dict[str, list[str]] = {}
+    for col, fam in column_family.items():
+        if fam:
+            by_family.setdefault(fam, []).append(col)
+    out: list[str] = []
+    for fam in hints:
+        for col in sorted(by_family.get(fam, [])):
+            if col not in out:
+                out.append(col)
+            if len(out) >= limit:
+                return out
+    return out
+
+
+def _pick_by_pattern(track_id: str, columns, limit: int = 3) -> list[str]:
+    """按列名子串挑默认曲线（族匹配不到时的最后回退）。"""
+    pats = TRACK_NAME_PATTERNS.get(track_id) or ()
+    if not pats:
+        return []
+    out: list[str] = []
+    for col in columns:
+        up = str(col).upper()
+        if any(p.upper() in up for p in pats):
+            if col not in out:
+                out.append(col)
+            if len(out) >= limit:
+                break
+    return out
+
+
+@dataclass
+class CurveSpec:
+    """道内一条曲线的绘制规格。"""
+    column: str                      # DataFrame 列名，如 'GR' / 'RT' / 'Sw'
+    label: str = ''                  # 道头显示名（空则用 column）
+    color: str = '#1f77b4'
+    linestyle: str = '-'
+    linewidth: float = 0.9
+    scale: str = 'lin'               # 'lin' | 'log'
+    xmin: float | None = None        # None = 自动（百分位）
+    xmax: float | None = None
+    fill_to: float | None = None     # 填充到该 x 值（如 Vsh 填到 0）
+    fill_color: str | None = None
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'CurveSpec':
+        known = {f for f in cls.__dataclass_fields__}
+        return cls(**{k: v for k, v in (d or {}).items() if k in known})
+
+
+@dataclass
+class TrackSpec:
+    """一道（track）的配置。"""
+    id: str                          # 'LITHO' / 'RES_TRAD' / 'POR' / 'DEPTH' ...
+    name: str = ''                   # 中文道名，道头显示
+    kind: str = 'curve'              # curve|lithology|depth|interpretation|profile|gas|facies
+    width: float = 1.0
+    curves: list[CurveSpec] = field(default_factory=list)
+    show_grid: bool = True
+    header_lines: int = 3            # 道头占几行文字高度
+    #: 启停：True/False 显式开关，'auto' 按运行时标志判定（沿用模板 reg_tracks 既有约定）
+    enabled: bool | str = 'auto'
+
+    def to_dict(self) -> dict:
+        d = asdict(self)
+        d['curves'] = [c.to_dict() for c in self.curves]
+        return d
+
+    @classmethod
+    def from_dict(cls, d: dict) -> 'TrackSpec':
+        cs = [CurveSpec.from_dict(c) for c in (d or {}).get('curves', [])]
+        known = {f for f in cls.__dataclass_fields__}
+        kw = {k: v for k, v in (d or {}).items() if k in known and k != 'curves'}
+        return cls(curves=cs, **kw)
+
+
+def resolve_track_layout(tpl, kind: str, flags: dict, gas_track_width: float = 1.0):
+    """解析出道布局：[(道ID, 宽度float), ...]。
+
+    参数
+    ----
+    tpl   : logvis.load_plot_template(kind) 的返回（可为 None）
+    kind  : 'qlpt'（快速解释）| 'cmpt'（综合图）
+    flags : {'has_res_trad': bool, 'has_res_array': bool, 'has_gas': bool}
+            运行时可用道判定，对应代码里的 trad_res_cols / array_res_cols / has_gas
+    gas_track_width : 气测道实算宽度，用于替换模板里的 "gas" 占位
+
+    优先级
+    ------
+    模板 track.layout（有效项）→ FALLBACK_LAYOUT[kind]（应急兜底）
+
+    约定
+    ----
+    width 可为数字，或字符串 "gas"（表示用 gas_track_width 实算值）；
+    enabled 可为 true/false，或 "auto"（按 flags 判定，缺省即 auto）。
+    """
+    cfg = ((tpl or {}).get('track') or {}).get('layout')
+    raw = cfg if isinstance(cfg, list) and cfg else FALLBACK_LAYOUT.get(kind, [])
+    from_template = isinstance(cfg, list) and bool(cfg)
+
+    out: list[tuple[str, float]] = []
+    for it in raw:
+        if isinstance(it, dict):
+            tid = it.get('id')
+            width = it.get('width', 1.0)
+            enabled = it.get('enabled', 'auto')
+        else:                       # 兜底布局是 (id, width) 元组
+            if not it:
+                continue
+            tid, width, enabled = it[0], it[1], 'auto'
+        if not tid:
+            continue
+        # enabled: false → 显式关闭；true → 强制开启；auto → 按运行时标志判定
+        if enabled is False:
+            continue
+        if enabled == 'auto':
+            cond = TRACK_CONDITIONS.get(tid)
+            if cond and not (flags or {}).get(cond):
+                continue
+        if width == 'gas':
+            if not (flags or {}).get('has_gas'):
+                continue
+            width = gas_track_width
+        try:
+            out.append((str(tid), float(width)))
+        except (TypeError, ValueError):
+            continue
+
+    if not out:                     # 模板写了但全被禁用 → 回落兜底
+        return resolve_track_layout(None, kind, flags, gas_track_width)[0], False
+    return out, from_template
+
+
+def _default_scale(column: str, column_family: dict | None) -> str:
+    """默认曲线刻度：电阻率族用对数，其余线性。
+
+    电阻率动态范围可达 0.2~5000 ohm.m，线性轴会把整条曲线压成一条平线。
+    """
+    fam = (column_family or {}).get(column) or ''
+    if '电阻率' in fam or '电导率' in fam:
+        return 'log'
+    return 'lin'
+
+
+def build_tracks(tpl, kind: str, flags: dict, gas_track_width: float = 1.0,
+                 available_columns=None, curve_overrides=None,
+                 column_family=None) -> list[TrackSpec]:
+    """从模板解析布局 → 组装成 TrackSpec 列表。
+
+    与 logvis 静态出图调用同一个 resolve_track_layout，
+    因此交互画布与甲方交付图的道顺序、道宽、启停状态永远一致。
+
+    curve_overrides : {track_id: [CurveSpec, ...]} —— 交互态用户手工增减的曲线，
+                      优先于模板/默认曲线。
+    column_family   : {列名: 族显示名} —— 用于按族挑默认曲线（缺省则只认固定列名）。
+    """
+    layout, _from_tpl = resolve_track_layout(tpl, kind, flags, gas_track_width)
+    track_cfg = ((tpl or {}).get('track') or {})
+    defs = track_cfg.get('track_defs') or {}
+    names = {}
+    for t in (track_cfg.get('layout') or []):
+        if isinstance(t, dict) and t.get('id'):
+            names[t['id']] = t.get('name')
+    cols = set(available_columns or [])
+    overrides = curve_overrides or {}
+
+    out: list[TrackSpec] = []
+    for tid, width in layout:
+        d = defs.get(tid, {}) or {}
+        tk, default_curves = TRACK_KINDS.get(tid, ('curve', []))
+        if tid in overrides:
+            curves = list(overrides[tid])
+        else:
+            curves = [CurveSpec(**c) for c in (d.get('curves') or [])]
+            if not curves:
+                # 模板未定义曲线 → ①固定列名候选 ②按族 ③按列名子串
+                picked = [c for c in default_curves if not cols or c in cols]
+                if not picked:
+                    picked = _pick_by_family(tid, available_columns or [],
+                                             column_family)
+                if not picked:
+                    picked = _pick_by_pattern(tid, available_columns or [])
+                curves = [CurveSpec(column=c, scale=_default_scale(c, column_family))
+                          for c in picked]
+        out.append(TrackSpec(
+            id=tid,
+            name=names.get(tid) or d.get('name') or TRACK_NAMES.get(tid, tid),
+            kind=d.get('kind', tk),
+            width=width,
+            curves=curves,
+            show_grid=d.get('show_grid', True),
+        ))
+    return out
+
+
+def default_quicklook_tracks(available_columns=None) -> list[TrackSpec]:
+    """模板完全不可用时的最后兜底（快速图版式）。"""
+    return build_tracks(
+        None, 'qlpt',
+        {'has_res_trad': True, 'has_res_array': False, 'has_gas': False},
+        available_columns=available_columns)
+
+
+def default_composite_tracks(available_columns=None) -> list[TrackSpec]:
+    """模板完全不可用时的最后兜底（综合图版式）。"""
+    return build_tracks(
+        None, 'cmpt',
+        {'has_res_trad': True, 'has_res_array': False, 'has_gas': False},
+        available_columns=available_columns)
+
+
+def tracks_to_dicts(tracks) -> list[dict]:
+    """TrackSpec 列表 → 可 JSON 化的 dict 列表（供模板/工程文件持久化）。"""
+    return [t.to_dict() for t in tracks]
+
+
+def tracks_from_dicts(items) -> list[TrackSpec]:
+    """dict 列表 → TrackSpec 列表。"""
+    return [TrackSpec.from_dict(it) for it in (items or [])]
+
+
+# ============================================================================
+# 【R81 合并自 logsys/logview/decimate.py】
+# ============================================================================
+
+"""深度视窗内的包络降采样。
+
+【R80 交互绘图】
+测井曲线的尖峰（薄层、扩径、煤层响应）是关键地质信息，
+**均值抽稀会抹平**，必须取 min/max 包络。
+
+目标：把 4 万行数据压到 ~2×画布像素高度的点数，且保留尖峰。
+"""
+
+
+
+def envelope_decimate(values, n_bins: int):
+    """返回 (抽稀后的值数组, 对应的原始索引数组)。
+
+    每个 bin 取 min 和 max 两点，并按原始先后顺序排列，
+    保证连线形状忠实于原曲线的包络。
+    全 NaN 的 bin 跳过（不产生伪值）。
+    """
+    v = np.asarray(values, dtype=float)
+    n = v.size
+    if n_bins <= 0 or n <= n_bins * 2:
+        idx = np.arange(n)
+        return v, idx
+
+    edges = np.linspace(0, n, n_bins + 1).astype(int)
+    out_v: list[float] = []
+    out_i: list[int] = []
+    for a, b in zip(edges[:-1], edges[1:]):
+        if b <= a:
+            continue
+        seg = v[a:b]
+        if seg.size == 0:
+            continue
+        finite = seg[~np.isnan(seg)]
+        if finite.size == 0:
+            continue                      # 全 NaN 的 bin 跳过，不产生伪值
+        with np.errstate(invalid='ignore'):
+            seg2 = np.where(np.isnan(seg), np.nan, seg)
+            imin = int(np.nanargmin(seg2))
+            imax = int(np.nanargmax(seg2))
+        for k in sorted({imin, imax}):
+            out_v.append(seg[k])
+            out_i.append(a + k)
+    if not out_v:
+        idx = np.arange(n)
+        return v, idx
+    return np.asarray(out_v), np.asarray(out_i)
+
+
+def depth_window_slice(depth, top, bottom):
+    """返回深度落在 [top, bottom] 内的布尔掩码（深度轴假定单调）。"""
+    d = np.asarray(depth, dtype=float)
+    lo, hi = (top, bottom) if top <= bottom else (bottom, top)
+    return (d >= lo) & (d <= hi)
+
+
+def decimate_for_pixels(values, depth, top, bottom, pixel_height: int,
+                        min_bins: int = 40, max_bins: int = 2000):
+    """按画布像素高度决定抽稀档位，并只取深度窗口内的点。
+
+    返回 (值数组, 深度数组, 原始索引数组)。
+    """
+    v = np.asarray(values, dtype=float)
+    d = np.asarray(depth, dtype=float)
+    if v.size == 0 or d.size == 0:
+        return v, d, np.arange(v.size)
+    mask = depth_window_slice(d, top, bottom)
+    if not mask.any():
+        return v[:0], d[:0], np.arange(0)
+    idx_all = np.nonzero(mask)[0]
+    vw = v[idx_all]
+    dw = d[idx_all]
+    n_bins = int(max(min_bins, min(max_bins, pixel_height * 0.75)))
+    dv, di = envelope_decimate(vw, n_bins)
+    return dv, dw[di], idx_all[di]
+
+
+# ============================================================================
+# 【R81 合并自 logsys/logview/datasource.py】
+# ============================================================================
+
+"""交互绘图的井数据装配。
+
+【R80 交互绘图】
+把一口井的"可画的东西"装配成一个对象：
+  - 曲线表（解释曲线集 processed.csv；缺失时回退原始 LAS）
+  - 层段表（interpretation_layers.csv）
+  - 井信息（<井名>info.json，图头字段的来源）
+
+装配路径与 `logsys/rerender.py` 的最小闭环一致：
+    processed.csv + info.json → 出图
+这样交互画布与静态出图读的是同一份数据，不会出现"两套数据分叉"。
+"""
+
+
+
+DEPTH_COLUMN = 'MD'
+INFO_SUFFIX = 'info.json'
+
+
+@dataclass
+class WellData:
+    """一口井的绘图数据。"""
+    well_name: str = ''
+    df: object = None                # pandas.DataFrame
+    depth: np.ndarray = field(default_factory=lambda: np.array([], dtype=float))
+    layers: object = None            # pandas.DataFrame（层段表）
+    info: dict = field(default_factory=dict)
+    depth_unit: str = 'm'
+    out_dir: str = ''                # 产物目录
+    source_dir: str = ''             # 原始资料目录
+    origin: str = ''                 # 'processed' | 'las' | ''
+    note: str = ''
+
+    @property
+    def has_data(self) -> bool:
+        return self.df is not None and len(self.df) > 0
+
+    @property
+    def columns(self) -> list[str]:
+        if self.df is None:
+            return []
+        return [str(c) for c in self.df.columns]
+
+    @property
+    def depth_range(self) -> tuple[float, float]:
+        if self.depth.size == 0:
+            return (0.0, 1.0)
+        return (float(self.depth[0]), float(self.depth[-1]))
+
+    def series(self, column: str):
+        """取一列的数值数组（缺列返回空数组）。"""
+        if self.df is None or column not in self.df.columns:
+            return np.array([], dtype=float)
+        return self.df[column].to_numpy(dtype=float)
+
+
+# --------------------------------------------------------------------------
+# 定位
+# --------------------------------------------------------------------------
+
+def find_output_dir(root: str, well_name: str) -> str:
+    """在项目根下定位某井的产物目录。"""
+    if not root:
+        return ''
+    cands = [
+        os.path.join(root, 'output', well_name),
+        os.path.join(root, well_name),
+    ]
+    for c in cands:
+        if os.path.isdir(c):
+            return c
+    out_root = os.path.join(root, 'output')
+    if os.path.isdir(out_root):
+        for name in sorted(os.listdir(out_root)):
+            if name.lower() == well_name.lower():
+                return os.path.join(out_root, name)
+    return ''
+
+
+def _first_existing(dirpath: str, patterns: list[str]) -> str:
+    if not dirpath or not os.path.isdir(dirpath):
+        return ''
+    for pat in patterns:
+        hits = sorted(Path(dirpath).glob(pat))
+        if hits:
+            return str(hits[0])
+    return ''
+
+
+def find_processed_csv(out_dir: str, well_name: str) -> str:
+    return _first_existing(out_dir, [f'{well_name}_processed.csv', '*_processed.csv'])
+
+
+def find_layers_csv(out_dir: str, well_name: str) -> str:
+    return _first_existing(out_dir, [
+        f'{well_name}_interpretation_layers.csv',
+        '*_interpretation_layers.csv',
+        '*_interpretation_layers_ML.csv',
+    ])
+
+
+def find_info_json(out_dir: str, well_name: str) -> str:
+    return _first_existing(out_dir, [f'{well_name}{INFO_SUFFIX}', f'*{INFO_SUFFIX}'])
+
+
+# --------------------------------------------------------------------------
+# 读取
+# --------------------------------------------------------------------------
+
+def _read_csv(path: str):
+    if not path:
+        return None
+    try:
+        import pandas as pd
+        return pd.read_csv(path, low_memory=False)
+    except Exception:
+        return None
+
+
+def _read_json(path: str) -> dict:
+    if not path or not os.path.exists(path):
+        return {}
+    try:
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _depth_unit_of(info: dict, df) -> str:
+    """深度单位：井信息优先；缺失按米（与 logvis._detect_depth_unit 一致，不再按数值猜）。"""
+    for key in ('depth_unit', 'unit'):
+        v = (info or {}).get(key)
+        if v:
+            s = str(v).strip().lower()
+            if s in ('m', 'ft', 'meters', 'feet'):
+                return 'ft' if s.startswith('f') else 'm'
+    return 'm'
+
+
+def load_well_data(well_name: str, out_dir: str = '', source_dir: str = '',
+                   las_file: str = '') -> WellData:
+    """装配一口井的绘图数据。
+
+    优先用解释曲线集（processed.csv）；没有则回退读原始 LAS。
+    """
+    import pandas as pd
+
+    wd = WellData(well_name=well_name, out_dir=out_dir or '', source_dir=source_dir or '')
+
+    p_csv = find_processed_csv(out_dir, well_name) if out_dir else ''
+    p_layers = find_layers_csv(out_dir, well_name) if out_dir else ''
+    p_info = find_info_json(out_dir, well_name) if out_dir else ''
+
+    wd.info = _read_json(p_info)
+    wd.layers = _read_csv(p_layers)
+
+    df = _read_csv(p_csv) if p_csv else None
+    if df is not None and df.empty:
+        df = None
+
+    if df is None and las_file and os.path.exists(las_file):
+        try:
+            import lasio
+            las = lasio.read(las_file)
+            df = las.df().reset_index()
+            wd.note = '曲线来自原始 LAS（无解释曲线集）'
+        except Exception as e:
+            wd.note = f'LAS 读取失败：{e}'
+
+    if df is None:
+        wd.note = wd.note or '未找到解释曲线集或 LAS'
+        return wd
+
+    # 深度列：优先 MD，其次常见深度列名
+    depth_col = None
+    for cand in (DEPTH_COLUMN, 'DEPT', 'DEPTH', 'MD_'):
+        if cand in df.columns:
+            depth_col = cand
+            break
+    if depth_col is None:
+        wd.note = '曲线表缺少深度列'
+        return wd
+
+    df = df.sort_values(depth_col).reset_index(drop=True)
+    wd.df = df
+    wd.depth = df[depth_col].to_numpy(dtype=float)
+    wd.depth_unit = _depth_unit_of(wd.info, df)
+    wd.origin = 'processed' if p_csv else 'las'
+    return wd
+
+
+def save_info_json(path: str, info: dict) -> bool:
+    """写回井信息 JSON（保留原有键，仅覆盖传入项）。"""
+    if not path:
+        return False
+    data = _read_json(path)
+    data.update(info or {})
+    try:
+        with open(path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def update_info_field(info_path: str, key: str, value: str) -> bool:
+    """单个字段写回井信息 JSON（图头实时编辑的落盘出口）。"""
+    if not info_path or not key:
+        return False
+    return save_info_json(info_path, {key: value})
+
+
+# ============================================================================
+# 【R81 合并自 logsys/logview/catalog.py】
+# ============================================================================
+
+"""曲线目录：把井里"能画的曲线"整理成可拖拽的清单。
+
+【R80 交互绘图】
+沿用 `logsys/project_model.py` 的 Techlog 三色语义：
+  黑色 = 既有 family 又有 unit；灰色 = 缺其一；红色 = 两者皆缺。
+分类逻辑直接复用 `classify_variable`，不在本模块另立一套判定。
+
+除原始/派生曲线外，还把**快速图与综合图里的定性道**也登记进来
+（岩性、解释结论、沉积相、层号），这样交互画布里就能像 Techlog 那样
+把"结论道"当作可加可减的对象来摆布。
+"""
+
+
+
+
+#: 曲线默认配色（按族给色，保证同族同色；无族走中性色）
+_FAMILY_COLORS = {
+    'GR': '#4c9a4c', 'RT': '#b03030', 'CAL': '#606060', 'DEN': '#2f6f9f',
+    'CNL': '#7a5aa8', 'DT': '#c08030', 'PE': '#8a6d3b', 'SP': '#3f8f8f',
+    'LLD': '#b03030', 'LLS': '#c05050', 'MSFL': '#7a2a2a',
+    'POR': '#2f6f9f', 'SW': '#1a9850', 'VSH': '#8a6d3b', 'So': '#1a9850',
+}
+_DEFAULT_COLOR = '#1f77b4'
+_QUAL_COLOR = '#7a5aa8'
+
+
+@dataclass
+class CurveItem:
+    """目录里的一条曲线。"""
+    column: str
+    label: str = ''
+    family: str = ''          # 族（显示名）
+    unit: str = ''
+    scale: str = 'linear'     # linear | log | qualitative
+    kind: str = 'curve'       # curve | qualitative
+    color: str = _DEFAULT_COLOR
+    status: str = 'ok'        # ok | warn | error（Techlog 三色）
+    source: str = '曲线集'
+    vmin: float | None = None
+    vmax: float | None = None
+    note: str = ''
+
+    @property
+    def display(self) -> str:
+        """列表显示文本：名 + 单位。"""
+        return f'{self.label or self.column} ({self.unit})' if self.unit else (self.label or self.column)
+
+    @property
+    def key(self) -> str:
+        return self.column
+
+
+def _color_for(family: str, scale: str, status: str) -> str:
+    if status == 'error':
+        return '#c0392b'
+    if status == 'warn':
+        return '#8a8a8a'
+    if scale == 'qualitative':
+        return _QUAL_COLOR
+    for k, c in _FAMILY_COLORS.items():
+        if k and k in (family or '').upper():
+            return c
+    return _DEFAULT_COLOR
+
+
+def build_catalog(well_data) -> list[CurveItem]:
+    """扫描井数据 → 曲线目录。"""
+    if well_data is None or not getattr(well_data, 'has_data', False):
+        return []
+
+    df = well_data.df
+    items: list[CurveItem] = []
+    for col in df.columns:
+        name = str(col)
+        if name.upper() == 'MD':
+            continue
+        info = pm.classify_variable(name)
+        kind = info.get('kind', 'unknown')
+        if kind == 'internal':
+            continue
+        family = info.get('family') or ''
+        unit = info.get('unit') or ''
+        scale = info.get('scale') or 'linear'
+        status = info.get('color', 'error')
+        if status == 'muted':
+            continue
+        try:
+            vals = df[name].to_numpy(dtype=float)
+            finite = vals[np.isfinite(vals)]
+        except Exception:
+            finite = np.array([], dtype=float)
+        vmin = float(finite.min()) if finite.size else None
+        vmax = float(finite.max()) if finite.size else None
+        items.append(CurveItem(
+            column=name,
+            label=name,
+            family=family,
+            unit=unit,
+            scale=scale,
+            kind='qualitative' if scale == 'qualitative' else 'curve',
+            color=_color_for(family, scale, status),
+            status=status,
+            source='曲线集',
+            vmin=vmin, vmax=vmax,
+        ))
+    return items
+
+
+def catalog_groups(items: list[CurveItem]) -> list[tuple[str, list[CurveItem]]]:
+    """按族分组（有族按族，无族归「未分类」），组内按名称排序。"""
+    buckets: dict[str, list[CurveItem]] = {}
+    for it in items:
+        key = it.family or '未分类'
+        buckets.setdefault(key, []).append(it)
+    out = []
+    for key in sorted(buckets, key=lambda k: (k == '未分类', k)):
+        group = sorted(buckets[key], key=lambda i: i.column.lower())
+        out.append((key, group))
+    return out
+
+
+def find_curve(items: list[CurveItem], column: str) -> CurveItem | None:
+    """按列名找曲线（大小写不敏感）。"""
+    if not column:
+        return None
+    for it in items:
+        if it.column == column:
+            return it
+    low = column.lower()
+    for it in items:
+        if it.column.lower() == low:
+            return it
+    return None
+
+
+def suggest_curve_color(items: list[CurveItem], column: str) -> str:
+    """给新加入的曲线选色：优先沿用目录中的族色，否则按列名稳定取色。"""
+    it = find_curve(items, column)
+    if it:
+        return it.color
+    palette = ['#1f77b4', '#d62728', '#2ca02c', '#ff7f0e', '#9467bd',
+               '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
+    h = sum(ord(c) for c in (column or ''))
+    return palette[h % len(palette)]
+
+
+def suggest_scale(items: list[CurveItem], column: str) -> str:
+    """新加入曲线的刻度方式：电阻率族用对数，其余线性。"""
+    it = find_curve(items, column)
+    if it:
+        return 'log' if (it.scale == 'log' or 'ohm' in (it.unit or '').lower()) else 'lin'
+    return 'lin'
+
+
+# ============================================================================
+# 【R81 合并自 logsys/logview/header.py】
+# ============================================================================
+
+"""绘图区图头（header）的字段化读写。
+
+【R80 交互绘图】
+井信息文件 `<井名>info.json` 按**中文分组**组织，是图头文字的天然来源：
+
+    井信息/  日期/  坐标/  海拔/  钻机/  人员/  井深/
+    地质设计/  泥浆信息/  测量记录/  图表标题/  免责声明/
+
+本模块负责：
+  - 把分组井信息展平成"可编辑字段清单"（label + 取值路径）；
+  - 写回时**保持原有分组结构**，只覆盖被编辑的那个键；
+  - 提供扁平视图供画布顶部图头条实时显示。
+
+与静态出图同源：`logvis._load_well_info_json` 每次出图都重读本文件，
+所以这里改完，交互画布与后续的快速图/综合图**同时生效**。
+"""
+
+
+#: 字段键 → 中文标签（未登记的字段回退显示键名本身）
+FIELD_LABELS = {
+    # 井信息
+    'company': '业主公司', 'well_name': '井名', 'field_name': '区块',
+    'area': '区域', 'country': '国家', 'classification': '井别',
+    'service_company_name': '服务公司', 'state_or_province': '州/省',
+    'permanent_datum': '永久基准面',
+    # 日期
+    'spud_date': '开钻日期', 'td_date': '完钻日期', 'log_date': '测井日期',
+    'process_date': '处理日期',
+    # 坐标
+    'latitude': '纬度', 'longitude': '经度',
+    'x_coordinate': 'X 坐标', 'y_coordinate': 'Y 坐标',
+    # 海拔
+    'elevation_gl': '地面海拔', 'elevation_kb': '补心海拔', 'elevation_df': '海拔偏移',
+    # 钻机
+    'rig_name': '钻机名', 'logging_unit': '测井单位', 'equipment_no': '设备号',
+    # 人员
+    'processed_by': '解释工程师', 'corrected_by': '校正工程师',
+    'field_recorded_by': '记录人', 'field_witnessed_by': '见证人',
+    # 井深
+    'start_depth': '起始深度', 'stop_depth': '终止深度',
+    'total_depth_driller': '钻井总深', 'total_depth_logger': '测井总深',
+    # 地质设计
+    'target_formation': '目的层', 'well_type': '井型',
+    'designed_td': '设计井深', 'structure': '构造位置',
+    # 泥浆
+    'drilling_fluid_type': '泥浆类型', 'drilling_fluid_density': '泥浆密度',
+    'drilling_fluid_viscosity': '泥浆粘度', 'drilling_fluid_ph': '泥浆 PH',
+    'drilling_fluid_loss': '失水',
+    'rm_meas_temp': '测量温度电阻率', 'rmf_meas_temp': '滤液电阻率',
+    'rmc_meas_temp': '泥饼电阻率', 'rm_bht': '井底温度电阻率',
+    # 测量记录
+    'bit_size': '钻头尺寸', 'time_since_circulation': '循环时间',
+    'max_record_temp': '最高记录温度',
+    'casing_record': '套管记录', 'borehole_record': '井眼记录',
+    # 图表标题
+    'ql_title': '快速图标题', 'cmpt_title': '综合图标题',
+    'xplot_title': '交会图标题', 'footer_text': '页脚文字',
+    # 免责声明
+    'disclaimer': '免责声明',
+}
+
+#: 这些分组在图头编辑面板中优先展示（其余分组仍可编辑，只是排在后面）
+PRIORITY_SECTIONS = ('井信息', '日期', '井深', '图表标题', '坐标', '海拔',
+                      '钻机', '人员', '地质设计', '泥浆信息', '测量记录', '免责声明')
+
+
+class HeaderField:
+    """一个可编辑的图头字段。"""
+
+    __slots__ = ('section', 'key', 'label', 'value', 'group')
+
+    def __init__(self, section: str, key: str, label: str, value: str, group: str = ''):
+        self.section = section
+        self.key = key
+        self.label = label
+        self.value = value
+        self.group = group
+
+    @property
+    def path(self) -> str:
+        return f'{self.section}/{self.key}'
+
+    def __repr__(self) -> str:  # pragma: no cover - 调试用
+        return f'<HeaderField {self.path}={self.value!r}>'
+
+
+def flatten_info(info: dict) -> dict:
+    """分组井信息 → 扁平 dict（跳过 _ 开头的说明键与空值）。
+
+    与 `logvis._flatten_well_info_cfg` 语义一致，保证交互画布取到的值
+    与静态出图取到的值相同。
+    """
+    out: dict = {}
+    if not isinstance(info, dict):
+        return out
+    for sec, vals in info.items():
+        if sec.startswith('_') or not isinstance(vals, dict):
+            continue
+        for k, v in vals.items():
+            if k.startswith('_'):
+                continue
+            if v is None or v == '':
+                continue
+            out[k] = v
+    return out
+
+
+def load_header_fields(info: dict) -> list[HeaderField]:
+    """井信息 → 可编辑字段清单（按优先级分组排序）。"""
+    fields: list[HeaderField] = []
+    if not isinstance(info, dict):
+        return fields
+    for sec, vals in info.items():
+        if sec.startswith('_') or not isinstance(vals, dict):
+            continue
+        for k, v in vals.items():
+            if k.startswith('_'):
+                continue
+            fields.append(HeaderField(
+                section=sec, key=k,
+                label=FIELD_LABELS.get(k, k),
+                value='' if v is None else str(v),
+                group=sec))
+    order = {s: i for i, s in enumerate(PRIORITY_SECTIONS)}
+    fields.sort(key=lambda f: (order.get(f.section, 99), f.section, f.key))
+    return fields
+
+
+def field_value(info: dict, section: str, key: str) -> str:
+    """取分组井信息里的某个字段值（扁平视图，找不到返回空串）。"""
+    flat = flatten_info(info)
+    v = flat.get(key, '')
+    return '' if v is None else str(v)
+
+
+def save_header_field(info_path: str, section: str, key: str, value: str) -> bool:
+    """写回单个图头字段（保持分组结构，其余字段不动）。"""
+    if not info_path or not section or not key:
+        return False
+    data: dict = {}
+    if os.path.exists(info_path):
+        try:
+            with open(info_path, 'r', encoding='utf-8-sig') as f:
+                data = json.load(f)
+        except Exception:
+            data = {}
+    if not isinstance(data, dict):
+        data = {}
+    grp = data.get(section)
+    if not isinstance(grp, dict):
+        grp = {}
+    grp[key] = value
+    data[section] = grp
+    try:
+        with open(info_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception:
+        return False
+
+
+def save_header_fields(info_path: str, values: dict) -> bool:
+    """批量写回（values: {(section, key): value}）。"""
+    if not info_path:
+        return False
+    ok = True
+    for (section, key), val in (values or {}).items():
+        ok = save_header_field(info_path, section, key, val) and ok
+    return ok
+
+
+def header_summary(info: dict, depth_unit: str = 'm', scale_text: str = '') -> list[str]:
+    """画布顶部图头条的文本行（井名 / 图题 / 深度范围 / 比例尺）。"""
+    flat = flatten_info(info)
+    lines: list[str] = []
+    well = str(flat.get('well_name', '') or '').strip()
+    if well:
+        lines.append(well)
+    for k in ('ql_title', 'cmpt_title'):
+        t = str(flat.get(k, '') or '').strip()
+        if t:
+            lines.append(t)
+            break
+    sp, ep = flat.get('start_depth'), flat.get('stop_depth')
+    if sp is not None and ep is not None:
+        try:
+            lines.append(f'深度 {float(sp):.1f}–{float(ep):.1f} {depth_unit}')
+        except (TypeError, ValueError):
+            pass
+    if scale_text:
+        lines.append(scale_text)
+    return lines
+
+
+# ============================================================================
+# 【R81 合并自 logsys/logview/canvas.py】
+# ============================================================================
+
+"""多道交互测井图画布。
+
+【R80 交互绘图】
+交互约定（对齐行业通用测井图交互习惯，非任何单一厂商专有交互）：
+    滚轮        = 以光标所在深度为锚点缩放
+    左键拖拽    = 平移深度窗口
+    右键拖拽    = 框选深度区间放大
+    中键单击    = 复位到全井
+    鼠标移动    = 跨道深度游标 + 实时读值
+    双击        = 复位到全井
+
+所有道共享深度轴（sharey），保证任意缩放级别下严格深度对齐。
+曲线用**包络降采样**绘制（见 decimate.py），薄层尖峰不失真。
+"""
+
+
+
+
+#: 版面比例
+FIG_HEADER_FRAC = 0.085     # 图头条（井名/图题/深度范围/比例尺）
+TRACK_HEADER_FRAC = 0.055   # 道头带（道名 + 曲线名/量程）
+LEFT_MARGIN = 0.012
+RIGHT_MARGIN = 0.988
+BOTTOM_MARGIN = 0.012
+
+MIN_SPAN = 2.0               # 最小可视深度跨度，防止无限放大
+CURSOR_COLOR = '#e74c3c'
+
+#: 岩性/解释道的定性列候选
+LITH_COLUMNS = ('LITHOLOGY', 'LITHOLOGY_MC', 'CORE_LITH', 'lithology_identification')
+INTERP_COLUMNS = ('INTERPRETATION', 'fluid_identification', 'LITH_MC_CONF')
+
+
+def _fluid_colors() -> dict:
+    """流体色表（合并后与静态出图同文件，直接引用）。"""
+    return dict(FLUID_COLOR)
+
+
+def _fluid_labels() -> dict:
+    return dict(FLUID_LABEL_CN)
+
+
+class TrackCanvas(FigureCanvasTkAgg):
+    """多道交互测井图画布。"""
+
+    def __init__(self, master=None, **kwargs):
+        # matplotlib 3.11 起 FigureCanvasTk 不再是 tk.Canvas 子类，
+        # 真控件在 self._tkcanvas（组合式）；老版本是 self 本身。
+        width = kwargs.pop('width', None)
+        height = kwargs.pop('height', None)
+        self.figure = Figure(facecolor='white')
+        super().__init__(self.figure, master=master, **kwargs)
+        self.widget = getattr(self, '_tkcanvas', None) or getattr(self, 'tkcanvas', None) or self
+        # 打标记：拖放时用 winfo_containing 找到落点控件后反查本画布
+        try:
+            self.widget._logvis_canvas = self
+        except Exception:
+            pass
+        if width:
+            self.widget.configure(width=int(width))
+        if height:
+            self.widget.configure(height=int(height))
+        self.well_data = None
+        self.tracks: list[TrackSpec] = []
+        self.axes: list = []
+        self.top = 0.0
+        self.bottom = 1.0
+        self.full_top = 0.0
+        self.full_bottom = 1.0
+        self.header_lines: list[str] = []
+        self.scale_text = ''
+        self._drag = None
+        self._cursor_lines = []
+        self._layout_sig = None
+        self._cursor_depth = None
+
+        # 回调（由窗口注入）
+        self.on_cursor = None       # (depth, values:dict)
+        self.on_range = None        # (top, bottom)
+        self.on_track_click = None  # (track_id, x_data) —— 供拖放落点判定
+
+        try:
+            self.widget.setMouseTracking(True)
+        except Exception:
+            pass
+        self.mpl_connect('scroll_event', self._on_scroll)
+        self.mpl_connect('button_press_event', self._on_press)
+        self.mpl_connect('motion_notify_event', self._on_motion)
+        self.mpl_connect('button_release_event', self._on_release)
+        self.mpl_connect('figure_leave_event', lambda e: self._clear_cursor())
+
+    # ------------------------------------------------------------------
+    # 数据装载
+    # ------------------------------------------------------------------
+    def set_well_data(self, well_data):
+        """装载井数据并按当前道配置绘制。"""
+        self.well_data = well_data
+        if well_data is not None and getattr(well_data, 'depth', None) is not None \
+                and len(well_data.depth) > 0:
+            self.full_top = float(well_data.depth[0])
+            self.full_bottom = float(well_data.depth[-1])
+            self.top, self.bottom = self.full_top, self.full_bottom
+        else:
+            self.full_top, self.full_bottom = 0.0, 1.0
+            self.top, self.bottom = 0.0, 1.0
+        self.render()
+
+    def set_tracks(self, tracks: list[TrackSpec]):
+        """设置道配置（道集合/宽度变化 → 重建坐标系）。"""
+        self.tracks = list(tracks or [])
+        self.render()
+
+    def set_header(self, lines: list[str], scale_text: str = ''):
+        """设置图头条文本（井名/图题/深度范围/比例尺）。"""
+        self.header_lines = [str(x) for x in (lines or []) if str(x).strip()]
+        self.scale_text = scale_text or ''
+        self.render()
+
+    # ------------------------------------------------------------------
+    # 道与曲线的增删
+    # ------------------------------------------------------------------
+    def track_index(self, track_id: str) -> int:
+        for i, t in enumerate(self.tracks):
+            if t.id == track_id:
+                return i
+        return -1
+
+    def add_curve(self, track_id: str, column: str, color: str = '',
+                  scale: str = 'lin') -> bool:
+        """往某道加一条曲线（拖入绘图区即走这里）。"""
+        idx = self.track_index(track_id)
+        if idx < 0 or not column:
+            return False
+        if any(c.column == column for c in self.tracks[idx].curves):
+            return False
+        self.tracks[idx].curves.append(CurveSpec(
+            column=column, label=column, color=color or '#1f77b4', scale=scale))
+        self.render()
+        return True
+
+    def remove_curve(self, track_id: str, column: str) -> bool:
+        idx = self.track_index(track_id)
+        if idx < 0:
+            return False
+        curves = self.tracks[idx].curves
+        for i, c in enumerate(curves):
+            if c.column == column:
+                curves.pop(i)
+                self.render()
+                return True
+        return False
+
+    def add_track(self, track_id: str, name: str = '', width: float = 1.0,
+                  kind: str = 'curve') -> bool:
+        """加一道（追加到末尾）。"""
+        if self.track_index(track_id) >= 0:
+            return False
+        self.tracks.append(TrackSpec(id=track_id, name=name or track_id,
+                                     kind=kind, width=width))
+        self.render()
+        return True
+
+    def remove_track(self, track_id: str) -> bool:
+        idx = self.track_index(track_id)
+        if idx < 0 or len(self.tracks) <= 1:
+            return False
+        self.tracks.pop(idx)
+        self.render()
+        return True
+
+    # ------------------------------------------------------------------
+    # 绘制
+    # ------------------------------------------------------------------
+    def _layout_signature(self):
+        return tuple((t.id, round(float(t.width), 4)) for t in self.tracks)
+
+    def _build_axes(self):
+        """按道宽比例横向排布，全部 sharey 到第一道。"""
+        self.figure.clear()
+        self.axes = []
+        if not self.tracks:
+            return
+        widths = [max(float(t.width), 0.05) for t in self.tracks]
+        total = sum(widths)
+        data_top = 1.0 - FIG_HEADER_FRAC - TRACK_HEADER_FRAC
+        x = LEFT_MARGIN
+        span = RIGHT_MARGIN - LEFT_MARGIN
+        first = None
+        for t, w in zip(self.tracks, widths):
+            frac = (w / total) * span
+            ax = self.figure.add_axes([x, BOTTOM_MARGIN, frac, data_top - BOTTOM_MARGIN])
+            if first is None:
+                first = ax
+            else:
+                try:
+                    ax.sharey(first)
+                except Exception:
+                    pass
+            ax.set_xticks([])
+            ax.tick_params(left=False, labelleft=False)
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+            self.axes.append(ax)
+            x += frac
+        self._layout_sig = self._layout_signature()
+
+    def render(self):
+        """按当前道配置与深度窗口重绘。"""
+        if self._layout_signature() != self._layout_sig:
+            self._build_axes()
+        for ax in self.axes:
+            ax.clear()
+            ax.set_xticks([])
+            ax.tick_params(left=False, labelleft=False)
+            for sp in ax.spines.values():
+                sp.set_visible(False)
+        if self.well_data is not None and getattr(self.well_data, 'has_data', False) \
+                and self.axes:
+            px_h = max(int(self.figure.get_size_inches()[1] *
+                           self.figure.dpi * (1 - FIG_HEADER_FRAC - TRACK_HEADER_FRAC)), 120)
+            for ax, t in zip(self.axes, self.tracks):
+                self._draw_track(ax, t, px_h)
+        elif self.axes:
+            self._draw_no_data()
+        self._draw_track_headers()
+        self._draw_figure_header()
+        self._apply_ylim()
+        self.draw_idle()
+        if self.on_range:
+            try:
+                self.on_range(self.top, self.bottom)
+            except Exception:
+                pass
+
+    def _apply_ylim(self):
+        for ax in self.axes:
+            try:
+                ax.set_ylim(self.bottom, self.top)   # 深度向下递增 → 反向
+            except Exception:
+                pass
+
+    def _draw_figure_header(self):
+        """图头条：井名 / 图题 / 深度范围 / 比例尺（实时可改）。"""
+        if not self.header_lines:
+            return
+        y = 1.0 - FIG_HEADER_FRAC / 2
+        x = LEFT_MARGIN + 0.004
+        n = len(self.header_lines)
+        for i, line in enumerate(self.header_lines[:4]):
+            weight = 'bold' if i == 0 else 'normal'
+            size = 11 if i == 0 else 9
+            self.figure.text(x, y - (i - 0.5) * (FIG_HEADER_FRAC / max(n, 2)),
+                             line, ha='left', va='center',
+                             fontsize=size, weight=weight, color='black')
+
+    def _draw_track_headers(self):
+        """道头：道名 + 曲线名（量程）。"""
+        for ax, t in zip(self.axes, self.tracks):
+            pos = ax.get_position()
+            cx = pos.x0 + pos.width / 2
+            y_name = pos.y1 + TRACK_HEADER_FRAC * 0.62
+            y_sub = pos.y1 + TRACK_HEADER_FRAC * 0.20
+            self.figure.text(cx, y_name, t.name, ha='center', va='center',
+                             fontsize=8.5, weight='bold', color='black')
+            sub = []
+            for c in t.curves:
+                label = c.label or c.column
+                sub.append(label)
+            if sub:
+                self.figure.text(cx, y_sub, ' / '.join(sub[:3]), ha='center',
+                                 va='center', fontsize=6.5, color='#444444')
+            # 道间竖分隔线
+            self.figure.add_artist(matplotlib.lines.Line2D(
+                [pos.x0, pos.x0], [BOTTOM_MARGIN, pos.y1 + TRACK_HEADER_FRAC],
+                color='black', linewidth=0.6, transform=self.figure.transFigure,
+                zorder=5))
+
+    def _draw_no_data(self):
+        """无曲线数据时的占位提示（避免一片空白让人以为程序坏了）。"""
+        note = (getattr(self.well_data, 'note', '') or '') if self.well_data else ''
+        msg = '（该井暂无解释曲线集或 LAS，无法绘图）'
+        if note:
+            msg += f'\n{note}'
+        self.figure.text(0.5, 0.5, msg, ha='center', va='center', fontsize=11,
+                         color='#888888')
+
+    def _draw_track(self, ax, t: TrackSpec, px_h: int):
+        kind = t.kind
+        if kind == 'depth':
+            self._draw_depth_track(ax)
+        elif kind == 'lithology':
+            self._draw_lithology_track(ax)
+        elif kind == 'profile':
+            self._draw_profile_track(ax)
+        elif kind == 'facies':
+            self._draw_lithology_track(ax)
+        elif kind == 'interpretation':
+            self._draw_interp_track(ax)
+        elif kind == 'gas':
+            self._draw_curve_track(ax, t, px_h)
+        else:
+            self._draw_curve_track(ax, t, px_h)
+
+    def _draw_curve_track(self, ax, t: TrackSpec, px_h: int):
+        df = self.well_data.df
+        depth = self.well_data.depth
+        # 注意：这里要的是**列名**，不是 CurveSpec 对象
+        cols = [c.column for c in t.curves if c.column in df.columns]
+        if not cols:
+            ax.text(0.5, 0.5, '（无曲线）', transform=ax.transAxes, ha='center',
+                    va='center', fontsize=7, color='#999999')
+            ax.set_xlim(0, 1)
+            return
+        for c in t.curves:
+            if c.column not in df.columns:
+                continue
+            raw = df[c.column].to_numpy(dtype=float)
+            vals, dvals, _ = decimate_for_pixels(raw, depth, self.top, self.bottom, px_h)
+            if vals.size == 0:
+                continue
+            if c.scale == 'log':
+                vals = np.where(vals <= 0, np.nan, vals)
+            if c.fill_to is not None:
+                ax.fill_betweenx(dvals, c.fill_to, vals,
+                                 color=c.fill_color or c.color, alpha=0.25, linewidth=0)
+            ax.plot(vals, dvals, color=c.color, ls=c.linestyle, lw=c.linewidth)
+        self._set_xlim_by_curves(ax, t, cols)
+        if t.show_grid:
+            ax.grid(axis='x', ls=':', lw=0.4, color='#cccccc', alpha=0.7)
+        ax.set_xticks([])
+
+    def _set_xlim_by_curves(self, ax, t: TrackSpec, cols: list[str]):
+        lo = [c.xmin for c in t.curves if c.xmin is not None]
+        hi = [c.xmax for c in t.curves if c.xmax is not None]
+        if lo and hi:
+            ax.set_xlim(min(lo), max(hi))
+            return
+        df = self.well_data.df
+        mask = depth_window_slice(self.well_data.depth, self.top, self.bottom)
+        vals = []
+        for c in cols:
+            try:
+                v = df.loc[mask, c].to_numpy(dtype=float)
+                v = v[np.isfinite(v)]
+            except Exception:
+                v = np.array([], dtype=float)
+            if v.size:
+                vals.append(v)
+        if vals:
+            allv = np.concatenate(vals)
+            a, b = np.nanpercentile(allv, [2, 98])
+            pad = (b - a) * 0.08 or max(abs(b) * 0.05, 1e-6)
+            lo, hi = a - pad, b + pad
+            if any(c.scale == 'log' for c in t.curves):
+                try:
+                    ax.set_xscale('log')
+                    if lo <= 0:
+                        pos = allv[allv > 0]
+                        lo = float(pos.min()) if pos.size else 1e-3
+                    if hi <= lo:
+                        hi = lo * 10
+                except Exception:
+                    pass
+            ax.set_xlim(lo, hi)
+        else:
+            ax.set_xlim(0, 1)
+
+    def _draw_depth_track(self, ax):
+        """深度道：刻度随窗口跨度自适应。"""
+        unit = getattr(self.well_data, 'depth_unit', 'm') or 'm'
+        span = abs(self.bottom - self.top)
+        step = 1.0
+        for target in (1000, 500, 200, 100, 50, 20, 10, 5, 2, 1):
+            if span / target >= 4:
+                step = float(target)
+                break
+        lo, hi = min(self.top, self.bottom), max(self.top, self.bottom)
+        ticks = np.arange(np.ceil(lo / step) * step, hi + step, step)
+        ax.set_xlim(0, 1)
+        ax.set_xticks([])
+        for tv in ticks:
+            ax.axhline(tv, color='#999999', lw=0.5)
+            ax.text(0.5, tv, f'{tv:g}', ha='center', va='center', fontsize=6.5,
+                    color='#222222',
+                    bbox=dict(fc='white', ec='none', pad=0.8), zorder=6)
+        ax.text(0.5, 0.985, f'深度({unit})', transform=ax.transAxes, ha='center',
+                va='top', fontsize=6.5, color='#333333')
+
+    def _lith_column(self):
+        df = self.well_data.df
+        for c in LITH_COLUMNS:
+            if c in df.columns:
+                return c
+        return None
+
+    def _draw_lithology_track(self, ax):
+        """岩性道：复用 logvis 的统一岩性符号绘制（与静态出图一致）。"""
+        df = self.well_data.df
+        depth = self.well_data.depth
+        col = self._lith_column()
+        ax.set_xlim(0, 1)
+        ax.set_xticks([])
+        if col is None:
+            ax.text(0.5, 0.5, '（无岩性列）', transform=ax.transAxes, ha='center',
+                    va='center', fontsize=7, color='#999999')
+            return
+        mask = depth_window_slice(depth, self.top, self.bottom)
+        lith = df.loc[mask, col].astype(str).to_numpy()
+        dd = depth[mask]
+        runs = []
+        cur_name, cur_z0, cur_z1 = None, None, None
+        for i, name in enumerate(lith):
+            if name != cur_name:
+                if cur_name is not None:
+                    runs.append((cur_z0, cur_z1, cur_name))
+                cur_name, cur_z0, cur_z1 = name, dd[i], dd[i]
+            else:
+                cur_z1 = dd[i]
+        if cur_name is not None:
+            runs.append((cur_z0, cur_z1, cur_name))
+        for z0, z1, name in runs:
+            if z1 <= z0:
+                continue
+            if draw_lithology_pattern is not None:
+                try:
+                    draw_lithology_pattern(ax, name, z0, z1, x0=0.0, x1=1.0)
+                    continue
+                except Exception:
+                    pass
+            ax.axhspan(z0, z1, color='#dddddd', lw=0)
+            ax.text(0.5, (z0 + z1) / 2, name, ha='center', va='center', fontsize=6)
+
+    def _draw_profile_track(self, ax):
+        """剖面道：岩性符号 + 矿物配色底（与静态出图同源的岩性绘制）。"""
+        self._draw_lithology_track(ax)
+
+    def _draw_interp_track(self, ax):
+        """解释结论道：按流体类别着色（色值取 logvis 的 FLUID_COLOR）。"""
+        df = self.well_data.df
+        depth = self.well_data.depth
+        ax.set_xlim(0, 1)
+        ax.set_xticks([])
+        colors = _fluid_colors()
+        labels = _fluid_labels()
+        col = None
+        for c in INTERP_COLUMNS:
+            if c in df.columns:
+                col = c
+                break
+        if col is None:
+            ax.text(0.5, 0.5, '（无解释结论列）', transform=ax.transAxes, ha='center',
+                    va='center', fontsize=7, color='#999999')
+            return
+        mask = depth_window_slice(depth, self.top, self.bottom)
+        vals = df.loc[mask, col].astype(str).to_numpy()
+        dd = depth[mask]
+        cur_name, cur_z0, cur_z1 = None, None, None
+        segs = []
+        for i, v in enumerate(vals):
+            if v != cur_name:
+                if cur_name is not None:
+                    segs.append((cur_z0, cur_z1, cur_name))
+                cur_name, cur_z0, cur_z1 = v, dd[i], dd[i]
+            else:
+                cur_z1 = dd[i]
+        if cur_name is not None:
+            segs.append((cur_z0, cur_z1, cur_name))
+        for z0, z1, name in segs:
+            if z1 <= z0:
+                continue
+            key = str(name).upper()
+            ax.axhspan(z0, z1, color=colors.get(key, '#bdbdbd'), lw=0)
+            cn = labels.get(key)
+            if cn and (z1 - z0) > 0:
+                ax.text(0.5, (z0 + z1) / 2, cn, ha='center', va='center',
+                        fontsize=6, color='black')
+
+    # ------------------------------------------------------------------
+    # 交互
+    # ------------------------------------------------------------------
+    def _on_scroll(self, event):
+        if event.ydata is None or not self.axes:
+            return
+        anchor = float(event.ydata)
+        factor = 0.8 if event.button == 'up' else 1.25
+        span = (self.bottom - self.top) * factor
+        full = self.full_bottom - self.full_top
+        span = max(MIN_SPAN, min(span, full))
+        ratio = (anchor - self.top) / max(self.bottom - self.top, 1e-9)
+        self.top = anchor - ratio * span
+        self.bottom = self.top + span
+        self._clamp()
+        self.render()
+
+    def _on_press(self, event):
+        if event.ydata is None:
+            return
+        if event.button == 1:
+            self._drag = ('pan', float(event.ydata), self.top, self.bottom)
+        elif event.button == 3:
+            self._drag = ('zoom', float(event.ydata), None, None)
+        elif event.button == 2:
+            self.reset_view()
+
+    def _on_motion(self, event):
+        if event.ydata is None:
+            return
+        y = float(event.ydata)
+        if self._drag and self._drag[0] == 'pan':
+            _, y0, t0, b0 = self._drag
+            dy = y0 - y
+            self.top, self.bottom = t0 + dy, b0 + dy
+            self._clamp()
+            self.render()
+            return
+        self._update_cursor(y)
+
+    def _on_release(self, event):
+        if self._drag and self._drag[0] == 'zoom' and event.ydata is not None:
+            y0 = self._drag[1]
+            y1 = float(event.ydata)
+            if abs(y1 - y0) > MIN_SPAN / 4:
+                self.top, self.bottom = min(y0, y1), max(y0, y1)
+                self._clamp()
+                self.render()
+        self._drag = None
+
+    def _clamp(self):
+        span = self.bottom - self.top
+        if self.top < self.full_top:
+            self.top, self.bottom = self.full_top, self.full_top + span
+        if self.bottom > self.full_bottom:
+            self.bottom = self.full_bottom
+            self.top = self.bottom - span
+
+    def reset_view(self):
+        """复位到全井。"""
+        self.top, self.bottom = self.full_top, self.full_bottom
+        self.render()
+
+    def set_depth_range(self, top: float, bottom: float):
+        """设置深度窗口（外部控件用）。"""
+        if bottom < top:
+            top, bottom = bottom, top
+        self.top, self.bottom = float(top), float(bottom)
+        self._clamp()
+        self.render()
+
+    def _clear_cursor(self):
+        for ln in self._cursor_lines:
+            try:
+                ln.remove()
+            except Exception:
+                pass
+        self._cursor_lines = []
+        self._cursor_depth = None
+        self.draw_idle()
+
+    def _update_cursor(self, y: float):
+        for ln in self._cursor_lines:
+            try:
+                ln.remove()
+            except Exception:
+                pass
+        self._cursor_lines = []
+        for ax in self.axes:
+            try:
+                self._cursor_lines.append(
+                    ax.axhline(y, color=CURSOR_COLOR, lw=0.9, ls='--', zorder=20))
+            except Exception:
+                pass
+        self._cursor_depth = y
+        self.draw_idle()
+        if self.on_cursor:
+            try:
+                self.on_cursor(y, self._read_values(y))
+            except Exception:
+                pass
+
+    def _read_values(self, y: float) -> dict:
+        """游标处最近邻行的全部曲线值。"""
+        if self.well_data is None or not getattr(self.well_data, 'has_data', False):
+            return {}
+        d = self.well_data.depth
+        i = int(np.nanargmin(np.abs(d - y)))
+        row = self.well_data.df.iloc[i]
+        out = {'深度': float(d[i])}
+        for k, v in row.items():
+            try:
+                fv = float(v)
+            except (TypeError, ValueError):
+                continue
+            if fv != fv:       # NaN
+                continue
+            out[str(k)] = fv
+        return out
+
+    # ------------------------------------------------------------------
+    # 导出
+    # ------------------------------------------------------------------
+    def track_at_pixel(self, px: float, py: float) -> str:
+        """控件像素坐标 → 落在哪一道（拖放落点判定）。
+
+        px,py 为画布控件内坐标（原点左上）。落空返回空串。
+        matplotlib 3.11 起 canvas 不再有公开 bbox，这里用控件像素尺寸换算。
+        """
+        if not self.axes:
+            return ''
+        try:
+            w = float(self.widget.winfo_width())
+            h = float(self.widget.winfo_height())
+        except Exception:
+            return ''
+        if w <= 1 or h <= 1:
+            return ''
+        fx = px / w
+        fy = 1.0 - py / h          # 控件 y 向下、图形 y 向上
+        for ax, t in zip(self.axes, self.tracks):
+            pos = ax.get_position()
+            if pos.x0 <= fx <= pos.x1 and pos.y0 <= fy <= pos.y1:
+                return t.id
+        return ''
+
+    def export(self, path: str, dpi: int = 150) -> bool:
+        """导出当前画布为 PNG / PDF（按扩展名）。"""
+        if not path:
+            return False
+        try:
+            self.figure.savefig(path, dpi=dpi, facecolor='white')
+            return True
+        except Exception:
+            return False
+
+
+# ============================================================================
+# 【R81 合并自 logsys/logview/window.py】
+# ============================================================================
+
+"""交互式测井图窗口（logvis）。
+
+【R80 交互绘图】
+三栏布局：
+    左：曲线目录（按族分组）—— **拖拽源**，曲线拖进绘图区即自动出图；
+    中：交互画布（多道共享深度轴）；
+    右：道与曲线 / 图头编辑 / 深度读值 三个页签。
+
+交互清单：
+    - 曲线拖入绘图区 → 落到哪道就画进哪道；双击曲线 → 加到当前选中道；
+    - 道与曲线页签里可删曲线、删道、调整道序；
+    - 图头页签改字段 → 立即写回 `<井名>info.json` → 画布图头条实时刷新，
+      并且**后续的快速图 / 综合图出图也同步生效**（同一份井信息源）；
+    - 版式可一键切到「快速图版式」或「综合图版式」，与静态出图同源解析。
+
+拖放实现说明：tkinter 无原生 DnD（Tk 未实现 drag&drop 协议），
+这里用**按下-移动-抬起**三段式自行实现：
+    ① 目录树 ButtonPress 记录候选曲线；
+    ② B1-Motion 超过阈值进入拖拽态（光标变手型）；
+    ③ ButtonRelease 时用 winfo_pointerxy + winfo_containing 判断落点，
+       落在画布上则按像素坐标反查目标道并加入该道。
+"""
+
+
+
+DRAG_THRESHOLD = 6          # 超过该像素位移才判定为拖拽（避免误触）
+LAYOUT_FILE_SUFFIX = 'logvis.json'
+
+
+def _load_template(kind: str):
+    """读图版模板（合并后同文件，直接调用）。"""
+    try:
+        return load_plot_template(kind)
+    except Exception:
+        return None
+
+
+class LogViewWindow(tk.Toplevel):
+    """交互式测井图窗口。"""
+
+    def __init__(self, master, well_name: str, out_dir: str = '',
+                 source_dir: str = '', las_file: str = '', kind: str = 'qlpt'):
+        super().__init__(master)
+        self.title(f'交互绘图（logvis） —— {well_name}')
+        self.geometry('1580x920')
+        self.minsize(1180, 700)
+
+        self.well_name = well_name
+        self.out_dir = out_dir or ''
+        self.source_dir = source_dir or ''
+        self.kind = kind
+        self.tracks: list[TrackSpec] = []
+        self.catalog: list[CurveItem] = []
+        self._drag_item = None
+        self._drag_origin = None
+        self._dragging = False
+        self._selected_track = ''
+        self._suspend_save = False
+
+        self.data = load_well_data(well_name, out_dir=out_dir,
+                                      source_dir=source_dir, las_file=las_file)
+        self.info_path = find_info_json(self.out_dir, well_name) if self.out_dir else ''
+
+        self._build_ui()
+        self._refresh_catalog()          # 先建目录 → 族映射可用
+        self.canvas.set_well_data(self.data)
+        self._load_tracks(kind)
+        self._refresh_header_panel()
+        self._update_status()
+
+    # ------------------------------------------------------------------
+    # 界面骨架
+    # ------------------------------------------------------------------
+    def _build_ui(self):
+        self._style()
+        top = ttk.Frame(self, padding=(6, 4))
+        top.pack(side='top', fill='x')
+        self._build_toolbar(top)
+
+        body = ttk.PanedWindow(self, orient='horizontal')
+        body.pack(side='top', fill='both', expand=True)
+
+        left = ttk.Frame(body, width=280)
+        body.add(left, weight=1)
+        self._build_catalog_panel(left)
+
+        mid = ttk.Frame(body)
+        body.add(mid, weight=6)
+        self.canvas = TrackCanvas(mid, width=900, height=760)
+        # matplotlib 3.11 起真控件是 canvas.widget（组合式），需自行 pack
+        self.canvas.widget.pack(fill='both', expand=True)
+        self.canvas.on_cursor = self._on_cursor
+        self.canvas.on_range = self._on_range
+
+        right = ttk.Frame(body, width=340)
+        body.add(right, weight=2)
+        self._build_right_panel(right)
+
+        self.status = tk.StringVar(value='')
+        ttk.Label(self, textvariable=self.status, relief='sunken',
+                  anchor='w').pack(side='bottom', fill='x')
+
+    def _style(self):
+        style = ttk.Style(self)
+        try:
+            style.theme_use('clam')
+        except Exception:
+            pass
+        style.configure('Small.TLabel', font=('Microsoft YaHei', 8))
+
+    def _build_toolbar(self, parent):
+        row1 = ttk.Frame(parent)
+        row1.pack(side='top', fill='x')
+        ttk.Label(row1, text='版式：').pack(side='left')
+        self.cmb_kind = ttk.Combobox(row1, values=('快速图版式', '综合图版式'),
+                                     state='readonly', width=14)
+        self.cmb_kind.set('快速图版式' if self.kind == 'qlpt' else '综合图版式')
+        self.cmb_kind.pack(side='left', padx=(0, 10))
+        self.cmb_kind.bind('<<ComboboxSelected>>', self._on_kind_changed)
+
+        ttk.Button(row1, text='读取保存的布局', command=self._load_saved_layout
+                   ).pack(side='left', padx=2)
+        ttk.Button(row1, text='保存当前布局', command=self._save_layout
+                   ).pack(side='left', padx=2)
+        ttk.Separator(row1, orient='vertical').pack(side='left', fill='y', padx=8)
+        ttk.Button(row1, text='复位全井', command=self._reset_view).pack(side='left', padx=2)
+        ttk.Button(row1, text='导出 PNG', command=self._export_png).pack(side='left', padx=2)
+        ttk.Button(row1, text='导出 PDF', command=self._export_pdf).pack(side='left', padx=2)
+
+        row2 = ttk.Frame(parent)
+        row2.pack(side='top', fill='x')
+        ttk.Label(row2, text='深度范围：').pack(side='left')
+        self.var_top = tk.StringVar(value='')
+        self.var_bottom = tk.StringVar(value='')
+        e1 = ttk.Entry(row2, textvariable=self.var_top, width=12)
+        e1.pack(side='left', padx=2)
+        e1.bind('<Return>', lambda e: self._apply_depth_range())
+        ttk.Label(row2, text='—').pack(side='left')
+        e2 = ttk.Entry(row2, textvariable=self.var_bottom, width=12)
+        e2.pack(side='left', padx=2)
+        e2.bind('<Return>', lambda e: self._apply_depth_range())
+        ttk.Button(row2, text='应用', command=self._apply_depth_range).pack(side='left', padx=2)
+        ttk.Label(row2, text='  提示：滚轮缩放 / 左键拖拽平移 / 右键框选放大 / 中键复位',
+                  style='Small.TLabel').pack(side='left', padx=10)
+
+    def _build_catalog_panel(self, parent):
+        ttk.Label(parent, text='曲线目录（拖到绘图区即出曲线）',
+                  font=('Microsoft YaHei', 9, 'bold')).pack(anchor='w', pady=(4, 2))
+        self.var_filter = tk.StringVar()
+        ent = ttk.Entry(parent, textvariable=self.var_filter)
+        ent.pack(fill='x', padx=2)
+        ent.bind('<KeyRelease>', lambda e: self._refresh_catalog())
+
+        wrap = ttk.Frame(parent)
+        wrap.pack(fill='both', expand=True, padx=2, pady=2)
+        self.tree = ttk.Treeview(wrap, columns=('unit',), show='tree headings',
+                                 selectmode='browse')
+        self.tree.heading('#0', text='名称', anchor='w')
+        self.tree.column('#0', width=190, minwidth=120, stretch=True)
+        self.tree.heading('unit', text='单位', anchor='w')
+        self.tree.column('unit', width=70, minwidth=50, stretch=False)
+        vsb = ttk.Scrollbar(wrap, orient='vertical', command=self.tree.yview)
+        self.tree.configure(yscrollcommand=vsb.set)
+        self.tree.pack(side='left', fill='both', expand=True)
+        vsb.pack(side='right', fill='y')
+
+        self.tree.bind('<ButtonPress-1>', self._on_tree_press)
+        self.tree.bind('<B1-Motion>', self._on_tree_motion)
+        self.tree.bind('<ButtonRelease-1>', self._on_tree_release)
+        self.tree.bind('<Double-1>', self._on_tree_double)
+
+        btns = ttk.Frame(parent)
+        btns.pack(fill='x', padx=2, pady=(0, 4))
+        ttk.Button(btns, text='加入当前道', command=self._add_selected_to_track
+                   ).pack(side='left', padx=2)
+        ttk.Button(btns, text='新建道并加入', command=self._add_selected_new_track
+                   ).pack(side='left', padx=2)
+
+    def _build_right_panel(self, parent):
+        self.nb = ttk.Notebook(parent)
+        self.nb.pack(fill='both', expand=True)
+
+        # 页签1：道与曲线
+        tab_tracks = ttk.Frame(self.nb)
+        self.nb.add(tab_tracks, text='道与曲线')
+        self.tree_tracks = ttk.Treeview(tab_tracks, columns=('kind',),
+                                         show='tree headings', selectmode='browse')
+        self.tree_tracks.heading('#0', text='道 / 曲线', anchor='w')
+        self.tree_tracks.column('#0', width=190, stretch=True)
+        self.tree_tracks.heading('kind', text='类型', anchor='w')
+        self.tree_tracks.column('kind', width=70, stretch=False)
+        self.tree_tracks.pack(fill='both', expand=True)
+        self.tree_tracks.bind('<Double-1>', self._on_track_double)
+
+        row = ttk.Frame(tab_tracks)
+        row.pack(fill='x', pady=4)
+        ttk.Button(row, text='删曲线', command=self._remove_selected_curve
+                   ).pack(side='left', padx=2)
+        ttk.Button(row, text='删道', command=self._remove_selected_track
+                   ).pack(side='left', padx=2)
+        ttk.Button(row, text='上移', command=lambda: self._move_track(-1)
+                   ).pack(side='left', padx=2)
+        ttk.Button(row, text='下移', command=lambda: self._move_track(1)
+                   ).pack(side='left', padx=2)
+
+        # 页签2：图头
+        tab_header = ttk.Frame(self.nb)
+        self.nb.add(tab_header, text='图头')
+        self.header_canvas = tk.Canvas(tab_header, highlightthickness=0, borderwidth=0)
+        hsb = ttk.Scrollbar(tab_header, orient='horizontal', command=self.header_canvas.xview)
+        vsb = ttk.Scrollbar(tab_header, orient='vertical', command=self.header_canvas.yview)
+        self.header_frame = ttk.Frame(self.header_canvas)
+        self.header_window = self.header_canvas.create_window(
+            (0, 0), window=self.header_frame, anchor='nw')
+        self.header_frame.bind('<Configure>',
+                               lambda e: self.header_canvas.configure(scrollregion=self.header_canvas.bbox('all')))
+        self.header_canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+        self.header_canvas.grid(row=0, column=0, sticky='nsew')
+        vsb.grid(row=0, column=1, sticky='ns')
+        hsb.grid(row=1, column=0, sticky='ew')
+        tab_header.rowconfigure(0, weight=1)
+        tab_header.columnconfigure(0, weight=1)
+        ttk.Label(tab_header, text='改动立即写回井信息 info.json，快速图/综合图同步生效',
+                  style='Small.TLabel').grid(row=2, column=0, columnspan=2, sticky='w', pady=2)
+
+        # 页签3：读值
+        tab_read = ttk.Frame(self.nb)
+        self.nb.add(tab_read, text='深度读值')
+        self.var_cursor = tk.StringVar(value='深度游标：--')
+        ttk.Label(tab_read, textvariable=self.var_cursor,
+                  font=('Microsoft YaHei', 10, 'bold')).pack(anchor='w', pady=(4, 2))
+        wrap = ttk.Frame(tab_read)
+        wrap.pack(fill='both', expand=True)
+        self.tree_read = ttk.Treeview(wrap, columns=('value',), show='tree headings')
+        self.tree_read.heading('#0', text='曲线', anchor='w')
+        self.tree_read.column('#0', width=150, stretch=True)
+        self.tree_read.heading('value', text='数值', anchor='w')
+        self.tree_read.column('value', width=110, stretch=False)
+        rsb = ttk.Scrollbar(wrap, orient='vertical', command=self.tree_read.yview)
+        self.tree_read.configure(yscrollcommand=rsb.set)
+        self.tree_read.pack(side='left', fill='both', expand=True)
+        rsb.pack(side='right', fill='y')
+
+    # ------------------------------------------------------------------
+    # 道配置
+    # ------------------------------------------------------------------
+    def _load_tracks(self, kind: str):
+        """按模板解析道布局（与静态出图同源）。"""
+        self.kind = kind
+        tpl = _load_template(kind)
+        df = self.data.df
+        cols = list(df.columns) if df is not None else []
+        flags = {
+            'has_res_trad': bool(_any_col(cols, ['RT', 'LLD', 'MSFL', 'RTD', 'ILD'])),
+            'has_res_array': bool(_any_col(cols, ['AT10', 'AT20', 'AT30', 'AT60', 'AT90',
+                                                  'M2R1', 'AF10'])),
+            'has_gas': bool(_any_col(cols, ['TG', 'C1TG', 'GAS', 'TOTAL_GAS'])),
+        }
+        # 列 → 族（供按族挑默认曲线，与工作台三色语义同源）
+        fam_map = {it.column: it.family for it in self.catalog}
+        if tpl:
+            tracks = build_tracks(tpl, kind, flags, gas_track_width=1.0,
+                                  available_columns=cols, column_family=fam_map)
+        else:
+            tracks = (default_quicklook_tracks(cols) if kind == 'qlpt'
+                      else default_composite_tracks(cols))
+        self.tracks = tracks
+        self.canvas.set_tracks(self.tracks)
+        self._refresh_track_tree()
+        self._refresh_canvas_header()
+
+    def _on_kind_changed(self, _evt=None):
+        kind = 'qlpt' if self.cmb_kind.get() == '快速图版式' else 'cmpt'
+        self._load_tracks(kind)
+        self._update_status()
+
+    def _refresh_track_tree(self):
+        self.tree_tracks.delete(*self.tree_tracks.get_children())
+        for t in self.tracks:
+            iid = self.tree_tracks.insert('', 'end', text=t.name, values=(t.kind,))
+            for c in t.curves:
+                self.tree_tracks.insert(iid, 'end', text=c.label or c.column,
+                                        values=(c.scale,))
+            self.tree_tracks.item(iid, open=True)
+
+    def _refresh_canvas_header(self):
+        """图头条 = 井信息（井名/图题/深度范围）+ 当前深度窗口。"""
+        unit = self.data.depth_unit or 'm'
+        info = self.data.info or {}
+        lines = [str(info.get('井信息', {}).get('well_name', '') or self.well_name)]
+        for key in ('ql_title', 'cmpt_title'):
+            v = str(info.get('图表标题', {}).get(key, '') or '').strip()
+            if v:
+                lines.append(v)
+                break
+        lines.append(f'深度 {self.canvas.top:.1f}–{self.canvas.bottom:.1f} {unit}')
+        self.canvas.set_header(lines)
+
+    # ------------------------------------------------------------------
+    # 曲线目录
+    # ------------------------------------------------------------------
+    def _refresh_catalog(self):
+        self.catalog = build_catalog(self.data)
+        keyword = (self.var_filter.get() or '').strip().lower()
+        groups = catalog_groups(self.catalog)
+        self.tree.delete(*self.tree.get_children())
+        for gname, items in groups:
+            shown = [i for i in items
+                     if not keyword or keyword in i.column.lower()
+                     or keyword in (i.family or '').lower()
+                     or keyword in i.display.lower()]
+            if not shown:
+                continue
+            gid = self.tree.insert('', 'end', text=gname, open=True)
+            for it in shown:
+                self.tree.insert(gid, 'end', text=it.column, values=(it.unit,))
+
+    def _current_curve_item(self):
+        sel = self.tree.selection()
+        if not sel:
+            return None
+        iid = sel[0]
+        parent = self.tree.parent(iid)
+        if not parent:
+            return None
+        name = self.tree.item(iid, 'text')
+        for gname, items in catalog_groups(self.catalog):
+            for it in items:
+                if it.column == name:
+                    return it
+        return None
+
+    def _current_track_id(self) -> str:
+        if self._selected_track:
+            return self._selected_track
+        for t in self.tracks:
+            if t.kind == 'curve':
+                return t.id
+        return self.tracks[0].id if self.tracks else ''
+
+    # ------------------------------------------------------------------
+    # 拖放（纯 tkinter 三段式实现）
+    # ------------------------------------------------------------------
+    def _on_tree_press(self, evt):
+        self._drag_item = self.tree.identify_row(evt.y)
+        self._drag_origin = (evt.x, evt.y)
+        self._dragging = False
+
+    def _on_tree_motion(self, evt):
+        if not self._drag_item:
+            return
+        if not self._dragging and self._drag_origin:
+            dx = evt.x - self._drag_origin[0]
+            dy = evt.y - self._drag_origin[1]
+            if (dx * dx + dy * dy) ** 0.5 >= DRAG_THRESHOLD:
+                self._dragging = True
+                self.tree.configure(cursor='hand2')
+
+    def _on_tree_release(self, _evt):
+        if self._dragging:
+            self._drop_on_canvas()
+        self.tree.configure(cursor='')
+        self._drag_item = None
+        self._drag_origin = None
+        self._dragging = False
+
+    def _drop_on_canvas(self):
+        """抬起时判断落点：落在画布 → 加入目标道。"""
+        item = self._current_curve_item()
+        if item is None:
+            return
+        x, y = self.winfo_pointerxy()
+        widget = self.winfo_containing(x, y)
+        if widget is None:
+            return
+        target = self._canvas_of(widget)
+        if target is None:
+            return
+        px = x - target.widget.winfo_rootx()
+        py = y - target.widget.winfo_rooty()
+        track_id = target.track_at_pixel(px, py) or self._current_track_id()
+        if not track_id:
+            return
+        self._add_curve_to_track(item, track_id)
+
+    def _canvas_of(self, widget):
+        """从命中的控件反查画布实例。
+
+        matplotlib 3.11 起画布真控件是 tk.Canvas（打有 _logvis_canvas 标记），
+        不在 TrackCanvas 的控件父子链里，故先查标记再回溯父级。
+        """
+        w = widget
+        while w is not None:
+            found = getattr(w, '_logvis_canvas', None)
+            if isinstance(found, TrackCanvas):
+                return found
+            if isinstance(w, TrackCanvas):
+                return w
+            try:
+                w = w.master
+            except Exception:
+                break
+        return None
+
+    def _on_tree_double(self, _evt):
+        item = self._current_curve_item()
+        if item is not None:
+            self._add_curve_to_track(item, self._current_track_id())
+
+    def _add_selected_to_track(self):
+        item = self._current_curve_item()
+        if item is None:
+            messagebox.showinfo('提示', '请先在左侧选中一条曲线', parent=self)
+            return
+        self._add_curve_to_track(item, self._current_track_id())
+
+    def _add_selected_new_track(self):
+        item = self._current_curve_item()
+        if item is None:
+            messagebox.showinfo('提示', '请先在左侧选中一条曲线', parent=self)
+            return
+        tid = f'CUSTOM_{len(self.tracks) + 1}'
+        self.canvas.add_track(tid, name=f'自定义道 {len(self.tracks) + 1}',
+                              width=1.0, kind='curve')
+        self.tracks = self.canvas.tracks
+        self._add_curve_to_track(item, tid)
+        self._refresh_track_tree()
+
+    def _add_curve_to_track(self, item: CurveItem, track_id: str):
+        color = suggest_curve_color(self.catalog, item.column)
+        scale = suggest_scale(self.catalog, item.column)
+        ok = self.canvas.add_curve(track_id, item.column, color=color, scale=scale)
+        self.tracks = self.canvas.tracks
+        if ok:
+            self._refresh_track_tree()
+            self._update_status(f'已把曲线「{item.column}」加入 {track_id}')
+        else:
+            self._update_status(f'曲线「{item.column}」已在 {track_id} 中')
+
+    # ------------------------------------------------------------------
+    # 道与曲线增删
+    # ------------------------------------------------------------------
+    def _remove_selected_curve(self):
+        sel = self.tree_tracks.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        parent = self.tree_tracks.parent(iid)
+        if not parent:
+            return
+        track_id = self._track_id_by_tree_item(parent)
+        name = self.tree_tracks.item(iid, 'text')
+        if track_id and self.canvas.remove_curve(track_id, name):
+            self.tracks = self.canvas.tracks
+            self._refresh_track_tree()
+
+    def _remove_selected_track(self):
+        sel = self.tree_tracks.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        if self.tree_tracks.parent(iid):
+            self._remove_selected_curve()
+            return
+        track_id = self._track_id_by_tree_item(iid)
+        if track_id and self.canvas.remove_track(track_id):
+            self.tracks = self.canvas.tracks
+            self._refresh_track_tree()
+
+    def _move_track(self, delta: int):
+        sel = self.tree_tracks.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        if self.tree_tracks.parent(iid):
+            return
+        track_id = self._track_id_by_tree_item(iid)
+        idx = next((i for i, t in enumerate(self.tracks) if t.id == track_id), -1)
+        j = idx + delta
+        if idx < 0 or j < 0 or j >= len(self.tracks):
+            return
+        self.tracks[idx], self.tracks[j] = self.tracks[j], self.tracks[idx]
+        self.canvas.set_tracks(self.tracks)
+        self._refresh_track_tree()
+
+    def _on_track_double(self, _evt):
+        """双击道名 → 选为当前目标道（后续拖入的曲线进这道）。"""
+        sel = self.tree_tracks.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        parent = self.tree_tracks.parent(iid)
+        if parent:
+            return
+        self._selected_track = self._track_id_by_tree_item(iid)
+
+    def _track_id_by_tree_item(self, iid: str) -> str:
+        name = self.tree_tracks.item(iid, 'text')
+        for t in self.tracks:
+            if t.name == name or t.id == name:
+                return t.id
+        return ''
+
+    # ------------------------------------------------------------------
+    # 图头编辑
+    # ------------------------------------------------------------------
+    def _refresh_header_panel(self):
+        for ch in self.header_frame.winfo_children():
+            ch.destroy()
+        fields = load_header_fields(self.data.info)
+        if not fields:
+            ttk.Label(self.header_frame, text='（未找到井信息文件）').pack(anchor='w')
+            return
+        last_section = None
+        for f in fields:
+            if f.section != last_section:
+                last_section = f.section
+                ttk.Label(self.header_frame, text=f.section,
+                          font=('Microsoft YaHei', 9, 'bold'),
+                          foreground='#1f4e79').pack(anchor='w', pady=(6, 1))
+            row = ttk.Frame(self.header_frame)
+            row.pack(fill='x', pady=1)
+            ttk.Label(row, text=f.label, width=14, anchor='w').pack(side='left')
+            var = tk.StringVar(value=f.value)
+            ent = ttk.Entry(row, textvariable=var, width=22)
+            ent.pack(side='left', fill='x', expand=True)
+            ent.bind('<FocusOut>', lambda e, fld=f, v=var: self._on_header_edit(fld, v))
+            ent.bind('<Return>', lambda e, fld=f, v=var: self._on_header_edit(fld, v))
+
+    def _on_header_edit(self, field: HeaderField, var: tk.StringVar):
+        if self._suspend_save:
+            return
+        value = var.get()
+        if value == field.value:
+            return
+        field.value = value
+        if self.info_path and save_header_field(self.info_path, field.section,
+                                                     field.key, value):
+            self.data.info = flatten_info(self.data.info)
+            self.data.info = _reload_info(self.info_path) or self.data.info
+            self._refresh_canvas_header()
+            self._update_status(f'图头已更新：{field.label}')
+
+    # ------------------------------------------------------------------
+    # 读值 / 状态
+    # ------------------------------------------------------------------
+    def _on_cursor(self, depth: float, values: dict):
+        unit = self.data.depth_unit or 'm'
+        self.var_cursor.set(f'深度游标：{depth:.2f} {unit}')
+        self.tree_read.delete(*self.tree_read.get_children())
+        for k, v in sorted(values.items()):
+            if k == '深度':
+                continue
+            self.tree_read.insert('', 'end', text=k,
+                                  values=(f'{v:.4g}' if isinstance(v, float) else str(v),))
+
+    def _on_range(self, top: float, bottom: float):
+        if hasattr(self, 'var_top'):
+            self.var_top.set(f'{top:.1f}')
+            self.var_bottom.set(f'{bottom:.1f}')
+
+    def _update_status(self, msg: str = ''):
+        if msg:
+            self.status.set(msg)
+            return
+        n_curve = sum(len(t.curves) for t in self.tracks)
+        rows = len(self.data.depth) if self.data.depth is not None else 0
+        self.status.set(
+            f'井：{self.well_name}｜道 {len(self.tracks)} 条 / 曲线 {n_curve} 条｜'
+            f'数据 {rows} 行｜曲线目录 {len(self.catalog)} 条｜'
+            f'数据源 {self.data.origin or "无"}'
+            + (f'｜{self.data.note}' if self.data.note else ''))
+
+    # ------------------------------------------------------------------
+    # 视图控制 / 导出 / 布局持久化
+    # ------------------------------------------------------------------
+    def _apply_depth_range(self):
+        try:
+            top = float(self.var_top.get())
+            bottom = float(self.var_bottom.get())
+        except (TypeError, ValueError):
+            return
+        self.canvas.set_depth_range(top, bottom)
+        self._refresh_canvas_header()
+
+    def _reset_view(self):
+        self.canvas.reset_view()
+        self._refresh_canvas_header()
+
+    def _export_png(self):
+        path = filedialog.asksaveasfilename(
+            parent=self, title='导出 PNG',
+            defaultextension='.png',
+            initialfile=f'{self.well_name}_logvis.png')
+        if path and self.canvas.export(path):
+            self._update_status(f'已导出：{path}')
+
+    def _export_pdf(self):
+        path = filedialog.asksaveasfilename(
+            parent=self, title='导出 PDF',
+            defaultextension='.pdf',
+            initialfile=f'{self.well_name}_logvis.pdf')
+        if path and self.canvas.export(path):
+            self._update_status(f'已导出：{path}')
+
+    def _layout_path(self) -> str:
+        if not self.out_dir:
+            return ''
+        return os.path.join(self.out_dir, f'{self.well_name}{LAYOUT_FILE_SUFFIX}')
+
+    def _save_layout(self):
+        path = self._layout_path()
+        if not path:
+            messagebox.showinfo('提示', '该井没有产物目录，无法保存布局', parent=self)
+            return
+        data = {
+            'well_name': self.well_name,
+            'kind': self.kind,
+            'tracks': [t.to_dict() for t in self.tracks],
+        }
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+            self._update_status(f'布局已保存：{path}')
+        except Exception as e:
+            messagebox.showerror('保存失败', str(e), parent=self)
+
+    def _load_saved_layout(self):
+        path = self._layout_path()
+        if not path or not os.path.exists(path):
+            messagebox.showinfo('提示', '没有找到保存的布局', parent=self)
+            return
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except Exception as e:
+            messagebox.showerror('读取失败', str(e), parent=self)
+            return
+        tracks = tracks_from_dicts(data.get('tracks'))
+        if tracks:
+            self.tracks = tracks
+            self.canvas.set_tracks(tracks)
+            self._refresh_track_tree()
+            self._update_status('已载入保存的布局')
+
+
+# --------------------------------------------------------------------------
+# 辅助
+# --------------------------------------------------------------------------
+
+def _any_col(cols: list[str], names: list[str]) -> bool:
+    upper = {str(c).upper() for c in cols}
+    return any(n.upper() in upper for n in names)
+
+
+def _reload_info(path: str):
+    if not path or not os.path.exists(path):
+        return None
+    try:
+        with open(path, 'r', encoding='utf-8-sig') as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def open_logview(master, well_name: str, out_dir: str = '', source_dir: str = '',
+                 las_file: str = '', kind: str = 'qlpt') -> LogViewWindow:
+    """从项目工作台调起交互绘图窗口。"""
+    win = LogViewWindow(master, well_name, out_dir=out_dir, source_dir=source_dir,
+                        las_file=las_file, kind=kind)
+    return win

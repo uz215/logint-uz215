@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""交互绘图（Log View）自检（无需 pytest、不依赖 GUI、不跑真实解释）。
+"""交互绘图（logvis）自检（无需 pytest、不依赖 GUI、不跑真实解释）。
 
 覆盖：
   - 道布局解析（模板 track.layout 优先、内置兜底、enabled/width 规则）
@@ -23,12 +23,10 @@ import tempfile
 import numpy as np
 
 from . import project_model as pm
-from .logview import catalog as ct
-from .logview import datasource as ds
-from .logview import header as hd
-from .logview import track_spec as ts
-from .logview.decimate import (decimate_for_pixels, depth_window_slice,
-                                envelope_decimate)
+# 【R81】交互绘图已合并进根目录 logvis.py，统一从 logvis 导入
+import logvis as lv
+ct = ds = hd = ts = lv
+from logvis import (decimate_for_pixels, depth_window_slice, envelope_decimate)
 
 PASS, FAIL = [], []
 
