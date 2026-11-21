@@ -82,7 +82,9 @@ frontmatter_shim.py
 ark_client.py
 
 # ===== 临时脚本（_ 开头的一次性脚本） =====
-_*.py
+# 注意：`_[!_]*.py` 而非 `_*.py` —— 后者会把包的 `__init__.py` 一并忽略，
+# 导致新包（如 logsys/logview/）缺 __init__ 而无法作为包导入。
+_[!_]*.py
 _*.txt
 _*.png
 _*.json

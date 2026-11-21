@@ -285,6 +285,8 @@ class ProjectBrowser:
         self.menu = tk.Menu(self.win, tearoff=0)
         self.menu.add_command(label='快速解释图（Quick Look）', command=self._menu_quicklook)
         self.menu.add_command(label='综合解释', command=self._menu_comprehensive)
+        # 【R80 交互绘图】Log View：曲线拖入即绘图 / 图头实时改 / 曲线增减
+        self.menu.add_command(label='交互绘图（Log View）…', command=self._menu_logview)
         self.menu.add_separator()
         self.menu.add_command(label='指定主 LAS…', command=self._menu_set_las)
         self.menu.add_command(label='指定气测文件…', command=self._menu_set_gas)
@@ -679,6 +681,35 @@ class ProjectBrowser:
     def _menu_comprehensive(self):
         """项目内作业：对选中井跑综合解释。"""
         self._run_job('comprehensive')
+
+    def _menu_logview(self):
+        """【R80 交互绘图】打开该井的交互式测井图（Log View）。
+
+        与 QuickLook / 综合解释并列的井级动作，但**不跑子进程**——
+        直接读该井的既有产物（解释曲线集 + 井信息）在工作台内开交互画布。
+        """
+        w = self._selected_well()
+        if not w:
+            self._log('请先选中一口井')
+            return
+        try:
+            from logsys.logview import open_logview
+            from logsys.logview.datasource import find_output_dir
+        except Exception as e:
+            self._log(f'交互绘图模块不可用：{e}')
+            return
+        opts = pcfg.well_options(self.root_dir, w.name)
+        source_dir = w.source_dir or pcfg.resolve_source_dir(self.root_dir, w.name)
+        out_dir = find_output_dir(self.root_dir, w.name)
+        if not out_dir and not (opts.get('las') or source_dir):
+            self._log('该井既无解释产物也无原始 LAS，无法交互绘图')
+            return
+        try:
+            open_logview(self.win, w.name, out_dir=out_dir, source_dir=source_dir,
+                         las_file=opts.get('las', ''))
+            self._log(f'已打开交互绘图：{w.name}')
+        except Exception as e:
+            self._log(f'交互绘图打开失败：{e}')
 
     def _run_job(self, job_type: str):
         if self._job_running:

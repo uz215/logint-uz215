@@ -4538,26 +4538,20 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             # 【2026-10-13 用户要求正图带油气水】RESULT 道由 0.20 加宽至 0.42。
             # 【2026-10-15 用户要求】电阻率道与综合图逻辑一致：传统道+阵列道分道
             # （两者都有→2道，只有其一→1道）；道宽1.4 与综合图相同（容纳刻度数字）。
-            _q_layout = [('LITHO', 1.2)]
-            if trad_res_cols:
-                _q_layout.append(('RES_TRAD', 1.4))
-            if array_res_cols:
-                _q_layout.append(('RES_ARRAY', 1.4))
-            # 【2026-10-22 用户要求】3 道深度道与 4 道孔隙度曲线道互换位置
-            # （与综合图 POR→DEPTH 顺序一致）
-            _q_layout += [('POR', 1.0), ('DEPTH', 0.30), ('SW', 0.6), ('POR2', 0.6)]
-            # 【2026-11-02】标定道：取芯岩性点 + XRD/XRF 点 + CALC1/CALC3-5 酸解曲线
-            _q_layout.append(('CALIB', 0.9))
-            # 【2026-10-22 用户要求】quicklook 把气测数据也绘制上 → 独立气测道
-            # （原做法仅把 TG 骑在电阻率道末槽，无法呈现组分；此处与综合图同实现）
-            # 【2026-10-26 用户要求】气测道与 profile 道互换 → 气测道在前
+            # 【R80】道布局改由模板解析（logsys.logview.track_spec），
+            # 与交互画布（Log View）同一套解析，避免两套版式分叉。
+            # 模板缺 track.layout 时回落到内置兜底（数值与原硬编码逐一对齐）。
+            from logsys.logview.track_spec import resolve_track_layout
+            _flags = {'has_res_trad': bool(trad_res_cols),
+                      'has_res_array': bool(array_res_cols),
+                      'has_gas': bool(has_gas)}
+            _q_layout, _from_tpl_layout = resolve_track_layout(
+                _tpl, 'qlpt', _flags, gas_track_width=min(gas_track_width, 1.6))
+            logger.info("quicklook 道布局来源：%s，共 %d 道：%s",
+                        '模板 track.layout' if _from_tpl_layout else '内置兜底',
+                        len(_q_layout), [t for t, _ in _q_layout])
             if has_gas:
-                _q_layout.append(('GAS', min(gas_track_width, 1.6)))
                 logger.info("气测道已插入 quicklook 道布局（位于 profile 道之前）")
-            _q_layout.append(('PROFILE', 1.0))
-            # 【2026-10-27 R27 用户要求】REG 道撤出 quicklook：REG 对比改在
-            # 交会图中呈现（CGI-Sw / RTI-孔隙度，作气层或油气层依据）。
-            _q_layout.append(('INTERP', 0.42))
             _n_tracks = len(_q_layout)
             # 【2026-10-13 用户要求】解释图与表1/表2/表3 一样宽：近满幅（留半线宽余量）。
             gs = GridSpec(1, _n_tracks, width_ratios=[w for _, w in _q_layout], wspace=0,
@@ -4585,20 +4579,16 @@ def _render_log_plot(data, results, gas_data=None, quicklook=False,
             #     →2个电阻率道（道宽1.4 容纳刻度数字与曲线名），只有其一→1道；
             #   ②SW与孔隙度合并一道（Sw 左锚 + 孔隙度反刻度右锚），原第6道取消；
             #   ③气测道在合并道之后。
-            _layout = [('LITHO', 1.0)]
-            if trad_res_cols:
-                _layout.append(('RES_TRAD', 1.4))
-            if array_res_cols:
-                _layout.append(('RES_ARRAY', 1.4))
-            # 【2026-10-16 用户要求】孔隙度道加宽 1.0 → 1.25：刻度数字与
-            # 文字不再重叠
-            _layout += [('POR', 1.25), ('DEPTH', 0.5), ('SWPOR', 1.0)]
-            if has_gas:
-                _layout.append(('GAS', gas_track_width))
-            _layout += [('LITHO_FILL', 1.0), ('FACIES', 1.0), ('PROFILE', 1.0)]
-            # 【2026-10-27 R27 用户要求】REG 道撤出综合图：REG 对比改在交会图
-            # 中呈现（CGI-Sw / RTI-孔隙度，作气层或油气层依据）。
-            _layout.append(('INTERP', 1.0))
+            # 【R80】同 quicklook：道布局由模板解析，与交互画布同源。
+            from logsys.logview.track_spec import resolve_track_layout
+            _flags = {'has_res_trad': bool(trad_res_cols),
+                      'has_res_array': bool(array_res_cols),
+                      'has_gas': bool(has_gas)}
+            _layout, _from_tpl_layout = resolve_track_layout(
+                _tpl, 'cmpt', _flags, gas_track_width=gas_track_width)
+            logger.info("综合图道布局来源：%s，共 %d 道：%s",
+                        '模板 track.layout' if _from_tpl_layout else '内置兜底',
+                        len(_layout), [t for t, _ in _layout])
             track_widths = [w for _, w in _layout]
             _n_tracks = len(_layout)
             gs = GridSpec(1, _n_tracks, width_ratios=track_widths, wspace=0)
