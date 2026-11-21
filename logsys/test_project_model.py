@@ -60,6 +60,26 @@ def test_variable_colors():
     # 电阻率对数刻度
     check('RT 为对数刻度', pm.classify_variable('RT')['scale'] == 'log')
 
+    # 【R85】解释产物 = 曲线变量：矿物含量(逐点数值) / 岩性定名(定性代码)
+    for col, fam, scale in (
+            ('VOL_CALCITE', '方解石含量', 'linear'),
+            ('VOL_DOLOM', '白云石含量', 'linear'),
+            ('VOL_ANHY', '硬石膏含量', 'linear'),
+            ('VOL_QUARTZ', '石英含量', 'linear'),
+            ('VOL_CLAY', '粘土含量', 'linear'),
+            ('LITHOLOGY_MC', '岩性定名(蒙特卡洛)', 'qualitative'),
+            ('CORE_LITH', '岩心录井岩性', 'qualitative'),
+            ('NPOR', '中子孔隙度(解释)', 'linear')):
+        v = pm.classify_variable(col)
+        check('%s → 族「%s」/%s' % (col, fam, scale),
+              v['family'] == fam and v['scale'] == scale, v)
+    # 前缀兜底：未精确登记的矿物/岩性列也归入解释族
+    v = pm.classify_variable('VOL_SOMETHING')
+    check('VOL_* 前缀 → 矿物含量族', v['family'] == '矿物含量' and v['unit'] == 'v/v', v)
+    v = pm.classify_variable('LITHOLOGY_EXTRA')
+    check('LITHOLOGY* 前缀 → 岩性解释族', v['family'] == '岩性解释'
+          and v['scale'] == 'qualitative', v)
+
 
 # ---------------------------------------------------------------- 扫描
 

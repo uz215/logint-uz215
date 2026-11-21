@@ -115,6 +115,7 @@ class ProjectBrowser:
         self._job_runner: pjob.JobRunner | None = None
         self._batch_queue: list = []
         self._batch_job: str = ''
+        self._open_logview_windows: list = []   # R85: 保持交互绘图窗口引用，防 Qt GC
 
         # Qt 要求先有 QApplication 才能创建任何 QWidget
         _qg.get_app()
@@ -225,6 +226,12 @@ class ProjectBrowser:
         bl.addWidget(self._mk_label('项目作业', bold=True))
         bl.addWidget(self._mk_button(bar, '添加井到项目…', self._menu_add_well))
         bl.addWidget(self._mk_button(bar, '批量添加井…', self._menu_add_wells_batch))
+        bl.addWidget(self._vline())
+        # 【R85】绘图直达入口：选中井点一下就开交互绘图（独立模块，不跑解释作业）
+        self.btn_logview = self._mk_button(bar, '交互绘图（logvis）', self._menu_logview)
+        self.btn_logview.setToolTip('选中一口井后点击：打开交互绘图，拖曲线作图、改图头；'
+                                    '再次打开自动载入上次做好的图继续修改')
+        bl.addWidget(self.btn_logview)
         bl.addWidget(self._vline())
         bl.addWidget(self._mk_button(bar, '批量快速解释图（待解释井）',
                                      lambda: self._run_batch('quicklook')))
@@ -398,6 +405,18 @@ class ProjectBrowser:
         QShortcut(QKeySequence('F5'), self.win, activated=self.refresh)
         QShortcut(QKeySequence('Escape'), self.win, activated=self._close)
         QShortcut(QKeySequence('Ctrl+F'), self.win, activated=self.focus_search)
+        # 【R85】双击井节点 = 直接打开交互绘图（选中态由 QTreeWidget 自身处理）
+        self.tree.bind('<Double-1>', self._on_tree_double)
+
+    def _on_tree_double(self, _evt=None):
+        """双击处理：命中井节点则打开该井交互绘图，双击数据集则展开/属性。"""
+        sel = self.tree.selection()
+        if not sel:
+            return
+        iid = sel[0]
+        w = self._wells_by_iid.get(iid)
+        if w is not None:
+            self._menu_logview()
 
     def focus_search(self):
         try:
@@ -548,16 +567,16 @@ class ProjectBrowser:
 
     def _show_object(self, iid: str):
         vals = self.tree.item(iid, 'values')
-        self.prop_title.configure(text=self.tree.item(iid, 'text'))
-        self.prop_type.configure(text='%s　%s' % (vals[0] if vals else '', vals[1] if len(vals) > 1 else ''))
+        self.prop_title.setText(self.tree.item(iid, 'text'))
+        self.prop_type.setText('%s　%s' % (vals[0] if vals else '', vals[1] if len(vals) > 1 else ''))
         self._set_tab('概览', '%s\n\n类型: %s\n%s' % (
             self.tree.item(iid, 'text'), vals[0] if vals else '',
             vals[1] if len(vals) > 1 else ''))
         self._set_tab('资料', '（项目视图 —— 选择一口井可查看其作业资料）')
 
     def _show_well(self, w: pm.Well):
-        self.prop_title.configure(text=w.name)
-        self.prop_type.configure(text='井 · %s' % w.status_label)
+        self.prop_title.setText(w.name)
+        self.prop_type.setText('井 · %s' % w.status_label)
         s = pm.summarize(self.project)
         _registered = w.name in pcfg.registered_wells(self.root_dir)
         lines = [
@@ -649,8 +668,8 @@ class ProjectBrowser:
         self._set_tab('原始', json.dumps(w.to_dict(), ensure_ascii=False, indent=2))
 
     def _show_dataset(self, ds: pm.Dataset):
-        self.prop_title.configure(text=ds.name)
-        self.prop_type.configure(text='数据集 · %s' % pm.DATASET_TYPES.get(ds.dtype, ('', ''))[0])
+        self.prop_title.setText(ds.name)
+        self.prop_type.setText('数据集 · %s' % pm.DATASET_TYPES.get(ds.dtype, ('', ''))[0])
         lines = [
             '名称    : %s' % ds.name,
             '类型    : %s' % pm.DATASET_TYPES.get(ds.dtype, ('', ''))[0],
@@ -686,20 +705,9 @@ class ProjectBrowser:
 
     # ---------------- 交互 ----------------
 
-    def _on_double_click(self, _evt=None):
-        sel = self.tree.selection()
-        if not sel:
-            return
-        iid = sel[0]
-        if iid in self._wells_by_iid:
-            self._open_well(self._wells_by_iid[iid])
-        elif iid in self._ds_by_iid:
-            ds = self._ds_by_iid[iid]
-            if os.path.exists(ds.path):
-                try:
-                    os.startfile(os.path.dirname(ds.path))  # noqa: S606
-                except Exception as e:
-                    self._log('打开目录失败: %s' % e)
+    # 【R85】旧的 _on_double_click 已删除（R83 迁移后从未绑定=死代码）；
+    # 双击统一由 _on_tree_double 处理（井→交互绘图，数据集→属性）。
+    # 其"打开数据集目录"能力由右键「打开产物目录」覆盖，无能力丢失。
 
     def _menu_open_well(self):
         w = self._selected_well()
@@ -717,15 +725,16 @@ class ProjectBrowser:
         self._run_job('comprehensive')
 
     def _menu_logview(self):
-        """【R80/R81 交互绘图】打开该井的交互式测井图（logvis）。
+        """【R85】交互绘图直达入口——选中井点按钮/双击/右键，均走这里。
 
-        与 QuickLook / 综合解释并列的井级动作，但**不跑子进程**——
-        直接读该井的既有产物（解释曲线集 + 井信息）在工作台内开交互画布。
-        【R81】绘图模块统一为根目录 logvis.py，交互绘图已并入其中。
+        交互绘图是**独立模块**（logvis），不是解释作业：不跑子进程。
+        它既能把任意曲线拖入新作图，也能重开已保存的图继续改界面/图头。
+        因此这里**不要求先有产物**——有产物读产物，无产物则读原始 LAS /
+        源目录里的二维数据；连目录都没有才给出明确引导。
         """
         w = self._selected_well()
         if not w:
-            self._log('请先选中一口井')
+            self._log('请先选中一口井，再点交互绘图')
             return
         try:
             from logvis import open_logview, find_output_dir
@@ -735,13 +744,16 @@ class ProjectBrowser:
         opts = pcfg.well_options(self.root_dir, w.name)
         source_dir = w.source_dir or pcfg.resolve_source_dir(self.root_dir, w.name)
         out_dir = find_output_dir(self.root_dir, w.name)
-        if not out_dir and not (opts.get('las') or source_dir):
-            self._log('该井既无解释产物也无原始 LAS，无法交互绘图')
+        las_file = opts.get('las', '')
+        if not out_dir and not las_file and not source_dir:
+            self._log('该井既无产物也无原始资料：请先右键「关联原始资料目录…」')
             return
         try:
-            open_logview(self.win, w.name, out_dir=out_dir, source_dir=source_dir,
-                         las_file=opts.get('las', ''))
-            self._log(f'已打开交互绘图：{w.name}')
+            win = open_logview(self.win, w.name, out_dir=out_dir, source_dir=source_dir,
+                               las_file=las_file)
+            self._open_logview_windows.append(win)
+            src = '解释产物' if out_dir else ('原始 LAS' if las_file else '源资料(二维)')
+            self._log(f'已打开交互绘图：{w.name}（数据源：{src}）')
         except Exception as e:
             self._log(f'交互绘图打开失败：{e}')
 
@@ -1404,7 +1416,7 @@ class ProjectBrowser:
     def _log(self, msg: str):
         """写输出区。与上一条相同则不重复写（避免连续刷新刷屏）。"""
         try:
-            cur = self.out_txt.get('1.0', 'end').rstrip('\n')
+            cur = self.out_txt.get().rstrip('\n')
             last = cur.rsplit('\n', 1)[-1].strip() if cur else ''
             if last == msg:
                 return

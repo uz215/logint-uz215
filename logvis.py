@@ -2307,67 +2307,6 @@ def _ql_vtable(fig, x_left, x_right, y_top, y_bottom, rows, fontsize=6.5,
     return y_mid, y_bottom
 
 
-def _ql_bhcs_table(fig, x_left, x_right, y_top, y_bottom, bh_rows, cs_rows,
-                   bh_title='BOREHOLE RECORD', cs_title='CASING RECORD',
-                   du='ft'):
-    """BOREHOLE RECORD | CASING RECORD 并排 3 列表格（样本第 0 页第二段）。
-
-    rows: [{size, from, to}, ...]（SIZE/FROM/TO 三列）
-    du: 深度单位（'ft'/'m'）——SIZE 列统一追加 IN（英寸），FROM/TO 追加深度单位；
-        值已自带单位（含字母）时不再重复追加。
-    """
-    from matplotlib.lines import Line2D
-    import re
-    _dep_unit = ' FT' if str(du).lower().startswith('ft') else ' M'
-
-    def _u(v, unit):
-        s = str(v).strip()
-        if not s:
-            return ''
-        if re.search(r'[A-Za-z]', s):
-            return s  # 已带单位（如 "26 IN"）
-        return s + unit
-
-    half = (x_right - x_left) / 2
-    for _sec, (_x0, _x1, _title, _rows) in enumerate((
-            (x_left, x_left + half, bh_title, bh_rows),
-            (x_left + half, x_right, cs_title, cs_rows))):
-        fig.text((_x0 + _x1) / 2, y_top - 0.004, _title, fontsize=8,
-                 fontweight='bold', ha='center', va='top',
-                 fontfamily='Microsoft YaHei', color='black')
-        _th = y_top - 0.022  # 表头行
-        _cw = (_x1 - _x0) / 3
-        for _ci, _h in enumerate(('SIZE', 'FROM', 'TO')):
-            fig.text(_x0 + (_ci + 0.5) * _cw, _th, _h, fontsize=6.5,
-                     fontweight='bold', ha='center', va='center',
-                     fontfamily='Microsoft YaHei', color='black')
-            fig.add_artist(Line2D([_x0 + _ci * _cw, _x0 + _ci * _cw],
-                                  [_th - 0.012, y_bottom], color='black',
-                                  linewidth=0.4, transform=fig.transFigure,
-                                  zorder=2900))
-        _n_rows = max(len(_rows), 1)
-        _rh = (y_bottom - _th) / (_n_rows + 1)
-        for _ri, _r in enumerate(_rows):
-            _ry = _th - (_ri + 1.5) * _rh
-            _vals = [_u(_r.get('size', ''), ' IN'),
-                     _u(_r.get('from', ''), _dep_unit),
-                     _u(_r.get('to', ''), _dep_unit)]
-            for _ci, _v in enumerate(_vals):
-                fig.text(_x0 + (_ci + 0.5) * _cw, _ry, _v, fontsize=6.5,
-                         ha='center', va='center',
-                         fontfamily='Microsoft YaHei', color='black')
-            fig.add_artist(Line2D([_x0, _x1], [_ry + _rh / 2, _ry + _rh / 2],
-                                  color='black', linewidth=0.4,
-                                  transform=fig.transFigure, zorder=2900))
-        # 表格外框
-        fig.add_artist(Line2D([_x0, _x1], [_th - 0.012, _th - 0.012],
-                              color='black', linewidth=0.5,
-                              transform=fig.transFigure, zorder=2900))
-        fig.add_artist(Line2D([_x1, _x1], [_th - 0.012, y_bottom],
-                              color='black', linewidth=0.5,
-                              transform=fig.transFigure, zorder=2900))
-
-
 def _ql_rotated_header(rows1, rows2, well_name, title_text, scale_text,
                        company_logo, contractor_logo, bh_rows=None,
                        cs_rows=None, disclaimer='', legend_title='',
@@ -3596,255 +3535,6 @@ def _ql_header_rows_from_cfg(_tpl, quicklook_config, well_info, param_info, du):
     return _mk(_fv.get('table1')), _mk(_fv.get('table2'))
 
 
-def _render_quicklook_header_page(well_info, param_info, results, well_name, output_dir,
-                                  company_logo=None, contractor_logo=None,
-                                  quicklook_config=None, _du='ft'):
-    """两页式 quick look 第 1 页：横向信息表页（转 90 度排布的信息表）。
-
-    页面从上到下依次为：
-      1) 标题条：左上 company 图标 / 右上 contractor 图标 / 中央图名
-      2) 井信息表（竖向两列 label:value，含 BOREHOLE RECORD / CASING RECORD 分组）
-      3) 免责声明（DISCLAIMER，图版 header_page.disclaimer 可配）
-      4) 图例（流体类别 12 类，每行 items_per_row 项）
-      5) 页脚：出图时间/程序说明
-
-    参照 BET-1_8.5IN_SLAM_Res_MD200_20261003.pdf 第一页版式；
-    布局与文案全部读 templates/qlpt.json 的 header_page 段。
-    返回保存的 PNG 绝对路径。
-    """
-    import datetime
-    _tpl = load_plot_template('qlpt') or {}
-    _fig_cfg = _tpl.get('figure') or {}
-    _title_cfg = _tpl.get('title') or {}
-    _hp = _tpl.get('header_page') or {}
-    _lg = _tpl.get('legend') or {}
-    _hdr = _tpl.get('header') or {}
-    _font_cfg = _tpl.get('font') or {}
-
-    _du_u = str(_du).upper()
-    figwidth = float(_fig_cfg.get('figwidth_inch') or 24)
-    dpi = int(_fig_cfg.get('dpi') or 150)
-    page_h = float(_hp.get('height_inch') or 13.0)
-    fig = plt.figure(figsize=(figwidth, page_h), dpi=dpi)
-    fig.patch.set_facecolor('white')
-
-    _family = _font_cfg.get('family') or 'Microsoft YaHei'
-
-    # ---- 甲方固定信息（quicklook_config.header_fixed > 图版 header.fixed > 数据源） ----
-    _qfix = {}
-    if quicklook_config and isinstance(quicklook_config, dict):
-        _qfix = quicklook_config.get('header_fixed') or {}
-    if not _qfix:
-        _qfix = _hdr.get('fixed') or {}
-    _QL_EMPTY = {'', 'unknown', 'n/a', 'na', 'none', 'nan', '-', 'null', 'undefined'}
-    for _k, _v in _qfix.items():
-        if _v and str(well_info.get(_k, '')).strip().lower() in _QL_EMPTY:
-            well_info[_k] = str(_v)
-
-    # 【2026-10-14 用户定案】钻头/套管优先取 <井名>info.json（人工修改生效）
-    _qbh = _wellinfo_rec_rows(well_info.get('borehole_record')) or \
-        ((quicklook_config or {}).get('borehole_record') if quicklook_config else None)
-    if not _qbh:
-        _qbh = _hdr.get('borehole_record')
-    _qcs = _wellinfo_rec_rows(well_info.get('casing_record')) or \
-        ((quicklook_config or {}).get('casing_record') if quicklook_config else None)
-    if not _qcs:
-        _qcs = _hdr.get('casing_record')
-
-    def _fmt_val(v):
-        if v is None or str(v).strip() == '':
-            return ''
-        try:
-            return f'{float(v):.2f}'
-        except (ValueError, TypeError):
-            return str(v)
-
-    _bh_txt = ('; '.join(f"{r.get('size', '')}in {r.get('from', '')}-{r.get('to', '')}{_du_u}"
-                         for r in _qbh) if _qbh else '')
-    _cs_txt = ('; '.join(f"{r.get('size', '')}in {r.get('from', '')}-{r.get('to', '')}{_du_u}"
-                         for r in _qcs) if _qcs else '')
-
-    # ---- 组装信息表行（读图版 header.fields；__section__ 为分组标题行） ----
-    _fields = _hdr.get('fields') or [
-        ['Company', 'company'], ['Country', 'country'], ['Field', 'field_name'],
-        ['Well Name', 'well_name'], ['Area', 'area'], ['Log Date', 'log_date'],
-        ['Datum', 'permanent_datum'], ['TD', 'stop_depth'],
-        ['BOREHOLE RECORD', '__section__'], ['Bit Size / Section', 'borehole_section'],
-        ['Start Depth', 'start_depth'], ['Stop Depth', 'stop_depth'],
-        ['Mud Type', 'drilling_fluid_type'], ['Mud Density', 'drilling_fluid_density'],
-        ['Mud Viscosity', 'drilling_fluid_viscosity'], ['Mud Loss', 'drilling_fluid_loss'],
-        ['CASING RECORD', '__section__'], ['Casing Size / Section', 'casing_section'],
-        ['Casing Shoe', 'casing_shoe_depth'], ['Cement TOC', 'cement_top_depth'],
-    ]
-    _rows = []
-    for _label, _key in _fields:
-        if _key == '__section__':
-            _rows.append((_label, None, True))
-            continue
-        if _key == 'borehole_section':
-            _val = _bh_txt
-        elif _key == 'casing_section':
-            _val = _cs_txt
-        elif _key in ('start_depth', 'stop_depth', 'casing_shoe_depth', 'cement_top_depth'):
-            _raw = well_info.get(_key, '')
-            _val = f"{_fmt_val(_raw)} {_du_u}" if _raw else ''
-        elif _key in ('drilling_fluid_density', 'drilling_fluid_viscosity',
-                      'drilling_fluid_loss', 'bit_size'):
-            _val = _fmt_val(param_info.get(_key, ''))
-        else:
-            _val = str(well_info.get(_key, '') or param_info.get(_key, '') or '')
-        _rows.append((_label, _val, False))
-
-    # ---- 1. 标题条 ----
-    _title_txt = _hp.get('title') or _title_cfg.get('template') or \
-        '{well} Well Logging Interpretation Result Plot'
-    try:
-        _title_txt = _title_txt.format(
-            well=well_name,
-            start=well_info.get('start_depth', ''),
-            stop=well_info.get('stop_depth', ''),
-            unit=_du_u)
-    except Exception:
-        _title_txt = f'{well_name} Well Logging Interpretation Result Plot'
-
-    _title_h_ratio = float(_hp.get('title_height_ratio') or 0.10)
-    _title_bottom = 1.0 - _title_h_ratio
-    fig.text(0.5, _title_bottom + _title_h_ratio * 0.42, _title_txt,
-             fontsize=int(_hp.get('title_fontsize') or _title_cfg.get('fontsize') or 16),
-             fontweight=_title_cfg.get('fontweight') or 'bold',
-             color=_title_cfg.get('color') or '#000000',
-             ha='center', va='center', fontfamily=_family)
-    _draw_logo_pair(fig, company_logo, contractor_logo,
-                    logo_cx=_title_bottom + _title_h_ratio * 0.5,
-                    logo_h_ratio=0.68,
-                    title_zone_top=1.0)
-
-    # ---- 2. 信息表（竖向两列，label 左 value 右；section 行整宽） ----
-    _table_x0 = float(_hp.get('table_x0') or 0.02)
-    _table_x1 = float(_hp.get('table_x1') or 0.98)
-    _table_top = float(_hp.get('table_top') or 0.90)
-    _table_bottom = float(_hp.get('table_bottom') or 0.42)
-    _n_rows = len(_rows)
-    _rh = (_table_top - _table_bottom) / _n_rows if _n_rows else 0.02
-    _row_fs = int(_hp.get('table_fontsize') or _hdr.get('table_fontsize') or 8)
-
-    # 边框
-    from matplotlib.lines import Line2D
-    fig.add_artist(Line2D([_table_x0, _table_x1], [_table_top, _table_top],
-                          color='black', linewidth=0.6, transform=fig.transFigure))
-    fig.add_artist(Line2D([_table_x0, _table_x1], [_table_bottom, _table_bottom],
-                          color='black', linewidth=0.6, transform=fig.transFigure))
-    fig.add_artist(Line2D([_table_x0, _table_x0], [_table_top, _table_bottom],
-                          color='black', linewidth=0.6, transform=fig.transFigure))
-    fig.add_artist(Line2D([_table_x1, _table_x1], [_table_top, _table_bottom],
-                          color='black', linewidth=0.6, transform=fig.transFigure))
-    _label_w = float(_hp.get('label_width_ratio') or 0.24)
-    fig.add_artist(Line2D([_table_x0 + (_table_x1 - _table_x0) * _label_w,
-                           _table_x0 + (_table_x1 - _table_x0) * _label_w],
-                          [_table_top, _table_bottom], color='black',
-                          linewidth=0.4, transform=fig.transFigure))
-    for _i, (_label, _val, _is_sec) in enumerate(_rows):
-        _yc = _table_top - (_i + 0.5) * _rh
-        if _is_sec:
-            # 分组标题行：整宽浅灰底 + 粗体
-            fig.add_artist(plt.Rectangle((_table_x0, _yc - _rh / 2),
-                                         _table_x1 - _table_x0, _rh,
-                                         transform=fig.transFigure,
-                                         facecolor='#E8E8E8', edgecolor='black',
-                                         linewidth=0.4, zorder=3000))
-            fig.text((_table_x0 + _table_x1) / 2, _yc, _label,
-                     fontsize=_row_fs + 1, fontweight='bold', ha='center',
-                     va='center', fontfamily=_family, color='black', zorder=3001)
-        else:
-            fig.text(_table_x0 + 0.004, _yc, _label, fontsize=_row_fs,
-                     ha='left', va='center', fontfamily=_family, color='black')
-            fig.text(_table_x0 + (_table_x1 - _table_x0) * _label_w + 0.004,
-                     _yc, str(_val), fontsize=_row_fs, ha='left', va='center',
-                     fontfamily=_family, color='black')
-        if _i < _n_rows - 1:
-            fig.add_artist(Line2D([_table_x0, _table_x1], [_yc - _rh / 2, _yc - _rh / 2],
-                                  color='#AAAAAA', linewidth=0.3,
-                                  transform=fig.transFigure))
-
-    # ---- 3. 免责声明 ----
-    _disc = _hp.get('disclaimer') or (
-        'DISCLAIMER: This Quick Look interpretation is generated automatically by '
-        'computer-aided log interpretation software. Results are preliminary and for '
-        'reference only. Final interpretation, reservoir evaluation and well testing '
-        'recommendations must be reviewed and confirmed by qualified petrophysicists '
-        'and geologists.'
-    )
-    _disc_top = float(_hp.get('disclaimer_top') or 0.40)
-    _disc_bottom = float(_hp.get('disclaimer_bottom') or 0.335)
-    _disc_fs = int(_hp.get('disclaimer_fontsize') or 7)
-    fig.add_artist(plt.Rectangle((_table_x0, _disc_bottom),
-                                 _table_x1 - _table_x0, _disc_top - _disc_bottom,
-                                 transform=fig.transFigure,
-                                 facecolor='#FAFAFA', edgecolor='#999999',
-                                 linewidth=0.4, zorder=3000))
-    fig.text((_table_x0 + _table_x1) / 2, (_disc_top + _disc_bottom) / 2,
-             _disc, fontsize=_disc_fs, ha='center', va='center',
-             fontfamily=_family, color='#444444', zorder=3001)
-
-    # ---- 4. 图例（流体类别，每行 items_per_row 项） ----
-    _lg_items = []
-    if quicklook_config and quicklook_config.get('legend_items'):
-        _lg_items = [(it['label'], it.get('color', '#bdbdbd'))
-                     for it in quicklook_config['legend_items']]
-    if not _lg_items:
-        _lg_items = [(it['label'], it['color']) for it in _lg.get('items') or []]
-    _lg_title = (quicklook_config or {}).get('legend_title') or _lg.get('title') or \
-        'LEGEND OF WELL-LOGGING RESULT'
-    _per_row = int(_lg.get('items_per_row') or 6)
-    _lg_rows = max(1, (len(_lg_items) + _per_row - 1) // _per_row)
-    _lg_top = float(_hp.get('legend_top') or 0.33)
-    _lg_bottom = float(_hp.get('legend_bottom') or 0.09)
-    _lg_h = _lg_top - _lg_bottom
-    # 标题行
-    fig.text((_table_x0 + _table_x1) / 2, _lg_top - _lg_h * 0.10,
-             _lg_title + ':', fontsize=int(_hp.get('legend_title_fontsize') or 8),
-             ha='center', va='center', fontweight='bold',
-             fontfamily=_family, color='black')
-    _row_h = (_lg_h * 0.78) / _lg_rows
-    _sq = min(_row_h * 0.6, 0.018)
-    for _r in range(_lg_rows):
-        _items = _lg_items[_r * _per_row: (_r + 1) * _per_row]
-        _yc = _lg_top - _lg_h * 0.20 - (_r + 0.5) * _row_h
-        _n = len(_items)
-        for _j, (_name, _color) in enumerate(_items):
-            _cx = _table_x0 + (_table_x1 - _table_x0) * (0.5 - _n * 0.075 + _j * 0.15)
-            fig.add_artist(plt.Rectangle((_cx, _yc - _sq / 2), _sq, _sq,
-                                         transform=fig.transFigure,
-                                         facecolor=_color, edgecolor='black',
-                                         linewidth=0.4, zorder=3000))
-            fig.text(_cx + _sq + 0.003, _yc, _name,
-                     fontsize=int(_lg.get('item_fontsize') or 5),
-                     ha='left', va='center', fontfamily=_family, color='black')
-
-    # ---- 5. 页脚 ----
-    _foot = f'Quick Look Interpretation  |  Generated: {datetime.datetime.now():%Y-%m-%d %H:%M}  |  logvis (logInt)'
-    fig.text((_table_x0 + _table_x1) / 2, 0.035, _foot,
-             fontsize=6, ha='center', va='center',
-             fontfamily=_family, color='#666666')
-
-    # ---- 保存 ----
-    well_output_dir = Path(output_dir) if output_dir else (Path('output') / well_name)
-    well_output_dir.mkdir(exist_ok=True, parents=True)
-    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
-    _io = _tpl.get('io') or {}
-    _fn = (_io.get('header_filename_template') or '{well}_quicklook_header_{timestamp}.png')
-    try:
-        _fn = _fn.format(well=well_name, timestamp=timestamp)
-    except Exception:
-        _fn = f'{well_name}_quicklook_header_{timestamp}.png'
-    _out = well_output_dir / _fn
-    fig.savefig(str(_out), dpi=dpi, bbox_inches='tight',
-                facecolor='white', edgecolor='none')
-    plt.close(fig)
-    logger.info('quick look 图头页已保存: %s', _out)
-    return str(_out)
-
-
 def fill_gas_effect(ax, md, nphi, den,
                     nphi_range=(1.1, -0.1), den_range=(1.7, 2.9),
                     color='red', alpha=0.45, zorder=1):
@@ -3942,28 +3632,6 @@ def ensure_render_gate():
 _QC_SKIP_LITH_PREFIX = ('basalt', 'ign', 'volcanic', 'andesite', 'rhyolite',
                         'granite', 'diorite', 'porphyry', 'spilit',
                         'halite', 'anhy')
-
-
-def _qc_window_skip(data, d0, d1):
-    """窗口内主岩性属天然不规则类，或主 VALID_CURVES_COUNT<3（岩性道合法
-    留空，R33）→ 跳过行距/空白断言。"""
-    try:
-        if data is None or 'LITHOLOGY' not in getattr(data, 'columns', []):
-            return True
-        md = data['MD'] if 'MD' in data.columns else data.index
-        mask = (md >= min(d0, d1)) & (md <= max(d0, d1))
-        if not bool(mask.any()):
-            return True
-        _v = str(data.loc[mask, 'LITHOLOGY'].mode().iloc[0]).lower()
-        if any(_v.startswith(_p) for _p in _QC_SKIP_LITH_PREFIX):
-            return True
-        if 'VALID_CURVES_COUNT' in data.columns:
-            _vc = data.loc[mask, 'VALID_CURVES_COUNT'].mode()
-            if len(_vc) and int(_vc.iloc[0]) < 3:
-                return True
-        return False
-    except Exception:
-        return True
 
 
 def figure_texture_qc(fig, well_name='', data=None):
@@ -9989,13 +9657,6 @@ def save_info_json(path: str, info: dict) -> bool:
         return False
 
 
-def update_info_field(info_path: str, key: str, value: str) -> bool:
-    """单个字段写回井信息 JSON（图头实时编辑的落盘出口）。"""
-    if not info_path or not key:
-        return False
-    return save_info_json(info_path, {key: value})
-
-
 # ============================================================================
 # 【R81 合并自 logsys/logview/catalog.py】
 # ============================================================================
@@ -10166,9 +9827,11 @@ def suggest_curve_color(items: list[CurveItem], column: str) -> str:
 
 
 def suggest_scale(items: list[CurveItem], column: str) -> str:
-    """新加入曲线的刻度方式：电阻率族用对数，其余线性。"""
+    """新加入曲线的刻度方式：电阻率族用对数，定性(岩性/结论)用代码道，其余线性。"""
     it = find_curve(items, column)
     if it:
+        if it.scale == 'qualitative':
+            return 'qualitative'
         return 'log' if (it.scale == 'log' or 'ohm' in (it.unit or '').lower()) else 'lin'
     return 'lin'
 
@@ -10305,13 +9968,6 @@ def load_header_fields(info: dict) -> list[HeaderField]:
     return fields
 
 
-def field_value(info: dict, section: str, key: str) -> str:
-    """取分组井信息里的某个字段值（扁平视图，找不到返回空串）。"""
-    flat = flatten_info(info)
-    v = flat.get(key, '')
-    return '' if v is None else str(v)
-
-
 def save_header_field(info_path: str, section: str, key: str, value: str) -> bool:
     """写回单个图头字段（保持分组结构，其余字段不动）。"""
     if not info_path or not section or not key:
@@ -10336,39 +9992,6 @@ def save_header_field(info_path: str, section: str, key: str, value: str) -> boo
         return True
     except Exception:
         return False
-
-
-def save_header_fields(info_path: str, values: dict) -> bool:
-    """批量写回（values: {(section, key): value}）。"""
-    if not info_path:
-        return False
-    ok = True
-    for (section, key), val in (values or {}).items():
-        ok = save_header_field(info_path, section, key, val) and ok
-    return ok
-
-
-def header_summary(info: dict, depth_unit: str = 'm', scale_text: str = '') -> list[str]:
-    """画布顶部图头条的文本行（井名 / 图题 / 深度范围 / 比例尺）。"""
-    flat = flatten_info(info)
-    lines: list[str] = []
-    well = str(flat.get('well_name', '') or '').strip()
-    if well:
-        lines.append(well)
-    for k in ('ql_title', 'cmpt_title'):
-        t = str(flat.get(k, '') or '').strip()
-        if t:
-            lines.append(t)
-            break
-    sp, ep = flat.get('start_depth'), flat.get('stop_depth')
-    if sp is not None and ep is not None:
-        try:
-            lines.append(f'深度 {float(sp):.1f}–{float(ep):.1f} {depth_unit}')
-        except (TypeError, ValueError):
-            pass
-    if scale_text:
-        lines.append(scale_text)
-    return lines
 
 
 # ============================================================================
@@ -10797,6 +10420,49 @@ class TrackCanvas(FigureCanvasQTAgg):
                     out.append(f'{t.id}: {arr.axis_label}')
         return out
 
+    def _draw_qualitative_series(self, ax, series, depth, curve: CurveSpec):
+        """【R85】把定性变量（岩性定名/解释结论/离散代码）画成深度色块道。
+
+        与静态图的岩性/解释道同一视觉约定：已知流体/岩性类别取专门色表，
+        其余类别按稳定哈希取色（同名类别全井一致），空值留白。
+        多个定性曲线同轴叠放时用 curve 的 x 位置分区，避免互相覆盖。
+        """
+        mask = depth_window_slice(depth, self.top, self.bottom)
+        dd = np.asarray(depth)[mask]
+        raw = series.iloc[mask].astype(str).str.strip() if hasattr(series, 'iloc') else series
+        vals = raw.to_numpy() if hasattr(raw, 'to_numpy') else np.asarray(raw)
+        if dd.size == 0:
+            return
+        fluid = _fluid_colors()
+        lith_palette = ['#c0392b', '#d35400', '#f39c12', '#27ae60', '#16a085',
+                        '#2980b9', '#8e44ad', '#7f8c8d', '#795548', '#607d8b']
+
+        def _color(v: str) -> str:
+            up = v.upper()
+            if up and up not in ('NAN', 'NONE', '') and up in fluid:
+                return fluid[up]
+            if not up or up in ('NAN', 'NONE'):
+                return '#ffffff'
+            h = sum(ord(ch) for ch in v)
+            return lith_palette[h % len(lith_palette)]
+
+        # 游程合并：相邻同类画成一个矩形
+        cur, z0 = None, None
+        runs = []
+        for i, v in enumerate(vals):
+            v = '' if v is None else str(v)
+            if v != cur:
+                if cur is not None:
+                    runs.append((z0, float(dd[i]), cur))
+                cur, z0 = v, float(dd[i])
+        if cur is not None:
+            runs.append((z0, float(dd[-1]), cur))
+        for z0, z1, v in runs:
+            ax.fill_betweenx([z0, z1], 0.0, 1.0, color=_color(v),
+                             alpha=0.85, linewidth=0)
+        ax.set_xlim(0, 1)
+        ax.set_xticks([])
+
     def _draw_curve_track(self, ax, t: TrackSpec, px_h: int):
         df = self.well_data.df
         depth = self.well_data.depth
@@ -10807,8 +10473,15 @@ class TrackCanvas(FigureCanvasQTAgg):
                     va='center', fontsize=7, color='#999999')
             ax.set_xlim(0, 1)
             return
+        has_qual = False
         for c in t.curves:
             if c.column not in df.columns:
+                continue
+            # 【R85】定性(岩性定名/解释结论/矿物类别)曲线 → 离散代码道：
+            # 字符串列 to_numpy(float) 全变 NaN 画不出东西，按深度游程画色块。
+            if c.scale == 'qualitative':
+                self._draw_qualitative_series(ax, df[c.column], depth, c)
+                has_qual = True
                 continue
             raw = df[c.column].to_numpy(dtype=float)
             vals, dvals, _ = decimate_for_pixels(raw, depth, self.top, self.bottom, px_h)
@@ -10820,6 +10493,12 @@ class TrackCanvas(FigureCanvasQTAgg):
                 ax.fill_betweenx(dvals, c.fill_to, vals,
                                  color=c.fill_color or c.color, alpha=0.25, linewidth=0)
             ax.plot(vals, dvals, color=c.color, ls=c.linestyle, lw=c.linewidth)
+        if has_qual:
+            ax.set_xlim(0, 1)
+            ax.set_xticks([])
+            if t.show_grid:
+                ax.grid(axis='y', ls=':', lw=0.4, color='#cccccc', alpha=0.5)
+            return
         self._set_xlim_by_curves(ax, t, cols)
         if t.show_grid:
             ax.grid(axis='x', ls=':', lw=0.4, color='#cccccc', alpha=0.7)
@@ -11246,8 +10925,39 @@ class LogViewWindow(QMainWindow):
         self._refresh_catalog()          # 先建目录 → 族映射可用
         self.canvas.set_well_data(self.data)
         self._load_tracks(kind)
+        # 【R85】自动载入已保存布局——"打开即继续修改上次做好的图"。
+        # 用户定案：交互绘图是独立模块，既能拖任意曲线新作，也能重新打开
+        # 已做好的图改界面/图头/曲线。保存的 <井>logvis.json 是图的完整状态；
+        # 有则优先恢复，无则保持上面按版式生成的默认道（首次作图场景）。
+        autoload_note = self._autoload_layout()
+
         self._refresh_header_panel()
         self._update_status()
+        if autoload_note:
+            self.status.setText(self.status.text() + '｜' + autoload_note)
+
+    def _autoload_layout(self) -> str:
+        """打开窗口时自动载入该井上次保存的交互图布局（静默，无弹窗）。
+
+        返回给状态栏追加的提示文字（空串=无布局/未载入）。保存的布局含完整
+        道/曲线/刻度状态，是"已经做好的图"的可编辑源；载入后可直接改图头、
+        加减曲线、调界面。布局损坏或与当前数据不匹配时不阻断，回退默认道。
+        """
+        path = self._layout_path()
+        if not path or not os.path.exists(path):
+            return ''
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            tracks = tracks_from_dicts(data.get('tracks'))
+            if not tracks:
+                return ''
+            self.tracks = tracks
+            self.canvas.set_tracks(tracks)
+            self._refresh_track_tree()
+            return '已自动载入上次保存的图（%s），可继续修改' % os.path.basename(path)
+        except Exception as e:
+            return '保存的布局载入失败（已回退默认道）：%s' % e
 
     # ------------------------------------------------------------------
     # 界面骨架

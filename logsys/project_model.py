@@ -85,6 +85,45 @@ INTERPRETATION_FAMILIES: dict[str, tuple[str, str, str]] = {
     'VALID_CURVES_COUNT': ('有效曲线数', '', 'flag'),
 }
 
+# 【R85】解释产物统一作为曲线变量（用户定案）：
+# 用户要求"解释的产物输出归并到曲线变量，和测井曲线一样，不输出成 csv，
+# 是不同的变量数值或岩性代码"。解释结果本就逐点写在 processed.csv 里，
+# 关键是把它们登记为有语义的族，使其进入交互绘图曲线目录、可拖入作图：
+#   · 矿物含量（VOL_*）→ 逐点数值曲线，族"矿物含量"，单位 v/v
+#   · 岩性定名（LITHOLOGY*/CORE_LITH/FACIES）→ 离散代码道 qualitative
+#   · 解释结论/层号 → qualitative / flag
+# 这里登记的是**逐点解释变量**（与层段汇总表 csv 相对）；层表汇总不再
+# 作为绘图数据源，绘图一律用这些逐点变量（与测井曲线口径一致）。
+MINERAL_FAMILIES: dict[str, tuple[str, str, str]] = {
+    'VOL_CALCITE':  ('方解石含量', 'v/v', 'linear'),
+    'VOL_DOLOM':    ('白云石含量', 'v/v', 'linear'),
+    'VOL_ANHY':     ('硬石膏含量', 'v/v', 'linear'),
+    'VOL_HALITE':   ('盐岩含量', 'v/v', 'linear'),
+    'VOL_ILLITE':   ('伊利石含量', 'v/v', 'linear'),
+    'VOL_QUARTZ':   ('石英含量', 'v/v', 'linear'),
+    'VOL_CLAY':     ('粘土含量', 'v/v', 'linear'),
+}
+
+#: 逐点解释产物（岩性定名、解释结论等离散代码变量）
+POINT_INTERPRETATION_FAMILIES: dict[str, tuple[str, str, str]] = {
+    'LITHOLOGY_MC': ('岩性定名(蒙特卡洛)', '', 'qualitative'),
+    'CORE_LITH':    ('岩心录井岩性', '', 'qualitative'),
+    'CORE_ZONE_LITH': ('岩心分层岩性', '', 'qualitative'),
+    'LITHO_QE':     ('岩性(QE)', '', 'qualitative'),
+    'LITHO_QE1':    ('岩性(QE1)', '', 'qualitative'),
+    'NPOR':         ('中子孔隙度(解释)', 'v/v', 'linear'),
+}
+
+#: 矿物/解释变量的前缀规则（未精确登记的列按前缀归类）
+#: 前缀 -> (族显示名, 单位, scale, 是否定性)
+INTERPRETATION_PREFIX_RULES: list[tuple[str, str, str, str, bool]] = [
+    ('VOL_',      '矿物含量', 'v/v', 'linear', False),
+    ('LITHOLOGY', '岩性解释', '',   'qualitative', True),
+    ('LITH_',     '岩性解释', '',   'qualitative', True),
+    ('CORE_LITH', '岩心岩性', '',   'qualitative', True),
+    ('INTERPRET', '解释结论', '',   'qualitative', True),
+]
+
 #: 井段/工具族
 TOOL_FAMILIES: dict[str, tuple[str, str, str]] = {
     'BS':      ('钻头尺寸', 'in', 'linear'),
@@ -102,10 +141,11 @@ INTERNAL_COLUMNS = {
     'BETTER_COUNT', 'PHI_DISP', 'SW_DISP', 'RHOB_corrected', 'MSFL_corrected',
 }
 
-#: 全部族表（查找优先级：岩石物理 > 派生 > 解释 > 工具）
+#: 全部族表（查找优先级：岩石物理 > 派生 > 解释 > 矿物/逐点解释 > 工具）
 ALL_FAMILIES: dict[str, tuple[str, str, str]] = {
     **ROCK_PHYSICS_FAMILIES, **DERIVED_FAMILIES,
-    **INTERPRETATION_FAMILIES, **TOOL_FAMILIES,
+    **INTERPRETATION_FAMILIES, **MINERAL_FAMILIES,
+    **POINT_INTERPRETATION_FAMILIES, **TOOL_FAMILIES,
 }
 
 #: 常见单位别名（用于从 LAS 头或 processed.csv 推断单位）
@@ -175,6 +215,15 @@ def classify_variable(col: str) -> dict[str, Any]:
         return {'name': col, 'key': key, 'family': display, 'family_name': display,
                 'unit': unit, 'scale': scale, 'kind': 'curve',
                 'color': color, 'complete': bool(unit)}
+
+    # 【R85】前缀兜底：解释产物（VOL_* 矿物、LITHO* 岩性定名等）按前缀归类，
+    # 使全部解释输出都成为有语义的曲线变量（不因未精确登记而落"未分类"）。
+    for prefix, display, unit, scale, qualitative in INTERPRETATION_PREFIX_RULES:
+        if key.startswith(prefix):
+            return {'name': col, 'key': key, 'family': display, 'family_name': display,
+                    'unit': unit, 'scale': scale,
+                    'kind': 'qualitative' if qualitative else 'curve',
+                    'color': 'ok' if unit else 'warn', 'complete': bool(unit)}
 
     # 未登记的列：按命名规则推断单位，仍无族 → 红色
     unit = UNIT_HINTS.get(key)
