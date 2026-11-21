@@ -9198,6 +9198,7 @@ class TrackSpec:
     kind: str = 'curve'              # curve|lithology|depth|interpretation|profile|gas|facies
     width: float = 1.0
     curves: list[CurveSpec] = field(default_factory=list)
+    array_key: str = ''              # 【R82】二维数据键（kind 为 nmr/waveform/image 时）
     show_grid: bool = True
     header_lines: int = 3            # 道头占几行文字高度
     #: 启停：True/False 显式开关，'auto' 按运行时标志判定（沿用模板 reg_tracks 既有约定）
@@ -9465,6 +9466,307 @@ DEPTH_COLUMN = 'MD'
 INFO_SUFFIX = 'info.json'
 
 
+# ==========================================================================
+# 【R82】二维测井数据（核磁 T2 谱 / 阵列声波波形 / 成像）
+# 一维曲线的容器是 DataFrame（深度 × 单值）；二维则是「深度 × 采样/bin」的
+# 强度矩阵，单独放在 WellData.arrays 里，避免污染一维目录与静态出图。
+# ==========================================================================
+
+#: 单个二维数组的元素上限（约 32MB/阵）；超限按「保峰值」降采样，避免 1.5GB 巨阵
+MAX_ARRAY_ELEMENTS = 4_000_000
+MAX_ARRAY_DEPTH = 20_000
+MAX_ARRAY_COLS = 2_000
+
+
+def _decimate_array_2d(mat, depth, axis):
+    """二维保峰值降采样：深度/列两方向按块取「绝对值最大」的整行/整列。"""
+    m = np.asarray(mat, dtype=float)
+    d = np.asarray(depth, dtype=float)
+    a = np.asarray(axis, dtype=float)
+    for _ in range(12):
+        changed = False
+        if m.shape[0] > MAX_ARRAY_DEPTH:
+            n = int(np.ceil(m.shape[0] / MAX_ARRAY_DEPTH))
+            idx = []
+            for st in range(0, m.shape[0], n):
+                en = min(st + n, m.shape[0])
+                block = m[st:en]
+                finite = np.where(np.isfinite(block), np.abs(block), -np.inf)
+                idx.append(st + int(np.nanargmax(finite)))
+            m, d = m[idx], d[idx]
+            changed = True
+        if m.shape[1] > MAX_ARRAY_COLS:
+            n = int(np.ceil(m.shape[1] / MAX_ARRAY_COLS))
+            idx = []
+            for st in range(0, m.shape[1], n):
+                en = min(st + n, m.shape[1])
+                block = m[:, st:en]
+                finite = np.where(np.isfinite(block), np.abs(block), -np.inf)
+                idx.append(st + int(np.nanargmax(np.nanmax(finite, axis=0))))
+            m, a = m[:, idx], a[idx]
+            changed = True
+        if not changed or m.size <= MAX_ARRAY_ELEMENTS:
+            break
+    return m, d, a
+
+
+#: 核磁 T2 bin 的默认起止（ms）——与 NMR20260318 的 logspace 约定一致
+NMR_T2_MIN_MS = 0.3
+NMR_T2_MAX_MS = 3000.0
+
+#: nmr_results CSV 的 7 个区间列名（区间中值作为轴）
+_NMR_BIN_RANGES = (
+    ('0.3-1ms', 0.55), ('1-10ms', 3.16), ('10-33ms', 18.2),
+    ('33-100ms', 57.4), ('100-300ms', 173.2), ('300-1000ms', 547.7),
+    ('1000-3000ms', 1732.1),
+)
+
+
+@dataclass
+class ArrayData:
+    """一个二维测井数组：depth(n) × axis(m) 的强度矩阵。"""
+    key: str                          # 唯一标识，如 'T2_DIST' / 'DWF1'
+    label: str = ''
+    data: object = None               # np.ndarray (n_depth, n_axis)
+    depth: object = None              # np.ndarray (n_depth)
+    axis: object = None               # np.ndarray (n_axis)：T2(ms)/时间/sample
+    axis_label: str = ''
+    unit: str = ''
+    kind: str = 'nmr'                 # nmr | waveform | image
+    source: str = ''                  # '解释曲线集' | 'DLIS' | 'nmr_results'
+    scale: str = 'log'                # 色标：log | linear | symmetric
+    cmap: str = 'jet'
+    note: str = ''
+
+    @property
+    def shape(self) -> tuple:
+        return tuple(self.data.shape) if self.data is not None else (0, 0)
+
+    @property
+    def valid(self) -> bool:
+        return (self.data is not None and self.depth is not None
+                and np.asarray(self.data).ndim == 2
+                and np.asarray(self.data).size > 0
+                and len(self.depth) == np.asarray(self.data).shape[0])
+
+    def window(self, top: float, bottom: float):
+        """按深度窗口切片 → (matrix, depth, axis)；无数据返回 (None, None, axis)。"""
+        if not self.valid:
+            return None, None, self.axis
+        d = np.asarray(self.depth, dtype=float)
+        lo, hi = min(top, bottom), max(top, bottom)
+        mask = (d >= lo) & (d <= hi)
+        if not mask.any():
+            mask = np.zeros(d.shape, dtype=bool)
+            mask[np.argmin(np.abs(d - (lo + hi) / 2))] = True
+        return (np.asarray(self.data, dtype=float)[mask], d[mask], self.axis)
+
+
+def arrays_from_wide_csv(df, depth, prefix: str = 'T2_DIST') -> dict[str, ArrayData]:
+    """把宽表的 `prefix[0]..prefix[n]` 折叠成一个二维 ArrayData。
+
+    processed.csv 里的核磁 T2_DIST 就是这样存的（64 列），此前被曲线目录
+    当成 64 条独立一维曲线。折叠后才是一张真正的「深度 × T2」谱。
+    """
+    out: dict[str, ArrayData] = {}
+    if df is None or depth is None or len(depth) == 0:
+        return out
+    pairs = []
+    for col in df.columns:
+        name = str(col)
+        if not (name.startswith(prefix + '[') and name.endswith(']')):
+            continue
+        try:
+            idx = int(name[len(prefix) + 1:-1])
+        except (ValueError, TypeError):
+            continue
+        pairs.append((idx, col))
+    if not pairs:
+        return out
+    pairs.sort(key=lambda x: x[0])
+    try:
+        mat = np.column_stack([df[c].to_numpy(dtype=float) for _, c in pairs])
+    except Exception:
+        return out
+    n = mat.shape[1]
+    axis = np.logspace(np.log10(NMR_T2_MIN_MS), np.log10(NMR_T2_MAX_MS), n)
+    out[prefix] = ArrayData(
+        key=prefix, label=f'核磁 T2 谱（{prefix}）', data=mat,
+        depth=np.asarray(depth, dtype=float), axis=axis,
+        axis_label='T2 (ms)', unit='%', kind='nmr', source='解释曲线集',
+        scale='log', cmap='jet', note=f'{n} 个 bin，折叠自宽表 {prefix}[0..{n-1}]')
+    return out
+
+
+def arrays_from_nmr_csv(path: str) -> dict[str, ArrayData]:
+    """读 `*_nmr_results_*.csv` 的 7 个 T2 区间 → 二维 ArrayData。"""
+    out: dict[str, ArrayData] = {}
+    if not path or not os.path.exists(path):
+        return out
+    df = _read_csv(path)
+    if df is None or df.empty or 'Depth' not in df.columns:
+        return out
+    cols = [c for c, _mid in _NMR_BIN_RANGES if c in df.columns]
+    if not cols or 'Depth' not in df.columns:
+        return out
+    try:
+        mat = df[cols].to_numpy(dtype=float)
+        depth = df['Depth'].to_numpy(dtype=float)
+    except Exception:
+        return out
+    axis = np.array([mid for c, mid in _NMR_BIN_RANGES if c in cols], dtype=float)
+    out['NMR_BINS'] = ArrayData(
+        key='NMR_BINS', label='核磁 T2 谱（区间孔隙度）', data=mat, depth=depth,
+        axis=axis, axis_label='T2 (ms)', unit='%', kind='nmr', source='nmr_results',
+        scale='linear', cmap='jet',
+        note=f'{len(cols)} 个区间：' + '、'.join(cols))
+    return out
+
+
+def arrays_from_dlis(path: str) -> dict[str, ArrayData]:
+    """从 DLIS 读 2D 通道（DWF 声波波形 / T2_DIST / T2W）→ ArrayData。
+
+    这里**不碰** dlis_tool 的一维 DataFrame 逻辑（R58 教训：多维通道曾让整帧
+    被丢弃），独立读取、容错、只读。
+    """
+    out: dict[str, ArrayData] = {}
+    if not path or not os.path.exists(path):
+        return out
+    try:
+        from logint.dlis_tool import _load_logical_files
+        pf, lfs = _load_logical_files(path)
+    except Exception:
+        return out
+    try:
+        for lf in lfs:
+            for fr in lf.frames:
+                try:
+                    cv = fr.curves(strict=False)
+                except Exception:
+                    continue
+                names = list(cv.dtype.names or [])
+                if not names:
+                    continue
+                # 深度列：优先 MD/DEPT/TDEP/DEPTH，否则取帧的第一个 1D 通道
+                dname = None
+                # 严格优先真正的深度通道名（大小写不敏感），避免把 FRAMENO 误当深度
+                up = {nm.upper(): nm for nm in names}
+                for cand in ('MD', 'DEPT', 'TDEP', 'DEPTH', 'DEPTH_MD', 'DEPTH_M',
+                             'MEASURED_DEPTH', 'TVD'):
+                    nm = up.get(cand)
+                    if nm is not None and getattr(cv[nm], 'ndim', 0) == 1:
+                        dname = nm
+                        break
+                if dname is None:
+                    # 名字里含 DEP 的也认（如 DEPTH1 / MD_CORR）
+                    for nm in names:
+                        nu = nm.upper()
+                        if 'DEP' in nu and getattr(cv[nm], 'ndim', 0) == 1:
+                            dname = nm
+                            break
+                if dname is None:
+                    for nm in names:
+                        if getattr(cv[nm], 'ndim', 0) == 1:
+                            dname = nm
+                            break
+                if dname is None:
+                    continue
+                try:
+                    depth = np.asarray(cv[dname], dtype=float)
+                except Exception:
+                    continue
+                for nm in names:
+                    arr = cv[nm]
+                    if getattr(arr, 'ndim', 0) != 2:
+                        continue
+                    try:
+                        mat = np.asarray(arr, dtype=float)
+                    except Exception:
+                        continue
+                    if mat.shape[0] != len(depth) or mat.size == 0:
+                        # 转置可救（bin × depth 的存储顺序）
+                        if mat.shape[1] == len(depth) and mat.size > 0:
+                            mat = mat.T
+                        else:
+                            continue
+                    upper = nm.upper()
+                    if any(k in upper for k in ('DWF', 'WF', 'ECHO', 'WAVE', 'SSCAN')):
+                        kind, axis_label, scale, cmap = 'waveform', 'Sample', 'symmetric', 'seismic'
+                    else:
+                        kind, axis_label, scale, cmap = 'nmr', 'T2 (ms)', 'log', 'jet'
+                    axis = (np.logspace(np.log10(NMR_T2_MIN_MS),
+                                        np.log10(NMR_T2_MAX_MS), mat.shape[1])
+                            if kind == 'nmr' else np.arange(mat.shape[1], dtype=float))
+                    # 超大阵（如 22307×8393 ≈ 1.5GB）保峰值降采样到可控尺寸
+                    if mat.size > MAX_ARRAY_ELEMENTS:
+                        mat, depth, axis = _decimate_array_2d(mat, depth, axis)
+                    out[nm] = ArrayData(
+                        key=nm, label=f'{nm}（{kind}）', data=mat, depth=depth,
+                        axis=axis, axis_label=axis_label, unit='', kind=kind,
+                        source='DLIS', scale=scale, cmap=cmap,
+                        note=f'DLIS 帧 {fr.name} 的 2D 通道 {mat.shape}')
+    finally:
+        try:
+            if pf is not None:
+                pf.close()
+        except Exception:
+            pass
+    return out
+
+
+def _align_arrays_to_depth(arrays: dict, depth) -> dict:
+    """把与主井深度无交集的二维数组按比例对齐到主井深度范围。
+
+    不同测次（如 LWD 随钻 MD 与电缆 MD）常用不同深度基准/单位，若不处理，
+    二维道落不进画布窗口而显示空白。这里按首尾线性映射到主井深度区间，
+    并在 note 里标注，便于追溯。已有交集的数组（如主井 T2_DIST）不动。
+    """
+    if depth is None or len(depth) < 2:
+        return arrays
+    main_lo, main_hi = float(depth[0]), float(depth[-1])
+    if main_hi <= main_lo:
+        return arrays
+    for arr in arrays.values():
+        d = getattr(arr, 'depth', None)
+        if d is None or len(d) < 2:
+            continue
+        a_lo, a_hi = float(d[0]), float(d[-1])
+        if a_hi < main_lo or a_lo > main_hi:
+            # 注意保持原顺序（可能降序）
+            d = np.asarray(d, dtype=float)
+            if a_lo <= a_hi:
+                mapped = main_lo + (d - a_lo) / (a_hi - a_lo) * (main_hi - main_lo)
+            else:
+                mapped = main_lo + (a_hi - d) / (a_hi - a_lo) * (main_hi - main_lo)
+            arr.depth = mapped
+            arr.note = (arr.note + '；' if arr.note else '') +                 f'深度已按比例对齐到主井 MD {main_lo:.1f}–{main_hi:.1f}'
+    return arrays
+
+
+def collect_well_arrays(out_dir: str = '', source_dir: str = '', depth=None,
+                        df=None) -> dict[str, ArrayData]:
+    """汇总一口井的二维数据：宽表折叠 + nmr_results + DLIS 2D 通道。"""
+    arrays: dict[str, ArrayData] = {}
+    # DLIS 先装（可能提供独立二维数据，即使没有一维曲线集）
+    if source_dir and os.path.isdir(source_dir):
+        try:
+            import glob as _glob
+            for p in sorted(_glob.glob(os.path.join(source_dir, '*.dlis')))[:3]:
+                arrays.update(arrays_from_dlis(p))
+        except Exception:
+            pass
+    if out_dir and os.path.isdir(out_dir):
+        try:
+            import glob as _glob
+            for p in sorted(_glob.glob(os.path.join(out_dir, '*_nmr_results_*.csv')))[:2]:
+                arrays.update(arrays_from_nmr_csv(p))
+        except Exception:
+            pass
+    # 宽表折叠最后覆盖同名 key：它的深度与一维 df 严格对齐，画布共享深度轴不打架
+    arrays.update(arrays_from_wide_csv(df, depth))
+    return _align_arrays_to_depth(arrays, depth)
+
+
 @dataclass
 class WellData:
     """一口井的绘图数据。"""
@@ -9478,10 +9780,13 @@ class WellData:
     source_dir: str = ''             # 原始资料目录
     origin: str = ''                 # 'processed' | 'las' | ''
     note: str = ''
+    arrays: dict[str, ArrayData] = field(default_factory=dict)   # 【R82】二维数据
 
     @property
     def has_data(self) -> bool:
-        return self.df is not None and len(self.df) > 0
+        if self.df is not None and len(self.df) > 0:
+            return True
+        return any(getattr(a, 'valid', False) for a in self.arrays.values())
 
     @property
     def columns(self) -> list[str]:
@@ -9492,6 +9797,9 @@ class WellData:
     @property
     def depth_range(self) -> tuple[float, float]:
         if self.depth.size == 0:
+            for a in self.arrays.values():
+                if getattr(a, 'valid', False) and a.depth is not None and len(a.depth):
+                    return (float(a.depth[0]), float(a.depth[-1]))
             return (0.0, 1.0)
         return (float(self.depth[0]), float(self.depth[-1]))
 
@@ -9618,7 +9926,13 @@ def load_well_data(well_name: str, out_dir: str = '', source_dir: str = '',
             wd.note = f'LAS 读取失败：{e}'
 
     if df is None:
-        wd.note = wd.note or '未找到解释曲线集或 LAS'
+        wd.note = wd.note or '未找到解释曲线集或 LAS（仅显示源资料中的二维数据）'
+        # 【R82】即使没有一维曲线集，DLIS 里的二维波形/T2 谱仍可独立显示
+        try:
+            wd.arrays = collect_well_arrays(out_dir=out_dir, source_dir=source_dir,
+                                            depth=None, df=None)
+        except Exception as e:
+            wd.note = (wd.note + '；' if wd.note else '') + f'二维数据装配失败：{e}'
         return wd
 
     # 深度列：优先 MD，其次常见深度列名
@@ -9636,6 +9950,12 @@ def load_well_data(well_name: str, out_dir: str = '', source_dir: str = '',
     wd.depth = df[depth_col].to_numpy(dtype=float)
     wd.depth_unit = _depth_unit_of(wd.info, df)
     wd.origin = 'processed' if p_csv else 'las'
+    # 【R82】二维装配：宽表折叠 / nmr_results / 源 DLIS 的 2D 通道
+    try:
+        wd.arrays = collect_well_arrays(out_dir=out_dir, source_dir=source_dir,
+                                        depth=wd.depth, df=wd.df)
+    except Exception as e:
+        wd.note = (wd.note + '；' if wd.note else '') + f'二维数据装配失败：{e}'
     return wd
 
 
@@ -9698,7 +10018,9 @@ class CurveItem:
     family: str = ''          # 族（显示名）
     unit: str = ''
     scale: str = 'linear'     # linear | log | qualitative
-    kind: str = 'curve'       # curve | qualitative
+    kind: str = 'curve'       # curve | qualitative | nmr | waveform | image
+    is_array: bool = False    # 【R82】二维数据条目
+    array_key: str = ''       # 【R82】对应 WellData.arrays 的键
     color: str = _DEFAULT_COLOR
     status: str = 'ok'        # ok | warn | error（Techlog 三色）
     source: str = '曲线集'
@@ -9736,9 +10058,15 @@ def build_catalog(well_data) -> list[CurveItem]:
 
     df = well_data.df
     items: list[CurveItem] = []
+    # 【R82】被折叠成二维矩阵的宽表列不再单独出现在曲线目录
+    folded = set()
+    for arr in (getattr(well_data, 'arrays', {}) or {}).values():
+        if arr.source == '解释曲线集' and arr.key:
+            folded.update(str(c) for c in (df.columns if df is not None else [])
+                          if str(c).startswith(arr.key + '[') and str(c).endswith(']'))
     for col in df.columns:
         name = str(col)
-        if name.upper() == 'MD':
+        if name.upper() == 'MD' or name in folded:
             continue
         info = pm.classify_variable(name)
         kind = info.get('kind', 'unknown')
@@ -9769,6 +10097,17 @@ def build_catalog(well_data) -> list[CurveItem]:
             source='曲线集',
             vmin=vmin, vmax=vmax,
         ))
+    # 【R82】二维数组作为独立条目（族名 = 数据种类）
+    for key, arr in (getattr(well_data, 'arrays', {}) or {}).items():
+        if not getattr(arr, 'valid', False):
+            continue
+        fam = '核磁二维谱' if arr.kind == 'nmr' else ('声波波形' if arr.kind == 'waveform' else '二维成像')
+        items.append(CurveItem(
+            column=key, label=arr.label or key, family=fam,
+            unit=arr.axis_label, scale='matrix', kind=arr.kind,
+            is_array=True, array_key=key,
+            color=_QUAL_COLOR, status='ok', source=arr.source,
+            note=arr.note))
     return items
 
 
@@ -10073,6 +10412,7 @@ class TrackCanvas(FigureCanvasTkAgg):
         self.figure = Figure(facecolor='white')
         super().__init__(self.figure, master=master, **kwargs)
         self.widget = getattr(self, '_tkcanvas', None) or getattr(self, 'tkcanvas', None) or self
+        self._array_axes: dict = {}          # 【R82】二维道 → (ArrayData, axis)
         # 打标记：拖放时用 winfo_containing 找到落点控件后反查本画布
         try:
             self.widget._logvis_canvas = self
@@ -10160,6 +10500,27 @@ class TrackCanvas(FigureCanvasTkAgg):
         self.render()
         return True
 
+    def set_array(self, track_id: str, array_key: str, kind: str = 'nmr') -> bool:
+        """【R82】把二维数组设到某道（拖入或双击即走这里）。
+
+        二维数组可能来自**不同测次/不同深度基准**（如 LWD 随钻 MD 与电缆 MD
+        单位不同），与画布深度窗口无交集时自动切到该数组自己的深度范围，
+        否则用户会看到空白道却不知原因。
+        """
+        idx = self.track_index(track_id)
+        wd = self.well_data
+        arr = getattr(wd, 'arrays', {}).get(array_key) if wd is not None else None
+        if idx < 0 or not array_key or arr is None or not getattr(arr, 'valid', False):
+            return False
+        t = self.tracks[idx]
+        t.kind = kind
+        t.array_key = array_key
+        t.curves = []                # 二维道不混一维曲线（轴语义不同）
+        # 深度基准不一致的二维数组在装配阶段已按比例对齐到主井深度，
+        # 这里不再改全局窗口（否则所有一维道会跟着错位/空白）。
+        self.render()
+        return True
+
     def remove_curve(self, track_id: str, column: str) -> bool:
         idx = self.track_index(track_id)
         if idx < 0:
@@ -10230,6 +10591,7 @@ class TrackCanvas(FigureCanvasTkAgg):
         """按当前道配置与深度窗口重绘。"""
         if self._layout_signature() != self._layout_sig:
             self._build_axes()
+        self._array_axes = {}
         for ax in self.axes:
             ax.clear()
             ax.set_xticks([])
@@ -10288,6 +10650,8 @@ class TrackCanvas(FigureCanvasTkAgg):
             for c in t.curves:
                 label = c.label or c.column
                 sub.append(label)
+            if t.kind in ('nmr', 'waveform', 'image') and t.array_key:
+                sub.append(f'[{t.array_key}]')
             if sub:
                 self.figure.text(cx, y_sub, ' / '.join(sub[:3]), ha='center',
                                  va='center', fontsize=6.5, color='#444444')
@@ -10320,8 +10684,72 @@ class TrackCanvas(FigureCanvasTkAgg):
             self._draw_interp_track(ax)
         elif kind == 'gas':
             self._draw_curve_track(ax, t, px_h)
+        elif kind in ('nmr', 'waveform', 'image'):
+            self._draw_array_track(ax, t, px_h)
         else:
             self._draw_curve_track(ax, t, px_h)
+
+    def _draw_array_track(self, ax, t: TrackSpec, px_h: int):
+        """【R82】二维矩阵道：深度(纵) × bin/采样(横) 的伪彩图。
+
+        与一维道共享深度轴（y 反向、深度向下递增）；x 轴为该道的 bin/采样轴，
+        刻度紧凑显示在道底。无效值（NaN/Inf、核磁负值）统一掩码，避免色标溢出。
+        """
+        wd = self.well_data
+        arr = getattr(wd, 'arrays', {}).get(t.array_key)
+        if arr is None or not getattr(arr, 'valid', False):
+            ax.text(0.5, 0.5, f'（二维数据 {t.array_key or "未指定"} 不可用）',
+                    transform=ax.transAxes, ha='center', va='center',
+                    fontsize=7, color='#999999')
+            ax.set_xlim(0, 1)
+            return
+        mat, dep, axis = arr.window(self.top, self.bottom)
+        if mat is None or mat.size == 0 or dep is None or len(dep) < 2:
+            ax.text(0.5, 0.5, '（窗口内无二维数据）', transform=ax.transAxes,
+                    ha='center', va='center', fontsize=7, color='#999999')
+            ax.set_xlim(0, 1)
+            return
+        data = np.array(mat, dtype=float, copy=True)
+        invalid = ~np.isfinite(data)
+        if arr.kind == 'nmr' and arr.scale == 'log':
+            invalid |= data <= 0
+            data[invalid] = np.nan
+            vmax = np.nanpercentile(data[~np.isnan(data)], 98) if np.isfinite(data).any() else 1.0
+            if not np.isfinite(vmax) or vmax <= 0:
+                vmax = 1.0
+            norm = matplotlib.colors.LogNorm(vmin=max(vmax / 500.0, 1e-9), vmax=vmax)
+        elif arr.scale == 'symmetric':
+            data[invalid] = np.nan
+            finite = data[np.isfinite(data)]
+            lim = float(np.nanpercentile(np.abs(finite), 98)) if finite.size else 1.0
+            if not np.isfinite(lim) or lim <= 0:
+                lim = 1.0
+            norm = matplotlib.colors.Normalize(vmin=-lim, vmax=lim)
+        else:
+            data[invalid] = np.nan
+            finite = data[np.isfinite(data)]
+            vmax = float(np.nanpercentile(finite, 98)) if finite.size else 1.0
+            if not np.isfinite(vmax) or vmax <= 0:
+                vmax = 1.0
+            norm = matplotlib.colors.Normalize(vmin=0.0, vmax=vmax)
+        # 深度纵轴从 top 到 bottom（render 里 set_ylim 会反向）
+        ax.pcolormesh(np.asarray(axis, dtype=float), dep, data,
+                      cmap=arr.cmap, norm=norm, shading='auto', rasterized=True)
+        ax.set_xlim(float(np.min(axis)), float(np.max(axis)))
+        ax.set_xticks([])
+        if t.show_grid:
+            ax.grid(axis='y', ls=':', lw=0.4, color='#cccccc', alpha=0.5)
+        self._array_axes[t.id] = (arr, axis)
+
+    def _draw_array_headers(self):
+        """二维道头副标题显示轴标签（T2 ms / Sample）。"""
+        out = []
+        for t in self.tracks:
+            if t.kind in ('nmr', 'waveform', 'image') and t.array_key:
+                arr = getattr(self.well_data, 'arrays', {}).get(t.array_key)
+                if arr is not None:
+                    out.append(f'{t.id}: {arr.axis_label}')
+        return out
 
     def _draw_curve_track(self, ax, t: TrackSpec, px_h: int):
         df = self.well_data.df
@@ -10600,21 +11028,44 @@ class TrackCanvas(FigureCanvasTkAgg):
                 pass
 
     def _read_values(self, y: float) -> dict:
-        """游标处最近邻行的全部曲线值。"""
+        """游标处最近邻行的全部曲线值 + 二维道峰值/均值的 bin 位置。"""
         if self.well_data is None or not getattr(self.well_data, 'has_data', False):
             return {}
-        d = self.well_data.depth
+        wd = self.well_data
+        d = wd.depth
+        if d is None or len(d) == 0:
+            return {}
         i = int(np.nanargmin(np.abs(d - y)))
-        row = self.well_data.df.iloc[i]
-        out = {'深度': float(d[i])}
-        for k, v in row.items():
-            try:
-                fv = float(v)
-            except (TypeError, ValueError):
+        out: dict[str, float] = {'深度': float(d[i])}
+        df = getattr(wd, 'df', None)
+        if df is not None and i < len(df):
+            for k, v in df.iloc[i].items():
+                try:
+                    fv = float(v)
+                except (TypeError, ValueError):
+                    continue
+                if fv != fv:       # NaN
+                    continue
+                out[str(k)] = fv
+        # 【R82】二维道：给出当前深度行的峰值 bin/采样位置与强度
+        for t in self.tracks:
+            if t.kind not in ('nmr', 'waveform', 'image') or not t.array_key:
                 continue
-            if fv != fv:       # NaN
+            arr = (getattr(wd, 'arrays', {}) or {}).get(t.array_key)
+            if arr is None or not getattr(arr, 'valid', False):
                 continue
-            out[str(k)] = fv
+            ad = np.asarray(arr.depth, dtype=float)
+            j = int(np.nanargmin(np.abs(ad - y)))
+            if j >= np.asarray(arr.data).shape[0]:
+                continue
+            row = np.asarray(arr.data, dtype=float)[j]
+            finite = np.where(np.isfinite(row), row, -np.inf)
+            if not np.isfinite(finite).max():
+                continue
+            peak = int(np.nanargmax(finite))
+            axis = np.asarray(arr.axis, dtype=float)
+            out[f'{t.array_key}·峰值bin'] = float(axis[peak])
+            out[f'{t.array_key}·峰值'] = float(row[peak])
         return out
 
     # ------------------------------------------------------------------
@@ -11080,13 +11531,27 @@ class LogViewWindow(tk.Toplevel):
             messagebox.showinfo('提示', '请先在左侧选中一条曲线', parent=self)
             return
         tid = f'CUSTOM_{len(self.tracks) + 1}'
-        self.canvas.add_track(tid, name=f'自定义道 {len(self.tracks) + 1}',
-                              width=1.0, kind='curve')
+        item0 = self._current_curve_item()
+        is2d = bool(item0 and getattr(item0, 'is_array', False))
+        self.canvas.add_track(tid, name=(item0.label if item0 and is2d else
+                                         f'自定义道 {len(self.tracks) + 1}'),
+                              width=1.6 if is2d else 1.0,
+                              kind=(item0.kind if item0 and is2d else 'curve'))
         self.tracks = self.canvas.tracks
         self._add_curve_to_track(item, tid)
         self._refresh_track_tree()
 
     def _add_curve_to_track(self, item: CurveItem, track_id: str):
+        if getattr(item, 'is_array', False):
+            kind = item.kind if item.kind in ('nmr', 'waveform', 'image') else 'nmr'
+            ok = self.canvas.set_array(track_id, item.array_key or item.column, kind=kind)
+            self.tracks = self.canvas.tracks
+            if ok:
+                self._refresh_track_tree()
+                self._update_status(f'已把二维数据「{item.column}」加入 {track_id}')
+            else:
+                self._update_status(f'二维数据「{item.column}」加入失败')
+            return
         color = suggest_curve_color(self.catalog, item.column)
         scale = suggest_scale(self.catalog, item.column)
         ok = self.canvas.add_curve(track_id, item.column, color=color, scale=scale)

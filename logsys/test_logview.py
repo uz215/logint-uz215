@@ -10,6 +10,7 @@
   - 井数据装配（产物定位、曲线表/层段表/井信息）
   - 曲线目录（三色分类、族分组、按族取默认曲线）
   - 图头字段展平与分组写回（临时目录）
+  - 【R82】二维数据：宽表折叠 / 有效掩码 / 深度对齐 / 保峰值降采样 / 目录折叠
 
 运行：
     python -m logsys.test_logview
@@ -249,6 +250,104 @@ def test_header():
         shutil.rmtree(tmp, ignore_errors=True)
 
 
+# ---------------------------------------------------------------- R82 二维数据
+
+def test_2d_array_container():
+    print('\n--- 二维数据容器 ---')
+    depth = np.linspace(1000., 1010., 11)
+    axis = np.logspace(-1, 3, 64)
+    mat = np.ones((11, 64)) * 0.01
+    a = lv.ArrayData(key='T2', data=mat, depth=depth, axis=axis, kind='nmr')
+    check('ArrayData valid', a.valid)
+    check('ArrayData shape', a.shape == (11, 64), a.shape)
+    m2, d2, ax2 = a.window(1002., 1006.)
+    check('深度窗口切片', m2.shape == (5, 64) and d2[0] == 1002., m2.shape)
+    check('窗口无交集时取最近行', a.window(2000., 2001.)[0].shape == (1, 64))
+    bad = lv.ArrayData(key='BAD', data=np.ones((3, 4)), depth=np.arange(5))
+    check('深度长度不符判为无效', not bad.valid)
+
+
+def test_2d_wide_fold():
+    print('\n--- 宽表 64 bin 折叠 ---')
+    import pandas as pd
+    n = 20
+    df = pd.DataFrame({'MD': np.arange(1000., 1000. + n)})
+    for k in range(64):
+        df[f'T2_DIST[{k}]'] = np.arange(n) * 0.01 + k * 1e-4
+    arrs = lv.arrays_from_wide_csv(df, df['MD'].to_numpy())
+    check('折叠为单个二维数组', len(arrs) == 1 and 'T2_DIST' in arrs)
+    a = arrs['T2_DIST']
+    check('折叠形状正确', a.shape == (n, 64), a.shape)
+    check('T2 轴对数分布', abs(a.axis[0] - 0.3) < 1e-9 and abs(a.axis[-1] - 3000.) < 1e-6,
+          (a.axis[0], a.axis[-1]))
+    check('折叠来源标注', a.source == '解释曲线集')
+    # 非连续 bin 名被忽略
+    df['T2_DIST[x]'] = 1.0
+    check('非法 bin 序号忽略', lv.arrays_from_wide_csv(df, df['MD'].to_numpy())['T2_DIST'].shape == (n, 64))
+
+
+def test_2d_align_depths():
+    print('\n--- 跨测次深度对齐 ---')
+    a = lv.ArrayData(key='LWD', data=np.ones((5, 3)),
+                     depth=np.linspace(2478360., 2505840., 5))
+    arrs = {'LWD': a}
+    main_depth = np.linspace(6285., 7134., 100)
+    out = lv._align_arrays_to_depth(arrs, main_depth)
+    d = out['LWD'].depth
+    check('对齐到主井深度范围', abs(d[0] - 6285.) < 1e-6 and abs(d[-1] - 7134.) < 1e-6,
+          (d[0], d[-1]))
+    check('对齐后落入主井窗口', not (d[-1] < main_depth[0] or d[0] > main_depth[-1]))
+    check('note 标注对齐', '对齐' in out['LWD'].note)
+    # 已有交集的不动
+    b = lv.ArrayData(key='MINE', data=np.ones((3, 2)), depth=np.array([6290., 6300., 6310.]))
+    lv._align_arrays_to_depth({'MINE': b}, main_depth)
+    check('已有交集不改动', b.depth[0] == 6290.)
+
+
+def test_2d_decimate():
+    print('\n--- 二维保峰值降采样 ---')
+    depth = np.arange(1000.)
+    axis = np.arange(4000.)
+    mat = np.zeros((1000, 4000))
+    for i in range(0, 1000, 50):
+        mat[i, 100] = 100.0            # 稀疏尖峰
+    m2, d2, a2 = lv._decimate_array_2d(mat, depth, axis)
+    check('元素数降到上限内', m2.size <= lv.MAX_ARRAY_ELEMENTS * 1.2, m2.size)
+    check('深度尖峰保留', np.any(m2 == 100.0))
+    check('轴尖峰列保留', 100.0 in a2)
+    check('深度数组等长', len(d2) == m2.shape[0])
+
+
+def test_2d_catalog_fold():
+    print('\n--- 二维条目进目录 / 64 个 bin 不单独出现 ---')
+    import pandas as pd
+    depth = np.arange(1000., 1020.)
+    df = pd.DataFrame({'MD': depth, 'GR': np.arange(20.)})
+    for k in range(64):
+        df[f'T2_DIST[{k}]'] = np.arange(20.) * 0.01
+    wd = lv.WellData(well_name='X', df=df, depth=depth, origin='processed')
+    wd.arrays = lv.collect_well_arrays(out_dir='', source_dir='', depth=depth, df=df)
+    items = lv.build_catalog(wd)
+    check('64 个 bin 已从目录消失', not any(i.column == 'T2_DIST[0]' for i in items))
+    arr_items = [i for i in items if i.is_array]
+    check('二维条目存在', len(arr_items) == 1 and arr_items[0].column == 'T2_DIST')
+    check('二维条目标 kind=nmr', arr_items[0].kind == 'nmr')
+    check('二维条目 source=解释曲线集', arr_items[0].source == '解释曲线集')
+    check('一维曲线仍在', any(i.column == 'GR' for i in items))
+    groups = dict(lv.catalog_groups(items))
+    check('二维条目单列分组', '核磁二维谱' in groups)
+
+
+def test_2d_trackspec_roundtrip():
+    print('\n--- 二维道配置序列化 ---')
+    t = lv.TrackSpec(id='NMR', name='核磁', kind='nmr', array_key='T2_DIST', width=1.6)
+    d = t.to_dict()
+    t2 = lv.TrackSpec.from_dict(d)
+    check('array_key 往返', t2.array_key == 'T2_DIST' and t2.kind == 'nmr')
+    check('一维道 array_key 默认空', lv.TrackSpec(id='X').array_key == '')
+
+
+
 def main():
     test_layout_fallback_matches_logvis()
     test_layout_conditions()
@@ -260,6 +359,12 @@ def main():
     test_datasource()
     test_catalog()
     test_header()
+    test_2d_array_container()
+    test_2d_wide_fold()
+    test_2d_align_depths()
+    test_2d_decimate()
+    test_2d_catalog_fold()
+    test_2d_trackspec_roundtrip()
     print('\n结果: %d 通过, %d 失败' % (len(PASS), len(FAIL)))
     if FAIL:
         print('失败项:')
